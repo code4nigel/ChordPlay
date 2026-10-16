@@ -23,12 +23,18 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import com.music.bitchord.data.YtMusicRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -97,6 +103,20 @@ fun PlaylistPickerSheet(
     // By id rather than by value: the list is re-fetched under an open sheet,
     // and a refreshed row must stay ticked.
     var selected by remember { mutableStateOf(emptySet<String>()) }
+    var alreadyPresent by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
+
+    LaunchedEffect(song?.videoId, playlists) {
+        val target = song ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            playlists.forEach { pl ->
+                if (pl.playlistId in alreadyPresent) return@forEach
+                val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
+                if (songs?.any { it.videoId == target.videoId } == true) {
+                    alreadyPresent = alreadyPresent + pl.playlistId
+                }
+            }
+        }
+    }
 
     if (creating) {
         NewPlaylistForm(
@@ -158,9 +178,11 @@ fun PlaylistPickerSheet(
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(playlists, key = { it.playlistId }) { playlist ->
                         val ticked = playlist.playlistId in selected
+                        val isAlreadyThere = playlist.playlistId in alreadyPresent
                         PlaylistRow(
                             playlist = playlist,
                             selected = ticked,
+                            alreadyPresent = isAlreadyThere,
                             onClick = {
                                 selected = if (ticked) selected - playlist.playlistId else selected + playlist.playlistId
                             },
@@ -190,7 +212,12 @@ fun PlaylistPickerSheet(
 }
 
 @Composable
-private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -> Unit) {
+private fun PlaylistRow(
+    playlist: UserPlaylist,
+    selected: Boolean,
+    alreadyPresent: Boolean = false,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -227,10 +254,37 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
             }
         }
         Spacer(Modifier.width(12.dp))
+        if (alreadyPresent) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(Color(0xFF34C759).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF34C759),
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "In playlist",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF34C759),
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
         Icon(
-            imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            imageVector = if (selected || alreadyPresent) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
             contentDescription = null,
-            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = when {
+                alreadyPresent -> Color(0xFF34C759)
+                selected -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.size(24.dp),
         )
     }

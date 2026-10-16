@@ -24,12 +24,17 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import com.music.bitchord.data.YtMusicRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -74,6 +79,20 @@ internal fun DesktopPlaylistDialog(
     onDismiss: () -> Unit,
 ) {
     var creating by remember { mutableStateOf(song == null) }
+    var accountContains by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
+
+    LaunchedEffect(song?.videoId, accountPlaylists) {
+        val target = song ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            accountPlaylists.forEach { pl ->
+                if (pl.playlistId in accountContains) return@forEach
+                val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
+                if (songs?.any { it.videoId == target.videoId } == true) {
+                    accountContains = accountContains + pl.playlistId
+                }
+            }
+        }
+    }
 
     DesktopDialogFrame(onDismiss = onDismiss) {
         if (creating) {
@@ -126,11 +145,13 @@ internal fun DesktopPlaylistDialog(
                     item(key = "heading:account") { DialogSectionHeading("On your account") }
                     items(account.size, key = { account[it].playlistId }) { index ->
                         val playlist = account[index]
+                        val inAccount = playlist.playlistId in accountContains
                         DialogAction(
                             BitChordIcons.Queue,
                             playlist.title,
                             subtitle = playlist.subtitle,
                             enabled = !busy,
+                            alreadyAdded = inAccount,
                         ) { onPickAccount(playlist) }
                     }
                 }
@@ -138,11 +159,13 @@ internal fun DesktopPlaylistDialog(
                     item(key = "heading:local") { DialogSectionHeading("On this computer") }
                     items(localPlaylists.size, key = { localPlaylists[it].id }) { index ->
                         val playlist = localPlaylists[index]
+                        val inLocal = song != null && playlist.songs.any { it.videoId == song.videoId }
                         DialogAction(
                             BitChordIcons.Queue,
                             playlist.title,
                             subtitle = "${playlist.songs.size} songs",
                             enabled = !busy,
+                            alreadyAdded = inLocal,
                         ) { onPickLocal(playlist) }
                     }
                 }
@@ -414,6 +437,7 @@ private fun DialogAction(
     label: String,
     subtitle: String = "",
     enabled: Boolean = true,
+    alreadyAdded: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -435,6 +459,29 @@ private fun DialogAction(
                     color = DesktopSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (alreadyAdded) {
+            Spacer(Modifier.width(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .background(Color(0xFF34C759).copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF34C759),
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "Added",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF34C759),
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }

@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -33,6 +34,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -412,6 +414,7 @@ internal fun LandscapeCredits(
     /** The menu glyph is briefly the undo arrow after a quality upgrade. */
     showRevertCue: Boolean,
     onToggleLike: () -> Unit,
+    onAddToPlaylist: (() -> Unit)? = null,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     /** Null browse id for anyone but the lead credit — see [NowPlayingScreen]. */
@@ -471,6 +474,15 @@ internal fun LandscapeCredits(
             )
             Spacer(Modifier.width(8.dp))
         }
+        if (onAddToPlaylist != null && song.localUri == null) {
+            CircleGlyph(
+                icon = Icons.Rounded.PlaylistAdd,
+                contentDescription = stringResource(Res.string.add_to_playlist),
+                onClick = onAddToPlaylist,
+                haptic = Haptic.Light,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
         CircleGlyph(
             icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
             contentDescription = stringResource(Res.string.more),
@@ -501,6 +513,7 @@ internal fun LandscapeLyricsPane(
     pickBar: @Composable () -> Unit = {},
     romanizationToggle: @Composable () -> Unit,
     translationToggle: @Composable () -> Unit,
+    styleToggle: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
     panel: @Composable (Modifier) -> Unit,
 ) {
@@ -533,28 +546,36 @@ internal fun LandscapeLyricsPane(
         if (picking) {
             Box(Modifier.fillMaxWidth()) { pickBar() }
         } else {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Fixed slots either side whether or not the toggles are drawn, so
-            // the status line stays centred as lyrics arrive.
-            Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
-            Box(
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                contentAlignment = Alignment.Center,
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                LyricsStatusWithChange(
-                    status = status,
-                    onStatusClick = onStatusClick,
-                )
+                // Fixed slots either side whether or not the toggles are drawn, so
+                // the status line stays centred as lyrics arrive.
+                Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    LyricsStatusWithChange(
+                        status = status,
+                        onStatusClick = onStatusClick,
+                    )
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (hasLyrics) {
+                        styleToggle()
+                        translationToggle()
+                    }
+                }
             }
-            Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
-        }
         }
     }
 }

@@ -3261,6 +3261,7 @@ fun BitChordDesktopApp() {
                             onMoveInQueue = ::moveInQueue,
                             onClearQueue = ::clearQueue,
                             onOpenMenu = { playerMenuOpen = true },
+                            onAddToPlaylist = { playlistTarget = playerSong },
                             onOpenAlbum = { id ->
                                 overlays.nowPlaying = false
                                 openAlbum(id)

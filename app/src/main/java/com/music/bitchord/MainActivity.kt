@@ -2297,6 +2297,10 @@ private fun BitChordApp(
                 songMenuOrigin = null
                 songActions = song
             },
+            onAddToPlaylist = {
+                viewModel.loadPlaylists()
+                playlistTarget = song
+            },
             onOpenAlbum = { id ->
                 dismissPlayer()
                 viewModel.openDetail(

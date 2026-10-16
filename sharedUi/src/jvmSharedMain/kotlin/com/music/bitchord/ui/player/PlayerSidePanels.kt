@@ -68,6 +68,7 @@ fun LyricsSidePanel(
     // The provider drawer frosts this column, not the page beside it.
     val haze = remember { HazeState() }
     var showLyricsProviders by remember { mutableStateOf(false) }
+    var showLyricsStyleSheet by remember { mutableStateOf(false) }
 
     Box(modifier) {
         Box(Modifier.fillMaxSize().hazeSource(haze)) {
@@ -94,6 +95,12 @@ fun LyricsSidePanel(
                         showingTranslation = lyricsTranslation.showingTranslation,
                         enabled = !lyrics.isNullOrEmpty(),
                         onClick = lyricsTranslation.toggleTranslation,
+                    )
+                },
+                styleToggle = {
+                    LyricsStyleToggleButton(
+                        enabled = !lyrics.isNullOrEmpty(),
+                        onClick = { showLyricsStyleSheet = true },
                     )
                 },
             ) { panelModifier ->
@@ -129,6 +136,12 @@ fun LyricsSidePanel(
                 states = lyricsProviderStates,
                 onSelect = onSelectLyricsProvider,
                 onDismiss = { showLyricsProviders = false },
+            )
+        }
+        if (showLyricsStyleSheet) {
+            LyricsStyleSheet(
+                hazeState = haze,
+                onDismiss = { showLyricsStyleSheet = false },
             )
         }
     }

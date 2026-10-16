@@ -35,6 +35,7 @@ import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,7 @@ import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -702,6 +704,7 @@ fun NowPlayingScreen(
     onQueueDragActiveChange: (Boolean) -> Unit = {},
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
+    onAddToPlaylist: (() -> Unit)? = null,
     onOpenAlbum: (String) -> Unit,
     /**
      * Opens an artist's page. [browseId] is null for anyone but the lead credit:
@@ -763,6 +766,7 @@ fun NowPlayingScreen(
     var showCast by remember { mutableStateOf(false) }
     var showAudioOutput by remember { mutableStateOf(false) }
     var showLyricsProviders by remember { mutableStateOf(false) }
+    var showLyricsStyleSheet by remember { mutableStateOf(false) }
     // Gated on the Bluetooth permission the first time — see [rememberOutputPicker].
     val openAudioOutput = rememberOutputPicker { showAudioOutput = true }
     // Listening in a party whose host has taken the controls: the transport
@@ -1010,6 +1014,8 @@ fun NowPlayingScreen(
     PlayerBackHandler(enabled = showAudioOutput) { showAudioOutput = false }
 
     PlayerBackHandler(enabled = showLyricsProviders) { showLyricsProviders = false }
+
+    PlayerBackHandler(enabled = showLyricsStyleSheet) { showLyricsStyleSheet = false }
 
     PlayerBackHandler(enabled = showListenTogetherMembers) { showListenTogetherMembers = false }
 
@@ -1526,6 +1532,12 @@ fun NowPlayingScreen(
                 onDismiss = { showLyricsProviders = false },
             )
         }
+        if (showLyricsStyleSheet) {
+            LyricsStyleSheet(
+                hazeState = playerHaze,
+                onDismiss = { showLyricsStyleSheet = false },
+            )
+        }
         if (showAudioPipeline) {
             AudioPipelineDialog(
                 hazeState = playerHaze,
@@ -1865,6 +1877,7 @@ fun NowPlayingScreen(
                                 likeStatus = likeStatus,
                                 showRevertCue = showRevertCue,
                                 onToggleLike = onToggleLike,
+                                onAddToPlaylist = onAddToPlaylist,
                                 onOpenMenu = onOpenMenu,
                                 onOpenAlbum = onOpenAlbum,
                                 onOpenArtist = onOpenArtist,
@@ -1966,6 +1979,12 @@ fun NowPlayingScreen(
                                 showingTranslation = lyricsTranslation.showingTranslation,
                                 enabled = !lyrics.isNullOrEmpty(),
                                 onClick = lyricsTranslation.toggleTranslation,
+                            )
+                        },
+                        styleToggle = {
+                            LyricsStyleToggleButton(
+                                enabled = !lyrics.isNullOrEmpty(),
+                                onClick = { showLyricsStyleSheet = true },
                             )
                         },
                     ) { panelModifier ->
@@ -3261,6 +3280,15 @@ fun NowPlayingScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
+                    if (onAddToPlaylist != null && song.localUri == null) {
+                        CircleGlyph(
+                            icon = Icons.Rounded.PlaylistAdd,
+                            contentDescription = stringResource(Res.string.add_to_playlist),
+                            onClick = onAddToPlaylist,
+                            haptic = Haptic.Light,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
                     CircleGlyph(
                         icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
                         contentDescription = stringResource(Res.string.more),
@@ -3346,11 +3374,17 @@ fun NowPlayingScreen(
                                 onClick = lyricsTranslation.toggleRomanization,
                             )
                         }
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .graphicsLayer { alpha = translateFade },
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            LyricsStyleToggleButton(
+                                enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                onClick = { showLyricsStyleSheet = true },
+                            )
                             TranslationToggleButton(
                                 state = lyricsTranslation.translationState,
                                 showingTranslation = lyricsTranslation.showingTranslation,

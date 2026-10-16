@@ -47,6 +47,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.CircularProgressIndicator
@@ -1344,6 +1345,35 @@ internal fun RomanizationToggleButton(
     }
 }
 
+/** The button opening the lyrics appearance and font customization panel. */
+@Composable
+internal fun LyricsStyleToggleButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val tint = if (enabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.42f)
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.FormatSize,
+            contentDescription = "Lyrics Font & Styling",
+            tint = tint,
+            modifier = Modifier.size(19.dp),
+        )
+    }
+}
+
 /**
  * A short text-material transition: the list and its playback clock stay in
  * place while a field of tiny glyph-like particles resolves into the new text.
@@ -1953,22 +1983,24 @@ internal fun LyricsPanel(
                 )
                 }
             } else {
+                val customStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
                 val alignEnd = duet && line.alignment == LyricAlignment.End
-                val style = if (isSynced) {
-                    MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 34.sp,
-                        lineHeight = 41.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
-                    )
-                } else {
-                    MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 30.sp,
-                        lineHeight = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = if (alignEnd) TextAlign.End else TextAlign.Start,
-                    )
+                val chosenAlign = when {
+                    customStyle.centerAligned -> TextAlign.Center
+                    alignEnd -> TextAlign.End
+                    else -> TextAlign.Start
                 }
+                val baseSize = if (isSynced) 34.sp else 30.sp
+                val baseLineHeight = if (isSynced) 41.sp else 38.sp
+                val scaledSize = baseSize * customStyle.sizeScale.scale
+                val scaledLineHeight = baseLineHeight * customStyle.sizeScale.scale
+                val style = (if (isSynced) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium).copy(
+                    fontFamily = customStyle.fontChoice.family,
+                    fontSize = scaledSize,
+                    lineHeight = scaledLineHeight,
+                    fontWeight = customStyle.weightChoice.weight,
+                    textAlign = chosenAlign,
+                )
                 // The stack sits fractionally back and the playing line comes
                 // forward to meet you, rather than the playing line swelling
                 // past the others — a smaller move, and one that doesn't push
@@ -2103,9 +2135,9 @@ internal fun LyricsPanel(
                 // seeks to the same place.
                 val sub = subReveal.lines?.getOrNull(index)
                 val subStyle = style.copy(
-                    fontSize = SUB_LYRIC_FONT_SIZE,
-                    lineHeight = SUB_LYRIC_LINE_HEIGHT,
-                    fontWeight = FontWeight.Bold,
+                    fontSize = SUB_LYRIC_FONT_SIZE * customStyle.sizeScale.scale,
+                    lineHeight = SUB_LYRIC_LINE_HEIGHT * customStyle.sizeScale.scale,
+                    fontWeight = customStyle.weightChoice.weight,
                 )
                 // The answering voice is only on screen while it is being sung,
                 // the way Apple Music keeps it: it opens on its own clock, just
@@ -2205,8 +2237,8 @@ internal fun LyricsPanel(
                                 line = backing.withoutBracketPunctuation(),
                                 clock = clock,
                                 style = style.copy(
-                                    fontSize = BACKING_FONT_SIZE,
-                                    lineHeight = BACKING_LINE_HEIGHT,
+                                    fontSize = BACKING_FONT_SIZE * customStyle.sizeScale.scale,
+                                    lineHeight = BACKING_LINE_HEIGHT * customStyle.sizeScale.scale,
                                 ),
                                 isActive = isActive,
                                 sung = sung,
@@ -2235,8 +2267,8 @@ internal fun LyricsPanel(
                                         line = subBacking.withoutBracketPunctuation(),
                                         clock = clock,
                                         style = subStyle.copy(
-                                            fontSize = SUB_BACKING_FONT_SIZE,
-                                            lineHeight = SUB_BACKING_LINE_HEIGHT,
+                                            fontSize = SUB_BACKING_FONT_SIZE * customStyle.sizeScale.scale,
+                                            lineHeight = SUB_BACKING_LINE_HEIGHT * customStyle.sizeScale.scale,
                                         ),
                                         isActive = isActive,
                                         sung = sung,
