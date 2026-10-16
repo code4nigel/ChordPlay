@@ -32,6 +32,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.FormatAlignLeft
 import androidx.compose.material.icons.rounded.Refresh
@@ -83,6 +85,7 @@ internal fun LyricsStyleSheet(
     modifier: Modifier = Modifier,
 ) {
     val customStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
+    val fontPicker = rememberCustomFontPicker { name, path -> LyricsStyleManager.setCustomFont(name, path) }
     val haptics = rememberHaptics()
     var drag by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableIntStateOf(0) }
@@ -214,6 +217,7 @@ internal fun LyricsStyleSheet(
                 Spacer(Modifier.height(16.dp))
 
                 // Live Preview Card
+                val previewFont = rememberLyricsFontFamily(customStyle)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -224,7 +228,7 @@ internal fun LyricsStyleSheet(
                 ) {
                     Text(
                         text = "Music feels better with you",
-                        fontFamily = customStyle.fontChoice.family,
+                        fontFamily = previewFont,
                         fontSize = (22.sp * customStyle.sizeScale.scale),
                         fontWeight = customStyle.weightChoice.weight,
                         textAlign = if (customStyle.centerAligned) TextAlign.Center else TextAlign.Start,
@@ -242,17 +246,112 @@ internal fun LyricsStyleSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    LyricsFontChoice.values().forEach { font ->
+                    LyricsFontChoice.values().filter { it != LyricsFontChoice.CUSTOM }.forEach { font ->
                         val selected = customStyle.fontChoice == font
+                        val chipFamily = rememberLyricsFontFamily(customStyle.copy(fontChoice = font))
                         StyleChip(
                             label = font.label,
                             selected = selected,
-                            fontFamily = font.family,
+                            fontFamily = chipFamily,
                             onClick = {
                                 haptics.play(Haptic.Select)
                                 LyricsStyleManager.updateFont(font)
                             },
                         )
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // Custom font picker button / status card
+                val isCustomActive = customStyle.fontChoice == LyricsFontChoice.CUSTOM
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isCustomActive) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f)
+                        )
+                        .clickable {
+                            if (customStyle.customFontPath != null) {
+                                haptics.play(Haptic.Select)
+                                LyricsStyleManager.updateFont(LyricsFontChoice.CUSTOM)
+                            } else {
+                                fontPicker()
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isCustomActive) Color.White else Color.White.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = if (isCustomActive) Icons.Rounded.Check else Icons.Rounded.Add,
+                                    contentDescription = null,
+                                    tint = if (isCustomActive) Color.Black else Color.White,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = if (customStyle.customFontName != null) {
+                                        customStyle.customFontName!!
+                                    } else {
+                                        "Upload Custom Font"
+                                    },
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = if (isCustomActive) FontWeight.Bold else FontWeight.Medium,
+                                    ),
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    text = if (customStyle.customFontName != null) {
+                                        "Custom font active • Tap to select"
+                                    } else {
+                                        "Import .ttf or .otf font from device"
+                                    },
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                                )
+                            }
+                        }
+
+                        // Browse / Replace button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.14f))
+                            .clickable {
+                                haptics.play(Haptic.Tap)
+                                fontPicker()
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (customStyle.customFontName != null) "Change" else "Browse",
+                                color = Color.White,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.sp,
+                                ),
+                            )
+                        }
                     }
                 }
 

@@ -118,3 +118,37 @@ internal actual fun DrawScope.clipShiftedDown(
         translate(top = dy) { block() }
     }
 }
+
+internal actual fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily {
+    return try {
+        val tf = android.graphics.Typeface.createFromFile(java.io.File(path))
+        androidx.compose.ui.text.font.FontFamily(tf)
+    } catch (_: Throwable) {
+        androidx.compose.ui.text.font.FontFamily.Default
+    }
+}
+
+@Composable
+internal actual fun rememberCustomFontPicker(onFontPicked: (name: String, path: String) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val filename = "custom_lyrics_font_${System.currentTimeMillis()}.ttf"
+            val destFile = java.io.File(context.filesDir, filename)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                destFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            val displayName = uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast(':') ?: "Custom Font"
+            onFontPicked(displayName.substringBeforeLast('.'), destFile.absolutePath)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    return {
+        launcher.launch(arrayOf("font/*", "application/octet-stream", "*/*"))
+    }
+}
+

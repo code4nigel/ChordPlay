@@ -119,11 +119,11 @@ android {
         create("dev") {
             dimension = "env"
             applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "BitChord Dev")
+            resValue("string", "app_name", "ChordPlay Dev")
         }
         create("prod") {
             dimension = "env"
-            // Matches defaultConfig — this is the package already shipped/installed.
+            resValue("string", "app_name", "ChordPlay")
         }
     }
 

@@ -1994,8 +1994,9 @@ internal fun LyricsPanel(
                 val baseLineHeight = if (isSynced) 41.sp else 38.sp
                 val scaledSize = baseSize * customStyle.sizeScale.scale
                 val scaledLineHeight = baseLineHeight * customStyle.sizeScale.scale
+                val resolvedFont = rememberLyricsFontFamily(customStyle)
                 val style = (if (isSynced) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium).copy(
-                    fontFamily = customStyle.fontChoice.family,
+                    fontFamily = resolvedFont,
                     fontSize = scaledSize,
                     lineHeight = scaledLineHeight,
                     fontWeight = customStyle.weightChoice.weight,

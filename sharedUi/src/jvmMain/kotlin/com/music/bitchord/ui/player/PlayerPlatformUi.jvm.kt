@@ -127,3 +127,31 @@ internal actual fun DrawScope.clipShiftedDown(
     canvas.restore()
     paint.close()
 }
+
+internal actual fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily {
+    return try {
+        androidx.compose.ui.text.font.FontFamily(
+            androidx.compose.ui.text.platform.Font(java.io.File(path))
+        )
+    } catch (_: Throwable) {
+        androidx.compose.ui.text.font.FontFamily.Default
+    }
+}
+
+@Composable
+internal actual fun rememberCustomFontPicker(onFontPicked: (name: String, path: String) -> Unit): () -> Unit {
+    return {
+        try {
+            val chooser = javax.swing.JFileChooser()
+            chooser.dialogTitle = "Select Custom Font (.ttf / .otf)"
+            chooser.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("Font Files (*.ttf, *.otf)", "ttf", "otf")
+            if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                val file = chooser.selectedFile
+                onFontPicked(file.nameWithoutExtension, file.absolutePath)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+}
+

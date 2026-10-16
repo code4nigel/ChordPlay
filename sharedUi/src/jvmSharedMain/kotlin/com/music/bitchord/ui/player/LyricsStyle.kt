@@ -1,21 +1,31 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.parkinsans_bold
+import com.music.bitchord.sharedui.resources.poppins_bold
+import com.music.bitchord.sharedui.resources.poppins_regular
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.jetbrains.compose.resources.Font
 
 /**
  * Supported font families for lyrics rendering.
  */
-enum class LyricsFontChoice(val label: String, val family: FontFamily) {
-    DEFAULT("Default", FontFamily.Default),
-    SERIF("Serif", FontFamily.Serif),
-    SANS_SERIF("Sans-Serif", FontFamily.SansSerif),
-    MONOSPACE("Monospace", FontFamily.Monospace),
-    CURSIVE("Script", FontFamily.Cursive),
+enum class LyricsFontChoice(val label: String) {
+    DEFAULT("Default"),
+    POPPINS("Poppins"),
+    PARKINSANS("Parkinsans"),
+    SERIF("Serif"),
+    SANS_SERIF("Sans-Serif"),
+    MONOSPACE("Monospace"),
+    CURSIVE("Script"),
+    CUSTOM("Custom"),
 }
 
 /**
@@ -46,7 +56,40 @@ data class LyricsCustomStyle(
     val sizeScale: LyricsSizeScale = LyricsSizeScale.STANDARD,
     val weightChoice: LyricsWeightChoice = LyricsWeightChoice.HEAVY,
     val centerAligned: Boolean = false,
+    val customFontName: String? = null,
+    val customFontPath: String? = null,
 )
+
+/**
+ * Resolves the Compose [FontFamily] for the given [LyricsCustomStyle].
+ */
+@Composable
+fun rememberLyricsFontFamily(style: LyricsCustomStyle): FontFamily {
+    return when (style.fontChoice) {
+        LyricsFontChoice.DEFAULT -> FontFamily.Default
+        LyricsFontChoice.POPPINS -> {
+            val reg = Font(Res.font.poppins_regular, FontWeight.Normal)
+            val bold = Font(Res.font.poppins_bold, FontWeight.Bold)
+            remember(reg, bold) { FontFamily(reg, bold) }
+        }
+        LyricsFontChoice.PARKINSANS -> {
+            val bold = Font(Res.font.parkinsans_bold, FontWeight.Bold)
+            remember(bold) { FontFamily(bold) }
+        }
+        LyricsFontChoice.SERIF -> FontFamily.Serif
+        LyricsFontChoice.SANS_SERIF -> FontFamily.SansSerif
+        LyricsFontChoice.MONOSPACE -> FontFamily.Monospace
+        LyricsFontChoice.CURSIVE -> FontFamily.Cursive
+        LyricsFontChoice.CUSTOM -> {
+            val path = style.customFontPath
+            if (!path.isNullOrBlank()) {
+                remember(path) { createFontFamilyFromFile(path) }
+            } else {
+                FontFamily.Default
+            }
+        }
+    }
+}
 
 /**
  * Reactive state manager for lyrics typography and styling across Android and Desktop.
@@ -57,6 +100,14 @@ object LyricsStyleManager {
 
     fun updateFont(choice: LyricsFontChoice) {
         _style.value = _style.value.copy(fontChoice = choice)
+    }
+
+    fun setCustomFont(name: String, path: String) {
+        _style.value = _style.value.copy(
+            fontChoice = LyricsFontChoice.CUSTOM,
+            customFontName = name,
+            customFontPath = path,
+        )
     }
 
     fun updateScale(scale: LyricsSizeScale) {
@@ -75,3 +126,4 @@ object LyricsStyleManager {
         _style.value = LyricsCustomStyle()
     }
 }
+

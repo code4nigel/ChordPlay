@@ -56,3 +56,11 @@ internal expect fun DrawScope.clipShiftedDown(
     dy: Float,
     block: DrawScope.() -> Unit,
 )
+
+/** Loads a custom font family from an absolute file path on disk. */
+internal expect fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily
+
+/** Returns a launcher callback that opens the system file picker to select a custom TTF/OTF font file. */
+@Composable
+internal expect fun rememberCustomFontPicker(onFontPicked: (name: String, path: String) -> Unit): () -> Unit
+
