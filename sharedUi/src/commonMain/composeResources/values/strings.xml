@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="add_to_playlist">Add to playlist</string>
     <string name="analysis_complete">analysed</string>
     <string name="analysis_in_progress">analysing…</string>
     <string name="analysis_refining">analysed, refining…</string>

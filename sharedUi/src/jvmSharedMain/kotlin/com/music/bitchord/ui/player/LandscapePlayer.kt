@@ -479,7 +479,7 @@ internal fun LandscapeCredits(
                 icon = Icons.Rounded.PlaylistAdd,
                 contentDescription = stringResource(Res.string.add_to_playlist),
                 onClick = onAddToPlaylist,
-                haptic = Haptic.Light,
+                haptic = Haptic.Tap,
             )
             Spacer(Modifier.width(8.dp))
         }

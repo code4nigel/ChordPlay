@@ -197,7 +197,7 @@ internal fun LyricsStyleSheet(
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.12f))
                             .clickable {
-                                haptics.click(Haptic.Light)
+                                haptics.play(Haptic.Tap)
                                 LyricsStyleManager.reset()
                             },
                         contentAlignment = Alignment.Center,
@@ -249,7 +249,7 @@ internal fun LyricsStyleSheet(
                             selected = selected,
                             fontFamily = font.family,
                             onClick = {
-                                haptics.click(Haptic.Light)
+                                haptics.play(Haptic.Select)
                                 LyricsStyleManager.updateFont(font)
                             },
                         )
@@ -272,7 +272,7 @@ internal fun LyricsStyleSheet(
                                 selected = selected,
                                 modifier = Modifier.fillMaxWidth(),
                                 onClick = {
-                                    haptics.click(Haptic.Light)
+                                    haptics.play(Haptic.Select)
                                     LyricsStyleManager.updateScale(scale)
                                 },
                             )
@@ -303,7 +303,7 @@ internal fun LyricsStyleSheet(
                                         selected = selected,
                                         modifier = Modifier.fillMaxWidth(),
                                         onClick = {
-                                            haptics.click(Haptic.Light)
+                                            haptics.play(Haptic.Select)
                                             LyricsStyleManager.updateWeight(weight)
                                         },
                                     )
@@ -322,7 +322,7 @@ internal fun LyricsStyleSheet(
                                 icon = Icons.Rounded.FormatAlignLeft,
                                 selected = !customStyle.centerAligned,
                                 onClick = {
-                                    haptics.click(Haptic.Light)
+                                    haptics.play(Haptic.Select)
                                     LyricsStyleManager.updateCenterAligned(false)
                                 },
                             )
@@ -331,7 +331,7 @@ internal fun LyricsStyleSheet(
                                 icon = Icons.Rounded.FormatAlignCenter,
                                 selected = customStyle.centerAligned,
                                 onClick = {
-                                    haptics.click(Haptic.Light)
+                                    haptics.play(Haptic.Select)
                                     LyricsStyleManager.updateCenterAligned(true)
                                 },
                             )
