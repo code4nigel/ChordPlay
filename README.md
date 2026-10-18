@@ -3,79 +3,64 @@
 <br/>
 <br/>
 
-<img src="Logo.png" alt="BitChord app icon" width="200" />
+<img src="Logo.png" alt="ChordPlay app icon" width="180" />
 
-# BitChord
+# ChordPlay
 
-### Aesthetic YouTube Music Client
-
-<br/>
-
-[![Latest release](https://img.shields.io/github/v/release/kushagrasinghx/BitChord?style=for-the-badge&labelColor=0d1117)](https://github.com/kushagrasinghx/BitChord/releases)
-[![License](https://img.shields.io/github/license/kushagrasinghx/BitChord?style=for-the-badge&labelColor=0d1117)](https://github.com/kushagrasinghx/BitChord/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/kushagrasinghx/BitChord/total?style=for-the-badge&labelColor=0d1117)](https://github.com/kushagrasinghx/BitChord/releases)
-[![Listening now](https://api.bitchord.kushagrasingh.in/api/stats/live/badge.svg)](https://api.bitchord.kushagrasingh.in/api/stats/live)
+### The Aesthetic, Modern YouTube Music & Lossless Client
 
 <br/>
 
-[**Download**](#download) · [**Features**](#features) · [**Contributing**](#contributing) · [**Support**](#support) · [**Disclaimer**](#disclaimer)
+[![License](https://img.shields.io/github/license/code4nigel/ChordPlay?style=for-the-badge&labelColor=0d1117)](https://github.com/code4nigel/ChordPlay/blob/main/LICENSE)
+[![Repository](https://img.shields.io/badge/GitHub-ChordPlay-blue?style=for-the-badge&logo=github&labelColor=0d1117)](https://github.com/code4nigel/ChordPlay)
 
 <br/>
 
-<a href="https://fmhy.net/mobile#youtube-music" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/available/fmhy/cozy.svg" alt="Featured on FMHY" height="55"/></a>
-<a href="https://trendshift.io/repositories/177639?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-177639" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/177639/daily?language=Kotlin" alt="kushagrasinghx%2FBitChord | Trendshift" width="250" height="55"/></a>
-<a href="https://trendshift.io/repositories/177639?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-177639" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/177639/weekly?language=Kotlin" alt="kushagrasinghx%2FBitChord | Trendshift" width="250" height="55"/></a>
+[**Download**](#download) · [**Features**](#features) · [**Building Locally**](#building-locally) · [**Credits & Upstream**](#credits--upstream) · [**Disclaimer**](#disclaimer)
 
 </div>
 
 > [!IMPORTANT]
-> BitChord is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
+> ChordPlay is an independent open-source client. It is not affiliated with, endorsed by, or connected to YouTube, Google, or Spotify in any way.
 
 ---
 
 <div align="center">
 
-<img src="Banner.png" alt="BitChord banner" width="100%" />
-
-<h1><a id="features"></a>Features</h1>
+<h1><a id="features"></a>Key Features</h1>
 
 <table>
   <tr>
     <td width="50%" valign="top">
 
-#### Playback
-- **Search, browse and play** anything available on YouTube Music.
-- **Hi-Res lossless audio** — FLAC/ALAC from a configured module source, with YouTube Music as fallback.
-- **Gapless playback with true crossfade**, adjustable 0–12s.
-- **Automix [Beta]** — DJ-style transitions with beat-matching and tempo-stretching.
-- **Offline downloads** — save tracks with embedded metadata.
-- **Local music library** integration.
-- **Background playback** via a proper foreground media session.
-- **Apple-like lyrics animation** — credit to [binimum](https://github.com/binimum/am-lyrics).
+#### 🎵 Playback & Audio
+- **Search, browse & stream** everything on YouTube Music with zero ads.
+- **Hi-Res Lossless Audio** — FLAC/ALAC playback via pluggable module sources with YouTube Music fallback.
+- **True Gapless & Crossfade** — Smooth transition between tracks (0–12s).
+- **Automix [Beta]** — Intelligent DJ-style tempo-matching transitions.
+- **Offline Downloads** — Save songs with embedded cover art and metadata.
+- **Local Music Library** — Unified playback for files stored on your device.
 
-#### Connectivity & Accounts
-- **Sign in with your Google account** for personalized content.
-- **Spotify integration** — connect your account to play your playlists and Liked Songs.
-- **Discord Rich Presence** — in-app login, live track/artist/album and progress.
-- **Scrobbling** to Last.fm and ListenBrainz.
-- **Pluggable sources** — add, edit, test and health-check module sources.
+#### ✨ Enhanced ChordPlay Features
+- **Custom Lyrics Typography** — Switch between fonts (Default, **Poppins**, **Parkinsans**, Serif, Sans, Monospace, Cursive) or **Upload your own custom font file** (`.ttf` / `.otf`) from storage.
+- **Full Lyrics Scaling & Alignment** — Custom scale slider, font weight selection, and left/center alignment options.
+- **Quick Playlist Manager** — Add tracks to playlists directly from the Now Playing screen with intuitive checkmark badges showing where the song already exists.
+- **Redesigned Modern Identity** — Refined branding and icons crafted for a sleek, cohesive music experience.
 
     </td>
     <td width="50%" valign="top">
 
-#### Experience
-- **Animated album canvas** — motion artwork on the now-playing screen.
-- **Word-synced lyrics** — word/syllable-level highlighting from multiple sources.
-- **Lyrics providers** — credit to [lrc.red](https://lrc.red), [BiniLyrics](https://github.com/binimum), [BetterLyrics](https://github.com/better-lyrics/better-lyrics), [PaxSenix](https://lyrics.paxsenix.org), [LyricsPlus](https://github.com/ibratabian17/YouLyPlus), [SimpMusic](https://github.com/maxrave-dev/SimpMusic), [Unison](https://unison.boidu.dev), [Megalobiz](https://www.megalobiz.com), [KuGou](https://www.kugou.com), [LRCLIB](https://lrclib.net), [Musixmatch](https://www.musixmatch.com) and [Genius](https://genius.com).
-- **Dynamic, artwork-driven theming** — Material palette extracted from album art.
-- **Frosted-glass UI** — Telegram-style translucent bars via Haze, Material 3 theming.
+#### 📜 Visuals & Experience
+- **Apple-Style Word-Synced Lyrics** — Silky smooth line animations, syllable-level highlighting, and Romanization support.
+- **Dynamic Frosted-Glass UI** — Translucent backgrounds via Haze, fluid spring animations, and Material 3 artwork-driven theming.
+- **Animated Motion Artwork** — Fullscreen video canvas for supported tracks.
+- **Broad Lyrics Sources** — Integrated with LRCLIB, Musixmatch, Genius, KuGou, Megalobiz, SimpMusic, and more.
 
-#### Controls & Tweaks
-- **Per-network audio quality** — separate quality ceilings for Wi-Fi and mobile data.
-- **Playback speed control** (0.5×–2.0×) and **skip silence**.
-- **Sleep timer** — fixed presets or "stop after this track".
-- **System equalizer** integration.
-- **Stats for nerds** — codec, bit depth, sample rate, and more on the now-playing screen.
+#### 🔗 Accounts & Integrations
+- **Google Account Sync** — Access your personalized library, mixes, and subscriptions.
+- **Spotify Library Import** — Connect your account to play your Spotify playlists and Liked Songs.
+- **Discord Rich Presence** — Real-time song title, artist, and playback progress on Discord.
+- **Scrobbling** — Native integration with Last.fm and ListenBrainz.
 
     </td>
   </tr>
@@ -89,30 +74,12 @@
 
 <h1><a id="download"></a>Download</h1>
 
-<a href="https://github.com/kushagrasinghx/BitChord/releases" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/android/cozy.svg" alt="Download for Android" height="55"/></a>
-<a href="https://github.com/kushagrasinghx/BitChord/releases" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/supported/windows/cozy.svg" alt="Download for Windows" height="55"/></a>
+Grab the pre-built APK directly from GitHub:
 
-Grab the latest signed APK from the [Releases](https://github.com/kushagrasinghx/BitChord/releases) page. Sideloading requires enabling "Install unknown apps" for whichever app you download it with.
-
-For the Windows and Linux desktop app, see [DESKTOP.md](DESKTOP.md).
-
-</div>
-
----
-
-<div align="center">
-
-<h1><a id="contributing"></a>Contributing</h1>
-
-We welcome contributions to BitChord! Please review our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before submitting a Pull Request.
-
-[**Contributing Guide**](CONTRIBUTING.md) · [**Code of Conduct**](CODE_OF_CONDUCT.md) · [**Maintainers**](MAINTAINERS.md) · [**Additional Docs**](ADDITIONAL.md)
-
-### Thanks to all contributors ❤
-
-<a href="https://github.com/kushagrasinghx/BitChord/graphs/contributors">
-  <img src="https://raw.githubusercontent.com/kushagrasinghx/BitChord/contributors/contributors.svg" />
-</a>
+1. Go to the [**ChordPlay Actions Builds**](https://github.com/code4nigel/ChordPlay/actions).
+2. Click on the latest workflow run.
+3. Under **Artifacts**, download `chordplay-dev-debug-apk`.
+4. Unzip the file and install `app-dev-debug.apk` on your Android device (ensure *"Install unknown apps"* permission is granted).
 
 </div>
 
@@ -120,15 +87,43 @@ We welcome contributions to BitChord! Please review our [Contributing Guide](CON
 
 <div align="center">
 
-<h1><a id="support"></a>Support</h1>
+<h1><a id="building-locally"></a>Building Locally</h1>
 
-BitChord is free and always will be — if it's earned a spot in your rotation, you can chip in here:
+</div>
 
-<a href="https://ko-fi.com/kushagrasinghx" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/donate/kofi-singular-alt/cozy.svg" alt="Support me on Ko-fi" height="55"/></a>
-<a href="https://paypal.me/kuxhagrasingh" target="_blank" rel="noopener noreferrer"><img src="https://cdn.jsdelivr.net/gh/JMcrafter26/badges@main/src/assets/donate/paypal-plural/cozy.svg" alt="Support us on PayPal" height="55"/></a>
+To build the Android APK directly on your own computer without using GitHub Actions:
 
-<br/>
-<img src="upi_support.jpg" alt="UPI Support" width="250" />
+### Prerequisites
+- **JDK 17 or 21** (Adoptium Temurin or Microsoft OpenJDK). *Note: Android Gradle Plugin 8.8 does not yet support Java 25.*
+  ```powershell
+  winget install EclipseAdoptium.Temurin.21.JDK
+  ```
+- **CMake** (required for native audio analysis library):
+  ```powershell
+  winget install Kitware.CMake
+  ```
+- **Android SDK & NDK** (API 35, NDK 27.x).
+
+### Build Command
+Run the following in the repository root:
+```powershell
+.\gradlew.bat :app:assembleDevDebug
+```
+The compiled APK will be located at:
+`app/build/outputs/apk/dev/debug/app-dev-debug.apk`
+
+---
+
+<div align="center">
+
+<h1><a id="credits--upstream"></a>Credits & Upstream</h1>
+
+ChordPlay is proudly built upon the open-source foundation of [**BitChord**](https://github.com/kushagrasinghx/BitChord) created by Kushagra Singh and its community contributors.
+
+Special thanks to:
+- [am-lyrics](https://github.com/binimum/am-lyrics) for the fluid lyrics animation concepts.
+- [Haze](https://github.com/chrisbanes/haze) for frosted-glass blurs.
+- All upstream contributors and open-source audio library developers.
 
 </div>
 
@@ -136,23 +131,10 @@ BitChord is free and always will be — if it's earned a spot in your rotation, 
 
 <div align="center">
 
-<h1><a id="disclaimer"></a>Disclaimer & Legal Notice</h1>
+<h1><a id="disclaimer"></a>Disclaimer & License</h1>
 
-BitChord is an independent, community-driven third-party audio player and client. It is **not** associated with Google LLC, YouTube Music, Deezer, Telegram, or any of their parent companies.
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the [LICENSE](LICENSE) file for complete details.
 
-* **No Media Hosting:** BitChord does not host, upload, or store copyrighted music files. It operates strictly as an interface to scan local device storage or stream media directly from public, public-facing, or user-authenticated APIs.
-* **Fair Use & API Usage:** This software is created solely for personal research, educational, and fair-use purposes. The user is entirely responsible for ensuring their usage aligns with their local copyright laws and YouTube Terms of Service.
-* **No Ad-Blocking Guarantee:** While BitChord focuses on providing a clean listening environment, it does not guarantee permanent bypasses or modifications to commercial third-party platform conditions.
-* **Copyleft:** BitChord is free software under the GPLv3. The license does not let anyone forbid others from selling or redistributing copies, but any distribution must come with the Corresponding Source under the same license.
-
-</div>
-
----
-
-<div align="center">
-
-<h1><a id="license"></a>License</h1>
-
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See the [LICENSE](LICENSE) file for details.
+ChordPlay is an independent, non-commercial software player for personal research and educational use. It does not host or distribute copyrighted media files.
 
 </div>
