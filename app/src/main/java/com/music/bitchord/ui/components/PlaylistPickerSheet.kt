@@ -84,16 +84,16 @@ import java.util.Locale
 
 /** Cache of playlist membership across sheets to eliminate redundant network hits and track additions/removals. */
 object PlaylistMembershipCache {
-    private val membership = ConcurrentHashMap<String, ConcurrentHashMap<String, String?>>()
+    private val membership = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
 
     fun contains(playlistId: String, videoId: String): Boolean =
         membership[playlistId]?.containsKey(videoId) == true
 
     fun getSetVideoId(playlistId: String, videoId: String): String? =
-        membership[playlistId]?.get(videoId)
+        membership[playlistId]?.get(videoId)?.takeIf { it.isNotEmpty() }
 
     fun add(playlistId: String, videoId: String, setVideoId: String? = null) {
-        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }[videoId] = setVideoId
+        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }[videoId] = setVideoId ?: ""
     }
 
     fun remove(playlistId: String, videoId: String) {
@@ -101,12 +101,15 @@ object PlaylistMembershipCache {
     }
 
     fun addAll(playlistId: String, entries: Map<String, String?>) {
-        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }.putAll(entries)
+        val map = membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }
+        entries.forEach { (videoId, setVideoId) ->
+            map[videoId] = setVideoId ?: ""
+        }
     }
 
     fun addAllIds(playlistId: String, videoIds: Collection<String>) {
         val map = membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }
-        videoIds.forEach { vid -> map.putIfAbsent(vid, null) }
+        videoIds.forEach { vid -> map[vid] = "" }
     }
 }
 
