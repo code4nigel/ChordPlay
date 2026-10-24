@@ -33,6 +33,9 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
+import kotlinx.coroutines.delay
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -79,38 +82,42 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
-/** Cache of playlist membership across sheets to eliminate redundant network hits and avoid duplicate adds. */
-internal object PlaylistMembershipCache {
-    private val membership = ConcurrentHashMap<String, MutableSet<String>>()
+/** Cache of playlist membership across sheets to eliminate redundant network hits and track additions/removals. */
+object PlaylistMembershipCache {
+    private val membership = ConcurrentHashMap<String, ConcurrentHashMap<String, String?>>()
 
     fun contains(playlistId: String, videoId: String): Boolean =
-        membership[playlistId]?.contains(videoId) == true
+        membership[playlistId]?.containsKey(videoId) == true
 
-    fun add(playlistId: String, videoId: String) {
-        membership.computeIfAbsent(playlistId) { ConcurrentHashMap.newKeySet() }.add(videoId)
+    fun getSetVideoId(playlistId: String, videoId: String): String? =
+        membership[playlistId]?.get(videoId)
+
+    fun add(playlistId: String, videoId: String, setVideoId: String? = null) {
+        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }[videoId] = setVideoId
     }
 
-    fun addAll(playlistId: String, videoIds: Collection<String>) {
-        membership.computeIfAbsent(playlistId) { ConcurrentHashMap.newKeySet() }.addAll(videoIds)
+    fun remove(playlistId: String, videoId: String) {
+        membership[playlistId]?.remove(videoId)
+    }
+
+    fun addAll(playlistId: String, entries: Map<String, String?>) {
+        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }.putAll(entries)
+    }
+
+    fun addAllIds(playlistId: String, videoIds: Collection<String>) {
+        val map = membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }
+        videoIds.forEach { vid -> map.putIfAbsent(vid, null) }
     }
 }
 
 /**
  * Where a track goes: one of the account's playlists, or a new one.
  *
- * Two panels in one sheet rather than a sheet that opens a dialog. Creating a
- * playlist here is nearly always in service of adding the track that opened
- * this — so the form comes back to the same place, and the create request
- * carries the track with it instead of leaving a new empty playlist behind
- * for the user to add to a second time.
- *
- * [song] is null when the flow started from the Library tab rather than from a
- * track, which is the one case where the header has no track to draw and
- * "New playlist" is the whole point of the sheet.
- *
- * Playlists are ticked rather than picked: one track often belongs in more
- * than one list, and a sheet that closed on the first tap meant opening it
- * again for each. [onAdd] gets every ticked playlist at once.
+ * Supports multi-selection with explicit Done action:
+ * - Playlists already containing the song are initially checked.
+ * - Tapping an already-present playlist unchecks it (marks for removal).
+ * - Tapping an unchecked playlist checks it (marks for addition).
+ * - Clicking Done executes both additions and removals.
  */
 @Composable
 fun PlaylistPickerSheet(
@@ -121,14 +128,14 @@ fun PlaylistPickerSheet(
     modifier: Modifier = Modifier,
     song: Song? = null,
     startCreating: Boolean = false,
+    onCommit: ((toAdd: List<UserPlaylist>, toRemove: List<UserPlaylist>) -> Unit)? = null,
 ) {
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
-    // By id rather than by value: the list is re-fetched under an open sheet,
-    // and a refreshed row must stay ticked.
-    var selected by remember { mutableStateOf(emptySet<String>()) }
-    var alreadyPresent by remember(song?.videoId) {
+
+    // Seed initiallyPresent from local memory cache
+    var initiallyPresent by remember(song?.videoId) {
         mutableStateOf(
             song?.videoId?.let { vid ->
                 playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
@@ -137,27 +144,54 @@ fun PlaylistPickerSheet(
         )
     }
 
-    LaunchedEffect(song?.videoId, playlists) {
+    // Selected state begins identical to initiallyPresent:
+    // Any playlist containing the song is checked; others are unchecked.
+    var selected by remember(song?.videoId) {
+        mutableStateOf(
+            song?.videoId?.let { vid ->
+                playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
+                    .map { it.playlistId }.toSet()
+            } ?: emptySet()
+        )
+    }
+
+    val userToggledPlaylists = remember(song?.videoId) { mutableSetOf<String>() }
+
+    // Non-blocking, gentle background check for playlists not yet in memory.
+    // Checks sequentially with delays so there is zero UI stutter, thread starvation or network flooding.
+    LaunchedEffect(song?.videoId) {
         val target = song ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            playlists.map { pl ->
-                async {
-                    if (pl.playlistId in alreadyPresent) return@async null
-                    if (PlaylistMembershipCache.contains(pl.playlistId, target.videoId)) {
-                        return@async pl.playlistId
-                    }
-                    val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
-                    if (songs != null) {
-                        PlaylistMembershipCache.addAll(pl.playlistId, songs.map { it.videoId })
-                        if (songs.any { it.videoId == target.videoId }) {
-                            return@async pl.playlistId
+            for (pl in playlists) {
+                if (pl.playlistId in initiallyPresent) continue
+                if (PlaylistMembershipCache.contains(pl.playlistId, target.videoId)) {
+                    withContext(Dispatchers.Main) {
+                        initiallyPresent = initiallyPresent + pl.playlistId
+                        if (pl.playlistId !in userToggledPlaylists) {
+                            selected = selected + pl.playlistId
                         }
                     }
-                    null
+                    continue
                 }
-            }.awaitAll().filterNotNull().let { found ->
-                if (found.isNotEmpty()) {
-                    alreadyPresent = alreadyPresent + found
+
+                delay(80)
+                runCatching {
+                    val entries = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
+                    if (entries != null) {
+                        PlaylistMembershipCache.addAll(
+                            pl.playlistId,
+                            entries.associate { it.videoId to it.setVideoId },
+                        )
+                        val match = entries.firstOrNull { it.videoId == target.videoId }
+                        if (match != null) {
+                            withContext(Dispatchers.Main) {
+                                initiallyPresent = initiallyPresent + pl.playlistId
+                                if (pl.playlistId !in userToggledPlaylists) {
+                                    selected = selected + pl.playlistId
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -170,8 +204,6 @@ fun PlaylistPickerSheet(
 
     if (creating) {
         NewPlaylistForm(
-            // Nowhere to go back to when the sheet opened straight onto the
-            // form; the sheet's own dismiss is the way out.
             onBack = if (startCreating) null else ({ creating = false }),
             onCreate = onCreate,
             modifier = modifier,
@@ -248,8 +280,6 @@ fun PlaylistPickerSheet(
         }
 
         when {
-            // Only while there is nothing to show: re-fetching under a list
-            // that is already up would replace it with a spinner for no gain.
             loading && playlists.isEmpty() -> Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -275,20 +305,32 @@ fun PlaylistPickerSheet(
                     thickness = 0.5.dp,
                     color = MaterialTheme.colorScheme.outline,
                 )
-                // Capped so a long list can't push the sheet past the screen;
-                // it scrolls inside the sheet instead.
+
+                val toAdd = remember(playlists, selected, initiallyPresent) {
+                    playlists.filter { it.playlistId in selected && it.playlistId !in initiallyPresent }
+                }
+                val toRemove = remember(playlists, selected, initiallyPresent) {
+                    playlists.filter { it.playlistId !in selected && it.playlistId in initiallyPresent }
+                }
+                val hasChanges = toAdd.isNotEmpty() || toRemove.isNotEmpty()
+
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(displayedPlaylists, key = { it.playlistId }) { playlist ->
-                        val ticked = playlist.playlistId in selected
-                        val isAlreadyThere = playlist.playlistId in alreadyPresent
+                        val isTicked = playlist.playlistId in selected
+                        val wasPresent = playlist.playlistId in initiallyPresent
                         val isChordplay = playlist.playlistId in chordplayPlaylistIds
                         PlaylistRow(
                             playlist = playlist,
-                            selected = ticked,
-                            alreadyPresent = isAlreadyThere,
+                            selected = isTicked,
+                            wasInitiallyThere = wasPresent,
                             isChordPlayPlaylist = isChordplay,
                             onClick = {
-                                selected = if (ticked) selected - playlist.playlistId else selected + playlist.playlistId
+                                userToggledPlaylists.add(playlist.playlistId)
+                                selected = if (isTicked) {
+                                    selected - playlist.playlistId
+                                } else {
+                                    selected + playlist.playlistId
+                                }
                             },
                         )
                     }
@@ -296,24 +338,32 @@ fun PlaylistPickerSheet(
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
-                        val picked = playlists.filter { it.playlistId in selected }
                         song?.videoId?.let { vid ->
-                            picked.forEach { pl -> PlaylistMembershipCache.add(pl.playlistId, vid) }
-                            alreadyPresent = alreadyPresent + picked.map { it.playlistId }
+                            toAdd.forEach { pl -> PlaylistMembershipCache.add(pl.playlistId, vid) }
+                            toRemove.forEach { pl -> PlaylistMembershipCache.remove(pl.playlistId, vid) }
                         }
-                        onAdd(picked)
+                        if (onCommit != null) {
+                            onCommit(toAdd, toRemove)
+                        } else {
+                            onAdd(toAdd)
+                        }
                     },
-                    enabled = selected.isNotEmpty(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 22.dp),
                 ) {
                     Text(
-                        if (selected.isEmpty()) {
-                            stringResource(R.string.add_to_playlist)
-                        } else {
-                            pluralStringResource(R.plurals.add_to_playlists_count, selected.size, selected.size)
+                        text = when {
+                            hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
+                                "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
+                            hasChanges && toAdd.isNotEmpty() ->
+                                "${stringResource(R.string.done)} (+${toAdd.size})"
+                            hasChanges && toRemove.isNotEmpty() ->
+                                "${stringResource(R.string.done)} (-${toRemove.size})"
+                            else -> stringResource(R.string.done)
                         },
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
@@ -326,7 +376,7 @@ fun PlaylistPickerSheet(
 private fun PlaylistRow(
     playlist: UserPlaylist,
     selected: Boolean,
-    alreadyPresent: Boolean = false,
+    wasInitiallyThere: Boolean,
     isChordPlayPlaylist: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -384,47 +434,86 @@ private fun PlaylistRow(
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        if (alreadyPresent) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .background(Color(0xFF34C759).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = Color(0xFF34C759),
-                    modifier = Modifier.size(13.dp),
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "In playlist",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF34C759),
-                    fontWeight = FontWeight.SemiBold,
-                )
+        Spacer(Modifier.width(8.dp))
+        when {
+            selected && wasInitiallyThere -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xFF34C759).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color(0xFF34C759),
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.in_playlist),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF34C759),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
             }
-            Spacer(Modifier.width(8.dp))
+            !selected && wasInitiallyThere -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RemoveCircleOutline,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.will_remove),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            selected && !wasInitiallyThere -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.will_add),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+            }
         }
         Icon(
-            imageVector = if (selected || alreadyPresent) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+            imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
             contentDescription = null,
-            tint = when {
-                alreadyPresent -> Color(0xFF34C759)
-                selected -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier.size(24.dp),
         )
     }
 }
-
-/**
- * Name and visibility, and nothing else. YouTube also takes a description,
- * which nobody fills in from a phone at the moment of saving a song.
- */
 @Composable
 private fun NewPlaylistForm(
     onBack: (() -> Unit)?,

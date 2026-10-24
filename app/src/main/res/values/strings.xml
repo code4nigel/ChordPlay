@@ -542,6 +542,11 @@
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>
+    <string name="song_removed_from_playlist">Removed from playlist</string>
+    <string name="in_playlist">In playlist</string>
+    <string name="will_remove">Will remove</string>
+    <string name="will_add">Will add</string>
+    <string name="playlists_updated">Playlists updated</string>
     <plurals name="add_to_playlists_count">
         <item quantity="one">Add to %1$d playlist</item>
         <item quantity="other">Add to %1$d playlists</item>

@@ -4381,13 +4381,27 @@ private fun BitChordApp(
                     loading = playlistsLoading,
                     song = target,
                     startCreating = target == null,
+                    onCommit = { toAdd, toRemove ->
+                        target?.let { song ->
+                            viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
+                                showQueueNotice(
+                                    when {
+                                        added > 0 && removed > 0 -> context.getString(R.string.playlists_updated)
+                                        added > 1 -> context.resources.getQuantityString(
+                                            R.plurals.added_to_playlists_notice, added, added,
+                                        )
+                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                        removed > 0 -> context.getString(R.string.song_removed_from_playlist)
+                                        else -> context.getString(R.string.song_already_in_playlist)
+                                    },
+                                )
+                            }
+                        }
+                        dismiss()
+                    },
                     onAdd = { picked ->
                         target?.let { song ->
                             viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                                // One line for the whole batch, saying the
-                                // outcome that matters most: what went in, else
-                                // that it was all there already, else that it
-                                // didn't work.
                                 showQueueNotice(
                                     when {
                                         added > 1 -> context.resources.getQuantityString(

@@ -50,6 +50,7 @@ import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.SubscriptionState
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.ui.components.PlaylistMembershipCache
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
@@ -937,6 +938,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * with a rate limit. The duplicate check is per playlist, so a track
      * already in one of them is skipped there and still added to the rest.
      */
+    /**
+     * Updates playlist memberships for [song] by executing additions and removals simultaneously.
+     */
+    fun updatePlaylistsForSong(
+        toAdd: List<UserPlaylist>,
+        toRemove: List<UserPlaylist>,
+        song: Song,
+        onResult: (added: Int, removed: Int) -> Unit = { _, _ -> },
+    ) {
+        if (!requireSignIn()) return
+        viewModelScope.launch {
+            var addedCount = 0
+            var removedCount = 0
+
+            toRemove.forEach { playlist ->
+                if (removeOne(playlist, song)) {
+                    removedCount++
+                }
+            }
+
+            toAdd.forEach { playlist ->
+                val outcome = addOne(playlist, song)
+                if (outcome == AddOutcome.ADDED) {
+                    addedCount++
+                }
+            }
+
+            onResult(addedCount, removedCount)
+        }
+    }
+
     fun addToPlaylists(
         playlists: List<UserPlaylist>,
         song: Song,
@@ -955,19 +987,54 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
+    private suspend fun removeOne(playlist: UserPlaylist, song: Song): Boolean {
+        val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
+            ?.songs as? UiState.Success)?.data
+        val cachedSetVideoId = song.setVideoId
+            ?: openSongs?.firstOrNull { it.videoId == song.videoId }?.setVideoId
+            ?: PlaylistMembershipCache.getSetVideoId(playlist.playlistId, song.videoId)
+            ?: runCatching {
+                YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
+                    ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
+            }.getOrNull()
+            ?: return false
+
+        return YtMusicRepository.removeFromPlaylist(
+            playlist.playlistId,
+            listOf(cachedSetVideoId to song.videoId),
+        ).fold(
+            onSuccess = {
+                libraryStale = true
+                PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+                _detailStack.value = _detailStack.value.map { page ->
+                    val songs = (page.songs as? UiState.Success)?.data
+                    if (page.browseId != playlist.browseId || songs == null) {
+                        page
+                    } else {
+                        page.copy(
+                            songs = UiState.Success(
+                                songs.filterNot { it.videoId == song.videoId },
+                            ),
+                        )
+                    }
+                }
+                true
+            },
+            onFailure = { false },
+        )
+    }
+
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
-        val known = openSongs
-            ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
-        if (known?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
+        if (openSongs?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
+
         return YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
             onSuccess = { added ->
                 libraryStale = true
-                // The playlist's page may be open behind the picker — it is
-                // reachable from a row's own menu on it — so the track goes
-                // into it for the same reason [addSuggestedSong] does.
-                appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
+                val newSetVideoId = added[song.videoId]
+                PlaylistMembershipCache.add(playlist.playlistId, song.videoId, newSetVideoId)
+                appendToOpenPlaylist(playlist.browseId, song, newSetVideoId)
                 AddOutcome.ADDED
             },
             onFailure = { AddOutcome.FAILED },
