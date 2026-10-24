@@ -7,7 +7,8 @@ Welcome to ChordPlay v1.8.2! This release introduces a comprehensive modular set
 - **Live Interactive Preview Cards**: Pinned at the top of Appearance, Lyrics, and Player settings, updating in real time as you adjust themes, font styles, and layouts.
 - **Custom Lyrics Typography**: Choose from built-in fonts (Poppins, Parkinsans, Serif, Sans, Monospace, Cursive) or upload custom TTF/OTF font files directly from device storage.
 - **Full Last.fm Integration**: Native Last.fm scrobbling configured with direct authentication and scrobble tracking.
-- **Instant Playlist Search & Caching**: Search through all your playlists with a dedicated search bar in the "Add to Playlist" sheet, with optimistic caching and parallel membership verification.
+- **Instant Playlist Search & Caching**: Search through all your playlists with a dedicated search bar in the "Add to Playlist" sheet.
+- **Two-Way Playlist Toggle**: Retap an existing playlist to uncheck and mark it for removal ("Will remove"), retap an unchecked playlist to mark for addition ("Will add"), with batch execution on clicking **Done**.
 - **ChordPlay Playlist Badges**: Clear visual indicators distinguishing ChordPlay-created playlists from standard cloud playlists.
 - **Smoother Navigation Transitions**: High-friction spring physics replaced with silky cubic-bezier easing curves.
 - **Updated Branding**: Scaled vector logos across home header, status cards, and notification media styles.
