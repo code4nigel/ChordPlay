@@ -989,6 +989,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 videoIds = listOfNotNull(song?.videoId),
             ).fold(
                 onSuccess = { playlistId ->
+                    AppSettings.addChordplayPlaylistId(playlistId)
                     // Nothing to look up for a playlist this account has just
                     // made: it is the owner by construction, so its card is
                     // editable the moment it appears rather than one request
@@ -1047,6 +1048,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     videoIds = initialBatch,
                 ).fold(
                     onSuccess = { playlistId ->
+                    AppSettings.addChordplayPlaylistId(playlistId)
                         if (videoIds.size > 50) {
                             videoIds.drop(50).chunked(50).forEach { chunk ->
                                 YtMusicRepository.addToPlaylist(playlistId, chunk)
@@ -1077,11 +1079,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     },
                     onFailure = {
                         val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                        AppSettings.addChordplayPlaylistId(local.browseId)
                         onResult?.invoke(local.browseId, local.title, true)
                     },
                 )
             } else {
                 val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                AppSettings.addChordplayPlaylistId(local.browseId)
                 onResult?.invoke(local.browseId, local.title, true)
             }
         }

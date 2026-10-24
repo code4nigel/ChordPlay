@@ -30,6 +30,13 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import java.util.concurrent.ConcurrentHashMap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.music.bitchord.data.YtMusicRepository
@@ -72,6 +79,22 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
+/** Cache of playlist membership across sheets to eliminate redundant network hits and avoid duplicate adds. */
+internal object PlaylistMembershipCache {
+    private val membership = ConcurrentHashMap<String, MutableSet<String>>()
+
+    fun contains(playlistId: String, videoId: String): Boolean =
+        membership[playlistId]?.contains(videoId) == true
+
+    fun add(playlistId: String, videoId: String) {
+        membership.computeIfAbsent(playlistId) { ConcurrentHashMap.newKeySet() }.add(videoId)
+    }
+
+    fun addAll(playlistId: String, videoIds: Collection<String>) {
+        membership.computeIfAbsent(playlistId) { ConcurrentHashMap.newKeySet() }.addAll(videoIds)
+    }
+}
+
 /**
  * Where a track goes: one of the account's playlists, or a new one.
  *
@@ -99,23 +122,50 @@ fun PlaylistPickerSheet(
     song: Song? = null,
     startCreating: Boolean = false,
 ) {
+    val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(startCreating) }
+    var playlistSearchQuery by remember { mutableStateOf("") }
     // By id rather than by value: the list is re-fetched under an open sheet,
     // and a refreshed row must stay ticked.
     var selected by remember { mutableStateOf(emptySet<String>()) }
-    var alreadyPresent by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
+    var alreadyPresent by remember(song?.videoId) {
+        mutableStateOf(
+            song?.videoId?.let { vid ->
+                playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
+                    .map { it.playlistId }.toSet()
+            } ?: emptySet()
+        )
+    }
 
     LaunchedEffect(song?.videoId, playlists) {
         val target = song ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            playlists.forEach { pl ->
-                if (pl.playlistId in alreadyPresent) return@forEach
-                val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
-                if (songs?.any { it.videoId == target.videoId } == true) {
-                    alreadyPresent = alreadyPresent + pl.playlistId
+            playlists.map { pl ->
+                async {
+                    if (pl.playlistId in alreadyPresent) return@async null
+                    if (PlaylistMembershipCache.contains(pl.playlistId, target.videoId)) {
+                        return@async pl.playlistId
+                    }
+                    val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
+                    if (songs != null) {
+                        PlaylistMembershipCache.addAll(pl.playlistId, songs.map { it.videoId })
+                        if (songs.any { it.videoId == target.videoId }) {
+                            return@async pl.playlistId
+                        }
+                    }
+                    null
+                }
+            }.awaitAll().filterNotNull().let { found ->
+                if (found.isNotEmpty()) {
+                    alreadyPresent = alreadyPresent + found
                 }
             }
         }
+    }
+
+    val displayedPlaylists = remember(playlists, playlistSearchQuery) {
+        if (playlistSearchQuery.isBlank()) playlists
+        else playlists.filter { it.title.contains(playlistSearchQuery, ignoreCase = true) }
     }
 
     if (creating) {
@@ -144,6 +194,58 @@ fun PlaylistPickerSheet(
             label = stringResource(R.string.new_playlist),
             onClick = { creating = true },
         )
+
+        if (playlists.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (playlistSearchQuery.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.search_playlists),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                    BasicTextField(
+                        value = playlistSearchQuery,
+                        onValueChange = { playlistSearchQuery = it },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (playlistSearchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = { playlistSearchQuery = "" },
+                        modifier = Modifier.size(20.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.clear_search),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
 
         when {
             // Only while there is nothing to show: re-fetching under a list
@@ -176,13 +278,15 @@ fun PlaylistPickerSheet(
                 // Capped so a long list can't push the sheet past the screen;
                 // it scrolls inside the sheet instead.
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                    items(playlists, key = { it.playlistId }) { playlist ->
+                    items(displayedPlaylists, key = { it.playlistId }) { playlist ->
                         val ticked = playlist.playlistId in selected
                         val isAlreadyThere = playlist.playlistId in alreadyPresent
+                        val isChordplay = playlist.playlistId in chordplayPlaylistIds
                         PlaylistRow(
                             playlist = playlist,
                             selected = ticked,
                             alreadyPresent = isAlreadyThere,
+                            isChordPlayPlaylist = isChordplay,
                             onClick = {
                                 selected = if (ticked) selected - playlist.playlistId else selected + playlist.playlistId
                             },
@@ -191,7 +295,14 @@ fun PlaylistPickerSheet(
                 }
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { onAdd(playlists.filter { it.playlistId in selected }) },
+                    onClick = {
+                        val picked = playlists.filter { it.playlistId in selected }
+                        song?.videoId?.let { vid ->
+                            picked.forEach { pl -> PlaylistMembershipCache.add(pl.playlistId, vid) }
+                            alreadyPresent = alreadyPresent + picked.map { it.playlistId }
+                        }
+                        onAdd(picked)
+                    },
                     enabled = selected.isNotEmpty(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -216,6 +327,7 @@ private fun PlaylistRow(
     playlist: UserPlaylist,
     selected: Boolean,
     alreadyPresent: Boolean = false,
+    isChordPlayPlaylist: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -236,13 +348,32 @@ private fun PlaylistRow(
         )
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = playlist.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = playlist.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (isChordPlayPlaylist) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = "ChordPlay",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
             if (playlist.subtitle.isNotBlank()) {
                 Text(
                     text = playlist.subtitle,

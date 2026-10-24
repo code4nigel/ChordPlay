@@ -149,7 +149,7 @@ fun ReplayCreditCard(
                     painter = painterResource(Res.drawable.ic_logo),
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(28.dp),
                 )
             }
 

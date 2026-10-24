@@ -514,7 +514,7 @@ private fun HomeTitle(title: String, modifier: Modifier = Modifier) {
 }
 
 /** The wordmark's height against the heading's font size. */
-private const val LOGO_TO_FONT = 0.9f
+private const val LOGO_TO_FONT = 1.15f
 
 /** ic_logo's viewport, 1024 x 1024 (1:1 aspect ratio). */
 private const val LOGO_ASPECT = 1.0f

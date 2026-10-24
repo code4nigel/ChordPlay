@@ -44,3 +44,11 @@ keystore.properties
 # AI agent configuration
 AGENTS.md
 /output/
+
+Inspiration/
+
+# Versioned APK binary archives (history/metadata tracked, large binaries excluded)
+version/Android/*.apk
+app/version/*.apk
+
+

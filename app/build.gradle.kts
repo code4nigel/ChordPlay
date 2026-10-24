@@ -26,12 +26,12 @@ val localProps = Properties().apply {
 val lastfmApiKey: String = (
     localProps.getProperty("LASTFM_API_KEY")
         ?: System.getenv("LASTFM_API_KEY")
-        ?: ""
+        ?: "81ba3d57a612f71b6658d7b2e6fa0255"
     ).trim()
 val lastfmSecret: String = (
     localProps.getProperty("LASTFM_SECRET")
         ?: System.getenv("LASTFM_SECRET")
-        ?: ""
+        ?: "bfb0f6cf31b62302e4fb142d8bfcc061"
     ).trim()
 
 /*
@@ -80,8 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "1.8"
+        versionCode = 28
+        versionName = "1.8.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -119,7 +119,7 @@ android {
         create("dev") {
             dimension = "env"
             applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "ChordPlay Dev")
+            resValue("string", "app_name", "ChordPlay")
         }
         create("prod") {
             dimension = "env"

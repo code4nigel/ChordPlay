@@ -602,6 +602,18 @@ object AppSettings {
      */
     val pinnedPlaylists = MutableStateFlow<List<String>>(emptyList())
 
+    /** Playlists created within ChordPlay so they can be visually distinguished from imported/cloud lists. */
+    val chordplayPlaylistIds = MutableStateFlow<Set<String>>(emptySet())
+
+    fun addChordplayPlaylistId(playlistId: String) {
+        val cleanId = playlistId.removePrefix("VL")
+        val updated = chordplayPlaylistIds.value + cleanId
+        chordplayPlaylistIds.value = updated
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_CHORDPLAY_PLAYLIST_IDS, updated).apply()
+        }
+    }
+
     /** How many playlists [pinnedPlaylists] can hold at once. */
     const val MAX_PINNED_PLAYLISTS = 5
 
@@ -864,8 +876,12 @@ object AppSettings {
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
         lastfmSessionKey.value = prefs.getString(KEY_LASTFM_SESSION_KEY, "").orEmpty()
-        lastfmApiKey.value = prefs.getString(KEY_LASTFM_API_KEY, "").orEmpty().ifBlank { BuildConfig.LASTFM_API_KEY }
-        lastfmSecret.value = prefs.getString(KEY_LASTFM_SECRET, "").orEmpty().ifBlank { BuildConfig.LASTFM_SECRET }
+        lastfmApiKey.value = prefs.getString(KEY_LASTFM_API_KEY, "").orEmpty().ifBlank {
+            BuildConfig.LASTFM_API_KEY.ifBlank { "81ba3d57a612f71b6658d7b2e6fa0255" }
+        }
+        lastfmSecret.value = prefs.getString(KEY_LASTFM_SECRET, "").orEmpty().ifBlank {
+            BuildConfig.LASTFM_SECRET.ifBlank { "bfb0f6cf31b62302e4fb142d8bfcc061" }
+        }
         lastfmEndpoint.value = prefs.getString(KEY_LASTFM_ENDPOINT, "").orEmpty()
         lastfmScrobbleEnabled.value = prefs.getBoolean(KEY_LASTFM_SCROBBLE_ENABLED, false)
         lastfmNowPlaying.value = prefs.getBoolean(KEY_LASTFM_NOW_PLAYING, false) && lastfmScrobbleEnabled.value
@@ -910,6 +926,7 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
+        chordplayPlaylistIds.value = prefs.getStringSet(KEY_CHORDPLAY_PLAYLIST_IDS, emptySet())?.toSet().orEmpty()
         discordToken.value = authStore.discordToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
@@ -1994,6 +2011,7 @@ object AppSettings {
     private const val KEY_SMB_BASE_PATH = "smb_base_path"
     private const val KEY_SMB_USERNAME = "smb_username"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
+    private const val KEY_CHORDPLAY_PLAYLIST_IDS = "chordplay_playlist_ids"
 
     private const val KEY_LASTFM_ENABLED = "lastfm_enabled"
     private const val KEY_LASTFM_USERNAME = "lastfm_username"

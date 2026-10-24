@@ -766,6 +766,10 @@ private fun ReleaseHeader(
                 .padding(bottom = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
+            val isChordplayPlaylist = page.type == BrowseType.PLAYLIST &&
+                (page.browseId.removePrefix("VL") in chordplayPlaylistIds || page.browseId in chordplayPlaylistIds)
+
             Text(
                 text = page.title,
                 style = MaterialTheme.typography.headlineMedium,
@@ -775,6 +779,22 @@ private fun ReleaseHeader(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = HEADER_GUTTER),
             )
+            if (isChordplayPlaylist) {
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = "ChordPlay",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
             // Artist / credit line
             if (credit.isNotBlank()) {
                 Spacer(Modifier.height(2.dp))

@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
-        android:label="ChordPlay Dev"
+        android:label="ChordPlay"
         android:usesCleartextTraffic="true"
         tools:replace="android:label,android:usesCleartextTraffic" />
 </manifest>
