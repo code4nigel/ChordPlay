@@ -11,6 +11,8 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -213,6 +215,9 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val syncedLyrics = MutableStateFlow(true)
     override val translationLanguage = MutableStateFlow("")
     override val versionAlignmentInProgress = MutableStateFlow(false)
+    override val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
+    override val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+    override val enableBreathingAura = MutableStateFlow(true)
 
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
         lastPlayerScreen.value = value

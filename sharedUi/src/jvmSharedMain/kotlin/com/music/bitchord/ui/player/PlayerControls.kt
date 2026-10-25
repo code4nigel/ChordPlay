@@ -198,6 +198,8 @@ internal fun PlayerScrubber(
     centerLabel: @Composable BoxScope.() -> Unit = {},
 ) {
     val shown = shown()
+    val haptics = rememberHaptics()
+    var lastScrubSecond by remember { mutableLongStateOf(-1L) }
     // Held as a State and read only inside the bar's draw: the blend republishes
     // every fade tick, and collecting it by value here would recompose the
     // scrubber and its labels thirty times a second for a change only the
@@ -209,8 +211,20 @@ internal fun PlayerScrubber(
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
             value = shown,
-            onValueChange = onScrub,
-            onValueChangeFinished = onScrubFinished,
+            onValueChange = { frac ->
+                if (durationMs > 0L) {
+                    val sec = (frac * durationMs / 1000L).toLong()
+                    if (sec != lastScrubSecond) {
+                        lastScrubSecond = sec
+                        haptics.play(Haptic.Tick)
+                    }
+                }
+                onScrub(frac)
+            },
+            onValueChangeFinished = {
+                lastScrubSecond = -1L
+                onScrubFinished()
+            },
             loading = loading,
             mixing = mixing,
             mixPulse = mixPulse,

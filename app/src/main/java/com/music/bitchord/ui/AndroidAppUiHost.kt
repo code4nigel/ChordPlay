@@ -9,10 +9,13 @@ import com.music.bitchord.download.Downloads
 
 /** The shared pages' settings and downloads, answered from the phone's own stores. */
 object AndroidAppUiHost : AppUiHost {
+    override val appDesignStyle = AppSettings.appDesignStyle
     override val swipeToPlayNext = AppSettings.swipeToPlayNext
     override val homeRecentsViewType = AppSettings.homeRecentsViewType
     override fun setHomeRecentsViewType(value: LibraryViewType) = AppSettings.setHomeRecentsViewType(value)
     override val pinnedPlaylists = AppSettings.pinnedPlaylists
+    override val pinnedSpeedDial = AppSettings.pinnedSpeedDialItems
+    override fun togglePinSpeedDial(item: com.music.bitchord.data.model.ShelfItem) = AppSettings.togglePinSpeedDial(item)
     override val librarySort = AppSettings.librarySort
 
     @Composable

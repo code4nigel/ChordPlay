@@ -1,24 +1,45 @@
 package com.music.bitchord.ui.screens.settings.sections
 
+import android.os.Build
+
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MotionPhotosOff
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -30,15 +51,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.ChordPlayPalette
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
@@ -61,6 +93,8 @@ fun AppearanceSection(
     val context = LocalContext.current
 
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
+    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val colorPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -105,7 +139,53 @@ fun AppearanceSection(
         // Pinned Live Preview
         AppearanceLivePreview()
 
-        // Theme and Visual Styling Group
+        // 1. Design System & Style Switcher Group
+        SettingsGroup(header = stringResource(R.string.design_style)) {
+            val designStyleTitle = stringResource(R.string.design_style)
+            SettingsRow(
+                icon = Icons.Rounded.Style,
+                title = designStyleTitle,
+                subtitle = stringResource(R.string.design_style_subtitle),
+            )
+            SegmentedControl(
+                options = AppDesignStyle.entries.map { it.label },
+                selectedIndex = AppDesignStyle.entries.indexOf(designStyle),
+                onSelect = { AppSettings.setAppDesignStyle(AppDesignStyle.entries[it]) },
+                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = designStyle.detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // 2. Curated Atmospheric Color Palettes (When ChordPlay Modern is active)
+        if (designStyle == AppDesignStyle.CHORDPLAY) {
+            SettingsGroup(header = stringResource(R.string.color_palette)) {
+                SettingsRow(
+                    icon = Icons.Rounded.Palette,
+                    title = stringResource(R.string.color_palette),
+                    subtitle = stringResource(R.string.color_palette_subtitle),
+                )
+                PaletteCarousel(
+                    selectedPalette = colorPalette,
+                    onSelectPalette = { AppSettings.setColorPalette(it) },
+                    modifier = Modifier.padding(bottom = 14.dp),
+                )
+            }
+        }
+
+        // 3. Theme Mode (Dark, Light, System)
         SettingsGroup(header = stringResource(R.string.theme)) {
             val themeTitle = stringResource(R.string.theme)
             SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
@@ -117,7 +197,7 @@ fun AppearanceSection(
             )
         }
 
-        // Glass & Animation Effects Group
+        // 4. Glass & Animation Effects Group
         SettingsGroup(header = stringResource(R.string.liquid_glass)) {
             val liquidGlassTitle = stringResource(R.string.liquid_glass)
             SettingsRow(
@@ -179,7 +259,7 @@ fun AppearanceSection(
             )
         }
 
-        // Performance & Refresh Rates Group
+        // 5. Performance & Refresh Rates Group
         SettingsGroup(header = stringResource(R.string.performance)) {
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
             SettingsRow(
@@ -229,7 +309,7 @@ fun AppearanceSection(
             }
         }
 
-        // App Language Group
+        // 6. App Language Group
         SettingsGroup(header = stringResource(R.string.language)) {
             val appLanguageTitle = stringResource(R.string.app_language)
             val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
@@ -293,5 +373,100 @@ fun AppearanceSection(
                 }
             },
         )
+    }
+}
+
+/**
+ * Curated color palette carousel with rich live checkmarks and atmospheric swatches.
+ */
+@Composable
+private fun PaletteCarousel(
+    selectedPalette: ChordPlayPalette,
+    onSelectPalette: (ChordPlayPalette) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+    LazyRow(
+        modifier = modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = ROW_INSET),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(ChordPlayPalette.entries) { item ->
+            val isSelected = item == selectedPalette
+            val primaryColor = if (item == ChordPlayPalette.DYNAMIC_MONET && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                Color(item.primaryColorHex)
+            }
+            val secondaryColor = if (item == ChordPlayPalette.DYNAMIC_MONET && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                Color(item.secondaryColorHex)
+            }
+
+            Column(
+                modifier = Modifier
+                    .width(112.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(
+                        if (isSelected) primaryColor.copy(alpha = 0.16f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    )
+                    .border(
+                        width = if (isSelected) 2.dp else 1.dp,
+                        color = if (isSelected) primaryColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp),
+                    )
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelectPalette(item)
+                    }
+                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // Two-color orb swatch
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.sweepGradient(
+                                listOf(primaryColor, secondaryColor, primaryColor),
+                            ),
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.60f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp),
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    ),
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
     }
 }

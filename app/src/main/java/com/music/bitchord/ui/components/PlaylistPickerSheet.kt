@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -29,8 +32,10 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.rounded.Add
@@ -113,6 +118,23 @@ object PlaylistMembershipCache {
     }
 }
 
+private val UserPlaylist.id: String get() = playlistId
+
+private fun UserPlaylist.isPinned(pinned: List<String>): Boolean =
+    id in pinned || browseId in pinned || "VL$id" in pinned || (id.removePrefix("VL") in pinned)
+
+enum class PlaylistSortOrder(val label: String) {
+    A_TO_Z("A-Z"),
+    Z_TO_A("Z-A"),
+    DEFAULT("Default");
+
+    fun next(): PlaylistSortOrder = when (this) {
+        A_TO_Z -> Z_TO_A
+        Z_TO_A -> DEFAULT
+        DEFAULT -> A_TO_Z
+    }
+}
+
 /**
  * Where a track goes: one of the account's playlists, or a new one.
  *
@@ -131,11 +153,14 @@ fun PlaylistPickerSheet(
     modifier: Modifier = Modifier,
     song: Song? = null,
     startCreating: Boolean = false,
+    pinnedPlaylists: List<String> = emptyList(),
     onCommit: ((toAdd: List<UserPlaylist>, toRemove: List<UserPlaylist>) -> Unit)? = null,
 ) {
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
+    var sortOrder by remember { mutableStateOf(PlaylistSortOrder.A_TO_Z) }
+    val listState = rememberLazyListState()
 
     // Seed initiallyPresent from local memory cache
     var initiallyPresent by remember(song?.videoId) {
@@ -205,16 +230,47 @@ fun PlaylistPickerSheet(
         else playlists.filter { it.title.contains(playlistSearchQuery, ignoreCase = true) }
     }
 
+    val sortedPlaylists = remember(displayedPlaylists, pinnedPlaylists, sortOrder) {
+        val pinnedComparator = compareByDescending<UserPlaylist> { it.id in pinnedPlaylists || it.isPinned(pinnedPlaylists) }
+        when (sortOrder) {
+            PlaylistSortOrder.A_TO_Z -> displayedPlaylists.sortedWith(
+                pinnedComparator.thenBy { it.title.lowercase(Locale.getDefault()) }
+            )
+            PlaylistSortOrder.Z_TO_A -> displayedPlaylists.sortedWith(
+                pinnedComparator.thenByDescending { it.title.lowercase(Locale.getDefault()) }
+            )
+            PlaylistSortOrder.DEFAULT -> displayedPlaylists.sortedWith(
+                pinnedComparator
+            )
+        }
+    }
+
     if (creating) {
         NewPlaylistForm(
             onBack = if (startCreating) null else ({ creating = false }),
             onCreate = onCreate,
-            modifier = modifier,
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                ),
         )
         return
     }
 
-    Column(modifier.fillMaxWidth()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            ),
+    ) {
         if (song != null) {
             SheetTrackHeader(song)
             HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
@@ -224,35 +280,63 @@ fun PlaylistPickerSheet(
                 .uppercase(Locale.getDefault()),
         )
 
-        ActionRow(
-            icon = BitChordIcons.Plus,
-            label = stringResource(R.string.new_playlist),
-            onClick = { creating = true },
-        )
-
-        if (playlists.isNotEmpty()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Left button: Compact pill or icon button with Icons.Rounded.Add / "New"
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 6.dp)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .clickable { creating = true }
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = stringResource(R.string.new_playlist),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "New",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            // Center: BasicTextField search input inside a rounded capsule (RoundedCornerShape(12.dp))
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(38.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(16.dp),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(6.dp))
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (playlistSearchQuery.isEmpty()) {
                         Text(
                             text = stringResource(R.string.search_playlists),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     BasicTextField(
@@ -275,10 +359,46 @@ fun PlaylistPickerSheet(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = stringResource(R.string.clear_search),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                         )
                     }
                 }
+            }
+
+            // Right: Sort toggle button cycling A-Z, Z-A, and Default with instant reordering
+            Row(
+                modifier = Modifier
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (sortOrder != PlaylistSortOrder.DEFAULT)
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                    .clickable { sortOrder = sortOrder.next() }
+                    .padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Sort,
+                    contentDescription = "Sort",
+                    tint = if (sortOrder != PlaylistSortOrder.DEFAULT)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = sortOrder.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (sortOrder != PlaylistSortOrder.DEFAULT)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
 
@@ -317,16 +437,23 @@ fun PlaylistPickerSheet(
                 }
                 val hasChanges = toAdd.isNotEmpty() || toRemove.isNotEmpty()
 
-                LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                    items(displayedPlaylists, key = { it.playlistId }) { playlist ->
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                ) {
+                    items(sortedPlaylists, key = { it.playlistId }) { playlist ->
                         val isTicked = playlist.playlistId in selected
                         val wasPresent = playlist.playlistId in initiallyPresent
                         val isChordplay = playlist.playlistId in chordplayPlaylistIds
+                        val isPinned = playlist.isPinned(pinnedPlaylists)
                         PlaylistRow(
                             playlist = playlist,
                             selected = isTicked,
                             wasInitiallyThere = wasPresent,
                             isChordPlayPlaylist = isChordplay,
+                            isPinned = isPinned,
                             onClick = {
                                 userToggledPlaylists.add(playlist.playlistId)
                                 selected = if (isTicked) {
@@ -338,40 +465,46 @@ fun PlaylistPickerSheet(
                         )
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        song?.videoId?.let { vid ->
-                            toAdd.forEach { pl -> PlaylistMembershipCache.add(pl.playlistId, vid) }
-                            toRemove.forEach { pl -> PlaylistMembershipCache.remove(pl.playlistId, vid) }
-                        }
-                        if (onCommit != null) {
-                            onCommit(toAdd, toRemove)
-                        } else {
-                            onAdd(toAdd)
-                        }
-                    },
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 22.dp),
+                        .padding(horizontal = 22.dp, vertical = 10.dp)
+                        .navigationBarsPadding(),
                 ) {
-                    Text(
-                        text = when {
-                            hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
-                                "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
-                            hasChanges && toAdd.isNotEmpty() ->
-                                "${stringResource(R.string.done)} (+${toAdd.size})"
-                            hasChanges && toRemove.isNotEmpty() ->
-                                "${stringResource(R.string.done)} (-${toRemove.size})"
-                            else -> stringResource(R.string.done)
+                    Button(
+                        onClick = {
+                            song?.videoId?.let { vid ->
+                                toAdd.forEach { pl -> PlaylistMembershipCache.add(pl.playlistId, vid) }
+                                toRemove.forEach { pl -> PlaylistMembershipCache.remove(pl.playlistId, vid) }
+                            }
+                            if (onCommit != null) {
+                                onCommit(toAdd, toRemove)
+                            } else {
+                                onAdd(toAdd)
+                            }
                         },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text(
+                            text = when {
+                                hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
+                                hasChanges && toAdd.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (+${toAdd.size})"
+                                hasChanges && toRemove.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (-${toRemove.size})"
+                                else -> stringResource(R.string.done)
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -381,6 +514,7 @@ private fun PlaylistRow(
     selected: Boolean,
     wasInitiallyThere: Boolean,
     isChordPlayPlaylist: Boolean = false,
+    isPinned: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -410,6 +544,34 @@ private fun PlaylistRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
+                if (isPinned) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            .padding(horizontal = 5.dp, vertical = 2.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PushPin,
+                                contentDescription = "Pinned",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(11.dp),
+                            )
+                            Text(
+                                text = "PINNED",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, letterSpacing = 0.5.sp),
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
                 if (isChordPlayPlaylist) {
                     Spacer(Modifier.width(6.dp))
                     Box(

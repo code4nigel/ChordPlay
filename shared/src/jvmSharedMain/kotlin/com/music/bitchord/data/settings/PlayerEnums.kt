@@ -33,3 +33,17 @@ enum class LastPlayerScreen {
     LYRICS,
     QUEUE,
 }
+
+/** Global design style aesthetic: ChordPlay Modern vs original BitChord monochrome. */
+enum class AppDesignStyle(val label: String, val detail: String) {
+    CHORDPLAY("ChordPlay Modern", "Atmospheric glowing glass, vibrant palettes, tactile controls, and dynamic discovery"),
+    CLASSIC_BITCHORD("Classic BitChord", "Original Apple Music-inspired monochrome dark UI, standard player, and default shelves"),
+}
+
+/** Player screen visual layout and audio stage presentation. */
+enum class PlayerLayoutMode(val label: String, val detail: String) {
+    MODERN_AMBIENT("Modern Ambient", "Floating cover with breathing aura, frosted capsule deck, and quick actions"),
+    VINYL_RECORD("Vinyl Turntable", "Spinning vinyl record sliding out from sleeve with moving tonearm"),
+    CLASSIC_CLEAN("Classic BitChord", "Original Apple Music-style player layout"),
+}
+

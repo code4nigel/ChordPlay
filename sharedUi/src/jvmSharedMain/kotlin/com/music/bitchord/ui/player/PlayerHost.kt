@@ -9,7 +9,9 @@ import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
@@ -165,6 +167,9 @@ interface PlayerSettingsSource {
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
+    val appDesignStyle: StateFlow<AppDesignStyle>
+    val playerLayoutMode: StateFlow<PlayerLayoutMode>
+    val enableBreathingAura: StateFlow<Boolean>
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)

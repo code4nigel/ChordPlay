@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.PlayerLayoutMode
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.offset
@@ -789,6 +791,13 @@ fun NowPlayingScreen(
     }
     val hideVolumeBar by PlayerSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by PlayerSettings.hideSongStatus.collectAsStateWithLifecycle()
+    val appDesignStyle by PlayerSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val playerLayoutMode by PlayerSettings.playerLayoutMode.collectAsStateWithLifecycle()
+    val enableBreathingAura by PlayerSettings.enableBreathingAura.collectAsStateWithLifecycle()
+    val isChordPlay = appDesignStyle == AppDesignStyle.CHORDPLAY
+    val isModernAmbient = isChordPlay && playerLayoutMode == PlayerLayoutMode.MODERN_AMBIENT
+    val isVinylRecord = isChordPlay && playerLayoutMode == PlayerLayoutMode.VINYL_RECORD
+    val isModernOrVinyl = isModernAmbient || isVinylRecord
 
     // Animated cover art: the looping video some labels publish alongside a
     // release, laid over the sleeve. A miss is the normal answer — see
@@ -2781,9 +2790,51 @@ fun NowPlayingScreen(
                 // it docks.
                 fun sleeveShown(): Float = bannerShown() * dockT()
                 fun sleeveCorner(): Dp {
-                    val corner = 8.dp * (1f - sleeveShown())
+                    val baseCorner = if (isModernAmbient) 24.dp else if (isVinylRecord) 16.dp else 8.dp
+                    val corner = baseCorner * (1f - sleeveShown())
                     val t = dockT()
                     return if (dock == null || t >= 1f) corner else lerp(dock.miniArtCorner(), corner, t)
+                }
+
+                // Breathing artwork aura for ChordPlay Modern mode
+                if (isModernAmbient && enableBreathingAura && art.loaded && dockT() > 0.8f && !heroMode && bannerShare() == 0f) {
+                    ChordPlayAmbientAura(
+                        model = art.request,
+                        isPlaying = isPlaying,
+                        modifier = Modifier
+                            .layout { measurable, _ ->
+                                val card = towardsDock(cardRect(), dockFrame.miniInBox)
+                                val placeable = measurable.measure(
+                                    Constraints.fixed(card.width.roundToInt(), card.height.roundToInt()),
+                                )
+                                layout(0, 0) {
+                                    placeable.place(card.left.roundToInt(), card.top.roundToInt())
+                                }
+                            },
+                    )
+                }
+
+                // Vinyl turntable record sliding out from sleeve
+                if (isVinylRecord && art.loaded && dockT() > 0.8f && !heroMode && bannerShare() == 0f) {
+                    ChordPlayVinylRecord(
+                        model = art.request,
+                        isPlaying = isPlaying,
+                        modifier = Modifier
+                            .layout { measurable, _ ->
+                                val card = towardsDock(cardRect(), dockFrame.miniInBox)
+                                val discSize = (card.height * 0.95f).roundToInt()
+                                val placeable = measurable.measure(
+                                    Constraints.fixed(discSize, discSize),
+                                )
+                                val dockProgress = ((dockT() - 0.8f) / 0.2f).coerceIn(0f, 1f)
+                                val shiftX = -card.width * 0.14f * dockProgress
+                                val slideX = card.width * 0.28f * dockProgress
+                                val offsetY = (card.height - discSize) / 2f
+                                layout(0, 0) {
+                                    placeable.place((card.left + shiftX + slideX).roundToInt(), (card.top + offsetY).roundToInt())
+                                }
+                            },
+                    )
                 }
 
                 // The sleeve proper — card, banner and thumbnail in turn, see
@@ -2810,7 +2861,11 @@ fun NowPlayingScreen(
                                 Constraints.fixed(rect.width.roundToInt(), rect.height.roundToInt()),
                             )
                             layout(0, 0) {
-                                val x = rect.left.roundToInt()
+                                val dockProgress = ((dockT() - 0.8f) / 0.2f).coerceIn(0f, 1f)
+                                val shiftX = if (isVinylRecord && bannerShare() == 0f) {
+                                    (-rect.width * 0.14f * dockProgress).roundToInt()
+                                } else 0
+                                val x = rect.left.roundToInt() + shiftX
                                 val y = rect.top.roundToInt()
                                 dockFrame.portalLeft = (boxLeftPx + x).toFloat()
                                 dockFrame.portalScale = 1f
@@ -3280,7 +3335,7 @@ fun NowPlayingScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
-                    if (onAddToPlaylist != null && song.localUri == null) {
+                    if (onAddToPlaylist != null && (song.localUri == null || isModernOrVinyl)) {
                         CircleGlyph(
                             icon = Icons.Rounded.PlaylistAdd,
                             contentDescription = stringResource(Res.string.add_to_playlist),
@@ -3571,13 +3626,24 @@ fun NowPlayingScreen(
                 onScrub = onScrub,
                 onScrubFinished = onScrubFinished,
             ) {
-                PlaybackQualityLabel(
-                    song = song,
-                    isLoading = isLoading,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = 8.dp),
-                )
+                if (isModernOrVinyl) {
+                    ChordPlayAudioFidelityBadge(
+                        song = song,
+                        isLoading = isLoading,
+                        onClick = { showAudioPipeline = true },
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 8.dp),
+                    )
+                } else {
+                    PlaybackQualityLabel(
+                        song = song,
+                        isLoading = isLoading,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 8.dp),
+                    )
+                }
             }
 
             // The transport rides midway between the two blocks it separates:
@@ -3587,16 +3653,30 @@ fun NowPlayingScreen(
             // centre rather than drifting up under the seek bar.
             Spacer(Modifier.height(8.dp + controlSpread / 2))
 
-            TransportRow(
-                isPlaying = isPlaying,
-                isLoading = isLoading || audioVersionSwitching,
-                previousEnabled = !controlsLocked &&
-                    (hasPrevious || pastRestartPoint),
-                nextEnabled = !controlsLocked && hasNext,
-                onPrevious = onPrevious,
-                onPlayPause = onPlayPause,
-                onNext = onNext,
-            )
+            if (isModernOrVinyl) {
+                ChordPlayTransportDeck(
+                    isPlaying = isPlaying,
+                    isLoading = isLoading || audioVersionSwitching,
+                    previousEnabled = !controlsLocked &&
+                        (hasPrevious || pastRestartPoint),
+                    nextEnabled = !controlsLocked && hasNext,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                    hazeState = playerHaze,
+                )
+            } else {
+                TransportRow(
+                    isPlaying = isPlaying,
+                    isLoading = isLoading || audioVersionSwitching,
+                    previousEnabled = !controlsLocked &&
+                        (hasPrevious || pastRestartPoint),
+                    nextEnabled = !controlsLocked && hasNext,
+                    onPrevious = onPrevious,
+                    onPlayPause = onPlayPause,
+                    onNext = onNext,
+                )
+            }
 
             // Keep the volume slot's full footprint when its contents are
             // hidden. Removing the slot itself shortened the controls by 50dp

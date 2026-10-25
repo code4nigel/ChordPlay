@@ -1,6 +1,12 @@
+param(
+    [string]$tagName = "v1.8.5",
+    [string]$releaseTitle = "ChordPlay v1.8.5 - Dynamic Art Aura, Vinyl Turntable, Speed Dial & Complete Polish"
+)
+
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$token = "protocol=https`nhost=github.com" | git credential fill | Select-String "password=(.*)" | ForEach-Object { $_.Matches.Groups[1].Value }
+$credInput = @("protocol=https", "host=github.com", "")
+$token = ($credInput | git credential fill | Select-String "password=(.*)").Matches.Groups[1].Value
 if (-not $token) {
     Write-Error "Could not retrieve GitHub token from git credentials."
     exit 1
@@ -8,10 +14,13 @@ if (-not $token) {
 
 $repoOwner = "code4nigel"
 $repoName = "ChordPlay"
-$tagName = "v1.8.2"
-$releaseTitle = "ChordPlay v1.8.2 - Modular Settings, Custom Typography and Last.fm"
 $notesPath = Join-Path $PSScriptRoot "..\app\version\RELEASE_NOTES.md"
-$releaseNotes = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath) } else { "ChordPlay v1.8.2 release" }
+$fullNotes = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath) } else { "ChordPlay $tagName release" }
+$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.5.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
+    $matches[1].Trim()
+} else {
+    $fullNotes
+}
 
 $headers = @{
     "Authorization" = "Bearer $token"
@@ -47,8 +56,9 @@ Write-Host "Upload URL: $($release.upload_url)"
 
 # 2. Upload APK files from app/version
 $apkFiles = @(
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.2-build28-devDebug-universal.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.2-build28-devDebug-arm64.apk")
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug-universal.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug-arm64.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug.apk")
 )
 
 $uploadBase = $release.upload_url -replace '\{\?name,label\}', ''

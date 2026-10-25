@@ -2,12 +2,14 @@ package com.music.bitchord.ui.components
 
 import com.music.bitchord.R
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
@@ -37,9 +39,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -48,6 +56,8 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -56,13 +66,16 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.Res as SharedRes
 import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -135,7 +148,7 @@ private val ROW_PADDING_HORIZONTAL = 12.dp
 private val ART_CORNER = 8.dp
 
 /** Distance that makes a horizontal drag an intentional track change. */
-private val TRACK_SWIPE_THRESHOLD = 72.dp
+private val TRACK_SWIPE_THRESHOLD = 60.dp
 
 /**
  * How much further a drag may go sideways than up and still be a pull. A
@@ -212,6 +225,9 @@ internal fun Modifier.miniPlayerGestures(
     /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
     locked: Boolean = false,
     onBlocked: () -> Unit = {},
+    enableSwipeToSkip: Boolean = true,
+    onHorizontalDrag: ((Float) -> Unit)? = null,
+    onHorizontalDragEnd: (() -> Unit)? = null,
 ): Modifier {
     // Playback state updates can recompose the bar while a finger is down.
     // Keep the gesture coroutine alive through those updates while still
@@ -221,6 +237,11 @@ internal fun Modifier.miniPlayerGestures(
     val currentOnPrevious by rememberUpdatedState(onPrevious)
     val currentLocked by rememberUpdatedState(locked)
     val currentOnBlocked by rememberUpdatedState(onBlocked)
+    val currentEnableSwipe by rememberUpdatedState(enableSwipeToSkip)
+    val currentOnDrag by rememberUpdatedState(onHorizontalDrag)
+    val currentOnDragEnd by rememberUpdatedState(onHorizontalDragEnd)
+    val haptics = rememberHaptics()
+    val view = LocalView.current
     val scope = rememberCoroutineScope()
     // Read at draw only, in the layer below: a pull moves the bar without
     // recomposing it.
@@ -255,12 +276,24 @@ internal fun Modifier.miniPlayerGestures(
             val slopped = start ?: return@awaitEachGesture
 
             if (!vertical) {
+                if (!currentEnableSwipe) return@awaitEachGesture
                 var dragged = slopped.position.x - down.position.x
-                // Read before consuming: a consumed change reports no movement.
+                var thresholdTickFired = false
+                currentOnDrag?.invoke(dragged)
                 val finished = drag(pointer) { change ->
-                    dragged += change.positionChange().x
+                    val delta = change.positionChange().x
+                    dragged += delta
                     change.consume()
+                    currentOnDrag?.invoke(dragged)
+                    if (!thresholdTickFired && abs(dragged) >= trackThreshold) {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        haptics.play(Haptic.Tick)
+                        thresholdTickFired = true
+                    } else if (thresholdTickFired && abs(dragged) < trackThreshold) {
+                        thresholdTickFired = false
+                    }
                 }
+                currentOnDragEnd?.invoke()
                 if (!finished) return@awaitEachGesture
                 val crossed = dragged <= -trackThreshold || dragged >= trackThreshold
                 when {
@@ -350,6 +383,8 @@ fun MiniPlayer(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    playbackPosition: PlaybackPosition? = null,
+    durationMs: Long = 0L,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -359,8 +394,26 @@ fun MiniPlayer(
     pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
 ) {
+    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val isClassic = designStyle == AppDesignStyle.CLASSIC_BITCHORD
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val horizontalDragOffset = remember { Animatable(0f) }
+
+    // Sample artwork accent color for dynamic perimeter progress glow
+    val artworkPalette = rememberArtworkPalette(song.thumbnailUrl, artPx = ROW_ART_PX)
+    val glowColor = if (artworkPalette.accent != Color.Unspecified) {
+        artworkPalette.accent
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+
+    val pathMeasure = remember { PathMeasure() }
+    val fullBorderPath = remember { Path() }
+    val progressSegmentPath = remember { Path() }
+
     // percent rather than a dp figure, so the corner stays exactly half the
     // height if the row's contents ever change it — which is what keeps a pill
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
@@ -373,15 +426,32 @@ fun MiniPlayer(
             .miniPlayerGestures(
                 pull = pull,
                 onNext = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
                 onPrevious = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                enableSwipeToSkip = !isClassic,
+                onHorizontalDrag = { offset ->
+                    scope.launch { horizontalDragOffset.snapTo(offset) }
+                },
+                onHorizontalDragEnd = {
+                    scope.launch {
+                        horizontalDragOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        )
+                    }
+                },
             )
             .clip(shape)
             .then(
@@ -394,7 +464,55 @@ fun MiniPlayer(
                     )
                 },
             )
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            .border(0.5.dp, Color.White.copy(alpha = if (isClassic) 0.10f else 0.08f), shape)
+            .drawWithContent {
+                drawContent()
+                if (!isClassic && durationMs > 0L) {
+                    val currentMs = playbackPosition?.positionMs ?: 0L
+                    val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    if (progress > 0.0005f) {
+                        val strokeInset = 1.dp.toPx()
+                        val h = size.height - 2 * strokeInset
+                        val r = h / 2f
+                        fullBorderPath.reset()
+                        fullBorderPath.addRoundRect(
+                            RoundRect(
+                                left = strokeInset,
+                                top = strokeInset,
+                                right = size.width - strokeInset,
+                                bottom = size.height - strokeInset,
+                                cornerRadius = CornerRadius(r, r),
+                            ),
+                        )
+                        pathMeasure.setPath(fullBorderPath, forceClosed = true)
+                        val totalLen = pathMeasure.length
+                        val segmentLen = progress * totalLen
+
+                        progressSegmentPath.reset()
+                        if (segmentLen > 0f) {
+                            pathMeasure.getSegment(0f, segmentLen, progressSegmentPath, startWithMoveTo = true)
+                            // 1. Subtle ambient outer glow
+                            drawPath(
+                                path = progressSegmentPath,
+                                color = glowColor.copy(alpha = 0.35f),
+                                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                            // 2. Focused vibrant glow
+                            drawPath(
+                                path = progressSegmentPath,
+                                color = glowColor.copy(alpha = 0.75f),
+                                style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                            // 3. Crisp luminous core
+                            drawPath(
+                                path = progressSegmentPath,
+                                color = Color.White.copy(alpha = 0.90f),
+                                style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                        }
+                    }
+                }
+            }
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
@@ -414,13 +532,22 @@ fun MiniPlayer(
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)
+                    .graphicsLayer {
+                        translationX = horizontalDragOffset.value
+                    }
                     .playerDockArt(dock, ART_CORNER)
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .graphicsLayer {
+                        translationX = horizontalDragOffset.value * 0.35f
+                    },
+            ) {
                 ExplicitSongTitle(
                     song = song,
                     style = MaterialTheme.typography.titleMedium,
@@ -445,6 +572,7 @@ fun MiniPlayer(
             } else {
                 IconButton(
                     onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
                         onPlayPause()
                     },
@@ -463,6 +591,7 @@ fun MiniPlayer(
             // controls, so the bar keeps its shape — see [controlsLocked].
             IconButton(
                 onClick = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },

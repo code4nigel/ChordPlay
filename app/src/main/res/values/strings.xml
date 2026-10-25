@@ -311,6 +311,14 @@
     <string name="eq_preset_custom">Custom</string>
     <string name="show_nerd_stats">Show stats for nerds</string>
     <string name="show_nerd_stats_subtitle">Codec, bitrate and sample rate on the player</string>
+    <string name="design_style">Design Style</string>
+    <string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string>
+    <string name="color_palette">Color Palette</string>
+    <string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string>
+    <string name="palette_electric_violet">Electric Violet</string>
+    <string name="palette_sunset_amber">Sunset Amber</string>
+    <string name="palette_emerald_noir">Emerald Noir</string>
+    <string name="palette_dynamic_monet">Dynamic Monet</string>
     <string name="theme">Theme</string>
     <string name="reduce_animation">Reduce animation</string>
     <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>

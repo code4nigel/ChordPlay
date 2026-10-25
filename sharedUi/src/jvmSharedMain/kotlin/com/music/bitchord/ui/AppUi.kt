@@ -2,8 +2,11 @@ package com.music.bitchord.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewType
+import com.music.bitchord.data.model.ShelfItem
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -14,6 +17,10 @@ import kotlinx.coroutines.flow.StateFlow
  * either way. Installed once at start, beside [com.music.bitchord.ui.player.PlayerPlatform].
  */
 interface AppUiHost {
+    /** Visual design style (ChordPlay modern vs Classic BitChord). */
+    val appDesignStyle: StateFlow<AppDesignStyle>
+        get() = MutableStateFlow(AppDesignStyle.CHORDPLAY)
+
     /** A swipe on a track row plays it next rather than adding it to the end of the queue. */
     val swipeToPlayNext: StateFlow<Boolean>
 
@@ -24,6 +31,12 @@ interface AppUiHost {
 
     /** Playlist browse ids pinned to the front of the Library's Playlists shelf, in pin order. */
     val pinnedPlaylists: StateFlow<List<String>>
+
+    /** Items pinned to Home Speed Dial grid. */
+    val pinnedSpeedDial: StateFlow<List<ShelfItem>>
+        get() = MutableStateFlow(emptyList())
+
+    fun togglePinSpeedDial(item: ShelfItem): Boolean = false
 
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>

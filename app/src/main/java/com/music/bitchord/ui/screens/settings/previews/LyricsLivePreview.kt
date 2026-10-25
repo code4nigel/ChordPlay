@@ -74,8 +74,8 @@ fun LyricsLivePreview(
 
     val cardBackground = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF1E212B).copy(alpha = 0.90f),
-            Color(0xFF111318).copy(alpha = 0.95f),
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.90f),
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         ),
     )
 
@@ -85,7 +85,7 @@ fun LyricsLivePreview(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(cardBackground)
-            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
             .padding(18.dp),
     ) {
         Column(
@@ -117,7 +117,7 @@ fun LyricsLivePreview(
                     Text(
                         text = "Starlight Echoes • ChordPlay",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.60f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 

@@ -2154,6 +2154,7 @@ private fun BitChordApp(
         if (playerSong != null && songActions?.videoId == playerSong.videoId) {
             songActions = playerSong
         }
+        AppSettings.activeTrackArtworkUrl.value = playerSong?.thumbnailUrl
     }
 
     // The player's whole parameter list, kept apart from the sheet that
@@ -3774,6 +3775,8 @@ private fun BitChordApp(
                         song = player.song,
                         isPlaying = player.isPlaying,
                         isLoading = playPauseBusy,
+                        playbackPosition = player.position,
+                        durationMs = player.durationMs,
                         onPlayPause = {
                             togglePlayPause()
                         },
@@ -3811,6 +3814,8 @@ private fun BitChordApp(
                             isPlaying = player.isPlaying,
                             isLoading = playPauseBusy,
                             hazeState = hazeState,
+                            playbackPosition = player.position,
+                            durationMs = player.durationMs,
                             onPlayPause = {
                                 togglePlayPause()
                             },
@@ -4372,15 +4377,19 @@ private fun BitChordApp(
                 playlistTarget = null
                 creatingPlaylist = false
             }
+            val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+            val playlistSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
                 onDismissRequest = dismiss,
-                containerColor = MaterialTheme.colorScheme.background,
+                sheetState = playlistSheetState,
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
             ) {
                 PlaylistPickerSheet(
                     playlists = playlists,
                     loading = playlistsLoading,
                     song = target,
                     startCreating = target == null,
+                    pinnedPlaylists = pinnedPlaylists,
                     onCommit = { toAdd, toRemove ->
                         target?.let { song ->
                             viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->

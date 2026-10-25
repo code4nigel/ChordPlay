@@ -9,9 +9,11 @@
 
 package com.music.bitchord.ui.components
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -25,10 +27,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
@@ -41,26 +43,40 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBar
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConnection
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
+import kotlinx.coroutines.launch
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -94,6 +110,8 @@ fun GlassNavBar(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    playbackPosition: PlaybackPosition? = null,
+    durationMs: Long = 0L,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -111,6 +129,7 @@ fun GlassNavBar(
     val selectedColor = contentColor
     val unselectedColor = contentColor.copy(alpha = 0.65f)
     val haptics = rememberHaptics()
+    val view = LocalView.current
 
     // The tab content lambdas below are captured once per contentKey and held
     // until it changes, so a click handler that reached back to this call's
@@ -145,6 +164,8 @@ fun GlassNavBar(
                     isPlaying = isPlaying,
                     isLoading = isLoading,
                     contentColor = contentColor,
+                    playbackPosition = playbackPosition,
+                    durationMs = durationMs,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -165,6 +186,8 @@ fun GlassNavBar(
                     isPlaying = isPlaying,
                     isLoading = isLoading,
                     contentColor = contentColor,
+                    playbackPosition = playbackPosition,
+                    durationMs = durationMs,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -214,7 +237,10 @@ fun GlassNavBar(
             val isSelected = index == selectedIndex
             val tint = if (isSelected) selectedColor else unselectedColor
             val onClick = {
-                if (!isSelected) haptics.play(Haptic.Select)
+                if (!isSelected) {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    haptics.play(Haptic.Select)
+                }
                 currentOnTabSelected(index)
             }
             if (index == standaloneIndex) {
@@ -289,9 +315,21 @@ private fun GlassNowPlaying(
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
+    playbackPosition: PlaybackPosition? = null,
+    durationMs: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val horizontalDragOffset = remember { Animatable(0f) }
+    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val isClassic = designStyle == AppDesignStyle.CLASSIC_BITCHORD
+
+    val pathMeasure = remember { PathMeasure() }
+    val fullBorderPath = remember { Path() }
+    val progressSegmentPath = remember { Path() }
+
     val pressSource = remember { MutableInteractionSource() }
     val isPressed by pressSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -322,21 +360,78 @@ private fun GlassNowPlaying(
             .miniPlayerGestures(
                 pull = pull,
                 onNext = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
                 onPrevious = {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
+                enableSwipeToSkip = !isClassic,
+                onHorizontalDrag = { offset ->
+                    scope.launch { horizontalDragOffset.snapTo(offset) }
+                },
+                onHorizontalDragEnd = {
+                    scope.launch {
+                        horizontalDragOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMediumLow,
+                            ),
+                        )
+                    }
+                },
             )
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
             }
             .then(modifier)
+            .drawWithContent {
+                drawContent()
+                if (!isClassic && durationMs > 0L) {
+                    val currentMs = playbackPosition?.positionMs ?: 0L
+                    val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    if (progress > 0.0005f) {
+                        val strokeInset = 1.dp.toPx()
+                        val h = size.height - 2 * strokeInset
+                        val r = h / 2f
+                        fullBorderPath.reset()
+                        fullBorderPath.addRoundRect(
+                            RoundRect(
+                                left = strokeInset,
+                                top = strokeInset,
+                                right = size.width - strokeInset,
+                                bottom = size.height - strokeInset,
+                                cornerRadius = CornerRadius(r, r),
+                            ),
+                        )
+                        pathMeasure.setPath(fullBorderPath, forceClosed = true)
+                        val totalLen = pathMeasure.length
+                        val segmentLen = progress * totalLen
+
+                        progressSegmentPath.reset()
+                        if (segmentLen > 0f) {
+                            pathMeasure.getSegment(0f, segmentLen, progressSegmentPath, startWithMoveTo = true)
+                            drawPath(
+                                path = progressSegmentPath,
+                                color = contentColor.copy(alpha = 0.35f),
+                                style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                            drawPath(
+                                path = progressSegmentPath,
+                                color = contentColor.copy(alpha = 0.85f),
+                                style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                        }
+                    }
+                }
+            }
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
@@ -357,6 +452,9 @@ private fun GlassNowPlaying(
                 contentDescription = null,
                 modifier = Modifier
                     .size(artSize)
+                    .graphicsLayer {
+                        translationX = horizontalDragOffset.value
+                    }
                     // Whichever of the two densities is on screen is the one
                     // the player flies to: only one is composed at rest.
                     .playerDockArt(dock, if (isInline) 6.dp else 8.dp)
@@ -387,7 +485,13 @@ private fun GlassNowPlaying(
                     modifier = Modifier.weight(1f),
                 )
             } else {
-                Column(Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .graphicsLayer {
+                            translationX = horizontalDragOffset.value * 0.35f
+                        },
+                ) {
                     ExplicitSongTitle(
                         song = song,
                         style = MaterialTheme.typography.titleMedium,
@@ -413,6 +517,7 @@ private fun GlassNowPlaying(
             } else {
                 IconButton(
                     onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         haptics.play(if (isPlaying) Haptic.Pause else Haptic.Resume)
                         onPlayPause()
                     },
@@ -433,6 +538,7 @@ private fun GlassNowPlaying(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         haptics.play(Haptic.SkipNext)
                         onNext()
                     },

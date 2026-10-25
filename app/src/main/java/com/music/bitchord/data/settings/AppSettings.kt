@@ -14,6 +14,9 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.data.model.ShelfItem
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -93,6 +96,60 @@ enum class DownloadQuality(
         "~35 MB",
         true,
     ),
+}
+
+/**
+ * Visual design system identity:
+ * - [CHORDPLAY]: Modern elevated atmospheric aesthetic, glowing glass, vibrant palettes, and tactile controls.
+ * - [CLASSIC_BITCHORD]: 100% faithful backward compatibility to original monochrome dark Apple Music aesthetic.
+ */
+// AppDesignStyle is defined in PlayerEnums.kt (shared module) for multiplatform access.
+
+/**
+ * Curated atmospheric colorways for the ChordPlay Modern design system.
+ */
+enum class ChordPlayPalette(
+    val label: String,
+    val detail: String,
+    val primaryColorHex: Long,
+    val secondaryColorHex: Long,
+) {
+    CHORDPLAY_CRIMSON(
+        label = "ChordPlay Crimson",
+        detail = "Iconic ruby crimson, neon rose and velvety obsidian",
+        primaryColorHex = 0xFFFD3F69,
+        secondaryColorHex = 0xFFFF5277,
+    ),
+    ELECTRIC_VIOLET(
+        label = "Electric Violet",
+        detail = "Deep obsidian night, luminous violet and neon cyan touch",
+        primaryColorHex = 0xFF7C4DFF,
+        secondaryColorHex = 0xFF00D2D3,
+    ),
+    SUNSET_AMBER(
+        label = "Sunset Amber",
+        detail = "Warm roasted chocolate and molten honey amber",
+        primaryColorHex = 0xFFFF9F43,
+        secondaryColorHex = 0xFFFF5252,
+    ),
+    EMERALD_NOIR(
+        label = "Emerald Noir",
+        detail = "Midnight forest and vibrant emerald neon",
+        primaryColorHex = 0xFF00E676,
+        secondaryColorHex = 0xFF00B0FF,
+    ),
+    DYNAMIC_ARTWORK(
+        label = "Dynamic Song Art",
+        detail = "Real-time dynamic theme adapting colors from active cover art",
+        primaryColorHex = 0xFFFF4081,
+        secondaryColorHex = 0xFF7C4DFF,
+    ),
+    DYNAMIC_MONET(
+        label = "System Wallpaper (Material You)",
+        detail = "Material 3 dynamic system theme and adaptive colors",
+        primaryColorHex = 0xFF8190CD,
+        secondaryColorHex = 0xFF625B71,
+    );
 }
 
 enum class ThemeMode(val label: String) {
@@ -340,6 +397,14 @@ object AppSettings {
 
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
+    val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
+    val colorPalette = MutableStateFlow(ChordPlayPalette.CHORDPLAY_CRIMSON)
+
+    /** Currently playing track artwork URL for dynamic artwork theming. */
+    val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
+
+    /** Pinned items in the Home Speed Dial grid. */
+    val pinnedSpeedDialItems = MutableStateFlow<List<ShelfItem>>(emptyList())
 
     /** Keep playing similar music once the queue runs out. */
     val autoplay = MutableStateFlow(true)
@@ -472,6 +537,14 @@ object AppSettings {
      */
     val legacyMeshGradient = MutableStateFlow(false)
 
+
+
+    /** Player screen layout: Modern Ambient with breathing aura vs Classic Clean. */
+    val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+
+    /** Breathing artwork aura animation behind the cover during playback. */
+    val enableBreathingAura = MutableStateFlow(true)
+
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
 
@@ -547,6 +620,8 @@ object AppSettings {
     val downloadedMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val localMusicViewType = MutableStateFlow(LibraryViewType.LIST)
     val downloadedMusicViewType = MutableStateFlow(LibraryViewType.LIST)
+
+
     /** Layout used by the Recents shelf on Play; compact tracks are the default. */
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
@@ -828,6 +903,10 @@ object AppSettings {
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
         }.getOrDefault(ThemeMode.DARK)
+
+        colorPalette.value = runCatching {
+            ChordPlayPalette.valueOf(prefs.getString(KEY_COLOR_PALETTE, null) ?: ChordPlayPalette.CHORDPLAY_CRIMSON.name)
+        }.getOrDefault(ChordPlayPalette.CHORDPLAY_CRIMSON)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
@@ -860,6 +939,11 @@ object AppSettings {
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
+
+        playerLayoutMode.value = runCatching {
+            PlayerLayoutMode.valueOf(prefs.getString(KEY_PLAYER_LAYOUT_MODE, null) ?: PlayerLayoutMode.MODERN_AMBIENT.name)
+        }.getOrDefault(PlayerLayoutMode.MODERN_AMBIENT)
+        enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
                 prefs.getString(KEY_LAST_PLAYER_SCREEN, null) ?: LastPlayerScreen.MAIN.name,
@@ -899,6 +983,9 @@ object AppSettings {
         downloadedMusicSort.value = readLocalMusicSort(KEY_DOWNLOADED_MUSIC_SORT)
         localMusicViewType.value = readLibraryViewType(KEY_LOCAL_MUSIC_VIEW_TYPE)
         downloadedMusicViewType.value = readLibraryViewType(KEY_DOWNLOADED_MUSIC_VIEW_TYPE)
+        appDesignStyle.value = prefs.getString(KEY_APP_DESIGN_STYLE, null)
+            ?.let { saved -> runCatching { AppDesignStyle.valueOf(saved) }.getOrNull() }
+            ?: AppDesignStyle.CHORDPLAY
         homeRecentsViewType.value = readLibraryViewType(KEY_HOME_RECENTS_VIEW_TYPE)
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
@@ -926,6 +1013,7 @@ object AppSettings {
             webdavPassword.value,
         )
         pinnedPlaylists.value = readPinnedPlaylists()
+        pinnedSpeedDialItems.value = readPinnedSpeedDial()
         chordplayPlaylistIds.value = prefs.getStringSet(KEY_CHORDPLAY_PLAYLIST_IDS, emptySet())?.toSet().orEmpty()
         discordToken.value = authStore.discordToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
@@ -1189,6 +1277,20 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_NERD_STATS, value).apply()
     }
 
+
+
+    fun setAppDesignStyle(value: AppDesignStyle) {
+        appDesignStyle.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_APP_DESIGN_STYLE, value.name).apply()
+        }
+    }
+
+    fun setColorPalette(value: ChordPlayPalette) {
+        colorPalette.value = value
+        prefs.edit().putString(KEY_COLOR_PALETTE, value.name).apply()
+    }
+
     fun setThemeMode(value: ThemeMode) {
         themeMode.value = value
         prefs.edit().putString(KEY_THEME, value.name).apply()
@@ -1419,6 +1521,22 @@ object AppSettings {
     fun setLegacyMeshGradient(value: Boolean) {
         legacyMeshGradient.value = value
         prefs.edit().putBoolean(KEY_LEGACY_MESH_GRADIENT, value).apply()
+    }
+
+
+
+    fun setPlayerLayoutMode(value: PlayerLayoutMode) {
+        playerLayoutMode.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_PLAYER_LAYOUT_MODE, value.name).apply()
+        }
+    }
+
+    fun setEnableBreathingAura(value: Boolean) {
+        enableBreathingAura.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_ENABLE_BREATHING_AURA, value).apply()
+        }
     }
 
     fun setLastPlayerScreen(value: LastPlayerScreen) {
@@ -1677,6 +1795,8 @@ object AppSettings {
         prefs.edit().putString(KEY_DOWNLOADED_MUSIC_VIEW_TYPE, value.name).apply()
     }
 
+
+
     fun setHomeRecentsViewType(value: LibraryViewType) {
         homeRecentsViewType.value = value
         prefs.edit().putString(KEY_HOME_RECENTS_VIEW_TYPE, value.name).apply()
@@ -1805,6 +1925,85 @@ object AppSettings {
         pinnedPlaylists.value = updated
         prefs.edit().putString(KEY_PINNED_PLAYLISTS, updated.joinToString(",")).apply()
         return browseId in updated
+    }
+
+    /** Checks whether an item ID is pinned in Speed Dial. */
+    fun isSpeedDialPinned(id: String?): Boolean {
+        if (id.isNullOrBlank()) return false
+        val clean = id.removePrefix("VL")
+        return pinnedSpeedDialItems.value.any {
+            val itBrowseId = it.browseId
+            it.videoId == id || itBrowseId == id ||
+            (itBrowseId != null && itBrowseId.removePrefix("VL") == clean)
+        }
+    }
+
+    /** Checks whether a shelf item is pinned in Speed Dial. */
+    fun isSpeedDialPinned(item: ShelfItem): Boolean {
+        val current = pinnedSpeedDialItems.value
+        val itemVideoId = item.videoId
+        val itemBrowseId = item.browseId
+        return current.any {
+            val itBrowseId = it.browseId
+            (itemVideoId != null && it.videoId == itemVideoId) ||
+            (itemBrowseId != null && itBrowseId != null && (itBrowseId == itemBrowseId || itBrowseId.removePrefix("VL") == itemBrowseId.removePrefix("VL"))) ||
+            (item.title.isNotBlank() && it.title == item.title && it.subtitle == item.subtitle)
+        }
+    }
+
+    /** Toggles the pinned status of an item in Home Speed Dial. Returns true if newly pinned, false if unpinned. */
+    fun togglePinSpeedDial(item: ShelfItem): Boolean {
+        val current = pinnedSpeedDialItems.value
+        val itemVideoId = item.videoId
+        val itemBrowseId = item.browseId
+        val matchIndex = current.indexOfFirst {
+            val itBrowseId = it.browseId
+            (itemVideoId != null && it.videoId == itemVideoId) ||
+            (itemBrowseId != null && itBrowseId != null && (itBrowseId == itemBrowseId || itBrowseId.removePrefix("VL") == itemBrowseId.removePrefix("VL"))) ||
+            (item.title.isNotBlank() && it.title == item.title && it.subtitle == item.subtitle)
+        }
+        val updated = if (matchIndex >= 0) {
+            current.toMutableList().apply { removeAt(matchIndex) }
+        } else {
+            current + item
+        }
+        pinnedSpeedDialItems.value = updated
+        if (this::prefs.isInitialized) {
+            savePinnedSpeedDial(updated)
+        }
+        return matchIndex < 0
+    }
+
+    private fun savePinnedSpeedDial(items: List<ShelfItem>) {
+        val array = JSONArray()
+        items.forEach { item ->
+            val obj = JSONObject().apply {
+                put("title", item.title)
+                put("subtitle", item.subtitle)
+                put("thumbnailUrl", item.thumbnailUrl ?: "")
+                put("videoId", item.videoId ?: "")
+                put("browseId", item.browseId ?: "")
+            }
+            array.put(obj)
+        }
+        prefs.edit().putString(KEY_PINNED_SPEED_DIAL, array.toString()).apply()
+    }
+
+    private fun readPinnedSpeedDial(): List<ShelfItem> {
+        val raw = prefs.getString(KEY_PINNED_SPEED_DIAL, null) ?: return emptyList()
+        return runCatching {
+            val array = JSONArray(raw)
+            (0 until array.length()).map { idx ->
+                val obj = array.getJSONObject(idx)
+                ShelfItem(
+                    title = obj.optString("title"),
+                    subtitle = obj.optString("subtitle"),
+                    thumbnailUrl = obj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
+                    videoId = obj.optString("videoId").takeIf { it.isNotBlank() },
+                    browseId = obj.optString("browseId").takeIf { it.isNotBlank() },
+                )
+            }
+        }.getOrDefault(emptyList())
     }
 
     private fun readDetailSongSorts(): Map<String, SongSort> =
@@ -1959,6 +2158,8 @@ object AppSettings {
     private const val KEY_EQ_BALANCE = "equalizer_balance"
     private const val KEY_EQ_BANDS = "equalizer_bands"
     private const val KEY_SPEED = "playback_speed"
+    private const val KEY_APP_DESIGN_STYLE = "app_design_style"
+    private const val KEY_COLOR_PALETTE = "color_palette"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
@@ -1986,6 +2187,8 @@ object AppSettings {
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
+    private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
+    private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"
@@ -2011,6 +2214,7 @@ object AppSettings {
     private const val KEY_SMB_BASE_PATH = "smb_base_path"
     private const val KEY_SMB_USERNAME = "smb_username"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
+    private const val KEY_PINNED_SPEED_DIAL = "pinned_speed_dial"
     private const val KEY_CHORDPLAY_PLAYLIST_IDS = "chordplay_playlist_ids"
 
     private const val KEY_LASTFM_ENABLED = "lastfm_enabled"

@@ -1,5 +1,8 @@
 package com.music.bitchord.ui.components
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.ui.platform.LocalView
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateFloatAsState
@@ -169,6 +172,7 @@ fun FloatingBottomBar(
 
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val haptics = rememberHaptics()
+    val view = LocalView.current
     val density = LocalDensity.current
     val currentSelectedIndex by rememberUpdatedState(selectedIndex)
 
@@ -293,6 +297,7 @@ fun FloatingBottomBar(
                                     .coerceIn(0f, tabs.lastIndex.toFloat())
                                     .roundToInt()
                             if (approxTab != lastHapticTab) {
+                                view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                 haptics.play(Haptic.Tick)
                                 lastHapticTab = approxTab
                             }
@@ -343,6 +348,7 @@ private fun BottomBarItem(
         label = "tabScale",
     )
     val haptics = rememberHaptics()
+    val view = LocalView.current
     val tint by animateColorAsState(
         targetValue = if (selected) {
             selectedTint ?: MaterialTheme.colorScheme.primary
@@ -361,7 +367,10 @@ private fun BottomBarItem(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
             ) {
-                if (!selected) haptics.play(Haptic.Select)
+                if (!selected) {
+                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    haptics.play(Haptic.Select)
+                }
                 onClick()
             }
             .padding(vertical = TAB_VERTICAL_PADDING),

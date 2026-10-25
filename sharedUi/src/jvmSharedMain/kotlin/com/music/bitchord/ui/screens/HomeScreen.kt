@@ -39,6 +39,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.sp
+import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.ui.components.HomeMood
+import com.music.bitchord.ui.components.HomeSpeedDial
+import com.music.bitchord.ui.components.MoodFilterChips
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -140,6 +157,25 @@ fun HomeScreen(
     isPlaying: Boolean = false,
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
+    val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
+    var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
+
+    val pinnedSpeedDial by AppUi.host.pinnedSpeedDial.collectAsStateWithLifecycle()
+    val pinnedIds = remember(pinnedSpeedDial) {
+        (pinnedSpeedDial.mapNotNull { it.videoId } + pinnedSpeedDial.mapNotNull { it.browseId }).toSet()
+    }
+
+    val speedDialItems = remember(state, designStyle, selectedMood, pinnedSpeedDial) {
+        if (designStyle == AppDesignStyle.CHORDPLAY && selectedMood == HomeMood.ALL && state is UiState.Success) {
+            val recents = state.data.firstOrNull { it.title.equals(RECENTS_TITLE, ignoreCase = true) }?.items.orEmpty()
+            val otherItems = state.data
+                .filterNot { it.title.equals(RECENTS_TITLE, ignoreCase = true) }
+                .flatMap { it.items }
+            (pinnedSpeedDial + recents + otherItems).distinctBy { it.videoId ?: it.browseId ?: it.title }
+        } else {
+            emptyList()
+        }
+    }
 
     PullToRefresh(
         refreshing = refreshing,
@@ -162,7 +198,22 @@ fun HomeScreen(
             },
         ) {
             if (title != null) {
-                item { HomeTitle(title) }
+                if (designStyle == AppDesignStyle.CHORDPLAY) {
+                    item(key = "chordplay_header") {
+                        ChordPlayHomeHeader()
+                    }
+                } else {
+                    item(key = "home_title") { HomeTitle(title) }
+                }
+            }
+            if (designStyle == AppDesignStyle.CHORDPLAY) {
+                item(key = "mood_chips") {
+                    MoodFilterChips(
+                        selectedMood = selectedMood,
+                        onMoodSelect = { selectedMood = it },
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                }
             }
             if (!signedIn && onSignIn != null) {
                 item {
@@ -191,13 +242,38 @@ fun HomeScreen(
                     // The loading skeleton already owns the hero slot. Until
                     // Recently Played lands, every real shelf must retain its
                     // compact-card layout instead of briefly becoming a hero.
+                    // Speed Dial Grid (ChordPlay Modern only)
+                    if (speedDialItems.isNotEmpty()) {
+                        item(key = "home_speed_dial") {
+                            HomeSpeedDial(
+                                items = speedDialItems,
+                                pinnedIds = pinnedIds,
+                                currentSong = currentSong,
+                                isPlaying = isPlaying,
+                                onItemClick = { item -> onItemClick(item, "Speed Dial") },
+                                onLuckyDialClick = {
+                                    val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
+                                        ?: speedDialItems.shuffled().firstOrNull())
+                                    if (candidate != null) {
+                                        onItemClick(candidate, "Lucky Radio")
+                                    }
+                                },
+                                onItemLongPress = onItemLongPress,
+                                modifier = Modifier.padding(bottom = 6.dp),
+                            )
+                        }
+                    }
+
                     itemsIndexedShelves(
-                        shelves = state.data,
+                        shelves = run {
+                            val display = if (designStyle == AppDesignStyle.CHORDPLAY) selectedMood.filterShelves(state.data) else state.data
+                            display
+                        },
                         onItemClick = onItemClick,
                         onItemLongPress = onItemLongPress,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
-                        firstIsHero = leadHero && !recentlyPlayedLoading,
+                        firstIsHero = leadHero && !recentlyPlayedLoading && designStyle == AppDesignStyle.CLASSIC_BITCHORD,
                         recentsViewType = recentsViewType,
                         onRecentsViewTypeToggle = {
                             AppUi.host.setHomeRecentsViewType(
@@ -491,6 +567,104 @@ fun CompactTrackRow(
  * font size rather than a fixed dp, so the two keep their proportion under the
  * system font scale.
  */
+/**
+ * Dynamic witty musical greeting based on device local time (Option B):
+ * - 05:00 - 11:59: "Ears first, questions later."
+ * - 12:00 - 16:59: "Back in the mix, $userName." / "Back in the groove."
+ * - 17:00 - 21:59: "Your soundtrack awaits."
+ * - 22:00 - 04:59: "Turn it up."
+ */
+internal fun getMusicalGreeting(userName: String? = null): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when (hour) {
+        in 5..11 -> "Ears first, questions later."
+        in 12..16 -> if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the groove."
+        in 17..21 -> "Your soundtrack awaits."
+        else -> "Turn it up."
+    }
+}
+
+/**
+ * Dynamic witty musical greetings:
+ * 1. "Back in the mix, $userName." / "Back in the mix."
+ * 2. "Ears first, questions later."
+ * 3. "Your soundtrack awaits."
+ * 4. "Turn it up."
+ */
+private fun getGreetingList(userName: String? = null): List<String> = listOf(
+    if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the mix.",
+    "Ears first, questions later.",
+    "Your soundtrack awaits.",
+    "Turn it up.",
+)
+
+/**
+ * ChordPlay Living Home Screen dynamic greeting header with cycling greetings.
+ */
+@Composable
+private fun ChordPlayHomeHeader(
+    userName: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    val titleStyle = MaterialTheme.typography.headlineMedium
+    val logoHeight = with(LocalDensity.current) { (MaterialTheme.typography.titleLarge.fontSize * LOGO_TO_FONT).toDp() }
+    val greetings = remember(userName) { getGreetingList(userName) }
+    var greetingIndex by remember { mutableIntStateOf((0 until greetings.size).random()) }
+
+    // Rotate randomly every 7 seconds via LaunchedEffect
+    LaunchedEffect(greetings) {
+        while (true) {
+            delay(7000L)
+            greetingIndex = (greetingIndex + 1) % greetings.size
+        }
+    }
+
+    Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 6.dp),
+        ) {
+            Icon(
+                painter = painterResource(Res.drawable.ic_logo),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .height(logoHeight)
+                    .aspectRatio(LOGO_ASPECT),
+            )
+            Text(
+                text = "ChordPlay",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+            )
+        }
+        Box(
+            modifier = Modifier.clickable {
+                greetingIndex = (greetingIndex + 1) % greetings.size
+            }
+        ) {
+            AnimatedContent(
+                targetState = greetings[greetingIndex % greetings.size],
+                transitionSpec = {
+                    (slideInVertically(animationSpec = tween(350)) { height -> height / 2 } + fadeIn(animationSpec = tween(350)))
+                        .togetherWith(slideOutVertically(animationSpec = tween(250)) { height -> -height / 2 } + fadeOut(animationSpec = tween(250)))
+                },
+                label = "HomeGreetingRotation",
+            ) { greeting ->
+                Text(
+                    text = greeting,
+                    style = titleStyle,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun HomeTitle(title: String, modifier: Modifier = Modifier) {
     val style = MaterialTheme.typography.displayLarge
@@ -786,8 +960,20 @@ private fun HeroCard(
     Box(
         modifier = modifier
             .aspectRatio(HERO_CARD_RATIO)
-            .clip(RoundedCornerShape(18.dp))
-            .thumbnailBorder(RoundedCornerShape(18.dp))
+            .then(
+                if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
+                    Modifier.shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        ambientColor = Color.Black.copy(alpha = 0.35f),
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 18.dp))
+            .thumbnailBorder(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 18.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress),
@@ -890,7 +1076,7 @@ internal fun NewShelfCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
@@ -942,7 +1128,7 @@ private fun ServiceCard(colors: List<Color>, trackKey: String, icon: ImageVector
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(12.dp)),
+            .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)),
         contentAlignment = Alignment.Center,
     ) {
         MeshGradientBackground(
@@ -984,7 +1170,7 @@ internal fun ShelfCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     MeshGradientBackground(
@@ -1026,8 +1212,20 @@ internal fun ShelfCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .thumbnailBorder(RoundedCornerShape(12.dp))
+                        .then(
+                            if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
+                                Modifier.shadow(
+                                    elevation = 6.dp,
+                                    shape = RoundedCornerShape(20.dp),
+                                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    ambientColor = Color.Black.copy(alpha = 0.3f),
+                                )
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
+                        .thumbnailBorder(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 ) {
                     AsyncImage(

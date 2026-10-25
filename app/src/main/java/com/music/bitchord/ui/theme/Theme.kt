@@ -8,6 +8,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -16,7 +17,11 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.ChordPlayPalette
 
 // Apple Music's signature red. No longer the primary accent, but kept for the
 // spots (Replay's rank badge) that want that specific red regardless of theme.
@@ -60,7 +65,7 @@ val SFProDisplay = FontFamily(
 )
 
 // Heavy, tight typography — the backbone of the Apple Music look.
-private val BitChordTypography = Typography(
+val BitChordTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
     headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
     headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
@@ -73,7 +78,7 @@ private val BitChordTypography = Typography(
 ).withFamily(SFProDisplay)
 
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
-private fun Typography.withFamily(family: FontFamily) = Typography(
+internal fun Typography.withFamily(family: FontFamily) = Typography(
     displayLarge = displayLarge.copy(fontFamily = family),
     displayMedium = displayMedium.copy(fontFamily = family),
     displaySmall = displaySmall.copy(fontFamily = family),
@@ -91,8 +96,12 @@ private fun Typography.withFamily(family: FontFamily) = Typography(
     labelSmall = labelSmall.copy(fontFamily = family),
 )
 
+/**
+ * Original Classic BitChord theme.
+ * Monochrome surfaces, pure black background, and tight typography.
+ */
 @Composable
-fun BitChordTheme(
+fun BitChordClassicTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
@@ -102,6 +111,35 @@ fun BitChordTheme(
         content = content,
     )
 }
+
+/**
+ * Global Theme Wrapper.
+ * Dispatches to [BitChordClassicTheme] when [AppDesignStyle.CLASSIC_BITCHORD] is selected,
+ * or [ChordPlayTheme] with the curated [ChordPlayPalette] when [AppDesignStyle.CHORDPLAY] is selected.
+ */
+@Composable
+fun BitChordTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val palette by AppSettings.colorPalette.collectAsStateWithLifecycle()
+
+    if (designStyle == AppDesignStyle.CLASSIC_BITCHORD) {
+        BitChordClassicTheme(darkTheme = darkTheme, content = content)
+    } else {
+        ChordPlayTheme(darkTheme = darkTheme, palette = palette, content = content)
+    }
+}
+
+/**
+ * Direct reference to the ChordPlay theme engine wrapper.
+ */
+@Composable
+fun ChordPlayAppTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) = BitChordTheme(darkTheme = darkTheme, content = content)
 
 /**
  * Draws the status and navigation bar glyphs dark or light.
@@ -125,4 +163,3 @@ fun SystemBarIcons(dark: Boolean) {
         }
     }
 }
-

@@ -40,12 +40,14 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
+import com.music.bitchord.data.settings.AppSettings
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -216,6 +218,11 @@ fun SongActionsSheet(
     // rate, save, queue into a playlist, fetch again, or share a link for.
     val isOffline = song.localUri != null
 
+    val pinnedSpeedDial by AppSettings.pinnedSpeedDialItems.collectAsStateWithLifecycle()
+    val isSpeedDialPinned = remember(pinnedSpeedDial, song.videoId) {
+        AppSettings.isSpeedDialPinned(song.videoId)
+    }
+
     val rows: @Composable ColumnScope.() -> Unit = {
         // Leads the list whenever it's available: which recording is playing
         // is the one question that has to be answered before any of the rows
@@ -282,6 +289,22 @@ fun SongActionsSheet(
                 label = stringResource(R.string.add_to_playlist),
                 accent = palette.accent,
                 onClick = onAddToPlaylist,
+            )
+            ActionRow(
+                icon = Icons.Rounded.PushPin,
+                label = if (isSpeedDialPinned) "Unpin from Speed Dial" else "Pin to Speed Dial",
+                accent = palette.accent,
+                onClick = {
+                    AppSettings.togglePinSpeedDial(
+                        com.music.bitchord.data.model.ShelfItem(
+                            title = song.title,
+                            subtitle = song.artist,
+                            thumbnailUrl = song.thumbnailUrl,
+                            videoId = song.videoId,
+                            browseId = null,
+                        )
+                    )
+                },
             )
             onRemoveFromPlaylist?.let {
                 ActionRow(

@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import com.music.bitchord.ui.screens.*
@@ -49,6 +50,8 @@ fun PlayerSection(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
+    val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
+    val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
@@ -73,6 +76,38 @@ fun PlayerSection(
 
         // Pinned Live Preview
         PlayerLivePreview()
+
+        // Player Layout & Experience Group
+        SettingsGroup(header = "Player Experience") {
+            SettingsRow(
+                icon = Icons.Rounded.GraphicEq,
+                title = "Player Layout",
+                subtitle = playerLayoutMode.detail,
+            )
+            SegmentedControl(
+                options = PlayerLayoutMode.entries.map { it.label },
+                selectedIndex = PlayerLayoutMode.entries.indexOf(playerLayoutMode),
+                onSelect = { AppSettings.setPlayerLayoutMode(PlayerLayoutMode.entries[it]) },
+                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+            )
+
+            SettingsRow(
+                icon = Icons.Rounded.Animation,
+                title = "Breathing Artwork Aura",
+                subtitle = "Subtle ambient artwork glow pulsing with audio playback",
+                trailing = {
+                    Switch(
+                        checked = enableBreathingAura,
+                        onCheckedChange = AppSettings::setEnableBreathingAura,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setEnableBreathingAura(!enableBreathingAura) },
+            )
+        }
 
         // Artwork & Video Visuals Group
         SettingsGroup(header = "Artwork & Visuals") {

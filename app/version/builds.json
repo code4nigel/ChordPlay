@@ -1,29 +1,29 @@
 {
-  "versionCode": 28,
-  "versionName": "1.8.2",
+  "versionCode": 31,
+  "versionName": "1.8.5",
   "variant": "devDebug",
-  "timestamp": "2026-10-24 22:33:11",
+  "timestamp": "2026-10-25 14:20:05",
   "files": [
     {
-      "fileName": "chordplay-v1.8.2-build28-devDebug-arm64.apk",
+      "fileName": "chordplay-v1.8.5-build31-devDebug-arm64.apk",
       "architecture": "arm64-v8a",
-      "sizeBytes": 91742401,
-      "sizeMB": 87.49,
-      "sha256": "46D419C423BF55AC1F19FC7F95776982FA8F02396E49735878CA624F00E84F17"
+      "sizeBytes": 89993063,
+      "sizeMB": 85.82,
+      "sha256": "077D805ECDE23A3D9FE267612F3B720533E8E3F8E68C4EF9D73867536C561191"
     },
     {
-      "fileName": "chordplay-v1.8.2-build28-devDebug-universal.apk",
+      "fileName": "chordplay-v1.8.5-build31-devDebug-universal.apk",
       "architecture": "universal",
-      "sizeBytes": 189483616,
-      "sizeMB": 180.70,
-      "sha256": "57425BD413FA26970CF4F9AE61DA6BDB867FE03513233EEDAE0708FE5985049D"
+      "sizeBytes": 187734278,
+      "sizeMB": 179.04,
+      "sha256": "DBCFF82254893B74EBC4D9C9F51AA589B341619E6151DAE07CDA0EE976F74C17"
     },
     {
-      "fileName": "chordplay-v1.8.2-build28-devDebug.apk",
+      "fileName": "chordplay-v1.8.5-build31-devDebug.apk",
       "architecture": "universal (alias)",
-      "sizeBytes": 189483616,
-      "sizeMB": 180.70,
-      "sha256": "57425BD413FA26970CF4F9AE61DA6BDB867FE03513233EEDAE0708FE5985049D"
+      "sizeBytes": 187734278,
+      "sizeMB": 179.04,
+      "sha256": "DBCFF82254893B74EBC4D9C9F51AA589B341619E6151DAE07CDA0EE976F74C17"
     }
   ]
 }

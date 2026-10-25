@@ -20,8 +20,10 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SwapVert
+import com.music.bitchord.data.settings.AppSettings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -190,6 +192,11 @@ fun BrowseActionsSheet(
     var confirmingDelete by remember { mutableStateOf(false) }
     var confirmingDeleteDownload by remember { mutableStateOf(false) }
 
+    val pinnedSpeedDial by AppSettings.pinnedSpeedDialItems.collectAsStateWithLifecycle()
+    val isSpeedDialPinned = remember(pinnedSpeedDial, target.browseId) {
+        target.browseId?.let { AppSettings.isSpeedDialPinned(it) } ?: false
+    }
+
     val playlist = target.playlist
     if (renaming && playlist != null && onRename != null) {
         RenamePlaylistForm(
@@ -223,6 +230,21 @@ fun BrowseActionsSheet(
                 Icons.AutoMirrored.Rounded.QueueMusic,
                 stringResource(R.string.add_to_queue),
                 onClick = onAddToQueue,
+            )
+            ActionRow(
+                icon = Icons.Rounded.PushPin,
+                label = if (isSpeedDialPinned) "Unpin from Speed Dial" else "Pin to Speed Dial",
+                onClick = {
+                    AppSettings.togglePinSpeedDial(
+                        com.music.bitchord.data.model.ShelfItem(
+                            title = target.title,
+                            subtitle = target.subtitle,
+                            thumbnailUrl = target.thumbnailUrl,
+                            videoId = null,
+                            browseId = target.browseId,
+                        )
+                    )
+                },
             )
             onDownloadAll?.let { download ->
                 // Saying which of the three it is, rather than offering the same row
