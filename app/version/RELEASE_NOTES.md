@@ -84,7 +84,3 @@ Welcome to ChordPlay v1.8.2! This release introduces a comprehensive modular set
 ### Download Assets:
 - `chordplay-v1.8.2-build28-devDebug-universal.apk`: Universal APK compatible with all Android devices (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
 - `chordplay-v1.8.2-build28-devDebug-arm64.apk`: Lightweight, optimized build for modern 64-bit ARM smartphones.
-
----
-### Credits & Upstream Attribution
-ChordPlay is built on the pioneering open-source work of [BitChord](https://github.com/kushagrasinghx/BitChord) by Kushagra Singh (@kushagrasinghx), licensed under GNU GPLv3. Special thanks to Prism and Metrolist for UI and ergonomics inspiration.
