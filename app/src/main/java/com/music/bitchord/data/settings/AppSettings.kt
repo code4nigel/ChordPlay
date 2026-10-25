@@ -625,6 +625,7 @@ object AppSettings {
     /** Layout used by the Recents shelf on Play; compact tracks are the default. */
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
+    val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
 
     /**
      * Each album/playlist page's track-list order, keyed by browse id —
@@ -990,6 +991,9 @@ object AppSettings {
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
             ?: LibrarySort.DEFAULT
+        libraryViewMode.value = prefs.getString(KEY_LIBRARY_VIEW_MODE, null)
+            ?.let { saved -> LibraryViewMode.entries.firstOrNull { it.name == saved } }
+            ?: LibraryViewMode.GRID
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
@@ -1777,6 +1781,11 @@ object AppSettings {
         prefs.edit().putString(KEY_LIBRARY_SORT, value.name).apply()
     }
 
+    fun setLibraryViewMode(value: LibraryViewMode) {
+        libraryViewMode.value = value
+        prefs.edit().putString(KEY_LIBRARY_VIEW_MODE, value.name).apply()
+    }
+
     fun setDetailSongSort(browseId: String, value: SongSort) {
         detailSongSorts.value = detailSongSorts.value + (browseId to value)
         prefs.edit().putString(
@@ -2202,6 +2211,7 @@ object AppSettings {
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"
     private const val KEY_LIBRARY_SORT = "library_sort"
+    private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
     private const val KEY_DETAIL_SONG_SORTS = "detail_song_sorts"
     private const val KEY_LOCAL_MUSIC_VIEW_TYPE = "local_music_view_type"
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"

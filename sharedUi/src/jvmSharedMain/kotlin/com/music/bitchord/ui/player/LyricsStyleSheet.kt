@@ -29,13 +29,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.FormatAlignLeft
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatAlignCenter
-import androidx.compose.material.icons.rounded.FormatAlignLeft
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,12 +53,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -102,6 +109,45 @@ internal fun LyricsStyleSheet(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+
+    val dismissOnRelease: () -> Unit = {
+        if (height > 0 && drag > height * DismissDragFraction) onDismiss() else drag = 0f
+    }
+
+    val drawerScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (drag <= 0f || available.y >= 0f) return Offset.Zero
+                val used = available.y.coerceAtLeast(-drag)
+                drag += used
+                return Offset(0f, used)
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 0f) {
+                    drag += available.y
+                }
+                if (drag > 0f && available.y < 0f) {
+                    val used = available.y.coerceAtLeast(-drag)
+                    drag += used
+                    return Offset(0f, used)
+                }
+                return available
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (drag <= 0f) return Velocity.Zero
+                dismissOnRelease()
+                return available
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                dismissOnRelease()
+                return available
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -127,16 +173,21 @@ internal fun LyricsStyleSheet(
                     .onSizeChanged { height = it.height }
                     .offset { IntOffset(0, drawerOffset.roundToInt()) }
                     .clip(DrawerShape)
+                    .border(
+                        width = 1.dp,
+                        color = Color.White.copy(alpha = 0.08f),
+                        shape = DrawerShape,
+                    )
                     .then(
                         if (reduceDynamicBlur) {
-                            Modifier.background(Color(0xFF121212))
+                            Modifier.background(Color(0xFF141416))
                         } else {
                             Modifier
                                 .optimizedHazeEffect(
                                     state = hazeState,
-                                    style = HazeMaterials.regular(Color(0xFF141414)),
+                                    style = HazeMaterials.regular(Color(0xFF141416)),
                                 )
-                                .background(Color(0xFF121212).copy(alpha = 0.92f))
+                                .background(Color(0xFF141416).copy(alpha = 0.74f))
                         },
                     )
                     .clickable(
@@ -144,31 +195,35 @@ internal fun LyricsStyleSheet(
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = {},
                     )
-                    .pointerInput(height) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                if (height > 0 && drag > height * DismissDragFraction) {
-                                    onDismiss()
-                                } else {
-                                    drag = 0f
-                                }
-                            },
-                            onDragCancel = { drag = 0f },
-                        ) { _, delta -> drag = (drag + delta).coerceAtLeast(0f) }
-                    }
+                    .nestedScroll(drawerScroll)
                     .navigationBarsPadding()
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 18.dp)
                     .padding(top = 10.dp, bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // Top drag handle
                 Box(
-                    Modifier
-                        .padding(bottom = 14.dp)
-                        .size(width = 36.dp, height = 4.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f)),
-                )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(height) {
+                            detectVerticalDragGestures(
+                                onDragEnd = dismissOnRelease,
+                                onDragCancel = { drag = 0f },
+                            ) { _, delta ->
+                                drag = (drag + delta).coerceAtLeast(0f)
+                            }
+                        }
+                        .padding(bottom = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                    )
+                }
 
                 // Header
                 Row(
@@ -223,6 +278,11 @@ internal fun LyricsStyleSheet(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(Color.White.copy(alpha = 0.06f))
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.10f),
+                            shape = RoundedCornerShape(16.dp),
+                        )
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -246,7 +306,7 @@ internal fun LyricsStyleSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    LyricsFontChoice.values().filter { it != LyricsFontChoice.CUSTOM }.forEach { font ->
+                    LyricsFontChoice.entries.filter { it != LyricsFontChoice.CUSTOM }.forEach { font ->
                         val selected = customStyle.fontChoice == font
                         val chipFamily = rememberLyricsFontFamily(customStyle.copy(fontChoice = font))
                         StyleChip(
@@ -268,9 +328,14 @@ internal fun LyricsStyleSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(
-                            if (isCustomActive) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f)
+                            if (isCustomActive) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.06f),
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.10f),
+                            shape = RoundedCornerShape(16.dp),
                         )
                         .clickable {
                             if (customStyle.customFontPath != null) {
@@ -336,11 +401,11 @@ internal fun LyricsStyleSheet(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color.White.copy(alpha = 0.14f))
-                            .clickable {
-                                haptics.play(Haptic.Tap)
-                                fontPicker()
-                            }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                .clickable {
+                                    haptics.play(Haptic.Tap)
+                                    fontPicker()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
@@ -363,7 +428,7 @@ internal fun LyricsStyleSheet(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    LyricsSizeScale.values().forEach { scale ->
+                    LyricsSizeScale.entries.forEach { scale ->
                         val selected = customStyle.sizeScale == scale
                         Box(Modifier.weight(1f)) {
                             StyleChip(
@@ -381,60 +446,63 @@ internal fun LyricsStyleSheet(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Section 3: Font Weight & Alignment
+                // Section 3: Font Weight
+                StyleSectionHeader(title = "FONT WEIGHT")
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    // Font Weight Column
-                    Column(Modifier.weight(1f)) {
-                        StyleSectionHeader(title = "WEIGHT")
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            LyricsWeightChoice.values().forEach { weight ->
-                                val selected = customStyle.weightChoice == weight
-                                Box(Modifier.weight(1f)) {
-                                    StyleChip(
-                                        label = weight.label,
-                                        selected = selected,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        onClick = {
-                                            haptics.play(Haptic.Select)
-                                            LyricsStyleManager.updateWeight(weight)
-                                        },
-                                    )
-                                }
-                            }
+                    LyricsWeightChoice.entries.forEach { weightChoice ->
+                        val selected = customStyle.weightChoice == weightChoice
+                        Box(Modifier.weight(1f)) {
+                            StyleChip(
+                                label = weightChoice.label,
+                                selected = selected,
+                                fontWeight = weightChoice.weight,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    haptics.play(Haptic.Select)
+                                    LyricsStyleManager.updateWeight(weightChoice)
+                                },
+                            )
                         }
                     }
+                }
 
-                    // Alignment Column
-                    Column {
-                        StyleSectionHeader(title = "ALIGNMENT")
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            // Left align button
-                            AlignmentIconPill(
-                                icon = Icons.Rounded.FormatAlignLeft,
-                                selected = !customStyle.centerAligned,
-                                onClick = {
-                                    haptics.play(Haptic.Select)
-                                    LyricsStyleManager.updateCenterAligned(false)
-                                },
-                            )
-                            // Center align button
-                            AlignmentIconPill(
-                                icon = Icons.Rounded.FormatAlignCenter,
-                                selected = customStyle.centerAligned,
-                                onClick = {
-                                    haptics.play(Haptic.Select)
-                                    LyricsStyleManager.updateCenterAligned(true)
-                                },
-                            )
-                        }
+                Spacer(Modifier.height(16.dp))
+
+                // Section 4: Text Alignment
+                StyleSectionHeader(title = "TEXT ALIGNMENT")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Left align option pill
+                    Box(Modifier.weight(1f)) {
+                        AlignmentOptionPill(
+                            icon = Icons.AutoMirrored.Rounded.FormatAlignLeft,
+                            label = "Left",
+                            selected = !customStyle.centerAligned,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                haptics.play(Haptic.Select)
+                                LyricsStyleManager.updateCenterAligned(false)
+                            },
+                        )
+                    }
+
+                    // Center align option pill
+                    Box(Modifier.weight(1f)) {
+                        AlignmentOptionPill(
+                            icon = Icons.Rounded.FormatAlignCenter,
+                            label = "Center",
+                            selected = customStyle.centerAligned,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                haptics.play(Haptic.Select)
+                                LyricsStyleManager.updateCenterAligned(true)
+                            },
+                        )
                     }
                 }
             }
@@ -460,6 +528,7 @@ private fun StyleChip(
     label: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    fontWeight: FontWeight? = null,
     fontFamily: androidx.compose.ui.text.font.FontFamily? = null,
     onClick: () -> Unit,
 ) {
@@ -470,16 +539,18 @@ private fun StyleChip(
             .clip(RoundedCornerShape(12.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
+            .padding(horizontal = 6.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = label,
             color = textTint,
             fontFamily = fontFamily,
+            softWrap = false,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                fontSize = 13.5.sp,
+                fontWeight = fontWeight ?: if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 12.5.sp,
             ),
             maxLines = 1,
         )
@@ -487,26 +558,41 @@ private fun StyleChip(
 }
 
 @Composable
-private fun AlignmentIconPill(
+private fun AlignmentOptionPill(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val bg = if (selected) Color.White else Color.White.copy(alpha = 0.08f)
     val tint = if (selected) Color.Black else Color.White.copy(alpha = 0.9f)
-    Box(
-        modifier = Modifier
-            .size(38.dp)
+    Row(
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(bg)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
             modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = label,
+            color = tint,
+            softWrap = false,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = 12.5.sp,
+            ),
+            maxLines = 1,
         )
     }
 }

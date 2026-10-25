@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.model.ShelfItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,12 @@ interface AppUiHost {
 
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
+
+    /** Display mode for a Library "Show all" page: grid cards or full-width list rows. */
+    val libraryViewMode: StateFlow<LibraryViewMode>
+        get() = MutableStateFlow(LibraryViewMode.GRID)
+
+    fun setLibraryViewMode(value: LibraryViewMode) {}
 
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable

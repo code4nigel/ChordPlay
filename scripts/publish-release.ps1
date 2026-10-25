@@ -1,6 +1,6 @@
 param(
-    [string]$tagName = "v1.8.5",
-    [string]$releaseTitle = "ChordPlay v1.8.5 - Dynamic Art Aura, Vinyl Turntable, Speed Dial & Complete Polish"
+    [string]$tagName = "v1.8.6",
+    [string]$releaseTitle = "ChordPlay v1.8.6 - FastScroller, Smooth Lyric Transitions, Library Search & Crash Fixes"
 )
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -16,7 +16,7 @@ $repoOwner = "code4nigel"
 $repoName = "ChordPlay"
 $notesPath = Join-Path $PSScriptRoot "..\app\version\RELEASE_NOTES.md"
 $fullNotes = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath) } else { "ChordPlay $tagName release" }
-$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.5.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
+$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.6.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
     $matches[1].Trim()
 } else {
     $fullNotes
@@ -54,12 +54,48 @@ if (-not $release) {
 Write-Host "Release HTML URL: $($release.html_url)"
 Write-Host "Upload URL: $($release.upload_url)"
 
-# 2. Upload APK files from app/version
+# 2. Verify APK signing certificates against permanent repository keystore
+# Note for existing test devices:
+# A one-time uninstall of the older test build on Tecno LC8 is required so it adopts the permanent keystore.
+# Every future release APK downloaded via GitHub will then update in-place with zero signature mismatches.
+Write-Host "Verifying APK signing certificates against permanent repository keystore..." -ForegroundColor Cyan
+
 $apkFiles = @(
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug-universal.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug-arm64.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.5-build31-devDebug.apk")
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug-universal.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug-arm64.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug.apk")
 )
+
+$apksignerCandidates = @(
+    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\36.0.0\apksigner.bat"),
+    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\35.0.0\apksigner.bat"),
+    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\34.0.0\apksigner.bat"),
+    "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\36.0.0\apksigner.bat",
+    "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\35.0.0\apksigner.bat",
+    "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\34.0.0\apksigner.bat"
+)
+$apksigner = $apksignerCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+foreach ($apkPath in $apkFiles) {
+    if (-not (Test-Path $apkPath)) {
+        Write-Warning "File not found: $apkPath"
+        continue
+    }
+    if ($apksigner) {
+        $sigOutput = & $apksigner verify --print-certs "$apkPath" 2>&1 | Out-String
+        if ($sigOutput -match "(?i)4e:60:01:ab:3c:84:25:a8:5c:84:a0:13:ec:2a:88:3a:f1:f1:9a:7a:fa:54:24:6a:80:21:eb:fe:75:1e:09:83") {
+            Write-Host "Verified $([System.IO.Path]::GetFileName($apkPath)): Signed with permanent ChordPlay repository keystore." -ForegroundColor Green
+        } else {
+            Write-Warning "APK $([System.IO.Path]::GetFileName($apkPath)) signing certificate does not match expected permanent keystore fingerprint."
+        }
+    } else {
+        Write-Host "apksigner tool not located; skipping direct fingerprint verification for $([System.IO.Path]::GetFileName($apkPath))."
+    }
+}
+
+Write-Host "Note for existing test devices: A one-time uninstall of the older test build on Tecno LC8 is required so it adopts the permanent keystore. Every future release APK downloaded via GitHub will then update in-place with zero signature mismatches." -ForegroundColor Yellow
+
+# 3. Upload APK files from app/version
 
 $uploadBase = $release.upload_url -replace '\{\?name,label\}', ''
 

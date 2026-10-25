@@ -35,6 +35,7 @@ Thumbs.db
 keystore.properties
 *.jks
 *.keystore
+!app/keystore/chordplay.keystore
 
 # Project scratch / debug artifacts
 .shots/
@@ -50,5 +51,3 @@ Inspiration/
 # Versioned APK binary archives (history/metadata tracked, large binaries excluded)
 version/Android/*.apk
 app/version/*.apk
-
-

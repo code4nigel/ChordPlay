@@ -17,6 +17,26 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import coil3.compose.AsyncImage
+import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.LibraryViewMode
+import com.music.bitchord.ui.components.contextClick
+import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -24,6 +44,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import com.music.bitchord.ui.components.FastScroller
 import com.music.bitchord.ui.components.ShelfRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -125,11 +146,16 @@ fun LibraryScreen(
         state = pullState,
         modifier = modifier,
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
+        FastScroller(
+            listState = listState,
             contentPadding = contentPadding,
+            modifier = Modifier.fillMaxSize(),
         ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = contentPadding,
+            ) {
             if (showTitle) {
                 item {
                     Text(
@@ -227,6 +253,7 @@ fun LibraryScreen(
             }
         }
     }
+}
 }
 
 /** One of the Library's folder rows: the page [item] opens, behind [icon]. */
@@ -407,38 +434,284 @@ fun LibraryGridPage(
     // immediately rather than waiting for the row underneath to be revisited.
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val librarySort by AppUi.host.librarySort.collectAsStateWithLifecycle()
-    // Pinning wins over the default order, but an explicit sort is a stronger,
-    // more deliberate signal than a pin and is left to reorder the whole grid,
-    // pinned cards included.
+    val libraryViewMode by AppUi.host.libraryViewMode.collectAsStateWithLifecycle()
+
     val sortedShelf = shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
-    BoxWithConstraints(modifier.fillMaxSize()) {
-        val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(grid.columns),
-            state = gridState,
-            contentPadding = contentPadding,
-            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.padding(horizontal = PAGE_GUTTER),
+
+    val listState = rememberLazyListState()
+
+    // Smooth scroll position retention when switching between grid and list views
+    LaunchedEffect(libraryViewMode) {
+        val totalCount = sortedShelf.items.size + if (onNewPlaylist != null) 1 else 0
+        if (totalCount > 0) {
+            if (libraryViewMode == LibraryViewMode.LIST) {
+                val target = gridState.firstVisibleItemIndex.coerceIn(0, totalCount - 1)
+                listState.scrollToItem(target)
+            } else {
+                val target = listState.firstVisibleItemIndex.coerceIn(0, totalCount - 1)
+                gridState.scrollToItem(target)
+            }
+        }
+    }
+
+    when (libraryViewMode) {
+        LibraryViewMode.GRID -> {
+            BoxWithConstraints(modifier.fillMaxSize()) {
+                val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
+                FastScroller(
+                    gridState = gridState,
+                    contentPadding = contentPadding,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(grid.columns),
+                        state = gridState,
+                        contentPadding = contentPadding,
+                        horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        modifier = Modifier.padding(horizontal = PAGE_GUTTER),
+                    ) {
+                        if (onNewPlaylist != null) {
+                            item(key = "leading") {
+                                NewShelfCard(
+                                    icon = BitChordIcons.Plus,
+                                    label = stringResource(Res.string.new_playlist),
+                                    subtitle = stringResource(Res.string.saved_to_youtube_music),
+                                    onClick = onNewPlaylist,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                        items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
+                            ShelfCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onLongPress = { onItemLongPress(item) },
+                                modifier = Modifier.fillMaxWidth(),
+                                isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        LibraryViewMode.LIST -> {
+            FastScroller(
+                listState = listState,
+                contentPadding = contentPadding,
+                modifier = modifier.fillMaxSize(),
+            ) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = contentPadding,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    if (onNewPlaylist != null) {
+                        item(key = "leading") {
+                            LibraryListLeadingRow(
+                                onClick = onNewPlaylist,
+                                label = stringResource(Res.string.new_playlist),
+                                subtitle = stringResource(Res.string.saved_to_youtube_music),
+                            )
+                        }
+                    }
+                    items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
+                        LibraryListRow(
+                            item = item,
+                            isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                            onClick = { onItemClick(item) },
+                            onLongPress = { onItemLongPress(item) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryListRow(
+    item: ShelfItem,
+    isPinned: Boolean,
+    onClick: () -> Unit,
+    onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .contextClick(onLongPress)
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Artwork: 52.dp square, rounded 8.dp corners with subtle border
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(width = 0.5.dp, color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
         ) {
-            if (onNewPlaylist != null) {
-                item(key = "leading") {
-                    NewShelfCard(
-                        icon = BitChordIcons.Plus,
-                        label = stringResource(Res.string.new_playlist),
-                        subtitle = stringResource(Res.string.saved_to_youtube_music),
-                        onClick = onNewPlaylist,
-                        modifier = Modifier.fillMaxWidth(),
+            when (item.browseId) {
+                "local:downloads" -> {
+                    Icon(
+                        imageVector = BitChordIcons.Download,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                "local:all" -> {
+                    Icon(
+                        imageVector = Icons.Rounded.LibraryMusic,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                "local:cache" -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Cached,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                "local:webdav" -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                "local:smb" -> {
+                    Icon(
+                        imageVector = Icons.Rounded.Storage,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                else -> {
+                    AsyncImage(
+                        model = item.thumbnailUrl.artworkAt(160),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
-            items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
-                ShelfCard(
-                    item = item,
-                    onClick = { onItemClick(item) },
-                    onLongPress = { onItemLongPress(item) },
-                    modifier = Modifier.fillMaxWidth(),
-                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+        }
+
+        Spacer(Modifier.width(14.dp))
+
+        // Text column: Title (bold, single line ellipsis) and Subtitle (track count or creator, secondary text color)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val displaySubtitle = localizeCardSubtitle(item.subtitle)
+            if (displaySubtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = displaySubtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        // Trailing: Pinned icon badge (if pinned) and IconButton for the options/context menu
+        if (isPinned) {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                imageVector = BitChordIcons.Pin,
+                contentDescription = stringResource(Res.string.pinned),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+
+        IconButton(
+            onClick = onLongPress,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MoreVert,
+                contentDescription = stringResource(Res.string.more),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryListLeadingRow(
+    onClick: () -> Unit,
+    label: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(width = 0.5.dp, color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = BitChordIcons.Plus,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+
+        Spacer(Modifier.width(14.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

@@ -123,6 +123,10 @@ data class Song(
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
 
+    /** True when this track is on the local device rather than streamed from YouTube. */
+    val isLocal: Boolean
+        get() = localUri != null || localPath != null || videoId.startsWith("content://") || videoId.startsWith("file://")
+
     /** Backward-compatibility constructor for callers passing legacy [fromAutoplay]. */
     constructor(
         videoId: String,
@@ -316,14 +320,18 @@ sealed interface SearchResult {
     data class Browse(val item: BrowseItem) : SearchResult
 }
 
-enum class SearchFilter(val label: String, val params: String?) {
+enum class SearchFilter(
+    val label: String,
+    val params: String?,
+    val libraryParams: String? = null,
+) {
     /** YouTube Music's mixed search page: songs, artists, albums and playlists. */
-    ALL("All", null),
-    SONGS("Songs", "EgWKAQIIAWoKEAkQChAFEAMQBA=="),
-    VIDEOS("Videos", "EgWKAQIQAWoKEAkQChAFEAMQBA=="),
-    ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA=="),
-    ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA=="),
-    PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA=="),
+    ALL("All", null, "agIYBA=="),
+    SONGS("Songs", "EgWKAQIIAWoKEAkQChAFEAMQBA==", "EgWKAQIIAWoKEAUQCRADEAoYBA=="),
+    VIDEOS("Videos", "EgWKAQIQAWoKEAkQChAFEAMQBA==", null),
+    ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA==", "EgWKAQIYAWoKEAUQCRADEAoYBA=="),
+    ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA==", "EgWKAQIgAWoKEAUQCRADEAoYBA=="),
+    PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA==", "EgWKAQIoAWoKEAUQCRADEAoYBA=="),
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */

@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import com.music.bitchord.ui.components.FastScroller
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -51,39 +52,48 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.SearchFilter
-import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.data.model.SearchHistoryEntity
-import com.music.bitchord.data.model.EntityType
+import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.isSameTrackAs
+import com.music.bitchord.ui.components.FastScroller
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
-import com.music.bitchord.ui.components.RowMoreButton
+import com.music.bitchord.ui.components.PlaylistMembershipCache
 import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
+import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.SearchField
-import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.SearchPlayingBars
-import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.songListSkeleton
+import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import java.util.Locale
@@ -146,6 +156,7 @@ fun SearchScreen(
     libraryResults: UiState<List<Song>>? = null,
     /** Files on the device are a running order to play through, not a station seed. */
     onLibrarySongClick: (List<Song>, Int) -> Unit = onSongClick,
+    userPlaylists: List<UserPlaylist> = emptyList(),
     /**
      * The YouTube / Library switcher, full width at the head of the page. Up
      * only while the field is empty: once something is typed the page is
@@ -181,8 +192,8 @@ fun SearchScreen(
     // appear as a dropdown beneath the text completions rather than floating
     // after the search has committed.
     val showTypeahead = typeaheadResults.isNotEmpty() && suggesting
-    LaunchedEffect(listState, results, loadingMore, searchingLibrary) {
-        if (results !is UiState.Success || searchingLibrary) return@LaunchedEffect
+    LaunchedEffect(listState, results, loadingMore) {
+        if (results !is UiState.Success) return@LaunchedEffect
         snapshotFlow {
             val layout = listState.layoutInfo
             (layout.visibleItemsInfo.lastOrNull()?.index ?: -1) to layout.totalItemsCount
@@ -226,27 +237,30 @@ fun SearchScreen(
             // The filters only mean something once there is a result set to narrow;
             // they stay up for an empty or failed search too, or picking a filter
             // that finds nothing would take away the control needed to leave it.
-            // They are YouTube's categories, so the Library source has none.
-            if (results != null && !suggesting && !searchingLibrary) {
-                SearchFilterTabs(filter = filter, onFilterChange = onFilterChange)
+            if (results != null && !suggesting) {
+                SearchFilterTabs(
+                    filter = filter,
+                    onFilterChange = onFilterChange,
+                    filters = if (searchingLibrary) LIBRARY_FILTERS else SearchFilter.entries,
+                )
             }
         }
 
-        LazyColumn(
-            state = listState,
+        val searchBottomPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding())
+        FastScroller(
+            listState = listState,
+            contentPadding = searchBottomPadding,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
         ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = searchBottomPadding,
+            ) {
             when {
-                searchingLibrary -> librarySearchResults(
-                    query = query.trim(),
-                    results = libraryResults,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    onSongClick = onLibrarySongClick,
-                    onSongLongPress = onSongLongPress,
-                    onSongSwipe = onSongSwipe,
-                )
+                searchingLibrary && results == null -> item(key = "library:empty") {
+                    MessageState(stringResource(Res.string.search_library_empty))
+                }
                 suggesting -> {
                     searchSuggestions(
                         suggestions = suggestions,
@@ -286,89 +300,160 @@ fun SearchScreen(
                 results is UiState.Loading -> songListSkeleton(circular = filter == SearchFilter.ARTISTS)
                 results is UiState.Error -> item { MessageState(results.message) }
                 results is UiState.Success -> {
-                    val tracks = results.data
-                        .mapNotNull { row -> when (row) {
-                            is SearchResult.TopTrack -> row.song
-                            is SearchResult.Track -> row.song
-                            is SearchResult.Browse -> null
-                            else -> null
-                        } }
-                    val topResult = results.data.filterIsInstance<SearchResult.TopTrack>().firstOrNull()
-                    if (filter == SearchFilter.ALL && topResult != null) {
-                        item(key = "search:top-result:${topResult.song.videoId}") {
-                            TopResultCard(
-                                song = topResult.song,
-                                onPlay = { onTopResultPlay(topResult.song) },
-                                onPlaylist = { onTopResultPlaylist(topResult.song) },
-                                onLongPress = { onSongLongPress(topResult.song) },
+                    if (results.data.isEmpty()) {
+                        item(key = if (searchingLibrary) "library:no-match" else "search:no-match") {
+                            MessageState(
+                                if (searchingLibrary) {
+                                    stringResource(Res.string.search_library_no_results, query.trim())
+                                } else {
+                                    stringResource(Res.string.search_empty)
+                                }
                             )
                         }
-                    }
-                    searchSections(results.data, filter).forEach { section ->
-                        section.title?.let { title ->
-                            item(key = "search-section:$title") {
-                                Text(
-                                    text = title,
-                                    modifier = Modifier.padding(
-                                        start = PAGE_GUTTER,
-                                        end = PAGE_GUTTER,
-                                        top = 16.dp,
-                                        bottom = 6.dp,
-                                    ),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                    } else {
+                        val tracks = results.data
+                            .mapNotNull { row -> when (row) {
+                                is SearchResult.TopTrack -> row.song
+                                is SearchResult.Track -> row.song
+                                is SearchResult.Browse -> null
+                                else -> null
+                            } }
+                        val topResult = results.data.filterIsInstance<SearchResult.TopTrack>().firstOrNull()
+                        if (filter == SearchFilter.ALL && topResult != null && !searchingLibrary) {
+                            item(key = "search:top-result:${topResult.song.videoId}") {
+                                TopResultCard(
+                                    song = topResult.song,
+                                    onPlay = { onTopResultPlay(topResult.song) },
+                                    onPlaylist = { onTopResultPlaylist(topResult.song) },
+                                    onLongPress = { onSongLongPress(topResult.song) },
                                 )
                             }
                         }
-                        itemsIndexed(
-                            items = section.rows,
-                            key = { index, row ->
-                                when (row) {
-                                    is SearchResult.TopTrack -> "top_${row.song.videoId}_$index"
-                                    is SearchResult.Track -> "track_${row.song.videoId}_$index"
-                                    is SearchResult.Browse -> "browse_${row.item.browseId}_$index"
+                        searchSections(results.data, filter).forEach { section ->
+                            section.title?.let { title ->
+                                item(key = "search-section:$title") {
+                                    Text(
+                                        text = title,
+                                        modifier = Modifier.padding(
+                                            start = PAGE_GUTTER,
+                                            end = PAGE_GUTTER,
+                                            top = 16.dp,
+                                            bottom = 6.dp,
+                                        ),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
                                 }
-                            },
-                        ) { index, row ->
-                            when (row) {
-                                is SearchResult.TopTrack -> Unit
-                                is SearchResult.Track -> SongRow(
-                                    song = row.song,
-                                    onClick = {
-                                        onSongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
-                                    },
-                                    onLongPress = { onSongLongPress(row.song) },
-                                    onSwipeToQueue = { onSongSwipe(row.song) },
-                                    isCurrent = row.song.isSameTrackAs(currentSong),
-                                    isPlaying = isPlaying && row.song.isSameTrackAs(currentSong),
-                                    searchPlayingStyle = true,
-                                    activeTint = PlayingAccent,
-                                )
-                                is SearchResult.Browse -> BrowseRow(
-                                    item = row.item,
-                                    onClick = { onBrowseClick(row.item) },
-                                    onLongPress = onBrowseLongPress?.let { { it(row.item) } },
-                                )
                             }
-                            if (index < section.rows.lastIndex) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
-                                    thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
+                            itemsIndexed(
+                                items = section.rows,
+                                key = { index, row ->
+                                    when (row) {
+                                        is SearchResult.TopTrack -> "top_${row.song.videoId}_$index"
+                                        is SearchResult.Track -> "track_${row.song.videoId}_$index"
+                                        is SearchResult.Browse -> "browse_${row.item.browseId}_$index"
+                                    }
+                                },
+                            ) { index, row ->
+                                when (row) {
+                                    is SearchResult.TopTrack -> Unit
+                                    is SearchResult.Track -> {
+                                        var cachedPlaylistNames by remember(row.song.videoId, userPlaylists) {
+                                            mutableStateOf(
+                                                if (searchingLibrary) {
+                                                    PlaylistMembershipCache.getPlaylistNamesForSong(row.song.videoId, userPlaylists)
+                                                } else {
+                                                    emptyList()
+                                                }
+                                            )
+                                        }
+                                        LaunchedEffect(row.song.videoId, userPlaylists, searchingLibrary) {
+                                            if (searchingLibrary && !row.song.isLocal && row.song.videoId.isNotEmpty() && cachedPlaylistNames.isEmpty()) {
+                                                val result = YtMusicRepository.getPlaylistsContainingSong(row.song.videoId)
+                                                result.onSuccess { containingIds ->
+                                                    containingIds.forEach { pid -> PlaylistMembershipCache.add(pid, row.song.videoId) }
+                                                    cachedPlaylistNames = PlaylistMembershipCache.getPlaylistNamesForSong(row.song.videoId, userPlaylists)
+                                                }
+                                            }
+                                        }
+                                        SongRow(
+                                            song = row.song,
+                                            onClick = {
+                                                if (row.song.isLocal) {
+                                                    onLibrarySongClick(listOf(row.song), 0)
+                                                } else {
+                                                    onSongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
+                                                }
+                                            },
+                                            onLongPress = { onSongLongPress(row.song) },
+                                            onSwipeToQueue = { onSongSwipe(row.song) },
+                                            isCurrent = row.song.isSameTrackAs(currentSong),
+                                            isPlaying = isPlaying && row.song.isSameTrackAs(currentSong),
+                                            searchPlayingStyle = true,
+                                            activeTint = PlayingAccent,
+                                            badge = if (cachedPlaylistNames.isNotEmpty()) {
+                                                { PlaylistMembershipBadge(cachedPlaylistNames) }
+                                            } else null,
+                                        )
+                                    }
+                                    is SearchResult.Browse -> BrowseRow(
+                                        item = row.item,
+                                        onClick = { onBrowseClick(row.item) },
+                                        onLongPress = onBrowseLongPress?.let { { it(row.item) } },
+                                    )
+                                }
+                                if (index < section.rows.lastIndex) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
+                                        thickness = 0.5.dp,
+                                        color = MaterialTheme.colorScheme.outline,
+                                    )
+                                }
                             }
                         }
-                    }
-                    if (loadingMore) {
-                        songListSkeleton(
-                            count = 3,
-                            keyPrefix = "skeleton:search:more",
-                            circular = filter == SearchFilter.ARTISTS,
-                        )
+                        if (loadingMore) {
+                            songListSkeleton(
+                                count = 3,
+                                keyPrefix = "skeleton:search:more",
+                                circular = filter == SearchFilter.ARTISTS,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+}
+
+private val LIBRARY_FILTERS = listOf(
+    SearchFilter.ALL,
+    SearchFilter.SONGS,
+    SearchFilter.ALBUMS,
+    SearchFilter.ARTISTS,
+    SearchFilter.PLAYLISTS,
+)
+
+@Composable
+fun PlaylistMembershipBadge(
+    playlistNames: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    if (playlistNames.isEmpty()) return
+    val label = "In: " + playlistNames.joinToString(", ")
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.primary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -379,61 +464,13 @@ private fun searchSections(rows: List<SearchResult>, filter: SearchFilter): List
     if (filter != SearchFilter.ALL) return listOf(SearchSection(null, rows))
     return listOf(
         SearchSection("Songs", rows.filterIsInstance<SearchResult.Track>()),
-        SearchSection("Artists", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.ARTIST }),
-        SearchSection("Albums", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.ALBUM }),
         SearchSection("Playlists", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.PLAYLIST }),
+        SearchSection("Albums", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.ALBUM }),
+        SearchSection("Artists", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.ARTIST }),
         SearchSection("More", rows.filterIsInstance<SearchResult.Browse>().filter { it.item.type == BrowseType.OTHER }),
     ).filter { it.rows.isNotEmpty() }
 }
 
-/**
- * The Library source's page: the Local Music folder's tracks that match, as
- * plain song rows. An artist or album hit needs no row of its own — every
- * track under that name matches too, so they are already here.
- */
-private fun LazyListScope.librarySearchResults(
-    query: String,
-    results: UiState<List<Song>>?,
-    currentSong: Song?,
-    isPlaying: Boolean,
-    onSongClick: (List<Song>, Int) -> Unit,
-    onSongLongPress: (Song) -> Unit,
-    onSongSwipe: (Song) -> Unit,
-) {
-    when (results) {
-        null -> item(key = "library:empty") {
-            MessageState(stringResource(Res.string.search_library_empty))
-        }
-        UiState.Loading -> songListSkeleton(keyPrefix = "skeleton:search:library")
-        is UiState.Error -> item(key = "library:error") { MessageState(results.message) }
-        is UiState.Success -> if (results.data.isEmpty()) {
-            item(key = "library:no-match") {
-                MessageState(stringResource(Res.string.search_library_no_results, query))
-            }
-        } else {
-            val tracks = results.data
-            itemsIndexed(tracks, key = { index, song -> "library_${song.videoId}_$index" }) { index, song ->
-                SongRow(
-                    song = song,
-                    onClick = { onSongClick(tracks, index) },
-                    onLongPress = { onSongLongPress(song) },
-                    onSwipeToQueue = { onSongSwipe(song) },
-                    isCurrent = song.isSameTrackAs(currentSong),
-                    isPlaying = isPlaying && song.isSameTrackAs(currentSong),
-                    searchPlayingStyle = true,
-                    activeTint = PlayingAccent,
-                )
-                if (index < tracks.lastIndex) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
-                }
-            }
-        }
-    }
-}
 
 /** The All response carries its highest-confidence music hit as a promoted card. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -879,7 +916,11 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit, onLongPress: (() ->
  * text, and the gutter padding sits inside the scroll so it scrolls with them.
  */
 @Composable
-private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter) -> Unit) {
+private fun SearchFilterTabs(
+    filter: SearchFilter,
+    onFilterChange: (SearchFilter) -> Unit,
+    filters: List<SearchFilter> = SearchFilter.entries,
+) {
     val haptics = rememberHaptics()
     Row(
         modifier = Modifier
@@ -889,7 +930,7 @@ private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SearchFilter.entries.forEach { entry ->
+        filters.forEach { entry ->
             val selected = entry == filter
             Box(
                 modifier = Modifier

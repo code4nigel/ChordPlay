@@ -67,6 +67,8 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.automirrored.rounded.ViewList
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
@@ -147,6 +149,7 @@ import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.components.SpotifyImportAlert
@@ -812,6 +815,7 @@ private fun BitChordApp(
     val webdavUrl by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
+    val libraryViewMode by AppSettings.libraryViewMode.collectAsStateWithLifecycle()
     // The releases those files were asked for as — read here rather than in the
     // page so the Downloads folder recomposes when one is added, the same way it
     // does when a file is.
@@ -3208,6 +3212,7 @@ private fun BitChordApp(
                             },
                             searchingLibrary = searchSource == SearchSource.LIBRARY,
                             libraryResults = libraryResults,
+                            userPlaylists = playlists,
                             // The same queue opening the Local Music folder and
                             // tapping the row there would give.
                             onLibrarySongClick = { songs, index ->
@@ -3625,6 +3630,25 @@ private fun BitChordApp(
                             // the one thing a playlist or album card carries: a
                             // title.
                             if (libraryShowAll != null && detail == null) {
+                                IconButton(onClick = {
+                                    AppSettings.setLibraryViewMode(
+                                        if (libraryViewMode == LibraryViewMode.GRID) LibraryViewMode.LIST else LibraryViewMode.GRID,
+                                    )
+                                }) {
+                                    Icon(
+                                        imageVector = if (libraryViewMode == LibraryViewMode.GRID) {
+                                            Icons.AutoMirrored.Rounded.ViewList
+                                        } else {
+                                            Icons.Rounded.GridView
+                                        },
+                                        contentDescription = if (libraryViewMode == LibraryViewMode.GRID) {
+                                            "Switch to list view"
+                                        } else {
+                                            "Switch to grid view"
+                                        },
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                                 Box {
                                     IconButton(onClick = { librarySortMenuOpen = true }) {
                                         Icon(

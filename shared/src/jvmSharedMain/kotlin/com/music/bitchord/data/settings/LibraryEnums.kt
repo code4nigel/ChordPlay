@@ -17,3 +17,9 @@ enum class LibraryViewType {
     LIST,
     GRID,
 }
+
+/** Display mode for Library "Show all" page: grid cards or full-width list rows. */
+enum class LibraryViewMode {
+    GRID,
+    LIST,
+}

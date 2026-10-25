@@ -1,3 +1,36 @@
+# ChordPlay v1.8.6
+
+Welcome to ChordPlay v1.8.6! This release focuses on stability, fluid micro-animations, fast library navigation, and seamless in-app updating:
+
+### What's New in v1.8.6:
+- **Startup Crash Resolution**:
+  - Eliminated fatal `NullPointerException` on cold launch caused by coroutine flow initialization timing in `MainViewModel`.
+- **Smooth Fullscreen Canvas Lyric Transitions**:
+  - Replaced abrupt text swaps with fluid `AnimatedContent` featuring vertical slide (`slideInVertically` / `slideOutVertically`) and alpha cross-fading.
+  - Added spring-physics `animateContentSize` to the floating capsule pill so its width morphs dynamically between short and long lines without jarring dimension snaps.
+  - Keyed transitions by line index so repeating chorus lyrics always transition cleanly.
+- **FastScroller Performance & Touch Precision**:
+  - Re-engineered fast scroll thumb touch detection: touches outside the thumb pass through freely, eliminating touch-blocking on playlist 3-dots menus.
+  - Throttled 60FPS scroll loop preventing reverse jumping or frame pacing stutter.
+- **Library Search & Categorization**:
+  - Search within the Library tab across songs, playlists, albums, and artists with real-time debounced queries and offline local media matching.
+- **Library View Layout Toggle**:
+  - Instant toggle between Grid and List views in the Library tab for playlists and albums.
+- **Reliable Playlist Membership Detection**:
+  - Integrated `PlaylistMembershipCache` so "Already in Playlist" indicators update instantaneously without duplicate entries or redundant network requests.
+  - Playlists already containing the active song are automatically prioritized to the top of the "Add to Playlist" sheet.
+- **Lyrics Typography & Frosted Glass Polish**:
+  - Frosted glass design applied to lyrics styling controls.
+  - Added full typography weight options (Medium, SemiBold, Bold, Heavy) with text alignment options.
+- **Permanent Repository Keystore**:
+  - Integrated permanent ChordPlay repository signing certificate ensuring all future APK releases update in-place with zero signature mismatches.
+
+### Download Assets:
+- `chordplay-v1.8.6-build32-devDebug-universal.apk` (and alias `chordplay-v1.8.6-build32-devDebug.apk`): Universal build compatible with all Android devices (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
+- `chordplay-v1.8.6-build32-devDebug-arm64.apk`: Optimized, lightweight build for modern 64-bit ARM devices.
+
+---
+
 # ChordPlay v1.8.5
 
 Welcome to ChordPlay v1.8.5! This major release delivers the complete ChordPlay Evolution experience: content-aware Speed Dial visual differentiation, true Dynamic Song Art theming, iconic ChordPlay Crimson palette, tactile Vinyl Turntable player layout, true-to-life interactive settings previews, and rock-solid playlist sheet persistence.

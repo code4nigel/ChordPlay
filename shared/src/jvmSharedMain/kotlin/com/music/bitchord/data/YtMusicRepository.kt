@@ -293,11 +293,16 @@ object YtMusicRepository {
      * search responsive; the UI asks [searchContinuation] for later pages as
      * the listener reaches the end of the list.
      */
-    suspend fun searchPage(query: String, filter: SearchFilter): Result<SearchPage> =
-        call("search:${filter.name}") {
+    suspend fun searchPage(
+        query: String,
+        filter: SearchFilter,
+        isLibrary: Boolean = false,
+    ): Result<SearchPage> =
+        call("search:${if (isLibrary) "lib:" else ""}${filter.name}") {
+            val params = if (isLibrary) filter.libraryParams else filter.params
             InnertubeParser.parseSearchPage(
-                Innertube.search(query, filter.params),
-                includeVideos = filter == SearchFilter.VIDEOS,
+                Innertube.search(query, params),
+                includeVideos = !isLibrary && filter == SearchFilter.VIDEOS,
             ).let { page ->
                 SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
             }
@@ -915,6 +920,13 @@ object YtMusicRepository {
     ): Result<Unit> = call("playlist:remove") {
         Innertube.removeFromPlaylist(playlistId, entries)
     }
+
+    /**
+     * Queries which of the user's playlists currently contain [videoId] using
+     * YouTube Music's single-call get_add_to_playlist endpoint.
+     */
+    suspend fun getPlaylistsContainingSong(videoId: String): Result<Set<String>> =
+        call("playlist:membership:$videoId") { Innertube.getPlaylistsContaining(videoId) }
 
     /**
      * A playlist's entries in their current order, every page of them, for

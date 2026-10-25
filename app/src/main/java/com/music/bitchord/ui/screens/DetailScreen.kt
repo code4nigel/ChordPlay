@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import com.music.bitchord.ui.components.FastScroller
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -437,13 +438,18 @@ fun DetailScreen(
                     modifier = Modifier.matchParentSize(),
                 )
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    // Both artist photos and release artwork run edge-to-edge up under
-                    // the glass bar — the image is the top of the page, not a card on it.
+                FastScroller(
+                    listState = listState,
                     contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    modifier = Modifier.fillMaxSize(),
                 ) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        // Both artist photos and release artwork run edge-to-edge up under
+                        // the glass bar — the image is the top of the page, not a card on it.
+                        contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    ) {
             item(key = "header") {
                 if (isArtist) {
                     ArtistHeader(page = page, palette = palette, artHeight = artHeight, appleArt = appleArt)
@@ -708,6 +714,7 @@ fun DetailScreen(
             }
             if (isArtist) aboutItem()
         }
+    }
 
     }
 } else {
@@ -1947,29 +1954,36 @@ private fun ArtistShelfGridPage(
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
+    val gridPadding = PaddingValues(
+        top = topBarContentPadding(),
+        bottom = contentPadding.calculateBottomPadding() + 16.dp,
+    )
     BoxWithConstraints(modifier.fillMaxSize().background(palette.background)) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(grid.columns),
-            state = gridState,
-            contentPadding = PaddingValues(
-                top = topBarContentPadding(),
-                bottom = contentPadding.calculateBottomPadding() + 16.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = PAGE_GUTTER),
+        FastScroller(
+            gridState = gridState,
+            contentPadding = gridPadding,
+            modifier = Modifier.fillMaxSize(),
         ) {
-            items(shelf.items, key = { it.browseId ?: it.title }) { item ->
-                SectionCard(
-                    item = item,
-                    palette = palette,
-                    onClick = { onItemClick(item) },
-                    onLongPress = onItemLongPress?.let { { it(item) } },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(grid.columns),
+                state = gridState,
+                contentPadding = gridPadding,
+                horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = PAGE_GUTTER),
+            ) {
+                items(shelf.items, key = { it.browseId ?: it.title }) { item ->
+                    SectionCard(
+                        item = item,
+                        palette = palette,
+                        onClick = { onItemClick(item) },
+                        onLongPress = onItemLongPress?.let { { it(item) } },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
     }

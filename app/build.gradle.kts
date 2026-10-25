@@ -80,8 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
-        versionName = "1.8.5"
+        versionCode = 32
+        versionName = "1.8.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -127,6 +127,7 @@ android {
         }
     }
 
+    val defaultKeystore = rootProject.file("app/keystore/chordplay.keystore")
     signingConfigs {
         // Both halves have to be there, not just the properties file: it *names*
         // the keystore rather than containing it, and both are gitignored
@@ -144,11 +145,28 @@ android {
                 keyPassword = signing.getProperty("keyPassword")
             }
         }
+
+        // Permanent repository keystore ensuring identical cryptographic signatures
+        // across all developer machines, CI builds, and seamless in-app updates.
+        if (defaultKeystore.exists()) {
+            create("chordplayDefault") {
+                storeFile = defaultKeystore
+                storePassword = "chordplay_release_key"
+                keyAlias = "chordplay"
+                keyPassword = "chordplay_release_key"
+            }
+        }
     }
+
+    val fallbackConfig = signingConfigs.findByName("chordplayDefault")
+    val activeSigningConfig = signingConfigs.findByName("release")
+        ?: fallbackConfig
+        ?: signingConfigs.getByName("debug")
 
     buildTypes {
         debug {
             if (betaSuffix.isNotEmpty()) versionNameSuffix = "-$betaSuffix"
+            signingConfig = activeSigningConfig
         }
         release {
             // Carried here too — see [betaSuffix]. A sideloaded beta is a
@@ -172,9 +190,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Null without a keystore to sign with: the build then produces
-            // app-release-unsigned.apk instead of failing outright.
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = activeSigningConfig
         }
         /*
          * The release build, installable next to the dev and prod apps: same R8,
@@ -186,7 +202,7 @@ android {
          */
         create("benchmark") {
             initWith(getByName("release"))
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = activeSigningConfig
             applicationIdSuffix = ".benchmark"
             matchingFallbacks += listOf("release")
         }

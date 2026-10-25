@@ -12,12 +12,17 @@ import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.snap
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import androidx.compose.animation.core.AnimationVector1D
@@ -30,6 +35,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -135,6 +141,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -3193,6 +3200,36 @@ fun NowPlayingScreen(
                     )
                 }
 
+                // Persistent frosted one-line lyrics pill in fullscreen Canvas mode
+                if (spotifyCanvasPresentation && syncedLyricsEnabled && !lyricsOpen && !queueOpen && playerDeckReveal.value < 0.999f) {
+                    var pillHeightPx by remember { mutableIntStateOf(with(density) { 34.dp.roundToPx() }) }
+                    val pillAlpha = (1f - playerDeckReveal.value).coerceIn(0f, 1f)
+                    CanvasLyricPill(
+                        lines = lyricsTranslation.displayedLyrics,
+                        trackKey = song.videoId,
+                        playhead = lyricsPlayhead,
+                        isPlaying = isPlaying && position.advancing,
+                        lyricsUnavailable = lyricsUnavailable,
+                        loadingText = lyricsLoadingText,
+                        onClick = openLyrics,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { if (it.height > 0) pillHeightPx = it.height }
+                            .offset {
+                                val titleTopPx = (
+                                    currentTitleTop() -
+                                        lerp(0.dp, (HEADER_HEIGHT - THUMB_SIZE) / 2, p())
+                                ).roundToPx()
+                                val gapPx = 14.dp.roundToPx()
+                                IntOffset(
+                                    x = 0,
+                                    y = titleTopPx - pillHeightPx - gapPx,
+                                )
+                            }
+                            .graphicsLayer { alpha = pillAlpha },
+                    )
+                }
+
                 // ---- Title + menu ----
                 Row(
                     modifier = Modifier
@@ -3776,3 +3813,133 @@ private suspend fun AwaitPointerEventScope.dragQueueIn(
     onHold(false)
     onSettle(open)
 }
+
+/**
+ * Floating frosted one-line lyric pill rendered during fullscreen Spotify Canvas
+ * or animated artwork presentation when the bottom transport deck is hidden.
+ */
+@Composable
+private fun CanvasLyricPill(
+    lines: List<LyricLine>,
+    trackKey: String,
+    playhead: LyricPlayhead,
+    isPlaying: Boolean,
+    lyricsUnavailable: Boolean,
+    loadingText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
+    val clock = rememberLyricClock(trackKey, playhead, isPlaying)
+    val index by remember(lines) {
+        derivedStateOf { lines.indexOfLast { it.timeMs <= clock.longValue } }
+    }
+    val current = lines.getOrNull(index)
+    val instrumental = current == null || current.isGap
+    val firstSung = remember(lines) { lines.indexOfFirst { !it.isGap } }
+    val intro = instrumental && firstSung >= 0 && index < firstSung
+
+    val (activeText, isInstrumental) = when {
+        lines.isNotEmpty() && isSynced -> {
+            when {
+                intro -> stringResource(Res.string.instrumental) to true
+                instrumental -> stringResource(Res.string.instrumental) to true
+                else -> (current.text.takeIf { it.isNotBlank() } ?: "") to false
+            }
+        }
+        lines.isNotEmpty() && !isSynced -> {
+            stringResource(Res.string.open_lyrics) to false
+        }
+        !lyricsUnavailable && loadingText.isNotBlank() -> {
+            loadingText to false
+        }
+        else -> "" to false
+    }
+
+    if (activeText.isBlank()) return
+
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+
+    Box(
+        modifier = modifier
+            .widthIn(max = PLAYER_MAX_WIDTH)
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.Black.copy(alpha = 0.50f))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(20.dp),
+                )
+                .clickable(onClick = onClick)
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            AnimatedContent(
+                targetState = Triple(index, activeText, isInstrumental),
+                transitionSpec = {
+                    val duration = if (reduceAnimation) 0 else 320
+                    if (reduceAnimation) {
+                        (fadeIn(snap()) togetherWith fadeOut(snap())).using(
+                            SizeTransform(clip = false, sizeAnimationSpec = { _, _ -> snap() })
+                        )
+                    } else {
+                        (fadeIn(animationSpec = tween(duration, easing = FastOutSlowInEasing)) +
+                            slideInVertically(animationSpec = tween(duration, easing = FastOutSlowInEasing)) { height -> (height * 0.40f).toInt() })
+                            .togetherWith(
+                                fadeOut(animationSpec = tween(duration, easing = FastOutSlowInEasing)) +
+                                    slideOutVertically(animationSpec = tween(duration, easing = FastOutSlowInEasing)) { height -> -(height * 0.40f).toInt() }
+                            ).using(
+                                SizeTransform(
+                                    clip = false,
+                                    sizeAnimationSpec = { _, _ ->
+                                        spring(
+                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                            stiffness = Spring.StiffnessMediumLow,
+                                        )
+                                    }
+                                )
+                            )
+                    }
+                },
+                label = "CanvasLyricPillTransition",
+            ) { (_, text, isInst) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    if (isInst) {
+                        Icon(
+                            imageVector = BitChordIcons.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.90f),
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = text,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.95f),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+

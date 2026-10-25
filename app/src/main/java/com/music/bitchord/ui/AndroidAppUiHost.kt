@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.download.Downloads
 
@@ -17,6 +18,8 @@ object AndroidAppUiHost : AppUiHost {
     override val pinnedSpeedDial = AppSettings.pinnedSpeedDialItems
     override fun togglePinSpeedDial(item: com.music.bitchord.data.model.ShelfItem) = AppSettings.togglePinSpeedDial(item)
     override val librarySort = AppSettings.librarySort
+    override val libraryViewMode = AppSettings.libraryViewMode
+    override fun setLibraryViewMode(value: LibraryViewMode) = AppSettings.setLibraryViewMode(value)
 
     @Composable
     override fun downloadedIds(): Set<String> {

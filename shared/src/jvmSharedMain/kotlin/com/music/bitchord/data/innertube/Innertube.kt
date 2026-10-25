@@ -1036,6 +1036,38 @@ object Innertube {
     }
 
     /**
+     * Queries which of the user's playlists currently contain [videoId] using
+     * YouTube Music's native get_add_to_playlist endpoint.
+     * Returns the set of playlist IDs where [containsSelectedVideos] is "ALL".
+     */
+    suspend fun getPlaylistsContaining(videoId: String): Set<String> {
+        requireSession()
+        val response = postMusic("playlist/get_add_to_playlist") {
+            putJsonArray("videoIds") {
+                add(videoId)
+            }
+        }
+        val contents = response["contents"]
+        val addToPlaylistRenderer = when (contents) {
+            is JsonObject -> contents["addToPlaylistRenderer"] as? JsonObject
+            is JsonArray -> contents.mapNotNull { (it as? JsonObject)?.get("addToPlaylistRenderer") as? JsonObject }.firstOrNull()
+            else -> null
+        }
+        val playlists = (addToPlaylistRenderer?.get("playlists") as? JsonArray).orEmpty()
+        val result = mutableSetOf<String>()
+        for (item in playlists) {
+            val option = (item as? JsonObject)?.get("playlistAddToOptionRenderer") as? JsonObject
+                ?: item as? JsonObject ?: continue
+            val playlistId = (option["playlistId"] as? JsonPrimitive)?.contentOrNull ?: continue
+            val containsSelected = (option["containsSelectedVideos"] as? JsonPrimitive)?.contentOrNull
+            if (containsSelected.equals("ALL", ignoreCase = true)) {
+                result.add(playlistId.removePrefix("VL"))
+            }
+        }
+        return result
+    }
+
+    /**
      * Removes entries from a playlist. Keyed by set-video-id as well as video
      * id: the same track added twice is two entries, and only the pair says
      * which of them to drop.

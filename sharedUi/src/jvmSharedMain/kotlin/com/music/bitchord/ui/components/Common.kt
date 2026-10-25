@@ -319,6 +319,7 @@ fun SongRow(
     searchPlayingStyle: Boolean = false,
     /** True while a Downloads row belongs to the current multi-selection. */
     selected: Boolean = false,
+    badge: (@Composable () -> Unit)? = null,
 ) {
     val haptics = rememberHaptics()
     val swipeStateHolder = remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
@@ -357,6 +358,7 @@ fun SongRow(
             activeTint = activeTint,
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
+            badge = badge,
         )
         return
     }
@@ -404,6 +406,7 @@ fun SongRow(
             activeTint = activeTint,
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
+            badge = badge,
         )
     }
 }
@@ -471,6 +474,7 @@ private fun SongRowContent(
     activeTint: Color = MaterialTheme.colorScheme.primary,
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
+    badge: (@Composable () -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
@@ -547,16 +551,23 @@ private fun SongRowContent(
                 color = titleColor,
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = listOfNotNull(
-                    song.artist.takeIf { it.isNotBlank() },
-                    song.downloadFormat,
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = subtitleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = listOfNotNull(
+                        song.artist.takeIf { it.isNotBlank() },
+                        song.downloadFormat,
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = if (badge != null) Modifier.weight(1f, fill = false) else Modifier,
+                )
+                if (badge != null) {
+                    Spacer(Modifier.width(6.dp))
+                    badge()
+                }
+            }
         }
         if (downloadedTint != null) {
             DownloadedBadge(song.videoId, downloadedTint)

@@ -87,37 +87,6 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
-/** Cache of playlist membership across sheets to eliminate redundant network hits and track additions/removals. */
-object PlaylistMembershipCache {
-    private val membership = ConcurrentHashMap<String, ConcurrentHashMap<String, String>>()
-
-    fun contains(playlistId: String, videoId: String): Boolean =
-        membership[playlistId]?.containsKey(videoId) == true
-
-    fun getSetVideoId(playlistId: String, videoId: String): String? =
-        membership[playlistId]?.get(videoId)?.takeIf { it.isNotEmpty() }
-
-    fun add(playlistId: String, videoId: String, setVideoId: String? = null) {
-        membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }[videoId] = setVideoId ?: ""
-    }
-
-    fun remove(playlistId: String, videoId: String) {
-        membership[playlistId]?.remove(videoId)
-    }
-
-    fun addAll(playlistId: String, entries: Map<String, String?>) {
-        val map = membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }
-        entries.forEach { (videoId, setVideoId) ->
-            map[videoId] = setVideoId ?: ""
-        }
-    }
-
-    fun addAllIds(playlistId: String, videoIds: Collection<String>) {
-        val map = membership.computeIfAbsent(playlistId) { ConcurrentHashMap() }
-        videoIds.forEach { vid -> map[vid] = "" }
-    }
-}
-
 private val UserPlaylist.id: String get() = playlistId
 
 private fun UserPlaylist.isPinned(pinned: List<String>): Boolean =
@@ -159,7 +128,7 @@ fun PlaylistPickerSheet(
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
-    var sortOrder by remember { mutableStateOf(PlaylistSortOrder.A_TO_Z) }
+    var sortOrder by remember { mutableStateOf(PlaylistSortOrder.DEFAULT) }
     val listState = rememberLazyListState()
 
     // Seed initiallyPresent from local memory cache
@@ -185,40 +154,33 @@ fun PlaylistPickerSheet(
 
     val userToggledPlaylists = remember(song?.videoId) { mutableSetOf<String>() }
 
-    // Non-blocking, gentle background check for playlists not yet in memory.
-    // Checks sequentially with delays so there is zero UI stutter, thread starvation or network flooding.
+    // Fast, single-call membership check using YouTube Music's native get_add_to_playlist endpoint.
     LaunchedEffect(song?.videoId) {
         val target = song ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            for (pl in playlists) {
-                if (pl.playlistId in initiallyPresent) continue
-                if (PlaylistMembershipCache.contains(pl.playlistId, target.videoId)) {
-                    withContext(Dispatchers.Main) {
-                        initiallyPresent = initiallyPresent + pl.playlistId
-                        if (pl.playlistId !in userToggledPlaylists) {
-                            selected = selected + pl.playlistId
-                        }
-                    }
-                    continue
+            val result = YtMusicRepository.getPlaylistsContainingSong(target.videoId)
+            val containingIds = result.getOrNull()
+            if (containingIds != null) {
+                withContext(Dispatchers.Main) {
+                    initiallyPresent = initiallyPresent + containingIds
+                    val unmodified = containingIds.filter { it !in userToggledPlaylists }
+                    selected = selected + unmodified
                 }
-
-                delay(80)
-                runCatching {
-                    val entries = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
-                    if (entries != null) {
-                        PlaylistMembershipCache.addAll(
-                            pl.playlistId,
-                            entries.associate { it.videoId to it.setVideoId },
-                        )
-                        val match = entries.firstOrNull { it.videoId == target.videoId }
-                        if (match != null) {
-                            withContext(Dispatchers.Main) {
-                                initiallyPresent = initiallyPresent + pl.playlistId
-                                if (pl.playlistId !in userToggledPlaylists) {
-                                    selected = selected + pl.playlistId
-                                }
-                            }
-                        }
+                // Cache result in PlaylistMembershipCache
+                containingIds.forEach { plId ->
+                    PlaylistMembershipCache.add(plId, target.videoId)
+                }
+            } else {
+                // If offline or on failure, fall back to PlaylistMembershipCache without crashing or hanging
+                val cached = playlists
+                    .filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, target.videoId) }
+                    .map { it.playlistId }
+                    .toSet()
+                if (cached.isNotEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        initiallyPresent = initiallyPresent + cached
+                        val unmodified = cached.filter { it !in userToggledPlaylists }
+                        selected = selected + unmodified
                     }
                 }
             }
@@ -230,8 +192,13 @@ fun PlaylistPickerSheet(
         else playlists.filter { it.title.contains(playlistSearchQuery, ignoreCase = true) }
     }
 
-    val sortedPlaylists = remember(displayedPlaylists, pinnedPlaylists, sortOrder) {
-        val pinnedComparator = compareByDescending<UserPlaylist> { it.id in pinnedPlaylists || it.isPinned(pinnedPlaylists) }
+    val sortedPlaylists = remember(displayedPlaylists, pinnedPlaylists, sortOrder, initiallyPresent) {
+        val inPlaylistComparator = compareByDescending<UserPlaylist> {
+            it.playlistId in initiallyPresent || PlaylistMembershipCache.contains(it.playlistId, song?.videoId.orEmpty())
+        }
+        val pinnedComparator = compareByDescending<UserPlaylist> {
+            it.id in pinnedPlaylists || it.isPinned(pinnedPlaylists)
+        }
         when (sortOrder) {
             PlaylistSortOrder.A_TO_Z -> displayedPlaylists.sortedWith(
                 pinnedComparator.thenBy { it.title.lowercase(Locale.getDefault()) }
@@ -240,7 +207,7 @@ fun PlaylistPickerSheet(
                 pinnedComparator.thenByDescending { it.title.lowercase(Locale.getDefault()) }
             )
             PlaylistSortOrder.DEFAULT -> displayedPlaylists.sortedWith(
-                pinnedComparator
+                inPlaylistComparator.then(pinnedComparator)
             )
         }
     }

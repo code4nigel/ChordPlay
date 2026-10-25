@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.ui.AppUiHost
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -87,6 +88,17 @@ internal object DesktopAppUiHost : AppUiHost {
         _librarySort.value = value
     }
 
+    private val _libraryViewMode = MutableStateFlow(
+        runCatching { LibraryViewMode.valueOf(persistence.string(KEY_LIBRARY_VIEW_MODE, LibraryViewMode.GRID.name)) }
+            .getOrDefault(LibraryViewMode.GRID),
+    )
+    override val libraryViewMode: StateFlow<LibraryViewMode> = _libraryViewMode
+
+    override fun setLibraryViewMode(value: LibraryViewMode) {
+        persistence.saveString(KEY_LIBRARY_VIEW_MODE, value.name)
+        _libraryViewMode.value = value
+    }
+
     /** Kept current by the app, which owns the download list — see `BitChordDesktopApp`. */
     val downloaded = MutableStateFlow<Set<String>>(emptySet())
 
@@ -98,6 +110,7 @@ internal object DesktopAppUiHost : AppUiHost {
 
     private const val KEY_SWIPE_PLAY_NEXT = "swipe_play_next"
     private const val KEY_HOME_RECENTS_VIEW = "home_recents_view"
+    private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
 }
 
 /**
