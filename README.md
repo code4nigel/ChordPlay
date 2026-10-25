@@ -15,7 +15,7 @@
 
 <br/>
 
-[Overview](#overview) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [Building](#building-from-source) • [License](#license)
+[Overview](#overview) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
 
 </div>
 
@@ -125,29 +125,6 @@ ChordPlay is an open-source project built with deep gratitude toward the develop
 | [Haze](https://github.com/chrisbanes/haze) | Chris Banes | High-performance blur and frosted glass rendering for Compose |
 | [am-lyrics](https://github.com/binimum/am-lyrics) | binimum | Synchronized lyrics animation concepts |
 | [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) | Team NewPipe | YouTube stream extraction engine |
-
----
-
-## Building from Source
-
-### Prerequisites
-- Android Studio Ladybug or newer
-- JDK 17 or higher
-- Android SDK 35 (compileSdk 35, minSdk 26)
-
-### Steps
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/code4nigel/ChordPlay.git
-   cd ChordPlay
-   ```
-2. Build the debug APK:
-   ```bash
-   ./gradlew assembleDevDebug
-   ```
-3. Locate the built APKs:
-   - Universal: `app/build/outputs/apk/dev/debug/app-dev-universal-debug.apk`
-   - ARM64: `app/build/outputs/apk/dev/debug/app-dev-arm64-v8a-debug.apk`
 
 ---
 
