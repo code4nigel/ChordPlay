@@ -66,10 +66,11 @@ $apkFiles = @(
     (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug.apk")
 )
 
+$localApp = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "" }
 $apksignerCandidates = @(
-    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\36.0.0\apksigner.bat"),
-    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\35.0.0\apksigner.bat"),
-    (Join-Path ($env:LOCALAPPDATA ?? "") "Android\Sdk\build-tools\34.0.0\apksigner.bat"),
+    (Join-Path $localApp "Android\Sdk\build-tools\36.0.0\apksigner.bat"),
+    (Join-Path $localApp "Android\Sdk\build-tools\35.0.0\apksigner.bat"),
+    (Join-Path $localApp "Android\Sdk\build-tools\34.0.0\apksigner.bat"),
     "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\36.0.0\apksigner.bat",
     "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\35.0.0\apksigner.bat",
     "C:\Users\Pinea\AppData\Local\Android\Sdk\build-tools\34.0.0\apksigner.bat"
