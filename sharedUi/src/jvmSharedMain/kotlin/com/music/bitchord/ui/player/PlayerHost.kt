@@ -11,6 +11,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -169,10 +170,12 @@ interface PlayerSettingsSource {
     val versionAlignmentInProgress: StateFlow<Boolean>
     val appDesignStyle: StateFlow<AppDesignStyle>
     val playerLayoutMode: StateFlow<PlayerLayoutMode>
+    val fullscreenArtworkLyricsStyle: StateFlow<FullscreenArtworkLyricsStyle>
     val enableBreathingAura: StateFlow<Boolean>
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
+    fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

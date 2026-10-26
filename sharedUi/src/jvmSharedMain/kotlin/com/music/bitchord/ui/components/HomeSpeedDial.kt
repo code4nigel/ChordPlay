@@ -1,5 +1,13 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +52,8 @@ import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.ui.icons.BitChordIcons
+import kotlinx.coroutines.launch
 
 /**
  * 6-Tile Speed Dial Grid for ChordPlay Living Home Screen.
@@ -79,76 +90,116 @@ fun HomeSpeedDial(
             .fillMaxWidth()
             .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
     ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxWidth(),
-        ) { pageIndex ->
-            Column(
+        Box(modifier = Modifier.fillMaxWidth()) {
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (pageIndex == 0) {
-                    // Page 1: 5 item slots + Lucky Dial in slot 5 (row 3, col 2)
-                    SpeedDialRow(
-                        item1 = page1Items.getOrNull(0),
-                        item2 = page1Items.getOrNull(1),
-                        pinnedIds = pinnedIds,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        onItemClick = onItemClick,
-                        onItemLongPress = onItemLongPress,
-                    )
-                    SpeedDialRow(
-                        item1 = page1Items.getOrNull(2),
-                        item2 = page1Items.getOrNull(3),
-                        pinnedIds = pinnedIds,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        onItemClick = onItemClick,
-                        onItemLongPress = onItemLongPress,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        val item4 = page1Items.getOrNull(4)
-                        if (item4 != null) {
-                            SpeedDialTile(
-                                item = item4,
-                                isPinned = (item4.videoId in pinnedIds || item4.browseId in pinnedIds),
-                                isCurrent = isItemCurrent(item4, currentSong),
-                                isPlaying = isPlaying,
-                                onItemClick = onItemClick,
-                                onItemLongPress = onItemLongPress,
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-
-                        LuckyDialCard(
-                            onClick = onLuckyDialClick,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                } else {
-                    // Subsequent pages: up to 6 items chunked by 2
-                    val pageItems = additionalPages.getOrNull(pageIndex - 1).orEmpty()
-                    val rows = pageItems.chunked(2)
-                    rows.forEach { rowItems ->
+            ) { pageIndex ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (pageIndex == 0) {
+                        // Page 1: 5 item slots + Lucky Dial in slot 5 (row 3, col 2)
                         SpeedDialRow(
-                            item1 = rowItems.getOrNull(0),
-                            item2 = rowItems.getOrNull(1),
+                            item1 = page1Items.getOrNull(0),
+                            item2 = page1Items.getOrNull(1),
                             pinnedIds = pinnedIds,
                             currentSong = currentSong,
                             isPlaying = isPlaying,
                             onItemClick = onItemClick,
                             onItemLongPress = onItemLongPress,
                         )
+                        SpeedDialRow(
+                            item1 = page1Items.getOrNull(2),
+                            item2 = page1Items.getOrNull(3),
+                            pinnedIds = pinnedIds,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            onItemClick = onItemClick,
+                            onItemLongPress = onItemLongPress,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            val item4 = page1Items.getOrNull(4)
+                            if (item4 != null) {
+                                SpeedDialTile(
+                                    item = item4,
+                                    isPinned = (item4.videoId in pinnedIds || item4.browseId in pinnedIds),
+                                    isCurrent = isItemCurrent(item4, currentSong),
+                                    isPlaying = isPlaying,
+                                    onItemClick = onItemClick,
+                                    onItemLongPress = onItemLongPress,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+
+                            LuckyDialCard(
+                                onClick = onLuckyDialClick,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    } else {
+                        // Subsequent pages: up to 6 items chunked by 2
+                        val pageItems = additionalPages.getOrNull(pageIndex - 1).orEmpty()
+                        val rows = pageItems.chunked(2)
+                        rows.forEach { rowItems ->
+                            SpeedDialRow(
+                                item1 = rowItems.getOrNull(0),
+                                item2 = rowItems.getOrNull(1),
+                                pinnedIds = pinnedIds,
+                                currentSong = currentSong,
+                                isPlaying = isPlaying,
+                                onItemClick = onItemClick,
+                                onItemLongPress = onItemLongPress,
+                            )
+                        }
+                        repeat(3 - rows.size) {
+                            Spacer(modifier = Modifier.height(56.dp))
+                        }
                     }
-                    repeat(3 - rows.size) {
-                        Spacer(modifier = Modifier.height(56.dp))
-                    }
+                }
+            }
+
+            // Floating Left Quick-Return Button
+            androidx.compose.animation.AnimatedVisibility(
+                visible = pagerState.currentPage > 0,
+                enter = fadeIn(tween(200)) + slideInHorizontally(tween(200)) { -it },
+                exit = fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { -it },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 4.dp),
+            ) {
+                val coroutineScope = rememberCoroutineScope()
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(
+                                    page = 0,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMediumLow,
+                                    ),
+                                )
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = BitChordIcons.ChevronLeft,
+                        contentDescription = "Return to First Page",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             }
         }

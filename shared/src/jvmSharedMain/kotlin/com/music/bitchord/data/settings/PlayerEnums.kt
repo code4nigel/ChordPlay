@@ -47,3 +47,11 @@ enum class PlayerLayoutMode(val label: String, val detail: String) {
     CLASSIC_CLEAN("Classic BitChord", "Original Apple Music-style player layout"),
 }
 
+/** Visual presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
+enum class FullscreenArtworkLyricsStyle(val label: String) {
+    FLOATING_CAPSULE("Floating Capsule (Above Title)"),
+    PLAYER_STRIP("Player Strip (Below Title)"),
+    OFF("Hidden"),
+}
+
+

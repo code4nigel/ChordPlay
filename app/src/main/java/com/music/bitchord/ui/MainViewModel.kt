@@ -32,6 +32,7 @@ import com.music.bitchord.auth.CapturedSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
+import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
@@ -41,6 +42,7 @@ import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
+import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
@@ -50,13 +52,16 @@ import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.SubscriptionState
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.playback.QueueSource
 import com.music.bitchord.ui.components.PlaylistMembershipCache
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
+import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -91,9 +96,6 @@ import com.music.bitchord.ui.screens.matchesSearch
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-
-/** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
-enum class SearchSource { YOUTUBE, LIBRARY }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -1995,7 +1997,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Reset the submission gate so typeahead pipelines fire again.
         searchSubmitted = false
-        if (_searchSource.value == SearchSource.LIBRARY) {
+        if (_searchSource.value != SearchSource.YOUTUBE) {
             libraryQueryDebounce.tryEmit(newValue)
             return
         }
@@ -2009,7 +2011,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         libraryQueryDebounce
             .debounce(350L)
             .collectLatest { query ->
-                if (_searchSource.value == SearchSource.LIBRARY && query.isNotBlank()) {
+                if (_searchSource.value != SearchSource.YOUTUBE && query.isNotBlank()) {
                     runSearch()
                 }
             }
@@ -2029,10 +2031,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Points the Search tab at YouTube Music or at the Local Music folder.
+     * Points the Search tab at YouTube Music, saved Library, or the Local Music folder.
      *
      * The query carries over: whatever is in the field is answered again by
-     * the source just picked, so flipping is a way to compare the two rather
+     * the source just picked, so flipping is a way to compare the sources rather
      * than a reset.
      */
     fun setSearchSource(source: SearchSource) {
@@ -2042,12 +2044,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _typeaheadResults.value = emptyList()
         _searchScrollReset.value += 1
         when (source) {
+            SearchSource.LOCAL -> {
+                if (_filter.value != SearchFilter.ALL && _filter.value != SearchFilter.SONGS) {
+                    _filter.value = SearchFilter.ALL
+                }
+                loadLibrarySongs()
+                if (_query.value.isNotBlank()) runSearch()
+            }
             SearchSource.LIBRARY -> {
                 if (_filter.value == SearchFilter.VIDEOS) {
                     _filter.value = SearchFilter.ALL
                 }
                 loadPlaylists()
-                loadLibrarySongs()
                 if (_query.value.isNotBlank()) runSearch()
             }
             SearchSource.YOUTUBE -> {
@@ -2095,19 +2103,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private data class SearchRequest(
         val query: String,
         val filter: SearchFilter,
-        val isLibrary: Boolean,
+        val source: SearchSource,
         val requestId: Long,
     )
 
-    private fun cacheKey(query: String, filter: SearchFilter, isLibrary: Boolean) =
-        "${if (isLibrary) "lib:" else ""}${filter.name}:$query"
+    private fun cacheKey(query: String, filter: SearchFilter, source: SearchSource) =
+        "${source.name}:${filter.name}:$query"
 
     /**
      * The results of the longest earlier query this one starts with — near
      * enough to leave up while the narrower search runs.
      */
-    private fun prefixMatch(query: String, filter: SearchFilter, isLibrary: Boolean): List<SearchResult>? {
-        val prefix = "${if (isLibrary) "lib:" else ""}${filter.name}:"
+    private fun prefixMatch(query: String, filter: SearchFilter, source: SearchSource): List<SearchResult>? {
+        val prefix = "${source.name}:${filter.name}:"
         return searchCache.snapshot()
             .filterKeys { it.startsWith(prefix) && query.startsWith(it.removePrefix(prefix), true) }
             .maxByOrNull { it.key.length }
@@ -2128,65 +2136,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _searchScrollReset.value += 1
         searchSession = null
         _searchLoadingMore.value = false
-        val isLibrary = _searchSource.value == SearchSource.LIBRARY
-        searchRequests.tryEmit(SearchRequest(query, _filter.value, isLibrary, id))
+        searchRequests.tryEmit(SearchRequest(query, _filter.value, _searchSource.value, id))
     }
 
     private fun startSearchPipeline() = viewModelScope.launch {
         searchRequests
             .collectLatest { request ->
-                val key = cacheKey(request.query, request.filter, request.isLibrary)
+                val key = cacheKey(request.query, request.filter, request.source)
                 val exact = searchCache.get(key)
-                val cached = exact?.rows ?: prefixMatch(request.query, request.filter, request.isLibrary)
+                val cached = exact?.rows ?: prefixMatch(request.query, request.filter, request.source)
                 _results.value = cached?.let { UiState.Success(it) } ?: UiState.Loading
                 if (exact != null) {
                     searchSession = SearchSession(key, request.requestId, request.filter, exact.continuation)
                     return@collectLatest
                 }
 
-                if (request.isLibrary) {
-                    val context = getApplication<Application>()
-                    val localSongs: List<Song> = if (request.filter == SearchFilter.ALL || request.filter == SearchFilter.SONGS) {
-                        if (LocalMediaRepository.hasStoragePermission(context)) {
+                when (request.source) {
+                    SearchSource.LOCAL -> {
+                        val context = getApplication<Application>()
+                        if (!LocalMediaRepository.hasStoragePermission(context)) {
+                            if (request.requestId != newestRequestId.get()) return@collectLatest
+                            _results.value = UiState.Error(text(R.string.storage_required_read))
+                            return@collectLatest
+                        }
+                        val localSongs: List<Song> = if (request.filter == SearchFilter.ALL || request.filter == SearchFilter.SONGS) {
                             runCatching { LocalMediaRepository.getLocalMusic(context) }
                                 .getOrNull()
                                 ?.filter { it.matchesSearch(request.query.trim()) }
                                 ?: emptyList()
                         } else emptyList()
-                    } else emptyList()
 
-                    val localRows = localSongs.map { SearchResult.Track(it) }
-
-                    if (_signedIn.value) {
-                        val result = YtMusicRepository.searchPage(request.query, request.filter, isLibrary = true)
-                        if (request.requestId != newestRequestId.get()) return@collectLatest
-                        _results.value = result.fold(
-                            onSuccess = { page ->
-                                val remoteRows = page.rows
-                                val localIds = localSongs.map { it.videoId }.toSet()
-                                val mergedRows = if (localRows.isNotEmpty()) {
-                                    val nonDuplicateRemote = remoteRows.filter {
-                                        when (it) {
-                                            is SearchResult.Track -> it.song.videoId !in localIds
-                                            is SearchResult.TopTrack -> it.song.videoId !in localIds
-                                            else -> true
-                                        }
-                                    }
-                                    localRows + nonDuplicateRemote
-                                } else {
-                                    remoteRows
-                                }
-                                published(page.copy(rows = mergedRows), key, request.requestId)
-                            },
-                            onFailure = { failure ->
-                                if (localRows.isNotEmpty()) {
-                                    published(YtMusicRepository.SearchPage(localRows, null), key, request.requestId)
-                                } else {
-                                    UiState.Error(failure.friendly())
-                                }
-                            },
-                        )
-                    } else {
+                        val localRows = localSongs.map { SearchResult.Track(it) }
                         if (request.requestId != newestRequestId.get()) return@collectLatest
                         if (localRows.isNotEmpty()) {
                             published(YtMusicRepository.SearchPage(localRows, null), key, request.requestId)
@@ -2194,13 +2174,60 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             _results.value = UiState.Error(text(R.string.no_results))
                         }
                     }
-                } else {
-                    val result = YtMusicRepository.searchPage(request.query, request.filter, isLibrary = false)
-                    if (request.requestId != newestRequestId.get()) return@collectLatest
-                    _results.value = result.fold(
-                        onSuccess = { page -> published(page, key, request.requestId) },
-                        onFailure = { failure -> UiState.Error(failure.friendly()) },
-                    )
+                    SearchSource.LIBRARY -> {
+                        val matchingPlaylists = if (request.filter == SearchFilter.ALL || request.filter == SearchFilter.PLAYLISTS) {
+                            _playlists.value
+                                .filter { it.title.contains(request.query.trim(), ignoreCase = true) }
+                                .map {
+                                    SearchResult.Browse(
+                                        BrowseItem(
+                                            browseId = it.browseId,
+                                            title = it.title,
+                                            subtitle = it.subtitle,
+                                            thumbnailUrl = it.thumbnailUrl,
+                                            type = BrowseType.PLAYLIST,
+                                        )
+                                    )
+                                }
+                        } else emptyList()
+
+                        if (_signedIn.value) {
+                            val result = YtMusicRepository.searchPage(request.query, request.filter, isLibrary = true)
+                            if (request.requestId != newestRequestId.get()) return@collectLatest
+                            _results.value = result.fold(
+                                onSuccess = { page ->
+                                    val existingBrowseIds = page.rows.mapNotNull {
+                                        (it as? SearchResult.Browse)?.item?.browseId
+                                    }.toSet()
+                                    val newPlaylists = matchingPlaylists.filter { it.item.browseId !in existingBrowseIds }
+                                    val mergedRows = newPlaylists + page.rows
+                                    published(page.copy(rows = mergedRows), key, request.requestId)
+                                },
+                                onFailure = { failure ->
+                                    if (matchingPlaylists.isNotEmpty()) {
+                                        published(YtMusicRepository.SearchPage(matchingPlaylists, null), key, request.requestId)
+                                    } else {
+                                        UiState.Error(failure.friendly())
+                                    }
+                                },
+                            )
+                        } else {
+                            if (request.requestId != newestRequestId.get()) return@collectLatest
+                            if (matchingPlaylists.isNotEmpty()) {
+                                published(YtMusicRepository.SearchPage(matchingPlaylists, null), key, request.requestId)
+                            } else {
+                                _results.value = UiState.Error(text(R.string.library_sign_in_description))
+                            }
+                        }
+                    }
+                    SearchSource.YOUTUBE -> {
+                        val result = YtMusicRepository.searchPage(request.query, request.filter, isLibrary = false)
+                        if (request.requestId != newestRequestId.get()) return@collectLatest
+                        _results.value = result.fold(
+                            onSuccess = { page -> published(page, key, request.requestId) },
+                            onFailure = { failure -> UiState.Error(failure.friendly()) },
+                        )
+                    }
                 }
             }
     }
@@ -2322,6 +2349,76 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         is SearchResult.TopTrack -> "v:${row.song.videoId}"
         is SearchResult.Track -> "v:${row.song.videoId}"
         is SearchResult.Browse -> "b:${row.item.browseId}"
+    }
+
+    // ---- Lucky Draw / Dice Engine ---------------------------------------------
+    private val luckyGenres = listOf(
+        "Synthwave 80s Retro Hits", "Neo-Soul Essentials", "City Pop Japanese Classics",
+        "Afrobeats Global Bangers", "90s Alternative Rock Anthem", "Deep House Ibiza Chill",
+        "K-Pop High Energy Hits", "Lo-Fi Beats to Relax", "Nu-Metal 2000s Essentials",
+        "Acoustic Coffeehouse Morning", "Melodic Techno & Progressive", "Reggae Roots & Sunshine",
+        "Latin Reggaeton Caliente", "Indie Folk & Wilderness", "Classic 70s Soul & Funk",
+        "Pop Punk Nostalgia", "Modern Trap & Bass", "Jazz Noir Midnight Lounge",
+        "Post-Rock Cinematic Dreams", "Bossa Nova Sunset", "UK Garage & 2-Step",
+        "Country Road Classics", "French Touch Electro", "Ambient Calm Space",
+        "Electro Swing Vintage Party", "Modern Indie Pop Anthems", "Afro-Fusion Grooves",
+    )
+
+    private var lastLuckyGenre: String? = null
+
+    val playRadioEvent = MutableSharedFlow<Pair<Song, QueueSource>>(extraBufferCapacity = 1)
+    val luckyRadioToast = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    var playRadioHandler: ((Song, QueueSource) -> Unit)? = null
+
+    fun playLuckyRadio(
+        onPlayRadio: ((Song, QueueSource) -> Unit)? = null,
+        onHaptic: (() -> Unit)? = null,
+    ) {
+        onHaptic?.invoke()
+        viewModelScope.launch {
+            val availableGenres = luckyGenres.filter { it != lastLuckyGenre }
+            val genreName = availableGenres.randomOrNull() ?: luckyGenres.random()
+            lastLuckyGenre = genreName
+
+            withContext(Dispatchers.Main) {
+                Toast.makeText(getApplication(), "Rolling into $genreName...", Toast.LENGTH_SHORT).show()
+            }
+            luckyRadioToast.tryEmit("Rolling into $genreName...")
+
+            var candidateSong: Song? = null
+            val searchResult = runCatching {
+                YtMusicRepository.searchPage(genreName, SearchFilter.SONGS, isLibrary = false)
+            }.getOrNull()
+
+            searchResult?.getOrNull()?.let { page ->
+                val songs = page.rows.mapNotNull { row ->
+                    when (row) {
+                        is SearchResult.Track -> row.song
+                        is SearchResult.TopTrack -> row.song
+                        else -> null
+                    }
+                }
+                candidateSong = songs.take(5).shuffled().firstOrNull()
+            }
+
+            if (candidateSong == null) {
+                val fallbackSongs = runCatching {
+                    YtMusicRepository.browseSongs("FEmusic_charts").getOrNull()?.songs
+                }.getOrNull()?.takeIf { it.isNotEmpty() }
+                    ?: runCatching {
+                        YtMusicRepository.browseSongs("FEmusic_new_releases").getOrNull()?.songs
+                    }.getOrNull()
+
+                candidateSong = fallbackSongs?.shuffled()?.firstOrNull()
+            }
+
+            candidateSong?.let { song ->
+                val source = QueueSource("Lucky Radio • $genreName", PlaybackSourceType.SEARCH)
+                onPlayRadio?.invoke(song, source)
+                    ?: playRadioHandler?.invoke(song, source)
+                    ?: playRadioEvent.tryEmit(song to source)
+            }
+        }
     }
 
     /**

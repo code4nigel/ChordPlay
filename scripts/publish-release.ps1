@@ -1,6 +1,6 @@
 param(
-    [string]$tagName = "v1.8.6",
-    [string]$releaseTitle = "ChordPlay v1.8.6 - FastScroller, Smooth Lyric Transitions, Library Search & Crash Fixes"
+    [string]$tagName = "v1.8.7",
+    [string]$releaseTitle = "ChordPlay v1.8.7 - Lyrics Styles, 3-Way Search Split, Speed Dial & True Lucky Dice"
 )
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -16,7 +16,7 @@ $repoOwner = "code4nigel"
 $repoName = "ChordPlay"
 $notesPath = Join-Path $PSScriptRoot "..\app\version\RELEASE_NOTES.md"
 $fullNotes = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath) } else { "ChordPlay $tagName release" }
-$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.6.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
+$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.7.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
     $matches[1].Trim()
 } else {
     $fullNotes
@@ -61,9 +61,9 @@ Write-Host "Upload URL: $($release.upload_url)"
 Write-Host "Verifying APK signing certificates against permanent repository keystore..." -ForegroundColor Cyan
 
 $apkFiles = @(
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug-universal.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug-arm64.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.6-build32-devDebug.apk")
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug-universal.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug-arm64.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug.apk")
 )
 
 $localApp = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "" }
@@ -84,7 +84,7 @@ foreach ($apkPath in $apkFiles) {
     }
     if ($apksigner) {
         $sigOutput = & $apksigner verify --print-certs "$apkPath" 2>&1 | Out-String
-        if ($sigOutput -match "(?i)4e:60:01:ab:3c:84:25:a8:5c:84:a0:13:ec:2a:88:3a:f1:f1:9a:7a:fa:54:24:6a:80:21:eb:fe:75:1e:09:83") {
+        if ($sigOutput -match "(?i)4e:?60:?01:?ab:?3c:?84:?25:?a8:?5c:?84:?a0:?13:?ec:?2a:?88:?3a:?f1:?f1:?9a:?7a:?fa:?54:?24:?6a:?80:?21:?eb:?fe:?75:?1e:?09:?83") {
             Write-Host "Verified $([System.IO.Path]::GetFileName($apkPath)): Signed with permanent ChordPlay repository keystore." -ForegroundColor Green
         } else {
             Write-Warning "APK $([System.IO.Path]::GetFileName($apkPath)) signing certificate does not match expected permanent keystore fingerprint."

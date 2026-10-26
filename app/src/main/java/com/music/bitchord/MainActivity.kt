@@ -1411,6 +1411,7 @@ private fun BitChordApp(
             // Start radio in the mini-player; the user opens the full view by tapping it.
         }
     }
+    viewModel.playRadioHandler = playRadio
 
     /**
      * Starts the explicit station offered by every song overflow menu.
@@ -1913,10 +1914,10 @@ private fun BitChordApp(
     } else {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
-    // The Search tab's Library source reads the Local Music folder, so it asks
+    // The Search tab's Local source reads the Local Music folder, so it asks
     // for the same permission opening that folder does.
     val onSearchSourceChange: (SearchSource) -> Unit = { source ->
-        if (source == SearchSource.LIBRARY && !LocalMediaRepository.hasStoragePermission(context)) {
+        if (source == SearchSource.LOCAL && !LocalMediaRepository.hasStoragePermission(context)) {
             mediaPermissionLauncher.launch(mediaPermission)
         }
         viewModel.setSearchSource(source)
@@ -3026,6 +3027,7 @@ private fun BitChordApp(
                             onLoadMore = viewModel::loadMoreHome,
                             loadingMore = homeLoadingMore,
                             recentlyPlayedLoading = homeRecentlyPlayedLoading,
+                            onLuckyDialClick = { viewModel.playLuckyRadio(onPlayRadio = playRadio) },
                         )
                         TAB_EXPLORE -> selectedMoodGenre?.let { category ->
                             MoodGenrePlaylistsScreen(
@@ -3205,12 +3207,14 @@ private fun BitChordApp(
                                     options = listOf(
                                         stringResource(R.string.search_source_youtube),
                                         stringResource(R.string.library),
+                                        stringResource(R.string.local_music),
                                     ),
                                     selectedIndex = searchSource.ordinal,
                                     onSelect = { index -> onSearchSourceChange(SearchSource.entries[index]) },
                                 )
                             },
-                            searchingLibrary = searchSource == SearchSource.LIBRARY,
+                            searchSource = searchSource,
+                            searchingLibrary = searchSource != SearchSource.YOUTUBE,
                             libraryResults = libraryResults,
                             userPlaylists = playlists,
                             // The same queue opening the Local Music folder and
@@ -3515,10 +3519,10 @@ private fun BitChordApp(
                                 onSubmit = viewModel::submitSearch,
                                 focusRequester = searchFieldFocus,
                                 placeholder = org.jetbrains.compose.resources.stringResource(
-                                    if (searchSource == SearchSource.LIBRARY) {
-                                        SharedRes.string.search_library_hint
-                                    } else {
-                                        SharedRes.string.search_hint
+                                    when (searchSource) {
+                                        SearchSource.LOCAL -> SharedRes.string.search_library_hint
+                                        SearchSource.LIBRARY -> SharedRes.string.search_library_hint
+                                        SearchSource.YOUTUBE -> SharedRes.string.search_hint
                                     },
                                 ),
                             )

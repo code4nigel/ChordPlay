@@ -31,8 +31,10 @@ import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.FormatAlignLeft
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,8 +43,12 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.lyrics.translationLanguageName
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.ui.player.LyricsCustomStyle
 import com.music.bitchord.ui.player.LyricsFontChoice
 import com.music.bitchord.ui.player.LyricsSizeScale
@@ -87,6 +94,8 @@ fun LyricsSection(
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
+    val fullscreenArtworkLyricsStyle by AppSettings.fullscreenArtworkLyricsStyle.collectAsStateWithLifecycle()
+    var showFullscreenLyricsDialog by remember { mutableStateOf(false) }
 
     val fontFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -410,7 +419,67 @@ fun LyricsSection(
                     trailing = { Chevron() },
                     onClick = onTranslationLanguage,
                 )
+
+                SettingsRow(
+                    icon = Icons.Rounded.Fullscreen,
+                    title = "Fullscreen Artwork Lyrics",
+                    subtitle = fullscreenArtworkLyricsStyle.label,
+                    trailing = { Chevron() },
+                    onClick = { showFullscreenLyricsDialog = true },
+                )
             }
+        }
+
+        if (showFullscreenLyricsDialog) {
+            AlertDialog(
+                onDismissRequest = { showFullscreenLyricsDialog = false },
+                title = {
+                    Text(
+                        text = "Fullscreen Artwork Lyrics",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        FullscreenArtworkLyricsStyle.entries.forEach { style ->
+                            val isSelected = style == fullscreenArtworkLyricsStyle
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        AppSettings.setFullscreenArtworkLyricsStyle(style)
+                                        showFullscreenLyricsDialog = false
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = style.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFullscreenLyricsDialog = false }) {
+                        Text(stringResource(R.string.cancel))
+                    }
+                },
+            )
         }
     }
 }

@@ -78,10 +78,13 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
         override val appDesignStyle get() = AppSettings.appDesignStyle
         override val playerLayoutMode get() = AppSettings.playerLayoutMode
+        override val fullscreenArtworkLyricsStyle get() = AppSettings.fullscreenArtworkLyricsStyle
         override val enableBreathingAura get() = AppSettings.enableBreathingAura
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
+        override fun setFullscreenArtworkLyricsStyle(value: com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle) =
+            AppSettings.setFullscreenArtworkLyricsStyle(value)
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)

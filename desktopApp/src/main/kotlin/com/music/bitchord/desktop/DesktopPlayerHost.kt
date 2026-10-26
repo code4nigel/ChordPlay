@@ -12,6 +12,7 @@ import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.MixBlend
@@ -217,6 +218,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val versionAlignmentInProgress = MutableStateFlow(false)
     override val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
     override val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+    override val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
     override val enableBreathingAura = MutableStateFlow(true)
 
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
@@ -228,6 +230,10 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
         val clamped = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         lyricsOffsetMs.value = clamped
         persistence.saveInt(KEY_LYRICS_OFFSET, clamped)
+    }
+
+    override fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle) {
+        fullscreenArtworkLyricsStyle.value = value
     }
 
     private const val KEY_LAST_SCREEN = "last_player_screen"

@@ -542,6 +542,9 @@ object AppSettings {
     /** Player screen layout: Modern Ambient with breathing aura vs Classic Clean. */
     val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
 
+    /** Presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
+    val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+
     /** Breathing artwork aura animation behind the cover during playback. */
     val enableBreathingAura = MutableStateFlow(true)
 
@@ -944,6 +947,9 @@ object AppSettings {
         playerLayoutMode.value = runCatching {
             PlayerLayoutMode.valueOf(prefs.getString(KEY_PLAYER_LAYOUT_MODE, null) ?: PlayerLayoutMode.MODERN_AMBIENT.name)
         }.getOrDefault(PlayerLayoutMode.MODERN_AMBIENT)
+        fullscreenArtworkLyricsStyle.value = runCatching {
+            FullscreenArtworkLyricsStyle.valueOf(prefs.getString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, null) ?: FullscreenArtworkLyricsStyle.FLOATING_CAPSULE.name)
+        }.getOrDefault(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
@@ -1533,6 +1539,13 @@ object AppSettings {
         playerLayoutMode.value = value
         if (this::prefs.isInitialized) {
             prefs.edit().putString(KEY_PLAYER_LAYOUT_MODE, value.name).apply()
+        }
+    }
+
+    fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle) {
+        fullscreenArtworkLyricsStyle.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, value.name).apply()
         }
     }
 
@@ -2197,6 +2210,7 @@ object AppSettings {
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
+    private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
     private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"

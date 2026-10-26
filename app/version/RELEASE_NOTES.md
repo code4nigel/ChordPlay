@@ -1,3 +1,33 @@
+# ChordPlay v1.8.7
+
+Welcome to ChordPlay v1.8.7! This release introduces flexible lyrics presentation styles, a 3-way search division, quick Speed Dial return navigation, and a true YouTube Music style Lucky Draw discovery dice engine:
+
+### What's New in v1.8.7:
+- **Fullscreen Artwork Lyrics Presentation Modes**:
+  - Choose how lyrics display in fullscreen artwork/Canvas mode under **Settings → Synced Lyrics → Fullscreen Artwork Lyrics Style**:
+    - **Floating Capsule**: Sleek, centered frosted glass pill above the song title with fluid width spring morphing.
+    - **Main Player Strip**: Matches the main player deck layout, positioned below the song title and action icons with left alignment and a right chevron arrow (`>`).
+    - **Hidden**: Option to hide lyrics completely for an uninterrupted visual stage.
+- **Three-Way Search Separation (YouTube, Library & Local)**:
+  - The search bar now features three dedicated tabs:
+    - **YouTube**: Explore the complete online YouTube Music catalogue (tracks, artists, albums, community playlists).
+    - **Library**: Search through your personal saved playlists, followed artists, saved albums, and library songs.
+    - **Local**: Search exclusively through audio files stored on device storage in your Local Music folder.
+- **Speed Dial Quick Return Navigation**:
+  - When paging horizontally past Page 0 of the home Speed Dial, a sleek floating frosted glass back button appears on the left edge.
+  - Tapping it smoothly springs back to Page 0 with a single tap, granting instant access to the Lucky Draw discovery button.
+- **True YouTube Music "Lucky Draw / Dice" Engine**:
+  - Completely re-engineered the Lucky Draw dice button into a true genre exploration engine.
+  - Randomly selects from a curated matrix of 25+ diverse musical genres and styles (Synthwave, Neo-Soul, City Pop, Afrobeats, 90s Alternative Rock, Deep House, K-Pop, Lo-Fi, Nu-Metal, Jazz, Latin, and more) with infinite dynamic radio generation.
+- **Android Target Polish**:
+  - Cleaned up cross-platform host bindings and verified APK signing against the permanent repository keystore.
+
+### Download Assets:
+- `chordplay-v1.8.7-build33-devDebug-universal.apk` (and alias `chordplay-v1.8.7-build33-devDebug.apk`): Universal build compatible with all Android devices (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
+- `chordplay-v1.8.7-build33-devDebug-arm64.apk`: Optimized, lightweight build for modern 64-bit ARM devices.
+
+---
+
 # ChordPlay v1.8.6
 
 Welcome to ChordPlay v1.8.6! This release focuses on stability, fluid micro-animations, fast library navigation, and seamless in-app updating:

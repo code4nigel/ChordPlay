@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.contextClick
+import com.music.bitchord.ui.SearchSource
 import androidx.compose.ui.unit.Dp
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -152,6 +153,7 @@ fun SearchScreen(
      * YouTube. The phone's top bar flips this; the desktop never does.
      */
     searchingLibrary: Boolean = false,
+    searchSource: SearchSource = if (searchingLibrary) SearchSource.LIBRARY else SearchSource.YOUTUBE,
     /** The Library source's tracks for [query]; null while nothing is typed. */
     libraryResults: UiState<List<Song>>? = null,
     /** Files on the device are a running order to play through, not a station seed. */
@@ -164,6 +166,8 @@ fun SearchScreen(
      */
     sourceSwitcher: (@Composable () -> Unit)? = null,
 ) {
+    val activeSearchSource = searchSource
+    val isSearchingNonYoutube = activeSearchSource != SearchSource.YOUTUBE
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -186,7 +190,7 @@ fun SearchScreen(
     // MainViewModel.suggestions. Nothing below it is worth showing while it is
     // up: the results are for whatever was searched before this edit began,
     // and so are the filter tabs above them.
-    val suggesting = suggestions.isNotEmpty() && !searchingLibrary
+    val suggesting = suggestions.isNotEmpty() && activeSearchSource == SearchSource.YOUTUBE
     // Live media results arrive from the parallel typeahead pipeline; show
     // them only while the user is still typing (suggestions visible), so they
     // appear as a dropdown beneath the text completions rather than floating
@@ -215,10 +219,10 @@ fun SearchScreen(
                     onQueryChange = onQueryChange,
                     onSubmit = onSubmit,
                     focusRequester = focusRequester,
-                    placeholder = if (searchingLibrary) {
-                        stringResource(Res.string.search_library_hint)
-                    } else {
-                        stringResource(Res.string.search_hint)
+                    placeholder = when (activeSearchSource) {
+                        SearchSource.LOCAL -> stringResource(Res.string.search_library_hint)
+                        SearchSource.LIBRARY -> "Search saved playlists, albums, artists and tracks"
+                        SearchSource.YOUTUBE -> stringResource(Res.string.search_hint)
                     },
                     modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
                 )
@@ -241,7 +245,11 @@ fun SearchScreen(
                 SearchFilterTabs(
                     filter = filter,
                     onFilterChange = onFilterChange,
-                    filters = if (searchingLibrary) LIBRARY_FILTERS else SearchFilter.entries,
+                    filters = when (activeSearchSource) {
+                        SearchSource.LOCAL -> LOCAL_FILTERS
+                        SearchSource.LIBRARY -> LIBRARY_FILTERS
+                        SearchSource.YOUTUBE -> SearchFilter.entries
+                    },
                 )
             }
         }
@@ -258,8 +266,11 @@ fun SearchScreen(
                 contentPadding = searchBottomPadding,
             ) {
             when {
-                searchingLibrary && results == null -> item(key = "library:empty") {
+                activeSearchSource == SearchSource.LOCAL && results == null -> item(key = "local:empty") {
                     MessageState(stringResource(Res.string.search_library_empty))
+                }
+                activeSearchSource == SearchSource.LIBRARY && results == null -> item(key = "library:empty") {
+                    MessageState("Search your saved playlists, albums, artists and tracks.")
                 }
                 suggesting -> {
                     searchSuggestions(
@@ -301,12 +312,12 @@ fun SearchScreen(
                 results is UiState.Error -> item { MessageState(results.message) }
                 results is UiState.Success -> {
                     if (results.data.isEmpty()) {
-                        item(key = if (searchingLibrary) "library:no-match" else "search:no-match") {
+                        item(key = if (isSearchingNonYoutube) "library:no-match" else "search:no-match") {
                             MessageState(
-                                if (searchingLibrary) {
-                                    stringResource(Res.string.search_library_no_results, query.trim())
-                                } else {
-                                    stringResource(Res.string.search_empty)
+                                when (activeSearchSource) {
+                                    SearchSource.LOCAL -> stringResource(Res.string.search_library_no_results, query.trim())
+                                    SearchSource.LIBRARY -> "Nothing in your library matches \"${query.trim()}\"."
+                                    SearchSource.YOUTUBE -> stringResource(Res.string.search_empty)
                                 }
                             )
                         }
@@ -316,10 +327,9 @@ fun SearchScreen(
                                 is SearchResult.TopTrack -> row.song
                                 is SearchResult.Track -> row.song
                                 is SearchResult.Browse -> null
-                                else -> null
                             } }
                         val topResult = results.data.filterIsInstance<SearchResult.TopTrack>().firstOrNull()
-                        if (filter == SearchFilter.ALL && topResult != null && !searchingLibrary) {
+                        if (filter == SearchFilter.ALL && topResult != null && !isSearchingNonYoutube) {
                             item(key = "search:top-result:${topResult.song.videoId}") {
                                 TopResultCard(
                                     song = topResult.song,
@@ -360,15 +370,15 @@ fun SearchScreen(
                                     is SearchResult.Track -> {
                                         var cachedPlaylistNames by remember(row.song.videoId, userPlaylists) {
                                             mutableStateOf(
-                                                if (searchingLibrary) {
+                                                if (activeSearchSource == SearchSource.LIBRARY) {
                                                     PlaylistMembershipCache.getPlaylistNamesForSong(row.song.videoId, userPlaylists)
                                                 } else {
                                                     emptyList()
                                                 }
                                             )
                                         }
-                                        LaunchedEffect(row.song.videoId, userPlaylists, searchingLibrary) {
-                                            if (searchingLibrary && !row.song.isLocal && row.song.videoId.isNotEmpty() && cachedPlaylistNames.isEmpty()) {
+                                        LaunchedEffect(row.song.videoId, userPlaylists, activeSearchSource) {
+                                            if (activeSearchSource == SearchSource.LIBRARY && !row.song.isLocal && row.song.videoId.isNotEmpty() && cachedPlaylistNames.isEmpty()) {
                                                 val result = YtMusicRepository.getPlaylistsContainingSong(row.song.videoId)
                                                 result.onSuccess { containingIds ->
                                                     containingIds.forEach { pid -> PlaylistMembershipCache.add(pid, row.song.videoId) }
@@ -425,6 +435,11 @@ fun SearchScreen(
     }
 }
 }
+
+private val LOCAL_FILTERS = listOf(
+    SearchFilter.ALL,
+    SearchFilter.SONGS,
+)
 
 private val LIBRARY_FILTERS = listOf(
     SearchFilter.ALL,

@@ -396,6 +396,24 @@ object BitChordIcons {
     }
 
     /** Plain chevron — a disclosure hint, not a directional arrow. */
+    val ChevronLeft: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_chevron_left",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(14.5f, 6.2f)
+                lineTo(8.7f, 12f)
+                lineTo(14.5f, 17.8f)
+            }
+        }.build()
+    }
     val ChevronRight: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_chevron_right",

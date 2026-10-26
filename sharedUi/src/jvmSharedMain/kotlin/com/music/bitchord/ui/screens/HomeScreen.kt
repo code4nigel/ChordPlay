@@ -155,6 +155,7 @@ fun HomeScreen(
     leadHero: Boolean = true,
     currentSong: Song? = null,
     isPlaying: Boolean = false,
+    onLuckyDialClick: (() -> Unit)? = null,
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
@@ -252,10 +253,14 @@ fun HomeScreen(
                                 isPlaying = isPlaying,
                                 onItemClick = { item -> onItemClick(item, "Speed Dial") },
                                 onLuckyDialClick = {
-                                    val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
-                                        ?: speedDialItems.shuffled().firstOrNull())
-                                    if (candidate != null) {
-                                        onItemClick(candidate, "Lucky Radio")
+                                    if (onLuckyDialClick != null) {
+                                        onLuckyDialClick()
+                                    } else {
+                                        val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
+                                            ?: speedDialItems.shuffled().firstOrNull())
+                                        if (candidate != null) {
+                                            onItemClick(candidate, "Lucky Radio")
+                                        }
                                     }
                                 },
                                 onItemLongPress = onItemLongPress,

@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
@@ -801,6 +802,7 @@ fun NowPlayingScreen(
     val appDesignStyle by PlayerSettings.appDesignStyle.collectAsStateWithLifecycle()
     val playerLayoutMode by PlayerSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val enableBreathingAura by PlayerSettings.enableBreathingAura.collectAsStateWithLifecycle()
+    val fullscreenLyricsStyle by PlayerSettings.fullscreenArtworkLyricsStyle.collectAsStateWithLifecycle()
     val isChordPlay = appDesignStyle == AppDesignStyle.CHORDPLAY
     val isModernAmbient = isChordPlay && playerLayoutMode == PlayerLayoutMode.MODERN_AMBIENT
     val isVinylRecord = isChordPlay && playerLayoutMode == PlayerLayoutMode.VINYL_RECORD
@@ -3200,34 +3202,67 @@ fun NowPlayingScreen(
                     )
                 }
 
-                // Persistent frosted one-line lyrics pill in fullscreen Canvas mode
+                // Persistent frosted one-line lyrics in fullscreen Canvas mode
                 if (spotifyCanvasPresentation && syncedLyricsEnabled && !lyricsOpen && !queueOpen && playerDeckReveal.value < 0.999f) {
-                    var pillHeightPx by remember { mutableIntStateOf(with(density) { 34.dp.roundToPx() }) }
                     val pillAlpha = (1f - playerDeckReveal.value).coerceIn(0f, 1f)
-                    CanvasLyricPill(
-                        lines = lyricsTranslation.displayedLyrics,
-                        trackKey = song.videoId,
-                        playhead = lyricsPlayhead,
-                        isPlaying = isPlaying && position.advancing,
-                        lyricsUnavailable = lyricsUnavailable,
-                        loadingText = lyricsLoadingText,
-                        onClick = openLyrics,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onSizeChanged { if (it.height > 0) pillHeightPx = it.height }
-                            .offset {
-                                val titleTopPx = (
-                                    currentTitleTop() -
-                                        lerp(0.dp, (HEADER_HEIGHT - THUMB_SIZE) / 2, p())
-                                ).roundToPx()
-                                val gapPx = 14.dp.roundToPx()
-                                IntOffset(
-                                    x = 0,
-                                    y = titleTopPx - pillHeightPx - gapPx,
-                                )
-                            }
-                            .graphicsLayer { alpha = pillAlpha },
-                    )
+                    when (fullscreenLyricsStyle) {
+                        FullscreenArtworkLyricsStyle.FLOATING_CAPSULE -> {
+                            var pillHeightPx by remember { mutableIntStateOf(with(density) { 34.dp.roundToPx() }) }
+                            CanvasLyricPill(
+                                lines = lyricsTranslation.displayedLyrics,
+                                trackKey = song.videoId,
+                                playhead = lyricsPlayhead,
+                                isPlaying = isPlaying && position.advancing,
+                                lyricsUnavailable = lyricsUnavailable,
+                                loadingText = lyricsLoadingText,
+                                onClick = openLyrics,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .onSizeChanged { if (it.height > 0) pillHeightPx = it.height }
+                                    .offset {
+                                        val titleTopPx = (
+                                            currentTitleTop() -
+                                                lerp(0.dp, (HEADER_HEIGHT - THUMB_SIZE) / 2, p())
+                                        ).roundToPx()
+                                        val gapPx = 14.dp.roundToPx()
+                                        IntOffset(
+                                            x = 0,
+                                            y = titleTopPx - pillHeightPx - gapPx,
+                                        )
+                                    }
+                                    .graphicsLayer { alpha = pillAlpha },
+                            )
+                        }
+                        FullscreenArtworkLyricsStyle.PLAYER_STRIP -> {
+                            CanvasLyricStrip(
+                                lines = lyricsTranslation.displayedLyrics,
+                                trackKey = song.videoId,
+                                playhead = lyricsPlayhead,
+                                isPlaying = isPlaying && position.advancing,
+                                lyricsUnavailable = lyricsUnavailable,
+                                loadingText = lyricsLoadingText,
+                                titleStart = titleStart(),
+                                onClick = openLyrics,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .offset {
+                                        val titleTopPx = (
+                                            currentTitleTop() -
+                                                lerp(0.dp, (HEADER_HEIGHT - THUMB_SIZE) / 2, p())
+                                        ).roundToPx()
+                                        val titleHeightPx = HEADER_HEIGHT.roundToPx()
+                                        IntOffset(
+                                            x = 0,
+                                            y = titleTopPx + titleHeightPx,
+                                        )
+                                    }
+                                    .graphicsLayer { alpha = pillAlpha },
+                            )
+                        }
+                        FullscreenArtworkLyricsStyle.OFF -> {
+                            // Hidden
+                        }
+                    }
                 }
 
                 // ---- Title + menu ----
@@ -3942,4 +3977,95 @@ private fun CanvasLyricPill(
         }
     }
 }
+
+/**
+ * Mirror of the main player lyric strip positioned below Title + Menu row
+ * in fullscreen Canvas / artwork mode.
+ */
+@Composable
+private fun CanvasLyricStrip(
+    lines: List<LyricLine>,
+    trackKey: String,
+    playhead: LyricPlayhead,
+    isPlaying: Boolean,
+    lyricsUnavailable: Boolean,
+    loadingText: String,
+    titleStart: Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
+    val clock = rememberLyricClock(trackKey, playhead, isPlaying)
+    val index by remember(lines) {
+        derivedStateOf { lines.indexOfLast { it.timeMs <= clock.longValue } }
+    }
+    val current = lines.getOrNull(index)
+    val instrumental = current == null || current.isGap
+    val firstSung = remember(lines) { lines.indexOfFirst { !it.isGap } }
+    val intro = instrumental && firstSung >= 0 && index < firstSung
+
+    val (activeText, isInstrumental) = when {
+        lines.isNotEmpty() && isSynced -> {
+            when {
+                intro -> stringResource(Res.string.instrumental) to true
+                instrumental -> stringResource(Res.string.instrumental) to true
+                else -> (current.text.takeIf { it.isNotBlank() } ?: "") to false
+            }
+        }
+        lines.isNotEmpty() && !isSynced -> {
+            stringResource(Res.string.open_lyrics) to false
+        }
+        !lyricsUnavailable && loadingText.isNotBlank() -> {
+            loadingText to false
+        }
+        else -> "" to false
+    }
+
+    if (activeText.isBlank()) return
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(top = 8.dp, start = titleStart, end = 20.dp),
+    ) {
+        AnimatedContent(
+            targetState = Triple(index, activeText, isInstrumental),
+            transitionSpec = {
+                (fadeIn(tween(320, easing = FastOutSlowInEasing)) +
+                    slideInVertically(tween(320, easing = FastOutSlowInEasing)) { (it * 0.4f).toInt() })
+                    .togetherWith(
+                        fadeOut(tween(320, easing = FastOutSlowInEasing)) +
+                            slideOutVertically(tween(320, easing = FastOutSlowInEasing)) { -(it * 0.4f).toInt() }
+                    ).using(SizeTransform(clip = false))
+            },
+            modifier = Modifier.weight(1f, fill = false),
+            label = "CanvasLyricStripTransition",
+        ) { (_, text, isInst) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isInst) {
+                    Icon(BitChordIcons.MusicNote, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Spacer(Modifier.width(6.dp))
+        Icon(
+            imageVector = BitChordIcons.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.size(15.dp),
+        )
+    }
+}
+
 
