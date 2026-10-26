@@ -60,6 +60,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.offset
@@ -882,6 +883,12 @@ fun NowPlayingScreen(
     var lyricsOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
+    var localLyricsOffsetOpen by remember { mutableStateOf(false) }
+    val effectiveLyricsOffsetOpen = lyricsOffsetOpen || localLyricsOffsetOpen
+    val dismissLyricsOffset = {
+        localLyricsOffsetOpen = false
+        onDismissLyricsOffset()
+    }
     val queueSlide = remember { mutableFloatStateOf(0f) }
     // Expensive, song-scoped preparation is deliberately staggered. The small
     // backdrop decode runs after the track hand-off has settled; lyrics and
@@ -1041,7 +1048,7 @@ fun NowPlayingScreen(
 
     PlayerBackHandler(enabled = showCast) { showCast = false }
 
-    PlayerBackHandler(enabled = lyricsOffsetOpen, onBack = onDismissLyricsOffset)
+    PlayerBackHandler(enabled = effectiveLyricsOffsetOpen, onBack = dismissLyricsOffset)
 
     // Both of these sit ahead of [lyricsOpen]'s own handler — see the note on
     // the queue above — because both are drawn *over* the panel rather than
@@ -1389,6 +1396,7 @@ fun NowPlayingScreen(
         (heroHeight.value * HERO_FADE_FRACTION / clipBottom.value).coerceIn(0f, 1f)
     } else 0f
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // What sits between the status bar and the artwork: the drag strip. Read
     // in three places — the strip itself,
     // the scrim drawn over it and the banner's own height — which all have to
@@ -1506,6 +1514,7 @@ fun NowPlayingScreen(
             repeatMode = repeatMode,
             autoplayEnabled = autoplayEnabled,
             onToggleLyrics = toggleLyrics,
+            onLyricsOffset = { localLyricsOffsetOpen = true },
             onToggleQueue = toggleQueue,
             onToggleShuffle = onToggleShuffle,
             onCycleRepeat = onCycleRepeat,
@@ -1579,10 +1588,10 @@ fun NowPlayingScreen(
                 },
             )
         }
-        if (lyricsOffsetOpen) {
+        if (effectiveLyricsOffsetOpen) {
             LyricsOffsetSheet(
                 hazeState = playerHaze,
-                onDismiss = onDismissLyricsOffset,
+                onDismiss = dismissLyricsOffset,
             )
         }
         lyricsShare?.let { request ->
@@ -2000,10 +2009,19 @@ fun NowPlayingScreen(
                             )
                         },
                         styleToggle = {
-                            LyricsStyleToggleButton(
-                                enabled = !lyrics.isNullOrEmpty(),
-                                onClick = { showLyricsStyleSheet = true },
-                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                LyricsOffsetToggleButton(
+                                    enabled = !lyrics.isNullOrEmpty(),
+                                    onClick = { localLyricsOffsetOpen = true },
+                                )
+                                LyricsStyleToggleButton(
+                                    enabled = !lyrics.isNullOrEmpty(),
+                                    onClick = { showLyricsStyleSheet = true },
+                                )
+                            }
                         },
                     ) { panelModifier ->
                         LyricsTranslationMotion(
@@ -2196,7 +2214,7 @@ fun NowPlayingScreen(
         // artwork, rather than changing the status-bar glyph colour per cover.
         // A subview replaces that hero with an artwork-derived mesh, so it gets
         // only a modest floor rather than an opaque status-bar surface.
-        val playerSubviewOpen = lyricsOpen || queueOpen || lyricsOffsetOpen ||
+        val playerSubviewOpen = lyricsOpen || queueOpen || effectiveLyricsOffsetOpen ||
             showAudioPipeline || showCast || showAudioOutput || showLyricsProviders ||
             lyricsShare != null
         val topGradientAlpha = if (playerSubviewOpen) {
@@ -2650,12 +2668,19 @@ fun NowPlayingScreen(
                 // Once Spotify's control deck has left, keep the only remaining
                 // player chrome against the bottom edge instead of stranding it
                 // where the artwork's title normally sits near mid-screen.
+                // When player strip lyrics is enabled, lift the title and lyrics comfortably
+                // above the navigation bar / gesture bar so they never collide.
+                val lyricsBottomLift = if (fullscreenLyricsStyle == FullscreenArtworkLyricsStyle.PLAYER_STRIP && syncedLyricsEnabled) {
+                    36.dp + maxOf(navBarBottom, 22.dp)
+                } else {
+                    maxOf(navBarBottom, 12.dp)
+                }
                 val spotifyTitleRange = if (spotifyCanvasPresentation) {
                     val expandedTopHeight = spotifyCanvasExpandedTopHeight
                         .takeIf { it > 0.dp }
                         ?: maxHeight
                     val collapsedTitleTop = (
-                        expandedTopHeight + spotifyCanvasDeckHeight - HEADER_HEIGHT
+                        expandedTopHeight + spotifyCanvasDeckHeight - HEADER_HEIGHT - lyricsBottomLift
                     ).coerceAtLeast(0.dp)
                     collapsedTitleTop
                 } else {
@@ -3250,7 +3275,7 @@ fun NowPlayingScreen(
                                             currentTitleTop() -
                                                 lerp(0.dp, (HEADER_HEIGHT - THUMB_SIZE) / 2, p())
                                         ).roundToPx()
-                                        val titleHeightPx = HEADER_HEIGHT.roundToPx()
+                                        val titleHeightPx = (HEADER_HEIGHT - 6.dp).roundToPx()
                                         IntOffset(
                                             x = 0,
                                             y = titleTopPx + titleHeightPx,
@@ -3508,6 +3533,10 @@ fun NowPlayingScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            LyricsOffsetToggleButton(
+                                enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                onClick = { localLyricsOffsetOpen = true },
+                            )
                             LyricsStyleToggleButton(
                                 enabled = translateShown && !lyrics.isNullOrEmpty(),
                                 onClick = { showLyricsStyleSheet = true },

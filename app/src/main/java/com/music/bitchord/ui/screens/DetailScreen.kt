@@ -245,6 +245,8 @@ fun DetailScreen(
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
+    onSongSwipeRight: ((Song) -> Unit)? = null,
+    onSongSwipeLeft: ((Song) -> Unit)? = null,
     onShuffle: (List<Song>) -> Unit,
     onSectionItemClick: (ShelfItem) -> Unit,
     onArtistClick: (String, String) -> Unit,
@@ -629,6 +631,8 @@ fun DetailScreen(
                                 onSongClick(queue, position)
                             },
                             onLongPress = { onSongLongPress(song) },
+                            onSwipeRight = { (onSongSwipeRight ?: onSongSwipe).invoke(song) },
+                            onSwipeLeft = { (onSongSwipeLeft ?: onSongSwipe).invoke(song) },
                             onSwipeToQueue = { onSongSwipe(song) },
                             rowBackground = Color.Transparent,
                             // The track's place on the release, not its place in

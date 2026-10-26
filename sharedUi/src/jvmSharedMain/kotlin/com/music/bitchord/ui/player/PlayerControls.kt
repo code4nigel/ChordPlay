@@ -31,6 +31,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -546,6 +548,7 @@ internal fun PlayerActionRow(
     repeatMode: Int,
     autoplayEnabled: Boolean,
     onToggleLyrics: () -> Unit,
+    onLyricsOffset: (() -> Unit)? = null,
     onToggleQueue: () -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
@@ -572,6 +575,7 @@ internal fun PlayerActionRow(
                 // Lyrics and the queue are two things to show in one place, so
                 // opening either closes the other; lit to say which is up.
                 onClick = onToggleLyrics,
+                onLongClick = onLyricsOffset,
                 highlighted = lyricsOpen,
             )
             AnimatedContent(
@@ -1109,11 +1113,13 @@ private fun rememberPartyBadge(): PartyBadge {
         .value
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BottomGlyph(
     icon: ImageVector?,
     contentDescription: String,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     highlighted: Boolean = false,
     haptic: Haptic = Haptic.Tap,
     label: String? = null,
@@ -1138,17 +1144,24 @@ private fun BottomGlyph(
             .background(
                 if (highlighted) Color.White.copy(alpha = 0.20f) else Color.Transparent,
             )
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-            ) {
-                val now = uptimeMillis()
-                if (now - lastTap.longValue >= tapWindowMs) {
-                    lastTap.longValue = now
-                    haptics.play(haptic)
-                    onClick()
-                }
-            }
+                onClick = {
+                    val now = uptimeMillis()
+                    if (now - lastTap.longValue >= tapWindowMs) {
+                        lastTap.longValue = now
+                        haptics.play(haptic)
+                        onClick()
+                    }
+                },
+                onLongClick = onLongClick?.let {
+                    {
+                        haptics.play(Haptic.Expand)
+                        it()
+                    }
+                },
+            )
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {

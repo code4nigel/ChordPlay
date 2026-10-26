@@ -28,6 +28,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.auth.CapturedSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.data.model.Account
@@ -2351,20 +2352,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         is SearchResult.Browse -> "b:${row.item.browseId}"
     }
 
-    // ---- Lucky Draw / Dice Engine ---------------------------------------------
-    private val luckyGenres = listOf(
-        "Synthwave 80s Retro Hits", "Neo-Soul Essentials", "City Pop Japanese Classics",
-        "Afrobeats Global Bangers", "90s Alternative Rock Anthem", "Deep House Ibiza Chill",
-        "K-Pop High Energy Hits", "Lo-Fi Beats to Relax", "Nu-Metal 2000s Essentials",
-        "Acoustic Coffeehouse Morning", "Melodic Techno & Progressive", "Reggae Roots & Sunshine",
-        "Latin Reggaeton Caliente", "Indie Folk & Wilderness", "Classic 70s Soul & Funk",
-        "Pop Punk Nostalgia", "Modern Trap & Bass", "Jazz Noir Midnight Lounge",
-        "Post-Rock Cinematic Dreams", "Bossa Nova Sunset", "UK Garage & 2-Step",
-        "Country Road Classics", "French Touch Electro", "Ambient Calm Space",
-        "Electro Swing Vintage Party", "Modern Indie Pop Anthems", "Afro-Fusion Grooves",
-    )
-
-    private var lastLuckyGenre: String? = null
+    // ---- Lucky Draw / Personalized Discovery Engine --------------------------
+    private val recentLuckySeedIds = ArrayDeque<String>(24)
 
     val playRadioEvent = MutableSharedFlow<Pair<Song, QueueSource>>(extraBufferCapacity = 1)
     val luckyRadioToast = MutableSharedFlow<String>(extraBufferCapacity = 1)
@@ -2376,31 +2365,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         onHaptic?.invoke()
         viewModelScope.launch {
-            val availableGenres = luckyGenres.filter { it != lastLuckyGenre }
-            val genreName = availableGenres.randomOrNull() ?: luckyGenres.random()
-            lastLuckyGenre = genreName
+            // Harvest candidate tracks attuned to the user's taste with 0ms launch latency:
+            val candidates = mutableListOf<Song>()
 
-            withContext(Dispatchers.Main) {
-                Toast.makeText(getApplication(), "Rolling into $genreName...", Toast.LENGTH_SHORT).show()
+            // 1. History songs (what the user actually plays)
+            val historyState = _history.value
+            if (historyState is UiState.Success) {
+                candidates.addAll(historyState.data)
             }
-            luckyRadioToast.tryEmit("Rolling into $genreName...")
 
-            var candidateSong: Song? = null
-            val searchResult = runCatching {
-                YtMusicRepository.searchPage(genreName, SearchFilter.SONGS, isLibrary = false)
-            }.getOrNull()
-
-            searchResult?.getOrNull()?.let { page ->
-                val songs = page.rows.mapNotNull { row ->
-                    when (row) {
-                        is SearchResult.Track -> row.song
-                        is SearchResult.TopTrack -> row.song
-                        else -> null
+            // 2. Home feed shelves (Quick picks, Listen again, Similar to, Mixed for you, etc.)
+            val homeState = _home.value
+            if (homeState is UiState.Success) {
+                for (shelf in homeState.data) {
+                    for (item in shelf.items) {
+                        val videoId = item.videoId
+                        if (!videoId.isNullOrBlank()) {
+                            candidates.add(
+                                Song(
+                                    videoId = videoId,
+                                    title = item.title,
+                                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                                    thumbnailUrl = item.thumbnailUrl,
+                                )
+                            )
+                        }
                     }
                 }
-                candidateSong = songs.take(5).shuffled().firstOrNull()
             }
 
+            // 3. Local/saved library songs
+            val librarySongsState = _librarySongs.value
+            if (librarySongsState is UiState.Success) {
+                candidates.addAll(librarySongsState.data)
+            }
+
+            // Deduplicate candidate tracks
+            val distinctCandidates = candidates.distinctBy { it.videoId }
+
+            // Filter out recently rolled seeds so each roll feels fresh and surprising
+            val freshCandidates = distinctCandidates.filter { it.videoId !in recentLuckySeedIds }
+            var candidateSong = (if (freshCandidates.isNotEmpty()) freshCandidates else distinctCandidates)
+                .shuffled()
+                .firstOrNull()
+
+            // Safe fallback if user has no home or history loaded yet (e.g. pristine first launch)
             if (candidateSong == null) {
                 val fallbackSongs = runCatching {
                     YtMusicRepository.browseSongs("FEmusic_charts").getOrNull()?.songs
@@ -2413,7 +2422,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             candidateSong?.let { song ->
-                val source = QueueSource("Lucky Radio • $genreName", PlaybackSourceType.SEARCH)
+                recentLuckySeedIds.addLast(song.videoId)
+                while (recentLuckySeedIds.size > 24) {
+                    recentLuckySeedIds.removeFirst()
+                }
+
+                val msg = "Feeling lucky with ${song.title} • ${song.artist}"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show()
+                }
+                luckyRadioToast.tryEmit(msg)
+
+                val source = QueueSource("Lucky Radio", PlaybackSourceType.EXPLORE)
                 onPlayRadio?.invoke(song, source)
                     ?: playRadioHandler?.invoke(song, source)
                     ?: playRadioEvent.tryEmit(song to source)

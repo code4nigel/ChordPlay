@@ -38,6 +38,9 @@ import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.SwipeLeft
+import androidx.compose.material.icons.rounded.SwipeRight
+import com.music.bitchord.data.settings.SongSwipeAction
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -99,6 +102,11 @@ fun AppearanceSection(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
+
+    val songSwipeRightAction by AppSettings.songSwipeRightAction.collectAsStateWithLifecycle()
+    val songSwipeLeftAction by AppSettings.songSwipeLeftAction.collectAsStateWithLifecycle()
+    var showRightSwipePicker by remember { mutableStateOf(false) }
+    var showLeftSwipePicker by remember { mutableStateOf(false) }
 
     val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
     val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
@@ -259,6 +267,22 @@ fun AppearanceSection(
             )
         }
 
+        // 5. Swipe Gestures Group
+        SettingsGroup(header = "Swipe Gestures") {
+            SettingsRow(
+                icon = Icons.Rounded.SwipeRight,
+                title = "Right Swipe Action",
+                subtitle = songSwipeRightAction.label,
+                onClick = { showRightSwipePicker = true },
+            )
+            SettingsRow(
+                icon = Icons.Rounded.SwipeLeft,
+                title = "Left Swipe Action",
+                subtitle = songSwipeLeftAction.label,
+                onClick = { showLeftSwipePicker = true },
+            )
+        }
+
         // 5. Performance & Refresh Rates Group
         SettingsGroup(header = stringResource(R.string.performance)) {
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
@@ -374,6 +398,91 @@ fun AppearanceSection(
             },
         )
     }
+
+    if (showRightSwipePicker) {
+        SwipeActionPickerDialog(
+            title = "Right Swipe Action",
+            currentAction = songSwipeRightAction,
+            onSelect = { action ->
+                AppSettings.setSongSwipeRightAction(action)
+                if (action == SongSwipeAction.PLAY_NEXT) {
+                    AppSettings.setSwipeToPlayNext(true)
+                } else if (action == SongSwipeAction.ADD_TO_QUEUE) {
+                    AppSettings.setSwipeToPlayNext(false)
+                }
+            },
+            onDismiss = { showRightSwipePicker = false },
+        )
+    }
+
+    if (showLeftSwipePicker) {
+        SwipeActionPickerDialog(
+            title = "Left Swipe Action",
+            currentAction = songSwipeLeftAction,
+            onSelect = { action ->
+                AppSettings.setSongSwipeLeftAction(action)
+            },
+            onDismiss = { showLeftSwipePicker = false },
+        )
+    }
+}
+
+@Composable
+private fun SwipeActionPickerDialog(
+    title: String,
+    currentAction: SongSwipeAction,
+    onSelect: (SongSwipeAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SongSwipeAction.entries.forEach { action ->
+                    val isSelected = action == currentAction
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                onSelect(action)
+                                onDismiss()
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = action.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Rounded.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }
 
 /**
@@ -404,17 +513,24 @@ private fun PaletteCarousel(
                 Color(item.secondaryColorHex)
             }
 
+            val isDynamicArt = item == ChordPlayPalette.DYNAMIC_ARTWORK
+            val goldColor = Color(0xFFFFD700)
+            val goldBrush = Brush.sweepGradient(
+                listOf(Color(0xFFFFD700), Color(0xFFFFA000), Color(0xFFFFE082), Color(0xFFFFD700)),
+            )
+
             Column(
                 modifier = Modifier
                     .width(112.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isSelected) primaryColor.copy(alpha = 0.16f)
+                        else if (isDynamicArt) goldColor.copy(alpha = 0.08f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                     )
                     .border(
-                        width = if (isSelected) 2.dp else 1.dp,
-                        color = if (isSelected) primaryColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        width = if (isSelected) 2.dp else if (isDynamicArt) 1.5.dp else 1.dp,
+                        color = if (isSelected) primaryColor else if (isDynamicArt) goldColor.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(16.dp),
                     )
                     .clickable {
@@ -424,10 +540,17 @@ private fun PaletteCarousel(
                     .padding(vertical = 12.dp, horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Two-color orb swatch
+                // Swatch orb with prominent golden circle for Dynamic Song Art
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(if (isDynamicArt) 48.dp else 44.dp)
+                        .then(
+                            if (isDynamicArt) {
+                                Modifier
+                                    .border(2.5.dp, goldBrush, CircleShape)
+                                    .padding(3.dp)
+                            } else Modifier
+                        )
                         .clip(CircleShape)
                         .background(
                             Brush.sweepGradient(
@@ -447,7 +570,7 @@ private fun PaletteCarousel(
                             Icon(
                                 imageVector = Icons.Rounded.Check,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = if (isDynamicArt) goldColor else Color.White,
                                 modifier = Modifier.size(15.dp),
                             )
                         }
@@ -459,9 +582,15 @@ private fun PaletteCarousel(
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = if (isSelected || isDynamicArt) FontWeight.Bold else FontWeight.Medium,
                     ),
-                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isSelected) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else if (isDynamicArt) {
+                        goldColor
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,

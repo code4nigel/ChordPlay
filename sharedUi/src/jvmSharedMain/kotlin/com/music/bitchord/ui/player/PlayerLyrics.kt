@@ -50,6 +50,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -1368,6 +1369,35 @@ internal fun LyricsStyleToggleButton(
         Icon(
             imageVector = Icons.Rounded.FormatSize,
             contentDescription = "Lyrics Font & Styling",
+            tint = tint,
+            modifier = Modifier.size(19.dp),
+        )
+    }
+}
+
+/** The button opening the lyrics timing / sync offset sheet. */
+@Composable
+internal fun LyricsOffsetToggleButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val tint = if (enabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.42f)
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(
+                enabled = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Tune,
+            contentDescription = "Lyrics Sync Offset",
             tint = tint,
             modifier = Modifier.size(19.dp),
         )

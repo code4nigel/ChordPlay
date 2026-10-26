@@ -15,13 +15,17 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.PlaylistRemove
+import com.music.bitchord.data.settings.SongSwipeAction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
@@ -277,6 +281,8 @@ fun SongRow(
      */
     onMore: (() -> Unit)? = null,
     onSwipeToQueue: (() -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null,
+    onSwipeLeft: (() -> Unit)? = null,
     /**
      * What the row paints over the swipe reveal as it slides back.
      *
@@ -325,16 +331,29 @@ fun SongRow(
     val swipeStateHolder = remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
     var boxWidth by remember { mutableFloatStateOf(0f) }
 
+    val rightAction by AppUi.host.songSwipeRightAction.collectAsStateWithLifecycle()
+    val leftAction by AppUi.host.songSwipeLeftAction.collectAsStateWithLifecycle()
+
     val currentOnSwipeToQueue by rememberUpdatedState(onSwipeToQueue)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+
+    val canSwipeRight = (currentOnSwipeRight != null || currentOnSwipeToQueue != null) && rightAction != SongSwipeAction.NONE
+    val canSwipeLeft = (currentOnSwipeLeft != null || currentOnSwipeToQueue != null) && leftAction != SongSwipeAction.NONE
+    val hasSwipe = canSwipeRight || canSwipeLeft
 
     val swipeState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled && currentOnSwipeToQueue != null) {
+            if (value != SwipeToDismissBoxValue.Settled && hasSwipe) {
                 val offset = try { swipeStateHolder.value?.requireOffset() ?: 0f } catch (e: Exception) { 0f }
-                // Only queue if the physical drag reached half the box width, ignoring short accidental flings.
+                // Only trigger if physical drag reached 45% of width
                 if (abs(offset) >= boxWidth * 0.45f) {
                     haptics.play(Haptic.Select)
-                    currentOnSwipeToQueue?.invoke()
+                    if (offset > 0f && canSwipeRight) {
+                        currentOnSwipeRight?.invoke() ?: currentOnSwipeToQueue?.invoke()
+                    } else if (offset < 0f && canSwipeLeft) {
+                        currentOnSwipeLeft?.invoke() ?: currentOnSwipeToQueue?.invoke()
+                    }
                 }
             }
             false // never actually dismiss; snap back
@@ -343,7 +362,7 @@ fun SongRow(
     )
     swipeStateHolder.value = swipeState
 
-    if (onSwipeToQueue == null) {
+    if (!hasSwipe) {
         SongRowContent(
             song = song,
             onClick = onClick,
@@ -390,7 +409,15 @@ fun SongRow(
     SwipeToDismissBox(
         state = swipeState,
         modifier = modifier.onSizeChanged { boxWidth = it.width.toFloat() },
-        backgroundContent = { QueueSwipeBackground(swipeState) },
+        enableDismissFromStartToEnd = canSwipeRight,
+        enableDismissFromEndToStart = canSwipeLeft,
+        backgroundContent = {
+            QueueSwipeBackground(
+                swipeState = swipeState,
+                rightAction = rightAction,
+                leftAction = leftAction,
+            )
+        },
     ) {
         SongRowContent(
             song = song,
@@ -413,8 +440,11 @@ fun SongRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
-    val playNext by AppUi.host.swipeToPlayNext.collectAsStateWithLifecycle()
+private fun QueueSwipeBackground(
+    swipeState: SwipeToDismissBoxState,
+    rightAction: SongSwipeAction,
+    leftAction: SongSwipeAction,
+) {
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -435,23 +465,36 @@ private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        QueueSwipeLabel(playNext)
-        QueueSwipeLabel(playNext)
+        SwipeActionLabel(rightAction)
+        SwipeActionLabel(leftAction)
     }
 }
 
 @Composable
-private fun QueueSwipeLabel(playNext: Boolean) {
+private fun SwipeActionLabel(action: SongSwipeAction) {
+    if (action == SongSwipeAction.NONE) {
+        Spacer(Modifier.width(1.dp))
+        return
+    }
+    val icon = when (action) {
+        SongSwipeAction.PLAY_NEXT -> Icons.Rounded.PlaylistPlay
+        SongSwipeAction.ADD_TO_QUEUE -> Icons.Rounded.PlaylistAdd
+        SongSwipeAction.TOGGLE_LIKE -> Icons.Rounded.Favorite
+        SongSwipeAction.DOWNLOAD -> Icons.Rounded.Download
+        SongSwipeAction.REMOVE_FROM_PLAYLIST -> Icons.Rounded.PlaylistRemove
+        SongSwipeAction.OPEN_MENU -> Icons.Rounded.MoreVert
+        SongSwipeAction.NONE -> Icons.Rounded.PlaylistAdd
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            if (playNext) Icons.Rounded.PlaylistPlay else Icons.Rounded.PlaylistAdd,
+            icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = stringResource(if (playNext) Res.string.play_next else Res.string.queue),
+            text = action.label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -629,7 +672,7 @@ fun RowMoreButton(
 ) {
     Box(
         modifier = modifier
-            .hangIntoGutter(ROW_MORE_OUTSET)
+            .padding(end = 6.dp)
             .size(36.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick),
@@ -645,7 +688,7 @@ fun RowMoreButton(
 }
 
 /** How far a row's [RowMoreButton] reaches past the content edge into the gutter. */
-val ROW_MORE_OUTSET = 14.dp
+val ROW_MORE_OUTSET = 0.dp
 
 /**
  * Lays a trailing control out [outset] narrower than it draws, so it overhangs

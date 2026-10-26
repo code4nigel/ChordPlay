@@ -316,8 +316,9 @@ private fun FastScrollOverlay(
                 val slop = currentTouchSlopPx
                 val minY = startThumbY - slop
                 val maxY = startThumbY + thumbHeight + slop
+                val minThumbX = size.width - with(density) { 20.dp.toPx() }
 
-                if (down.position.y !in minY..maxY) {
+                if (down.position.x < minThumbX || down.position.y !in minY..maxY) {
                     // Touch is NOT on the thumb: allow event to pass through to song rows and 3-dots option buttons
                     return@awaitEachGesture
                 }

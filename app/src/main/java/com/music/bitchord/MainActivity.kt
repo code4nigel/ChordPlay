@@ -296,6 +296,7 @@ import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
+import com.music.bitchord.data.settings.SongSwipeAction
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -1555,9 +1556,7 @@ private fun BitChordApp(
             }
         }
     }
-    val onSongSwipe: (Song) -> Unit = { song ->
-        if (AppSettings.swipeToPlayNext.value) playNext(song) else addToQueue(song)
-    }
+
 
     /**
      * Opens an artist or release page given its browse id — or, failing that,
@@ -2082,6 +2081,41 @@ private fun BitChordApp(
             song
         }
         startDownload(listOf(withDuration), null)
+    }
+
+    val executeSongSwipeAction: (SongSwipeAction, Song) -> Unit = { action, song ->
+        when (action) {
+            SongSwipeAction.PLAY_NEXT -> playNext(song)
+            SongSwipeAction.ADD_TO_QUEUE -> addToQueue(song)
+            SongSwipeAction.TOGGLE_LIKE -> viewModel.toggleLike(song.videoId)
+            SongSwipeAction.DOWNLOAD -> downloadSong(song)
+            SongSwipeAction.REMOVE_FROM_PLAYLIST -> {
+                val playlistId = detail?.browseId
+                val editable = viewModel.editablePlaylist(playlistId)
+                if (editable != null && song.setVideoId != null) {
+                    viewModel.removeFromPlaylist(editable.browseId, song)
+                    showQueueNotice(context.getString(R.string.song_removed_from_playlist))
+                } else if (playlistId != null) {
+                    viewModel.removeFromPlaylist(playlistId, song)
+                    showQueueNotice(context.getString(R.string.song_removed_from_playlist))
+                } else {
+                    showQueueNotice(context.getString(R.string.cannot_remove_not_in_playlist))
+                }
+            }
+            SongSwipeAction.OPEN_MENU -> {
+                songActions = song
+            }
+            SongSwipeAction.NONE -> Unit
+        }
+    }
+    val onSongSwipeRight: (Song) -> Unit = { song ->
+        executeSongSwipeAction(AppSettings.songSwipeRightAction.value, song)
+    }
+    val onSongSwipeLeft: (Song) -> Unit = { song ->
+        executeSongSwipeAction(AppSettings.songSwipeLeftAction.value, song)
+    }
+    val onSongSwipe: (Song) -> Unit = { song ->
+        executeSongSwipeAction(AppSettings.songSwipeRightAction.value, song)
     }
 
     // Content padding leaves room for the frosted bar above and the tab bar
@@ -2769,11 +2803,20 @@ private fun BitChordApp(
                             windowWidth = windowWidth,
                             signedIn = signedIn,
                             account = account,
+                            channelName = selectedChannelName,
                             onSignIn = {
                                 showSettings = false
                                 webSession = WebSessionMode.SIGN_IN
                             },
                             onSignOut = { viewModel.signOut() },
+                            onSwitchChannel = {
+                                viewModel.loadChannels()
+                                showAccountSelector = true
+                            },
+                            onOpenListenBrainzLogin = { showListenBrainzLogin = true },
+                            onOpenLastfmLogin = { showLastfmLogin = true },
+                            onOpenDiscord = { showDiscord = true },
+                            onOpenSpotify = { showSpotify = true },
                             onAccountScrobbling = {
                                 settingsSubScreen = "account_scrobbling"
                                 showAccountScrobbling = true
@@ -2918,6 +2961,8 @@ private fun BitChordApp(
                             },
                             onSongLongPress = { openSongMenu(withAlbum(it)) },
                             onSongSwipe = onSongSwipe,
+                            onSongSwipeRight = onSongSwipeRight,
+                            onSongSwipeLeft = onSongSwipeLeft,
                             onShuffle = { songs ->
                                 // Shuffle goes on first so the queue is built shuffled
                                 // as it is set — the random pick here only decides
@@ -4332,14 +4377,7 @@ private fun BitChordApp(
                 } else {
                     null
                 },
-                onLyricsOffset = if (fromPlayer) {
-                    {
-                        songActions = null
-                        showLyricsOffset = true
-                    }
-                } else {
-                    null
-                },
+                onLyricsOffset = null,
             )
         }
         songActions?.takeIf { songMenuOrigin == null }?.let { song ->

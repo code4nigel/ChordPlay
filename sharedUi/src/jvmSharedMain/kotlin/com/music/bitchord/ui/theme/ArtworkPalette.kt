@@ -108,20 +108,37 @@ fun rememberArtworkPalette(
     // read when the colours are already in hand.
     val decoded = rememberArtworkSeed(if (keyColors == null) imageUrl else null, artPx)
     val seed = keyColors?.toSeed() ?: decoded
+    var lastValidSeed by remember { mutableStateOf<Seed?>(null) }
+    if (seed != null) {
+        lastValidSeed = seed
+    }
+    val effectiveSeed = seed ?: lastValidSeed
     // Whether the colours were there from the first frame. If they were, there
     // is nothing to crossfade *from* and animating would only put a delay in
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
 
-    val target = seed?.toPalette(dark) ?: ArtworkPalette(
-        background = scheme.background,
-        wash = scheme.background,
-        elevated = scheme.surfaceVariant,
-        accent = scheme.primary,
-        onBackground = scheme.onBackground,
-        onBackgroundVariant = scheme.onSurfaceVariant,
-        divider = scheme.outline,
-    )
+    val target = effectiveSeed?.toPalette(dark) ?: if (dark) {
+        ArtworkPalette(
+            background = Color(0xFF0D0D0F),
+            wash = Color(0xFF141416),
+            elevated = Color(0xFF1E1E22),
+            accent = Color(0xFFFF334B),
+            onBackground = Color(0xFFF2F2F2),
+            onBackgroundVariant = Color(0xFFA0A0AB),
+            divider = Color(0x26FFFFFF),
+        )
+    } else {
+        ArtworkPalette(
+            background = Color(0xFFF8F9FA),
+            wash = Color(0xFFFFFFFF),
+            elevated = Color(0xFFECEFF1),
+            accent = Color(0xFFE50914),
+            onBackground = Color(0xFF191C1E),
+            onBackgroundVariant = Color(0xFF49454F),
+            divider = Color(0x1F000000),
+        )
+    }
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
         snap()

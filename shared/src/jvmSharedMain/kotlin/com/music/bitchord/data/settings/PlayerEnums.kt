@@ -54,4 +54,16 @@ enum class FullscreenArtworkLyricsStyle(val label: String) {
     OFF("Hidden"),
 }
 
+/** Configurable swipe action on track rows in playlist, library, and search. */
+enum class SongSwipeAction(val label: String) {
+    PLAY_NEXT("Play Next"),
+    ADD_TO_QUEUE("Add to Queue"),
+    TOGGLE_LIKE("Like / Favorite"),
+    DOWNLOAD("Download"),
+    REMOVE_FROM_PLAYLIST("Remove from Playlist"),
+    OPEN_MENU("Open Menu"),
+    NONE("None");
+}
+
+
 

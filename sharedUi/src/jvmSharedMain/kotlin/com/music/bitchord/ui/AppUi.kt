@@ -3,6 +3,7 @@ package com.music.bitchord.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.SongSwipeAction
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
@@ -24,6 +25,12 @@ interface AppUiHost {
 
     /** A swipe on a track row plays it next rather than adding it to the end of the queue. */
     val swipeToPlayNext: StateFlow<Boolean>
+
+    val songSwipeRightAction: StateFlow<SongSwipeAction>
+        get() = MutableStateFlow(SongSwipeAction.PLAY_NEXT)
+
+    val songSwipeLeftAction: StateFlow<SongSwipeAction>
+        get() = MutableStateFlow(SongSwipeAction.ADD_TO_QUEUE)
 
     /** Home's Recents shelf as a paged list of rows or as a row of cards. */
     val homeRecentsViewType: StateFlow<LibraryViewType>

@@ -12,6 +12,8 @@ import com.music.bitchord.download.Downloads
 object AndroidAppUiHost : AppUiHost {
     override val appDesignStyle = AppSettings.appDesignStyle
     override val swipeToPlayNext = AppSettings.swipeToPlayNext
+    override val songSwipeRightAction = AppSettings.songSwipeRightAction
+    override val songSwipeLeftAction = AppSettings.songSwipeLeftAction
     override val homeRecentsViewType = AppSettings.homeRecentsViewType
     override fun setHomeRecentsViewType(value: LibraryViewType) = AppSettings.setHomeRecentsViewType(value)
     override val pinnedPlaylists = AppSettings.pinnedPlaylists

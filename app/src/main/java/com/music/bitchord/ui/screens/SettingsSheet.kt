@@ -91,9 +91,15 @@ fun SettingsScreen(
     windowWidth: Dp,
     signedIn: Boolean,
     account: Account?,
+    channelName: String? = null,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
-    onAccountScrobbling: () -> Unit,
+    onSwitchChannel: () -> Unit = {},
+    onAccountScrobbling: () -> Unit = {},
+    onOpenListenBrainzLogin: () -> Unit = {},
+    onOpenLastfmLogin: () -> Unit = {},
+    onOpenDiscord: () -> Unit = {},
+    onOpenSpotify: () -> Unit = {},
     onEqualizer: () -> Unit,
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
@@ -145,6 +151,7 @@ fun SettingsScreen(
             null -> SettingsHub(
                 signedIn = signedIn,
                 account = account,
+                channelName = channelName,
                 onSignIn = onSignIn,
                 onSelectSection = { currentSection = it },
                 contentPadding = contentPadding,
@@ -179,9 +186,14 @@ fun SettingsScreen(
             SettingsSection.INTEGRATIONS -> IntegrationsSection(
                 signedIn = signedIn,
                 account = account,
+                channelName = channelName,
                 onSignIn = onSignIn,
                 onSignOut = onSignOut,
-                onAccountScrobbling = onAccountScrobbling,
+                onSwitchChannel = onSwitchChannel,
+                onOpenListenBrainzLogin = onOpenListenBrainzLogin,
+                onOpenLastfmLogin = onOpenLastfmLogin,
+                onOpenDiscord = onOpenDiscord,
+                onOpenSpotify = onOpenSpotify,
                 onListenTogether = onListenTogether,
                 onBack = { currentSection = null },
                 contentPadding = contentPadding,
@@ -199,6 +211,7 @@ fun SettingsScreen(
 private fun SettingsHub(
     signedIn: Boolean,
     account: Account?,
+    channelName: String?,
     onSignIn: () -> Unit,
     onSelectSection: (SettingsSection) -> Unit,
     contentPadding: PaddingValues,
@@ -224,8 +237,8 @@ private fun SettingsHub(
         SettingsSection.LYRICS -> "Typography • ${lyricsStyle.fontChoice.label}, ${if (syncedLyrics) "Syllable Sync" else "Standard"}"
         SettingsSection.AUDIO -> "Audio • ${wifiQuality.localizedQualityLabel()}, ${crossfade}s Crossfade"
         SettingsSection.STORAGE -> "Storage • $cacheLimitMb MB Limit"
-        SettingsSection.INTEGRATIONS -> "Account • ${if (signedIn) account?.name ?: stringResource(R.string.youtube_music_account) else "Guest"}"
-        SettingsSection.ABOUT -> "ChordPlay v${BuildConfig.VERSION_NAME} • Updates & Info"
+        SettingsSection.INTEGRATIONS -> "Account • ${if (signedIn) channelName ?: account?.name ?: stringResource(R.string.youtube_music_account) else "Guest"}"
+        SettingsSection.ABOUT -> "ChordPlay v${BuildConfig.VERSION_NAME} • Updates, Links & Info"
     }
 
     val filteredSections = remember(searchQuery) {
@@ -241,7 +254,7 @@ private fun SettingsHub(
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc"
-                    SettingsSection.ABOUT -> "about chordplay version updates release notes github developer licenses bitchord replay"
+                    SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay"
                 }
                 keywords.contains(q) || section.name.lowercase().contains(q)
             }
@@ -314,6 +327,7 @@ private fun SettingsHub(
             AccountHubCard(
                 signedIn = signedIn,
                 account = account,
+                channelName = channelName,
                 onSignIn = onSignIn,
                 onClick = { onSelectSection(SettingsSection.INTEGRATIONS) },
             )
@@ -382,6 +396,7 @@ private fun SettingsHub(
 private fun AccountHubCard(
     signedIn: Boolean,
     account: Account?,
+    channelName: String?,
     onSignIn: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -417,7 +432,7 @@ private fun AccountHubCard(
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = account.name,
+                        text = channelName ?: account.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -433,7 +448,11 @@ private fun AccountHubCard(
                     )
                 }
                 Text(
-                    text = stringResource(R.string.youtube_music_account),
+                    text = if (channelName != null && channelName != account.name) {
+                        account.name
+                    } else {
+                        stringResource(R.string.youtube_music_account)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

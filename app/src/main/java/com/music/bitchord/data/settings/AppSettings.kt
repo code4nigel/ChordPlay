@@ -120,6 +120,12 @@ enum class ChordPlayPalette(
         primaryColorHex = 0xFFFD3F69,
         secondaryColorHex = 0xFFFF5277,
     ),
+    DYNAMIC_ARTWORK(
+        label = "Dynamic Song Art",
+        detail = "Real-time dynamic theme adapting colors from active cover art",
+        primaryColorHex = 0xFFFF4081,
+        secondaryColorHex = 0xFF7C4DFF,
+    ),
     ELECTRIC_VIOLET(
         label = "Electric Violet",
         detail = "Deep obsidian night, luminous violet and neon cyan touch",
@@ -138,11 +144,11 @@ enum class ChordPlayPalette(
         primaryColorHex = 0xFF00E676,
         secondaryColorHex = 0xFF00B0FF,
     ),
-    DYNAMIC_ARTWORK(
-        label = "Dynamic Song Art",
-        detail = "Real-time dynamic theme adapting colors from active cover art",
-        primaryColorHex = 0xFFFF4081,
-        secondaryColorHex = 0xFF7C4DFF,
+    MONOCHROME(
+        label = "Monochrome (Mono)",
+        detail = "Pure minimalist obsidian black and crisp stark white",
+        primaryColorHex = 0xFFFFFFFF,
+        secondaryColorHex = 0xFF9E9E9E,
     ),
     DYNAMIC_MONET(
         label = "System Wallpaper (Material You)",
@@ -544,6 +550,12 @@ object AppSettings {
 
     /** Presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
     val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+
+    /** Configurable swipe gesture action when swiping right on a track row. */
+    val songSwipeRightAction = MutableStateFlow(SongSwipeAction.PLAY_NEXT)
+
+    /** Configurable swipe gesture action when swiping left on a track row. */
+    val songSwipeLeftAction = MutableStateFlow(SongSwipeAction.ADD_TO_QUEUE)
 
     /** Breathing artwork aura animation behind the cover during playback. */
     val enableBreathingAura = MutableStateFlow(true)
@@ -950,6 +962,12 @@ object AppSettings {
         fullscreenArtworkLyricsStyle.value = runCatching {
             FullscreenArtworkLyricsStyle.valueOf(prefs.getString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, null) ?: FullscreenArtworkLyricsStyle.FLOATING_CAPSULE.name)
         }.getOrDefault(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+        songSwipeRightAction.value = runCatching {
+            SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_RIGHT_ACTION, null) ?: SongSwipeAction.PLAY_NEXT.name)
+        }.getOrDefault(SongSwipeAction.PLAY_NEXT)
+        songSwipeLeftAction.value = runCatching {
+            SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_LEFT_ACTION, null) ?: SongSwipeAction.ADD_TO_QUEUE.name)
+        }.getOrDefault(SongSwipeAction.ADD_TO_QUEUE)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
@@ -1546,6 +1564,20 @@ object AppSettings {
         fullscreenArtworkLyricsStyle.value = value
         if (this::prefs.isInitialized) {
             prefs.edit().putString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, value.name).apply()
+        }
+    }
+
+    fun setSongSwipeRightAction(value: SongSwipeAction) {
+        songSwipeRightAction.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SONG_SWIPE_RIGHT_ACTION, value.name).apply()
+        }
+    }
+
+    fun setSongSwipeLeftAction(value: SongSwipeAction) {
+        songSwipeLeftAction.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SONG_SWIPE_LEFT_ACTION, value.name).apply()
         }
     }
 
@@ -2211,6 +2243,8 @@ object AppSettings {
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
     private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
+    private const val KEY_SONG_SWIPE_RIGHT_ACTION = "song_swipe_right_action"
+    private const val KEY_SONG_SWIPE_LEFT_ACTION = "song_swipe_left_action"
     private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"

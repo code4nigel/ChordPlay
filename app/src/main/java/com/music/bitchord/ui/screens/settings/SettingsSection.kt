@@ -24,5 +24,5 @@ enum class SettingsSection(
     AUDIO(R.string.audio_quality, Icons.Rounded.GraphicEq),
     STORAGE(R.string.storage, Icons.Rounded.Storage),
     INTEGRATIONS(R.string.account_integrations, Icons.Rounded.Person),
-    ABOUT(R.string.software_update, Icons.Rounded.AutoAwesome);
+    ABOUT(R.string.miscellaneous, Icons.Rounded.AutoAwesome);
 }

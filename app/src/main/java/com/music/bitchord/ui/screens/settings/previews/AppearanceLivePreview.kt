@@ -100,6 +100,7 @@ fun AppearanceLivePreview(
             ChordPlayPalette.ELECTRIC_VIOLET -> Color(0xFF141622)
             ChordPlayPalette.SUNSET_AMBER -> Color(0xFF1A1410)
             ChordPlayPalette.EMERALD_NOIR -> Color(0xFF0F1D16)
+            ChordPlayPalette.MONOCHROME -> Color(0xFF121214)
             ChordPlayPalette.DYNAMIC_ARTWORK -> MaterialTheme.colorScheme.surface
             ChordPlayPalette.DYNAMIC_MONET -> MaterialTheme.colorScheme.surfaceVariant
         }
@@ -108,6 +109,7 @@ fun AppearanceLivePreview(
             ChordPlayPalette.ELECTRIC_VIOLET -> Color(0xFF141622).copy(alpha = 0.90f)
             ChordPlayPalette.SUNSET_AMBER -> Color(0xFF1A1410).copy(alpha = 0.90f)
             ChordPlayPalette.EMERALD_NOIR -> Color(0xFF0F1D16).copy(alpha = 0.90f)
+            ChordPlayPalette.MONOCHROME -> Color(0xFF121214).copy(alpha = 0.90f)
             ChordPlayPalette.DYNAMIC_ARTWORK -> MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
             ChordPlayPalette.DYNAMIC_MONET -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.90f)
         }

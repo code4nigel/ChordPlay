@@ -648,7 +648,7 @@ private fun LibraryListRow(
 
         IconButton(
             onClick = onLongPress,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(40.dp).padding(end = 6.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.MoreVert,

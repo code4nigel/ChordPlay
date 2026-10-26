@@ -1,3 +1,37 @@
+# ChordPlay v1.8.8
+
+Welcome to ChordPlay v1.8.8! This update introduces a unified single-layer Account & Integrations hub, a revamped Miscellaneous section with live in-app update checking and upstream BitChord credit, a prominent golden accent for Dynamic Song Art, flexible playlist swipe actions, dedicated lyrics offset tuning in the music player, and taste-aware lucky discovery:
+
+### What's New in v1.8.8:
+- **Unified Single-Layer Account & Integrations Hub**:
+  - Eliminated confusing nested sub-pages: Clicking either the top account profile banner or the "Account & integrations" category row in Settings directly opens one unified integrations screen.
+  - Manage your YouTube Music account, switch profiles ("Listen as"), connect/disconnect Spotify, link Discord Rich Presence, monitor Listen Together party sessions, and configure ListenBrainz & Last.fm scrobbler settings—all in one place with zero nested layers.
+- **Renamed to "Miscellaneous" & Live In-App Update Checker**:
+  - Renamed the bottom settings section from "Software Update" to **Miscellaneous**.
+  - Added an interactive **Check for updates** button inside the top ChordPlay card in Miscellaneous, displaying real-time checking status, live download progress percentage, and one-tap install actions.
+  - Added an upstream project credit card linking to **BitChord** (`github.com/kushagrasinghx/BitChord`) under "Links & Community" recognizing the project's upstream foundations.
+- **Featured Dynamic Song Art Theme (Golden Circle)**:
+  - Positioned **Dynamic Song Art** directly beside our default **ChordPlay Crimson** in the Appearance color palette carousel.
+  - Adorned with an eye-catching animated golden ring and gold accent typography so users can immediately discover the real-time adaptive artwork colorway.
+  - Eliminated transient theme flashbangs: smoothly retains the previous song's color scheme during track transitions while new cover art decodes, strictly respecting light and dark mode settings.
+- **Enhanced Swipe Gestures (Remove from Playlist & Open Menu)**:
+  - Added **"Remove from Playlist"** as a swipe action for instantaneous playlist cleanup.
+  - Added **"Open Menu"** as a swipe action to effortlessly pop up the 3-dot song options sheet with a single swipe gesture.
+  - Configurable individually under **Settings → Appearance → Swipe Gestures** for Left and Right swipes.
+- **Dedicated Player Lyrics Offset Control**:
+  - Moved lyrics offset out of the congested 3-dot overflow menu into dedicated player controls.
+  - **Long-Press on Player Lyrics Button**: Holding the lyrics button in the player control deck directly opens the Lyrics Offset tuning sheet.
+  - **Quick Tune Button in Lyrics View**: When synced lyrics are open, a quick tuning button (`Tune`) appears right beside the font style and translation toggles.
+- **Taste-Aware Lucky Draw Discovery Dice**:
+  - Refactored the Speed Dial lucky draw engine to immediately harvest personalized seeds from your listening history, home shelves (Quick picks, Listen again, etc.), and library favorites with 0s latency.
+- **Monochrome Theme**:
+  - Minimalist pure obsidian black and crisp stark white palette added to predefined color schemes.
+- **Fullscreen Lyrics & FastScroller Polish**:
+  - Lifted fullscreen artwork mini lyrics comfortably above system gesture navigation bars.
+  - Adjusted 3-dot menu padding and scroller touch boundaries in library lists to eliminate accidental gestures.
+
+---
+
 # ChordPlay v1.8.7
 
 Welcome to ChordPlay v1.8.7! This release introduces flexible lyrics presentation styles, a 3-way search division, quick Speed Dial return navigation, and a true YouTube Music style Lucky Draw discovery dice engine:

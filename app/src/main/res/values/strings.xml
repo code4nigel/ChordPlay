@@ -140,6 +140,7 @@
     <string name="dolby_atmos_open_failed">Couldn’t open Dolby Atmos settings</string>
     <string name="update_available">Update available: v%1$s</string>
     <string name="software_update">Software Update</string>
+    <string name="miscellaneous">Miscellaneous</string>
     <string name="update_available_body">ChordPlay %1$s is available to download.</string>
     <string name="update_downloading_body">Downloading ChordPlay %1$s…</string>
     <string name="update_ready_body">ChordPlay %1$s is ready to install.</string>
@@ -241,7 +242,6 @@
     <string name="appearance">Appearance</string>
     <string name="storage">Storage</string>
     <string name="your_data">Your data</string>
-    <string name="miscellaneous">Miscellaneous</string>
     <string name="lossless_hq_audio">Lossless / HQ Audio</string>
     <string name="on_wifi">On Wi-Fi</string>
     <string name="on_mobile_data">On mobile data</string>
@@ -551,6 +551,7 @@
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>
     <string name="song_removed_from_playlist">Removed from playlist</string>
+    <string name="cannot_remove_not_in_playlist">Only available within a playlist</string>
     <string name="in_playlist">In playlist</string>
     <string name="will_remove">Will remove</string>
     <string name="will_add">Will add</string>

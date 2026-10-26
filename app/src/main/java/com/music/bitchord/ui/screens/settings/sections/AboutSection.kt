@@ -27,6 +27,17 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.OpenInNew
+import android.widget.Toast
+import com.music.bitchord.data.AppUpdateChecker
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -84,7 +95,7 @@ fun AboutSection(
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
-            title = stringResource(R.string.software_update),
+            title = stringResource(R.string.miscellaneous),
             onBack = onBack,
         )
 
@@ -137,6 +148,103 @@ fun AboutSection(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
+
+                Spacer(Modifier.height(14.dp))
+
+                var checkingUpdate by remember { mutableStateOf(false) }
+                val updateScope = rememberCoroutineScope()
+                val updateInfo by AppUpdateChecker.available.collectAsStateWithLifecycle()
+                val downloadState by AppUpdateChecker.download.collectAsStateWithLifecycle()
+
+                Button(
+                    onClick = {
+                        when (val state = downloadState) {
+                            is AppUpdateChecker.DownloadState.Downloading -> {
+                                // Already downloading, do nothing
+                            }
+                            is AppUpdateChecker.DownloadState.Ready -> {
+                                AppUpdateChecker.installApk(context, state.file)
+                            }
+                            else -> {
+                                if (updateInfo != null) {
+                                    if (updateInfo?.apkUrl != null) {
+                                        updateScope.launch {
+                                            AppUpdateChecker.downloadApk(context)
+                                        }
+                                    } else {
+                                        runCatching {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo?.releaseUrl)))
+                                        }
+                                    }
+                                } else if (!checkingUpdate) {
+                                    checkingUpdate = true
+                                    updateScope.launch {
+                                        AppUpdateChecker.check()
+                                        checkingUpdate = false
+                                        if (AppUpdateChecker.available.value == null) {
+                                            Toast.makeText(context, "ChordPlay is up to date (v$version)", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    if (checkingUpdate) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Checking...")
+                    } else when (val state = downloadState) {
+                        is AppUpdateChecker.DownloadState.Downloading -> {
+                            CircularProgressIndicator(
+                                progress = { state.fraction },
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Downloading ${(state.fraction * 100).toInt()}%")
+                        }
+                        is AppUpdateChecker.DownloadState.Ready -> {
+                            Icon(
+                                imageVector = Icons.Rounded.SystemUpdate,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Install Update")
+                        }
+                        else -> {
+                            if (updateInfo != null) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SystemUpdate,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Download v${updateInfo?.version}")
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Update,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Check for Updates")
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -211,6 +319,17 @@ fun AboutSection(
                 onClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay/releases")))
+                    }
+                },
+            )
+
+            SettingsRow(
+                icon = Icons.Rounded.OpenInNew,
+                title = "BitChord Upstream Repository",
+                subtitle = "github.com/kushagrasinghx/BitChord • Based on project credit",
+                onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
                     }
                 },
             )

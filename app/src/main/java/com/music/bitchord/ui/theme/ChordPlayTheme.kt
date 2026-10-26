@@ -223,6 +223,51 @@ val EmeraldNoirLightColors = lightColorScheme(
 )
 
 // -------------------------------------------------------------------------
+// 4. MONOCHROME (Pure Obsidian & Stark White)
+// -------------------------------------------------------------------------
+val MonochromeDarkColors = darkColorScheme(
+    primary = Color(0xFFFFFFFF),
+    onPrimary = Color(0xFF000000),
+    primaryContainer = Color(0xFF242426),
+    onPrimaryContainer = Color(0xFFFFFFFF),
+    secondary = Color(0xFFD4D4D8),
+    onSecondary = Color(0xFF000000),
+    secondaryContainer = Color(0xFF2E2E32),
+    onSecondaryContainer = Color(0xFFEDEDED),
+    tertiary = Color(0xFFA1A1AA),
+    onTertiary = Color(0xFF000000),
+    background = Color(0xFF09090B),
+    onBackground = Color(0xFFFAFAFA),
+    surface = Color(0xFF121214),
+    onSurface = Color(0xFFFAFAFA),
+    surfaceVariant = Color(0xFF1E1E22),
+    onSurfaceVariant = Color(0xFFA1A1AA),
+    outline = Color(0xFF3F3F46),
+    outlineVariant = Color(0xFF27272A),
+)
+
+val MonochromeLightColors = lightColorScheme(
+    primary = Color(0xFF09090B),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE4E4E7),
+    onPrimaryContainer = Color(0xFF09090B),
+    secondary = Color(0xFF27272A),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFF4F4F5),
+    onSecondaryContainer = Color(0xFF18181B),
+    tertiary = Color(0xFF52525B),
+    onTertiary = Color(0xFFFFFFFF),
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF09090B),
+    surface = Color(0xFFFAFAFA),
+    onSurface = Color(0xFF09090B),
+    surfaceVariant = Color(0xFFF4F4F5),
+    onSurfaceVariant = Color(0xFF71717A),
+    outline = Color(0xFFD4D4D8),
+    outlineVariant = Color(0xFFE4E4E7),
+)
+
+// -------------------------------------------------------------------------
 // Modern Elevated Typography
 // -------------------------------------------------------------------------
 val ChordPlayTypography = Typography(
@@ -250,7 +295,7 @@ fun ChordPlayTheme(
 ) {
     val context = LocalContext.current
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
-    val dynamicArtworkPalette = if (palette == ChordPlayPalette.DYNAMIC_ARTWORK && !activeArtworkUrl.isNullOrBlank()) {
+    val dynamicArtworkPalette = if (palette == ChordPlayPalette.DYNAMIC_ARTWORK) {
         rememberArtworkPalette(imageUrl = activeArtworkUrl, dark = darkTheme)
     } else null
 
@@ -304,6 +349,7 @@ fun ChordPlayTheme(
             ChordPlayPalette.ELECTRIC_VIOLET -> if (darkTheme) ElectricVioletDarkColors else ElectricVioletLightColors
             ChordPlayPalette.SUNSET_AMBER -> if (darkTheme) SunsetAmberDarkColors else SunsetAmberLightColors
             ChordPlayPalette.EMERALD_NOIR -> if (darkTheme) EmeraldNoirDarkColors else EmeraldNoirLightColors
+            ChordPlayPalette.MONOCHROME -> if (darkTheme) MonochromeDarkColors else MonochromeLightColors
             ChordPlayPalette.DYNAMIC_MONET -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (darkTheme) {
@@ -362,6 +408,12 @@ fun ChordPlayTheme(
                 glow = Color(0xFF00B0FF),
                 surfaceGlass = if (darkTheme) Color(0xFF0F1D16) else Color(0xFFEBF6F0),
                 borderHighlight = if (darkTheme) Color(0xFF00E676).copy(alpha = 0.20f) else Color(0xFF00E676).copy(alpha = 0.12f),
+                isAtmosphericDark = darkTheme,
+            )
+            ChordPlayPalette.MONOCHROME -> ChordPlayExtendedColors(
+                glow = if (darkTheme) Color(0xFFFFFFFF).copy(alpha = 0.45f) else Color(0xFF000000).copy(alpha = 0.25f),
+                surfaceGlass = if (darkTheme) Color(0xFF141416).copy(alpha = 0.88f) else Color(0xFFFAFAFA).copy(alpha = 0.90f),
+                borderHighlight = if (darkTheme) Color(0xFFFFFFFF).copy(alpha = 0.18f) else Color(0xFF000000).copy(alpha = 0.12f),
                 isAtmosphericDark = darkTheme,
             )
             ChordPlayPalette.DYNAMIC_MONET -> ChordPlayExtendedColors(
