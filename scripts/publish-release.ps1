@@ -1,6 +1,6 @@
 param(
-    [string]$tagName = "v1.8.7",
-    [string]$releaseTitle = "ChordPlay v1.8.7 - Lyrics Styles, 3-Way Search Split, Speed Dial & True Lucky Dice"
+    [string]$tagName = "v1.8.8",
+    [string]$releaseTitle = "ChordPlay v1.8.8"
 )
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -16,7 +16,7 @@ $repoOwner = "code4nigel"
 $repoName = "ChordPlay"
 $notesPath = Join-Path $PSScriptRoot "..\app\version\RELEASE_NOTES.md"
 $fullNotes = if (Test-Path $notesPath) { [System.IO.File]::ReadAllText($notesPath) } else { "ChordPlay $tagName release" }
-$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.7.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
+$releaseNotes = if ($fullNotes -match '(?s)(# ChordPlay v1\.8\.8.*?)(?=\r?\n---\r?\n# ChordPlay|\Z)') {
     $matches[1].Trim()
 } else {
     $fullNotes
@@ -61,9 +61,9 @@ Write-Host "Upload URL: $($release.upload_url)"
 Write-Host "Verifying APK signing certificates against permanent repository keystore..." -ForegroundColor Cyan
 
 $apkFiles = @(
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug-universal.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug-arm64.apk"),
-    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.7-build33-devDebug.apk")
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.8-build34-devDebug-universal.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.8-build34-devDebug-arm64.apk"),
+    (Join-Path $PSScriptRoot "..\app\version\chordplay-v1.8.8-build34-devDebug.apk")
 )
 
 $localApp = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "" }
