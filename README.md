@@ -4,7 +4,7 @@
 
 # ChordPlay
 
-**An aesthetic, tactile YouTube Music client for Android with living player stages, dynamic artwork aura theming, and zero-lag playlist curation.**
+**An aesthetic YouTube Music client for Android.**
 
 <br/>
 
@@ -15,7 +15,7 @@
 
 <br/>
 
-[Overview](#overview) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
+[Overview](#overview) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
 
 </div>
 
@@ -25,63 +25,75 @@
 
 ChordPlay is a modern, high-performance music client designed for listeners who care about both audio quality and visual craft. Engineered with Jetpack Compose and Kotlin Multiplatform, ChordPlay combines the extensive streaming catalog of YouTube Music with a fluid, tactile interface inspired by modern glassmorphic design systems.
 
-Rather than offering a static playback screen or generic list views, ChordPlay introduces living audio stages, dynamic album-art aura lighting that breathes with the track, authentic vinyl turntable layouts, intelligent content-aware speed dials, and a robust playlist management system built to handle large libraries without UI freezes.
-
 ChordPlay is built upon the open-source foundation of [BitChord](https://github.com/kushagrasinghx/BitChord) by Kushagra Singh, taking its proven streaming and audio architecture and transforming the user experience with custom-crafted UI layers, interactive live settings previews, dynamic theming engines, and refined motion ergonomics.
+
+---
+
+## Screenshots
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="25%"><b>Home (Crimson)</b></td>
+      <td align="center" width="25%"><b>Home (Dynamic)</b></td>
+      <td align="center" width="25%"><b>Now Playing</b></td>
+      <td align="center" width="25%"><b>Canvas & Lyrics</b></td>
+    </tr>
+    <tr>
+      <td valign="top"><img src="Images/UI/chordplay_homescreen1.jpg" width="220" alt="Home Screen (Crimson Aura)" /></td>
+      <td valign="top"><img src="Images/UI/chordplay_homescreen2.jpg" width="220" alt="Home Screen (Dynamic Artwork)" /></td>
+      <td valign="top"><img src="Images/UI/chordplay_player.jpg" width="220" alt="Now Playing Stage" /></td>
+      <td valign="top"><img src="Images/UI/chordplay_player2.jpg" width="220" alt="Canvas and Synced Lyrics" /></td>
+    </tr>
+  </table>
+</div>
 
 ---
 
 ## Key Features
 
-### 1. Living Audio Stages (Player Layouts)
-Switch effortlessly between distinct listening environments tailored to your mood:
-- **Modern Ambient**: A layered stage featuring an atmospheric breathing aura that pulses gently behind the album artwork in sync with playback. Floats a frosted-glass capsule transport deck above the canvas, complete with drop-shadow depth, real-time audio quality badges (`140K OPUS`, `256K AAC`), and an inline lyrics teaser.
-- **Vinyl Turntable**: A tactile listening layout showcasing a realistic spinning vinyl record with micro-textured grooves, spinning center label artwork, and an animated tone-arm pickup that lowers onto the vinyl when playing and lifts when paused.
-- **Classic Clean**: A streamlined, lightweight layout for minimalists, retaining the original BitChord playback view with a single toggle.
+### 1. Living Audio Stages
+- **Modern Ambient**: Breathing album-art aura lighting, floating frosted transport deck, and real-time audio bitrate badges (`OPUS` / `AAC`).
+- **Vinyl Turntable**: Interactive spinning vinyl with groove texture and an animated tone-arm pickup that moves on play/pause.
+- **Classic Clean**: Minimalist, distraction-free playback view.
 
-### 2. Intelligent Home Speed Dial
-Quickly access your frequent listens with an ergonomic, 6-tile paginated grid that visually differentiates content types:
-- **Artists**: Rendered in circular avatar frames with gold badge indicators and clean artist titles.
-- **Albums**: Displayed in dual-layered vinyl sleeve presentations with disc peeks and album format badges.
-- **Playlists**: Styled with multi-layered stacked card shadows, playlist badges, and track counts.
-- **Songs**: Presented in rounded squircles with audio track badges.
-- **Subtitle Sanitization**: Automatically strips redundant prefixes (e.g. "Artist • ", "Album • ", "Playlist • ") for a cleaner aesthetic.
-- **Instant Reactive Pinning**: Direct reactive Flow binding ensures action sheet toggles between "Pin to Speed Dial" and "Unpin from Speed Dial" reflect in real time without lag.
+### 2. Smart Home Speed Dial
+- **Visual Identity**: Distinct card styles for Artists (circular frames), Albums (vinyl sleeves), Playlists (stacked cards), and Tracks (squircles).
+- **Clean Titles**: Automatically cleans redundant prefixes for a tidy grid.
+- **Instant Pinning**: 0s latency reactive toggling to pin or unpin favorites.
 
-### 3. Living Home Experience & Contextual Discovery
-- **Context-Aware Greetings**: Home screen dynamically greets you with rotating witty messages ("Back in the mix", "Ears first, questions later", "Your soundtrack awaits", "Turn it up") personalized with your profile name.
-- **Lucky Radio Card**: One-tap serendipitous music discovery that generates instant streaming mixes based on listening vibe.
-- **Jump Back In**: Dedicated carousel resuming previous listening sessions right where you left off.
+### 3. Home & Discovery
+- **Contextual Greetings**: Rotating witty greetings personalized with your profile name.
+- **Lucky Radio**: One-tap discovery dice generating instant streaming mixes across 25+ genres.
+- **Jump Back In**: Quick carousel to resume recent listening sessions right where you left off.
 
-### 4. Dynamic Theming Suite
-- **Dynamic Song Art (True Dynamic Theme)**: Extracts dominant colors and glowing accent tones directly from the current song's album art in real time, adapting the app's background, navigation bar, and controls as tracks change.
-- **ChordPlay Crimson**: Iconic signature dark theme tailored to the ChordPlay brand identity (deep obsidian base, vivid crimson ruby accents, and neon highlights).
-- **Dynamic Monet (Material You)**: System-synced Material 3 dynamic color scheme matching your Android device wallpaper.
-- **OLED Pure Black**: True `#000000` AMOLED mode delivering infinite contrast and battery efficiency.
-- **Liquid Glass Navigation**: Frosted glass bottom bar with smooth pill indicators and micro-haptic responses.
+### 4. Dynamic Theming
+- **Dynamic Song Art**: Real-time theme adapting colors and ambient aura to the current song's album art.
+- **ChordPlay Crimson**: Signature obsidian-and-ruby dark theme.
+- **Material You & OLED**: Wallpaper-matched Monet palettes and true `#000000` AMOLED mode.
+- **Liquid Glass**: Frosted-glass bottom navigation with fluid spring micro-interactions.
 
-### 5. Tactile Micro-Interactions & Gestures
-- **MiniPlayer Horizontal Swipe-to-Skip**: Swipe left on the MiniPlayer to skip to the next track, or swipe right to play the previous track, complete with translated album art and spring physics.
-- **Perimeter Progress Glow Ring**: An optional glowing path tracing the capsule border in real-time proportional to playback progress, themed dynamically with artwork accents.
-- **Micro-Haptic Feedback**: Subtle `CLOCK_TICK` haptic feedback on play/pause, skips, tab switches, and scrubber drags.
+### 5. Tactile Gestures & Controls
+- **Swipe-to-Skip**: Swipe left/right on the MiniPlayer to change tracks with spring physics.
+- **Playlist Swipe Actions**: Swipe songs to remove them from playlists or pop up the 3-dot context menu.
+- **Progress Glow Ring**: Dynamic glowing border tracing playback progress.
+- **Micro-Haptics**: Subtle tactile clicks on transport controls and scrubbers.
 
-### 6. Zero-Lag, Persistent Playlist Curation
-- **Height-Locked Bottom Sheet**: Engineered bottom sheet state that stays fixed at user-dragged or full height even when opening the on-screen keyboard or typing in search filters.
-- **Two-Way Batch Toggle**: Tap to queue additions ("Will add"), tap again to mark for removal ("Will remove"), and commit safely only upon tapping "Done".
-- **Zero Parallel Network Freezes**: Replaced brute-force network spam with fast local caching and optimistic ViewModel resolution, completely eliminating GC freezes and ANR crashes.
-- **Source Differentiation**: Visual badges clearly distinguishing local ChordPlay playlists from synced YouTube Music cloud playlists.
+### 6. Fast Playlist Management
+- **Height-Locked Sheet**: Bottom sheet stays fixed when the keyboard opens—no accidental collapses.
+- **Two-Way Batch Toggles**: Queue additions or removals in bulk, then commit in one tap.
+- **Zero-Lag Performance**: Fast local caching and optimistic UI eliminates stutter.
 
-### 7. Modular Settings with Live Previews
-- **Domain-Focused Settings Architecture**: Organized into clean sub-sections (Appearance, Player, Lyrics, Audio Quality, Storage, Accounts, and About).
-- **True-to-Life Interactive Previews**: Pinned live preview cards in Appearance and Player settings that faithfully reflect real in-app screens (blurred aura, capsule deck, mini-player, and lyrics snippet) before committing changes.
-- **Custom Lyrics Typography**: Built-in fonts (Poppins, Parkinsans, Serif, Sans, Monospace, Cursive) plus support for importing custom `.ttf` and `.otf` font files from device storage.
+### 7. Modular Settings & Typography
+- **Live Preview Cards**: Real-time interactive previews for Theme and Player settings before applying.
+- **Custom Typography**: Handcrafted fonts (Poppins, Parkinsans, Serif) plus custom `.ttf`/`.otf` file import.
+- **Synced Lyrics Modes**: Fullscreen single-line lyrics strips, floating capsules, and dedicated lyrics offset tuning.
 
-### 8. Audiophile-Grade Playback & Offline Streaming
-- **High-Bitrate Audio**: Direct streaming of high-resolution Opus (140k/160k) and AAC (256k) formats extracted via NewPipeExtractor.
-- **Gapless Playback & Crossfade**: Smooth transitions between tracks with configurable crossfade durations.
-- **Synchronized Lyrics**: Syllable-level and line-by-line animated lyrics across LRCLIB, Musixmatch, Genius, and KuGou, with support for exportable lyrics share cards.
-- **Offline Caching & Downloads**: Save tracks locally with embedded high-resolution artwork and complete ID3 metadata.
-- **Native Last.fm Scrobbling**: Integrated scrobbler tracking listens directly to your Last.fm account.
+### 8. Audiophile Streaming & Integrations
+- **High-Bitrate Audio**: Streams up to 289K Opus & 256K AAC with gapless playback and crossfade.
+- **Synchronized Lyrics**: Syllable-level and line-by-line animations via LRCLIB, Musixmatch, and Genius.
+- **Unified Integrations Hub**: YouTube Music account, channel switching, Spotify, Discord Rich Presence, Listen Together, Last.fm, and ListenBrainz in one unnested screen.
+- **Offline Downloads**: High-res offline caching with embedded artwork and full ID3 tags.
 
 ---
 
