@@ -325,22 +325,22 @@ fun AboutSection(
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "BitChord Upstream Repository",
-                subtitle = "github.com/kushagrasinghx/BitChord • Based on project credit",
+                title = "Developer Profile",
+                subtitle = "github.com/code4nigel",
                 onClick = {
                     runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel")))
                     }
                 },
             )
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "Developer Profile",
-                subtitle = "github.com/code4nigel",
+                title = "BitChord Upstream Repository",
+                subtitle = "github.com/kushagrasinghx/BitChord • Upstream project credit",
                 onClick = {
                     runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel")))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
                     }
                 },
             )
@@ -355,11 +355,7 @@ fun AboutSection(
                         textDecoration = TextDecoration.Underline,
                     ),
                 )
-                append("ChordPlay $version by ")
-                withLink(LinkAnnotation.Url("https://github.com/code4nigel", linkStyles)) {
-                    append("Shivanshu (code4nigel)")
-                }
-                append("\n")
+                append("ChordPlay $version by Shivanshu (code4nigel)\n")
                 withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay", linkStyles)) {
                     append("GitHub")
                 }
@@ -371,7 +367,18 @@ fun AboutSection(
                 withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay/releases", linkStyles)) {
                     append("Releases")
                 }
-                append("\nBased on BitChord by Kushagra Singh")
+                append("\nBased on BitChord by Kushagra Singh\n")
+                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
+                    append("GitHub")
+                }
+                append("   ")
+                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
+                    append("Developer")
+                }
+                append("   ")
+                withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord/releases", linkStyles)) {
+                    append("Releases")
+                }
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

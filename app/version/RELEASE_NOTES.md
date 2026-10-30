@@ -1,3 +1,25 @@
+# ChordPlay v1.9.0
+
+Welcome to ChordPlay v1.9.0! This release introduces branding and attribution refinements, listening experience / recap layout restructuring, and builds upon the complete YouTube Music redesign:
+
+### What's New in v1.9.0:
+- **Branding & Upstream Attribution**:
+  - Cleaned developer attribution in Settings: removed redundant hyperlink on author name, leaving direct links for GitHub, Developer Profile, and Releases.
+  - Added full attribution links for upstream **BitChord by Kushagra Singh** (GitHub, Developer, Releases) mirroring the ChordPlay section.
+  - In Miscellaneous settings, reordered **Links & Community** so the upstream BitChord repository is placed cleanly at the bottom.
+- **Library Recap Card Placement**:
+  - Relocated the personal **Listening Experience / Recap card** to the very top of the Library screen, positioned prominently above the search bar and category filter tabs.
+- **YouTube Music-Style Vertical Library**:
+  - Full-width vertical rows, live search, sort dropdown (A-Z, Z-A, Date Added), and Grid/List toggle.
+- **Speed Dial 1×4 List Mode & 3-Way Layout Switcher**:
+  - Switch seamlessly between 2×3 Squircle Grid, 3×3 Grid, and 1×4 Track Column List mode matching Recents.
+- **Default Dynamic Song Art Palette**:
+  - Adaptive real-time album aura theming active by default.
+- **Roll a Dice**:
+  - Dedicated dice icon (Casino) and contrast-adaptive theming.
+
+---
+
 # ChordPlay v1.8.9
 
 Welcome to ChordPlay v1.8.9! This update introduces a full YouTube Music-style Library experience with real-time search, sorting, and view switching, adaptive Speed Dial layout modes with a new 1×4 track column list, default Dynamic Song Art theming, high-contrast chip rendering, and Liquid Glass refinements:

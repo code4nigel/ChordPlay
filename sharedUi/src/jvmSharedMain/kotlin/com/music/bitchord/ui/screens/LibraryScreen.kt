@@ -202,7 +202,12 @@ fun LibraryScreen(
                     }
                 }
 
-                // 1. Search Bar with real-time text filtering, view mode switcher, and sorting
+                // 1. Preserved Replay / Stats header card on top (when not actively searching)
+                if (searchQuery.isBlank()) {
+                    item(key = "replay") { replay() }
+                }
+
+                // 2. Search Bar with real-time text filtering, view mode switcher, and sorting
                 item(key = "search_field") {
                     LibrarySearchField(
                         query = searchQuery,
@@ -221,7 +226,7 @@ fun LibraryScreen(
                     )
                 }
 
-                // 2. Top Selector Tabs / Filter Chips
+                // 3. Top Selector Tabs / Filter Chips
                 item(key = "filter_chips") {
                     LibraryFilterChips(
                         selectedFilter = selectedFilter,
@@ -230,11 +235,6 @@ fun LibraryScreen(
                             .fillMaxWidth()
                             .padding(bottom = 6.dp),
                     )
-                }
-
-                // Preserved Replay header card (when not actively searching)
-                if (searchQuery.isBlank()) {
-                    item(key = "replay") { replay() }
                 }
 
                 if (!signedIn) {

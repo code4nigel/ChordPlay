@@ -571,11 +571,7 @@ private fun SettingsFooter(version: String, modifier: Modifier = Modifier) {
                     textDecoration = TextDecoration.Underline,
                 ),
             )
-            append("ChordPlay $version by ")
-            withLink(LinkAnnotation.Url("https://github.com/code4nigel", linkStyles)) {
-                append("Shivanshu (code4nigel)")
-            }
-            append("\n")
+            append("ChordPlay $version by Shivanshu (code4nigel)\n")
             withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay", linkStyles)) {
                 append("GitHub")
             }
@@ -587,7 +583,18 @@ private fun SettingsFooter(version: String, modifier: Modifier = Modifier) {
             withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay/releases", linkStyles)) {
                 append("Releases")
             }
-            append("\nBased on BitChord by Kushagra Singh")
+            append("\nBased on BitChord by Kushagra Singh\n")
+            withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
+                append("GitHub")
+            }
+            append("   ")
+            withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
+                append("Developer")
+            }
+            append("   ")
+            withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord/releases", linkStyles)) {
+                append("Releases")
+            }
         },
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
