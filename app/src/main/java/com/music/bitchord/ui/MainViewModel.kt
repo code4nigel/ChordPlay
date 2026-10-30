@@ -566,6 +566,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _detailStack = MutableStateFlow<List<DetailPage>>(emptyList())
     val detailStack: StateFlow<List<DetailPage>> = _detailStack.asStateFlow()
 
+    /** In-memory cache for newly created/imported playlists to bridge YouTube Music's backend indexing delay. */
+    private val preseededSongs = java.util.concurrent.ConcurrentHashMap<String, List<Song>>()
+
     private val _releaseLibrary = MutableStateFlow<Map<String, LibraryState>>(emptyMap())
 
     /**
@@ -1071,6 +1074,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ).fold(
                 onSuccess = { playlistId ->
                     AppSettings.addChordplayPlaylistId(playlistId)
+                    if (song != null) {
+                        preseededSongs["VL$playlistId"] = listOf(song)
+                        preseededSongs[playlistId] = listOf(song)
+                    }
                     // Nothing to look up for a playlist this account has just
                     // made: it is the owner by construction, so its card is
                     // editable the moment it appears rather than one request
@@ -1122,18 +1129,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val name = title.trim().ifBlank { text(R.string.new_playlist) }
         viewModelScope.launch {
             if (authStore.isSignedIn) {
-                val initialBatch = videoIds.take(50)
                 YtMusicRepository.createPlaylist(
                     title = name,
                     privacy = privacy,
-                    videoIds = initialBatch,
+                    videoIds = emptyList(),
                 ).fold(
                     onSuccess = { playlistId ->
-                    AppSettings.addChordplayPlaylistId(playlistId)
-                        if (videoIds.size > 50) {
-                            videoIds.drop(50).chunked(50).forEach { chunk ->
+                        AppSettings.addChordplayPlaylistId(playlistId)
+                        if (videoIds.isNotEmpty()) {
+                            videoIds.chunked(50).forEach { chunk ->
                                 YtMusicRepository.addToPlaylist(playlistId, chunk)
                             }
+                        }
+                        if (songs.isNotEmpty()) {
+                            preseededSongs["VL$playlistId"] = songs
+                            preseededSongs[playlistId] = songs
                         }
                         setPlaylistOwned("VL$playlistId", true)
                         libraryStale = true
@@ -1141,7 +1151,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             playlistId = playlistId,
                             title = name,
                             subtitle = "${videoIds.size} songs",
-                            thumbnailUrl = null,
+                            thumbnailUrl = songs.firstOrNull()?.thumbnailUrl,
                         )
                         _playlists.value = listOf(created) +
                             _playlists.value.filterNot { it.playlistId == created.playlistId }
@@ -2673,12 +2683,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val resolved = browseTypeOf(browseId, type)
+        val preseeded = preseededSongs[browseId] ?: preseededSongs[browseId.removePrefix("VL")]
+        val hasPreseeded = !preseeded.isNullOrEmpty()
         _detailStack.value += DetailPage(
             browseId = browseId,
             title = title,
             subtitle = subtitle,
             thumbnailUrl = thumbnailUrl,
-            songs = UiState.Loading,
+            songs = if (hasPreseeded) UiState.Success(preseeded) else UiState.Loading,
             type = resolved,
         )
         viewModelScope.launch {
@@ -2806,15 +2818,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             }
                             description = page.description
                             if (page.songs.isEmpty()) {
-                                UiState.Error(text(R.string.no_tracks_here))
+                                if (hasPreseeded) {
+                                    UiState.Success(preseeded)
+                                } else {
+                                    UiState.Error(text(R.string.no_tracks_here))
+                                }
                             } else {
+                                preseededSongs.remove(browseId)
+                                preseededSongs.remove(browseId.removePrefix("VL"))
                                 more = page.continuation
                                 suggested = page.suggested.withArtwork(thumbnailUrl ?: artwork)
                                 library = page.library
                                 UiState.Success(page.songs.withArtwork(thumbnailUrl ?: artwork))
                             }
                         },
-                        onFailure = { UiState.Error(it.friendly()) },
+                        onFailure = {
+                            if (hasPreseeded) {
+                                UiState.Success(preseeded)
+                            } else {
+                                UiState.Error(it.friendly())
+                            }
+                        },
                     )
                 }
             }
@@ -2823,7 +2847,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // failed or empty fetch leaves the downloaded tracks up.
             _detailStack.value = _detailStack.value.map {
                 if (it.browseId == browseId &&
-                    (it.songs is UiState.Loading || (onDevice.isNotEmpty() && state is UiState.Success))
+                    (it.songs is UiState.Loading || (hasPreseeded && state is UiState.Success) || (onDevice.isNotEmpty() && state is UiState.Success))
                 ) {
                     it.copy(
                         songs = state,

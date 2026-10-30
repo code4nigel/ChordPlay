@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Сейчас играет</string>
@@ -686,7 +687,7 @@
     <string name="this_year">Этот год</string>
     <string name="all_time">За всё время</string>
 
-    <!-- Listen together -->
+    
     <string name="listen_together">Слушать вместе</string>
     <string name="listen_together_subtitle">Поделитесь кодом и слушайте одну музыку синхронно</string>
     <string name="listen_together_in_party">В вечеринке · %1$s</string>
@@ -1320,4 +1321,4 @@
     <string name="spotify_library_subtitle">Ваши плейлисты Spotify</string>
     <string name="spotify_sign_in">Войти через Spotify</string>
     <string name="spotify_track_unavailable">Не удалось найти этот трек на YouTube Music</string>
-</resources>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string></resources>

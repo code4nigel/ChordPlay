@@ -77,11 +77,11 @@ class JamInviteLinkTest {
     @Test
     fun `builds custom scheme URL`() {
         assertEquals(
-            "bitchord://party/ABC123?server=https%3A%2F%2Fmy-party.onrender.com",
+            "chordplay://party/ABC123?server=https%3A%2F%2Fmy-party.onrender.com",
             JamInviteLink.schemeUrl("abc123", "https://my-party.onrender.com"),
         )
         assertEquals(
-            "bitchord://party/ABC123",
+            "chordplay://party/ABC123",
             JamInviteLink.schemeUrl("abc123", null),
         )
     }

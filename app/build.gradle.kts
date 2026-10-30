@@ -75,13 +75,13 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        applicationId = "com.chordplay.music"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 36
-        versionName = "1.9.0"
+        versionCode = 38
+        versionName = "2.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -118,7 +118,7 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            applicationId = "com.dev.bitchord"
+            applicationId = "com.dev.chordplay"
             resValue("string", "app_name", "ChordPlay")
         }
         create("prod") {
@@ -449,10 +449,10 @@ val verifyDevInstall = tasks.register("verifyDevInstall") {
             .drop(1)
             .mapNotNull { line -> line.split('\t').takeIf { it.size == 2 && it[1] == "device" }?.get(0) }
         serials.forEach { serial ->
-            logger.lifecycle("verifyDevInstall: compiling com.dev.bitchord on $serial")
+            logger.lifecycle("verifyDevInstall: compiling com.dev.chordplay on $serial")
             ProcessBuilder(
                 adbPath, "-s", serial, "shell", "cmd", "package", "compile",
-                "-m", "verify", "-f", "com.dev.bitchord",
+                "-m", "verify", "-f", "com.dev.chordplay",
             ).inheritIO().start().waitFor()
         }
     }

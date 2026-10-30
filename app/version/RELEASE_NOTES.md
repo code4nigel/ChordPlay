@@ -1,3 +1,50 @@
+# ChordPlay v2.0.1 — Maintenance & Spotify Integration Release
+
+Welcome to ChordPlay v2.0.1! This update focuses on fixing Spotify playlist import, resolving playlist indexing delays, smoothing Spotify web connection, and refining in-app navigation:
+
+### What's Fixed & Improved in v2.0.1:
+- **Spotify Playlist Import Fix (No More "No tracks here")**:
+  - Fixed an issue where playlists with 50 or fewer songs skipped track insertion due to a batching threshold check. All video IDs are now reliably batched and added to YouTube Music via `addToPlaylist`.
+  - Added in-memory pre-seeding so newly created or imported playlists immediately display all tracks without suffering from YouTube Music's backend indexing delay.
+- **Direct "Spotify Playlists" Access in Library**:
+  - Added a dedicated "Spotify Playlists" action row directly inside the Library's **Playlists** tab, right below "Import Spotify playlist". One tap opens your connected Spotify playlists directly without navigating through Settings.
+- **Back Navigation Fix from Spotify Playlists**:
+  - Fixed an issue where pressing back from a Spotify playlist detail view prematurely dismissed Settings and dumped the user onto the Home screen. Back navigation now smoothly returns to the Spotify Library screen as expected.
+- **Optimized Spotify Web Login**:
+  - Improved `sp_dc` cookie detection on redirects, avoiding unnecessary waits for full desktop WebPlayer bundle downloads.
+
+---
+
+# ChordPlay v2.0.0 — Major Release
+
+> [!IMPORTANT]
+> **Package ID Migration Notice — Clean Re-install Required**
+> - **Old Package ID:** `com.dev.bitchord`
+> - **New Official Package ID:** `com.chordplay.music`
+>
+> **Action Required:**
+> Because Android treats different package IDs as separate apps, please **uninstall your previous ChordPlay build (v1.x)** and install **ChordPlay v2.0.0** fresh.
+> This migration gives ChordPlay its own independent Android application ID (`com.chordplay.music`), preventing package collision or installation conflicts with BitChord and ensuring seamless future updates!
+
+### Highlights of v2.0.0:
+- **Official Production Package (`com.chordplay.music`)**:
+  - Independent Android application ID eliminates package conflicts with BitChord and allows both apps to coexist side-by-side.
+- **YouTube Music-Style Vertical Library**:
+  - Full-width vertical rows, live real-time search, sorting options (A-Z, Z-A, Date Added), and Grid/List toggle.
+  - Personal Listening Experience & Recap stats card prominently featured at the top.
+- **Speed Dial 1×4 List Mode & 3-Way Layout Switcher**:
+  - Switch on the fly between 2×3 Squircle Grid, 3×3 Grid, and 1×4 Track Column List mode matching Recents.
+  - Distinct artwork shapes for artists (circles), playlists (folder sleeves), and tracks.
+- **Default Dynamic Song Art Palette**:
+  - Real-time adaptive color palette extracts vibrant aura lighting and ambient tones directly from active song artwork.
+- **Roll a Dice Discovery Tile**:
+  - Dedicated dice icon (Casino) and contrast-adaptive theming for instant mood shuffling.
+- **Liquid Glass Dialogs & Theme Contrast Refinements**:
+  - Fixed white-on-white chip text contrast in light and monochrome palettes.
+  - Liquid Glass styling extended to the Account Switcher modal.
+
+---
+
 # ChordPlay v1.9.0
 
 Welcome to ChordPlay v1.9.0! This release introduces branding and attribution refinements, listening experience / recap layout restructuring, and builds upon the complete YouTube Music redesign:

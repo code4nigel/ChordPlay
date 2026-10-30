@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">अभी चल रहा है</string>
@@ -660,7 +661,7 @@
     <string name="this_year">इस साल</string>
     <string name="all_time">अब तक</string>
 
-    <!-- Listen together -->
+    
     <string name="listen_together">साथ में सुनें</string>
     <string name="listen_together_subtitle">एक कोड शेयर करें और एक ही म्यूज़िक, एक साथ सुनें</string>
     <string name="listen_together_in_party">पार्टी में · %1$s</string>
@@ -1288,4 +1289,4 @@
     <string name="spotify_library_subtitle">आपकी Spotify प्लेलिस्ट</string>
     <string name="spotify_sign_in">Spotify से साइन इन करें</string>
     <string name="spotify_track_unavailable">वह गाना YouTube Music पर नहीं मिला</string>
-</resources>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string></resources>

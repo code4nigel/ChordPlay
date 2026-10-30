@@ -696,7 +696,7 @@
     <string name="list_view">Lista</string>
     <string name="switch_to_list_view">Przełącz na widok listy</string>
 
-    <!-- Listen together -->
+    
     <string name="listen_together">Słuchajcie razem</string>
     <string name="listen_together_subtitle">Podziel się kodem i słuchajcie tej samej muzyki, równocześnie</string>
     <string name="listen_together_in_party">W imprezie · %1$s</string>
@@ -1328,4 +1328,4 @@
     <string name="spotify_library_subtitle">Twoje playlisty Spotify</string>
     <string name="spotify_sign_in">Zaloguj się przez Spotify</string>
     <string name="spotify_track_unavailable">Nie znaleziono tego utworu w YouTube Music</string>
-</resources>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string></resources>

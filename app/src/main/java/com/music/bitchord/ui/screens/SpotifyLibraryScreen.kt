@@ -1,7 +1,10 @@
 package com.music.bitchord.ui.screens
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.runtime.DisposableEffect
+import com.music.bitchord.data.canvas.SpotifyToken
 import android.os.Build
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -273,6 +276,27 @@ fun clearSpotifyWebSession() {
     cookies.flush()
 }
 
+private fun extractSpdcToken(): String? {
+    val manager = CookieManager.getInstance()
+    val testUrls = listOf(
+        "https://open.spotify.com",
+        "https://accounts.spotify.com",
+        "https://spotify.com",
+        "https://.spotify.com",
+    )
+    for (url in testUrls) {
+        val raw = manager.getCookie(url) ?: continue
+        for (item in raw.split(";")) {
+            val trimmed = item.trim()
+            if (trimmed.startsWith("sp_dc=")) {
+                val token = trimmed.substringAfter("sp_dc=").trim()
+                if (token.isNotEmpty()) return token
+            }
+        }
+    }
+    return null
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun SpotifyLogin(
@@ -280,6 +304,15 @@ private fun SpotifyLogin(
     modifier: Modifier = Modifier,
 ) {
     var sent by remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        SpotifyToken.cancelHarvest()
+        SpotifyToken.isLoginActive = true
+        onDispose {
+            SpotifyToken.isLoginActive = false
+        }
+    }
+
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { context ->
@@ -302,31 +335,53 @@ private fun SpotifyLogin(
                 setBackgroundColor(0xFF121212.toInt())
                 CookieManager.getInstance().setAcceptCookie(true)
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+                fun checkCookie(): Boolean {
+                    if (sent) return true
+                    val token = extractSpdcToken()
+                    if (token != null) {
+                        sent = true
+                        stopLoading()
+                        onConnected(token)
+                        return true
+                    }
+                    return false
+                }
+
                 webViewClient = object : WebViewClient() {
                     // Spotify's own pages and the identity providers its sign-in
                     // hands off to; anything else is not part of logging in.
                     override fun shouldOverrideUrlLoading(
                         view: WebView,
                         request: WebResourceRequest,
-                    ): Boolean = !isLoginHost(request.url)
+                    ): Boolean {
+                        if (checkCookie()) return true
+                        return !isLoginHost(request.url)
+                    }
+
+                    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        checkCookie()
+                    }
 
                     override fun onPageFinished(view: WebView, url: String?) {
+                        super.onPageFinished(view, url)
                         if (isSpotifyHost(url?.toUri())) view.evaluateJavascript(LOGIN_LAYOUT_FIX, null)
-                        if (sent || url?.startsWith("https://open.spotify.com") != true) return
-                        val raw = CookieManager.getInstance().getCookie("https://open.spotify.com") ?: return
-                        val token = raw.split(";")
-                            .map { it.trim() }
-                            .firstOrNull { it.startsWith("sp_dc=") }
-                            ?.substringAfter("=")
-                            ?.takeIf { it.isNotBlank() }
-                            ?: return
-                        sent = true
-                        onConnected(token)
+                        checkCookie()
+                    }
+
+                    override fun onLoadResource(view: WebView, url: String?) {
+                        super.onLoadResource(view, url)
+                        checkCookie()
                     }
                 }
                 loadUrl(LOGIN_URL)
             }
         },
-        onRelease = { it.destroy() },
+        onRelease = {
+            SpotifyToken.isLoginActive = false
+            it.stopLoading()
+            it.destroy()
+        },
     )
 }

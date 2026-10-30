@@ -801,7 +801,10 @@ private fun BitChordApp(
     LaunchedEffect(showSettings) {
         if (!showSettings) {
             showAccountScrobbling = false
-            showSpotify = false
+            val inSpotify = showSpotify || detail != null || detail?.browseId?.startsWith(SPOTIFY_PAGE_PREFIX) == true
+            if (!inSpotify) {
+                showSpotify = false
+            }
         }
     }
 
@@ -2493,8 +2496,8 @@ private fun BitChordApp(
             }
         }
         BackHandler(
-            enabled = detail != null && !showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
-                !showEqualizer && !showReplay,
+            enabled = (detail != null && showSpotify) || (detail != null && !showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
+                !showEqualizer && !showReplay),
         ) { viewModel.closeDetail() }
         BackHandler(enabled = selectedMoodGenre != null && detail == null && !showSettings && !showReplay) {
             viewModel.closeMoodGenre()
@@ -3288,6 +3291,7 @@ private fun BitChordApp(
                             onShelfItemLongPress = onBrowseLongPress,
                             onNewPlaylist = { creatingPlaylist = true },
                             onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
+                            onOpenSpotify = { showSpotify = true },
                             onShowAll = { shelf -> libraryShowAll = shelf },
                             replay = {
                                 LibraryReplayEntry(
@@ -3522,6 +3526,7 @@ private fun BitChordApp(
                     refreshing = currentFeed != null && currentFeed in refreshing,
                     pullFraction = { currentPull?.distanceFraction ?: 0f },
                     onBack = when {
+                        detail != null && showSpotify -> ({ viewModel.closeDetail(); Unit })
                         showSpotify && detail == null -> ({ showSpotify = false })
                         showDiscord -> ({ showDiscord = false })
                         showHistory -> ({ showHistory = false })

@@ -31,13 +31,13 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build Debug APK
-      run: ./gradlew :app:assembleDevDebug --stacktrace
+      run: ./gradlew :app:assembleProdDebug --stacktrace
 
     - name: Upload Debug APK Artifact
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: chordplay-dev-debug-apk
+        name: chordplay-prod-apk
         path: app/build/outputs/apk/**/*.apk
 
     - name: Publish GitHub Release
@@ -50,7 +50,7 @@ jobs:
         prerelease: false
         generate_release_notes: true
         files: |
-          app/build/outputs/apk/dev/debug/*.apk
+          app/build/outputs/apk/prod/debug/*.apk
 
     - name: Upload Error Reports on Failure
       if: failure()

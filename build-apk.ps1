@@ -18,6 +18,8 @@ param(
 
     [switch]$Clean,
 
+    [switch]$Both,
+
     [string]$DestinationDir = "version/Android"
 )
 

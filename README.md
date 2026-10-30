@@ -25,6 +25,10 @@
 
 ChordPlay is a modern, high-performance music client designed for listeners who care about both audio quality and visual craft. Engineered with Jetpack Compose and Kotlin Multiplatform, ChordPlay combines the extensive streaming catalog of YouTube Music with a fluid, tactile interface inspired by modern glassmorphic design systems.
 
+> [!NOTE]
+> **Official Application ID:** `com.chordplay.music`  
+> Starting from version 2.0.0, ChordPlay uses its own independent package ID (`com.chordplay.music`), allowing it to be installed and run seamlessly alongside BitChord without package or signature conflicts. If upgrading from older v1.x sideloaded builds, please perform a clean re-install.
+
 ChordPlay is built upon the open-source foundation of [BitChord](https://github.com/kushagrasinghx/BitChord) by Kushagra Singh, taking its proven streaming and audio architecture and transforming the user experience with custom-crafted UI layers, interactive live settings previews, dynamic theming engines, and refined motion ergonomics.
 
 ---

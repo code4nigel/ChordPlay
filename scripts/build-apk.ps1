@@ -52,6 +52,8 @@ param(
 
     [switch]$Clean,
 
+    [switch]$Both,
+
     [string]$DestinationDir = "version/Android"
 )
 
@@ -60,6 +62,14 @@ $ErrorActionPreference = "Stop"
 # Ensure we are in project root
 $rootDir = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $rootDir
+
+if ($Both) {
+    Write-Host "Building Both Production and Development APKs..." -ForegroundColor Magenta
+    & "$PSScriptRoot\build-apk.ps1" -Variant "prodDebug" -Bump $Bump -ExplicitVersionCode $ExplicitVersionCode -ExplicitVersionName $ExplicitVersionName -NoBump:$NoBump -Clean:$Clean -DestinationDir $DestinationDir
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & "$PSScriptRoot\build-apk.ps1" -Variant "devDebug" -NoBump -DestinationDir $DestinationDir
+    exit $LASTEXITCODE
+}
 
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "   ChordPlay Android Build & Version Automation" -ForegroundColor Cyan
@@ -228,7 +238,11 @@ if ($apkFiles.Count -eq 0) {
 # --------------------------------------------------------------------------
 # 7. Copy APKs to version/Android/
 # --------------------------------------------------------------------------
-$targetDir = Join-Path $rootDir $DestinationDir
+$targetDir = if ($DestinationDir -eq "version/Android" -or $DestinationDir -eq "version\Android") {
+    Join-Path $rootDir "$DestinationDir\$flavor"
+} else {
+    Join-Path $rootDir $DestinationDir
+}
 if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
     Write-Host "Created directory: $targetDir" -ForegroundColor Cyan

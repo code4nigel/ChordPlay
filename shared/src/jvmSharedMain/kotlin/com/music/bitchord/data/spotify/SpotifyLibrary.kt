@@ -56,6 +56,10 @@ object SpotifyLibrary {
     @Volatile
     var auth: Auth? = null
 
+    /** Whether a Spotify session is currently configured and available. */
+    @Volatile
+    var isConnected: () -> Boolean = { auth != null }
+
     private const val GQL = "https://api-partner.spotify.com/pathfinder/v2/query"
     private const val LIBRARY = "973e511ca44261fda7eebac8b653155e7caee3675abb4fb110cc1b8c78b091c3"
     private const val PLAYLIST = "346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763"
@@ -163,6 +167,19 @@ object SpotifyLibrary {
         }
         val root = gql("fetchPlaylist", PLAYLIST, variables, authHeaders())
         largestSource(root.obj("data")?.obj("playlistV2")?.obj("images"))
+    }
+
+    /** The playlist's title if known. */
+    suspend fun playlistTitle(playlistId: String): String? = withContext(Dispatchers.IO) {
+        if (playlistId == LIKED_ID) return@withContext "Liked Songs"
+        val variables = buildJsonObject {
+            put("uri", "spotify:playlist:$playlistId")
+            put("offset", 0)
+            put("limit", 1)
+            put("enableWatchFeedEntrypoint", false)
+        }
+        val root = gql("fetchPlaylist", PLAYLIST, variables, authHeaders())
+        root.obj("data")?.obj("playlistV2")?.str("name")
     }
 
     private fun likedPage(headers: Map<String, String>, offset: Int): Triple<List<SpotifyTrack>, Int, Int> {

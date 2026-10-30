@@ -14,6 +14,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -79,6 +80,20 @@ object SpotifyImporter {
      */
     suspend fun fetchPlaylistTracks(playlistId: String): Pair<String, List<SpotifyImportTrack>> =
         withContext(Dispatchers.IO) {
+            // 1. Direct GraphQL query via official SpotifyLibrary if authenticated
+            if (SpotifyLibrary.auth != null) {
+                val directResult = runCatching {
+                    val title = SpotifyLibrary.playlistTitle(playlistId)?.takeIf { it.isNotBlank() }
+                        ?: "Spotify Playlist"
+                    val tracks = SpotifyLibrary.tracks(playlistId)
+                    if (tracks.isNotEmpty()) {
+                        Pair(title, tracks.map { SpotifyImportTrack(title = it.title, artist = it.artist) })
+                    } else null
+                }.getOrNull()
+                if (directResult != null) return@withContext directResult
+            }
+
+            // 2. Fallback: Parse embed page HTML
             val url = "https://open.spotify.com/embed/playlist/$playlistId"
             val request = Request.Builder()
                 .url(url)
@@ -93,67 +108,137 @@ object SpotifyImporter {
                 body
             }
 
-            // Extract <script id="__NEXT_DATA__" type="application/json">...</script>
-            val scriptRegex = Regex("""<script id="__NEXT_DATA__" type="application/json">(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
-            val match = scriptRegex.find(html)
-                ?: error("Could not parse Spotify playlist metadata. Make sure the playlist is public.")
-
-            val jsonString = match.groupValues[1]
-            val root = json.parseToJsonElement(jsonString).jsonObject
-
-            val props = root["props"]?.jsonObject
-                ?.get("pageProps")?.jsonObject
-            val stateData = props?.get("state")?.jsonObject
-                ?.get("data")?.jsonObject
-                ?.get("entity")?.jsonObject
-                ?: props?.get("entity")?.jsonObject
-                ?: error("Spotify playlist entity missing or private")
-
-            val playlistTitle = stateData["name"]?.jsonPrimitive?.content
-                ?: stateData["title"]?.jsonPrimitive?.content
-                ?: "Imported Spotify Playlist"
-
-            val trackListJson = stateData["trackList"]?.jsonArray
-                ?: stateData["tracks"]?.jsonArray
-                ?: JsonArray(emptyList())
-
-            val tracks = mutableListOf<SpotifyImportTrack>()
-            for (element in trackListJson) {
-                val obj = element.jsonObject
-                val title = obj["title"]?.jsonPrimitive?.content
-                    ?: obj["name"]?.jsonPrimitive?.content
-                    ?: continue
-                val subtitle = obj["subtitle"]?.jsonPrimitive?.content
-                    ?: obj["artists"]?.jsonArray?.joinToString(", ") {
-                        it.jsonObject["name"]?.jsonPrimitive?.content.orEmpty()
-                    }
-                    ?: ""
-                if (title.isNotBlank()) {
-                    tracks.add(SpotifyImportTrack(title = title.trim(), artist = subtitle.trim()))
-                }
+            val parsed = parseEmbedHtml(html, playlistId)
+            if (parsed != null && parsed.second.isNotEmpty()) {
+                return@withContext parsed
             }
 
-            if (tracks.isEmpty()) {
-                error("No tracks found in public Spotify playlist.")
-            }
-
-            // The embed page stops at its first 100 tracks. The web player's
-            // own query, with the anonymous token the embed hands out, pages
-            // through the rest; if it refuses, the 100 already read stand.
-            if (tracks.size >= EMBED_TRACK_LIMIT) {
-                val token = props?.get("state")?.jsonObject
-                    ?.get("settings")?.jsonObject
-                    ?.get("session")?.jsonObject
-                    ?.get("accessToken")?.jsonPrimitive?.content
-                if (token != null) {
-                    runCatching { fetchRemainingTracks(playlistId, token, tracks.size) }
-                        .getOrNull()
-                        ?.let { tracks.addAll(it) }
-                }
-            }
-
-            Pair(playlistTitle, tracks)
+            error("Could not parse Spotify playlist metadata. Make sure the playlist is public.")
         }
+
+    private fun parseEmbedHtml(html: String, playlistId: String): Pair<String, List<SpotifyImportTrack>>? {
+        // A. Try __NEXT_DATA__
+        val nextDataRegex = Regex("""<script[^>]*id=["']__NEXT_DATA__["'][^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+        val nextDataMatch = nextDataRegex.find(html)
+        if (nextDataMatch != null) {
+            val jsonString = nextDataMatch.groupValues[1]
+            val parsed = runCatching { parseNextDataJson(jsonString, playlistId) }.getOrNull()
+            if (parsed != null && parsed.second.isNotEmpty()) return parsed
+        }
+
+        // B. Try application/ld+json scripts
+        val ldJsonRegex = Regex("""<script[^>]*type=["']application/ld\+json["'][^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+        for (match in ldJsonRegex.findAll(html)) {
+            val ldString = match.groupValues[1]
+            val parsed = runCatching { parseLdJson(ldString) }.getOrNull()
+            if (parsed != null && parsed.second.isNotEmpty()) return parsed
+        }
+
+        // C. Try generic application/json scripts
+        val anyJsonRegex = Regex("""<script[^>]*type=["']application/json["'][^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL)
+        for (match in anyJsonRegex.findAll(html)) {
+            val matchContent = match.groupValues[1]
+            if (matchContent.contains("trackList") || matchContent.contains("tracks")) {
+                val parsed = runCatching { parseGenericJson(matchContent) }.getOrNull()
+                if (parsed != null && parsed.second.isNotEmpty()) return parsed
+            }
+        }
+
+        return null
+    }
+
+    private fun parseNextDataJson(jsonString: String, playlistId: String): Pair<String, List<SpotifyImportTrack>> {
+        val root = json.parseToJsonElement(jsonString).jsonObject
+        val props = root["props"]?.jsonObject?.get("pageProps")?.jsonObject
+        val stateData = props?.get("state")?.jsonObject
+            ?.get("data")?.jsonObject
+            ?.get("entity")?.jsonObject
+            ?: props?.get("entity")?.jsonObject
+            ?: root["state"]?.jsonObject?.get("data")?.jsonObject?.get("entity")?.jsonObject
+
+        val playlistTitle = stateData?.get("name")?.jsonPrimitive?.contentOrNull
+            ?: stateData?.get("title")?.jsonPrimitive?.contentOrNull
+            ?: "Imported Spotify Playlist"
+
+        val trackListJson = stateData?.get("trackList")?.jsonArray
+            ?: stateData?.get("tracks")?.jsonArray
+            ?: JsonArray(emptyList())
+
+        val tracks = mutableListOf<SpotifyImportTrack>()
+        for (element in trackListJson) {
+            val obj = element.jsonObject
+            val title = obj["title"]?.jsonPrimitive?.contentOrNull
+                ?: obj["name"]?.jsonPrimitive?.contentOrNull
+                ?: continue
+            val subtitle = obj["subtitle"]?.jsonPrimitive?.contentOrNull
+                ?: obj["artists"]?.jsonArray?.joinToString(", ") {
+                    it.jsonObject["name"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                }
+                ?: ""
+            if (title.isNotBlank()) {
+                tracks.add(SpotifyImportTrack(title = title.trim(), artist = subtitle.trim()))
+            }
+        }
+
+        if (tracks.size >= EMBED_TRACK_LIMIT) {
+            val token = props?.get("state")?.jsonObject
+                ?.get("settings")?.jsonObject
+                ?.get("session")?.jsonObject
+                ?.get("accessToken")?.jsonPrimitive?.contentOrNull
+            if (token != null) {
+                runCatching { fetchRemainingTracks(playlistId, token, tracks.size) }
+                    .getOrNull()
+                    ?.let { tracks.addAll(it) }
+            }
+        }
+
+        return Pair(playlistTitle, tracks)
+    }
+
+    private fun parseLdJson(jsonString: String): Pair<String, List<SpotifyImportTrack>>? {
+        val root = json.parseToJsonElement(jsonString).jsonObject
+        val type = root["@type"]?.jsonPrimitive?.contentOrNull
+        if (type != null && !type.contains("Playlist", ignoreCase = true)) return null
+        val playlistTitle = root["name"]?.jsonPrimitive?.contentOrNull ?: "Spotify Playlist"
+        val trackList = root["track"]?.jsonArray ?: root["tracks"]?.jsonArray ?: return null
+        val tracks = mutableListOf<SpotifyImportTrack>()
+        for (item in trackList) {
+            val obj = item.jsonObject
+            val title = obj["name"]?.jsonPrimitive?.contentOrNull ?: continue
+            val artist = when (val byArtist = obj["byArtist"]) {
+                is JsonArray -> byArtist.mapNotNull { it.jsonObject["name"]?.jsonPrimitive?.contentOrNull }.joinToString(", ")
+                is JsonObject -> byArtist["name"]?.jsonPrimitive?.contentOrNull
+                else -> null
+            } ?: ""
+            if (title.isNotBlank()) {
+                tracks.add(SpotifyImportTrack(title = title.trim(), artist = artist.trim()))
+            }
+        }
+        return if (tracks.isNotEmpty()) Pair(playlistTitle, tracks) else null
+    }
+
+    private fun parseGenericJson(jsonString: String): Pair<String, List<SpotifyImportTrack>>? {
+        val root = json.parseToJsonElement(jsonString).jsonObject
+        val entity = root["entity"]?.jsonObject ?: root["data"]?.jsonObject ?: root
+        val title = entity["name"]?.jsonPrimitive?.contentOrNull
+            ?: entity["title"]?.jsonPrimitive?.contentOrNull
+            ?: "Spotify Playlist"
+        val trackList = entity["trackList"]?.jsonArray ?: entity["tracks"]?.jsonArray ?: return null
+        val tracks = mutableListOf<SpotifyImportTrack>()
+        for (element in trackList) {
+            val obj = element.jsonObject
+            val trackTitle = obj["title"]?.jsonPrimitive?.contentOrNull
+                ?: obj["name"]?.jsonPrimitive?.contentOrNull
+                ?: continue
+            val artist = obj["subtitle"]?.jsonPrimitive?.contentOrNull
+                ?: obj["artist"]?.jsonPrimitive?.contentOrNull
+                ?: ""
+            if (trackTitle.isNotBlank()) {
+                tracks.add(SpotifyImportTrack(title = trackTitle.trim(), artist = artist.trim()))
+            }
+        }
+        return if (tracks.isNotEmpty()) Pair(title, tracks) else null
+    }
 
     /**
      * The YouTube Music song that is [track], or null if there is none: the

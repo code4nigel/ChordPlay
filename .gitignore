@@ -49,5 +49,7 @@ AGENTS.md
 Inspiration/
 
 # Versioned APK binary archives (history/metadata tracked, large binaries excluded)
+*.apk
 version/Android/*.apk
+version/Android/**/*.apk
 app/version/*.apk

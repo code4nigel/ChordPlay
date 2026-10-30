@@ -146,6 +146,7 @@ fun LibraryScreen(
     onShelfItemLongPress: (ShelfItem) -> Unit,
     onNewPlaylist: () -> Unit,
     onImportSpotifyPlaylist: (() -> Unit)? = null,
+    onOpenSpotify: (() -> Unit)? = null,
     /** A shelf's "Show all" handler. */
     onShowAll: (HomeShelf) -> Unit,
     /** Replay header cards at the head of the library. */
@@ -267,6 +268,11 @@ fun LibraryScreen(
                                 if (onImportSpotifyPlaylist != null) {
                                     item(key = "import_spotify") {
                                         ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
+                                    }
+                                }
+                                if (onOpenSpotify != null) {
+                                    item(key = "spotify_playlists") {
+                                        SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
                                     }
                                 }
                             }
@@ -397,6 +403,11 @@ fun LibraryScreen(
                                     if (onImportSpotifyPlaylist != null) {
                                         item(key = "import_spotify") {
                                             ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
+                                        }
+                                    }
+                                    if (onOpenSpotify != null) {
+                                        item(key = "spotify_playlists") {
+                                            SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
                                         }
                                     }
                                 }
@@ -1244,6 +1255,87 @@ private fun ImportSpotifyActionRow(
             Spacer(Modifier.height(3.dp))
             Text(
                 text = stringResource(Res.string.import_spotify_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * Direct entry row for connected Spotify playlists.
+ */
+@Composable
+private fun SpotifyPlaylistsActionRow(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isConnected = runCatching { com.music.bitchord.data.spotify.SpotifyLibrary.isConnected() }.getOrDefault(false)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier.size(width = 84.dp, height = 54.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(72.dp)
+                    .height(46.dp)
+                    .align(Alignment.TopCenter)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                    .border(
+                        width = 0.5.dp,
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(8.dp),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .size(width = 84.dp, height = 50.dp)
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .border(
+                        width = 0.5.dp,
+                        color = Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(10.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(Res.drawable.spotify_logo),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.width(14.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = "Spotify Playlists",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = if (isConnected) "Your connected Spotify playlists" else "Connect Spotify",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
