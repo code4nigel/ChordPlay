@@ -7,6 +7,7 @@ import com.music.bitchord.data.settings.SongSwipeAction
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
+import com.music.bitchord.data.settings.SpeedDialLayoutMode
 import com.music.bitchord.data.model.ShelfItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,11 +50,19 @@ interface AppUiHost {
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
 
+    fun setLibrarySort(value: LibrarySort) {}
+
     /** Display mode for a Library "Show all" page: grid cards or full-width list rows. */
     val libraryViewMode: StateFlow<LibraryViewMode>
         get() = MutableStateFlow(LibraryViewMode.GRID)
 
     fun setLibraryViewMode(value: LibraryViewMode) {}
+
+    /** Layout mode for the Speed Dial section on Home. */
+    val speedDialLayoutMode: StateFlow<SpeedDialLayoutMode>
+        get() = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
+
+    fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {}
 
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable

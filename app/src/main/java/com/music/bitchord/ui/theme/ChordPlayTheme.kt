@@ -290,7 +290,7 @@ val ChordPlayTypography = Typography(
 @Composable
 fun ChordPlayTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    palette: ChordPlayPalette = ChordPlayPalette.CHORDPLAY_CRIMSON,
+    palette: ChordPlayPalette = ChordPlayPalette.DYNAMIC_ARTWORK,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current

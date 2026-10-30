@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.ui.components.HomeMood
 import com.music.bitchord.ui.components.HomeSpeedDial
+import com.music.bitchord.ui.components.SpeedDialSectionHeader
 import com.music.bitchord.ui.components.MoodFilterChips
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -159,6 +160,7 @@ fun HomeScreen(
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
+    val speedDialLayoutMode by AppUi.host.speedDialLayoutMode.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
 
     val pinnedSpeedDial by AppUi.host.pinnedSpeedDial.collectAsStateWithLifecycle()
@@ -245,12 +247,21 @@ fun HomeScreen(
                     // compact-card layout instead of briefly becoming a hero.
                     // Speed Dial Grid (ChordPlay Modern only)
                     if (speedDialItems.isNotEmpty()) {
+                        item(key = "home_speed_dial_header") {
+                            SpeedDialSectionHeader(
+                                layoutMode = speedDialLayoutMode,
+                                onToggleLayoutMode = {
+                                    AppUi.host.setSpeedDialLayoutMode(speedDialLayoutMode.next())
+                                },
+                            )
+                        }
                         item(key = "home_speed_dial") {
                             HomeSpeedDial(
                                 items = speedDialItems,
                                 pinnedIds = pinnedIds,
                                 currentSong = currentSong,
                                 isPlaying = isPlaying,
+                                layoutMode = speedDialLayoutMode,
                                 onItemClick = { item -> onItemClick(item, "Speed Dial") },
                                 onLuckyDialClick = {
                                     if (onLuckyDialClick != null) {
@@ -259,7 +270,7 @@ fun HomeScreen(
                                         val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
                                             ?: speedDialItems.shuffled().firstOrNull())
                                         if (candidate != null) {
-                                            onItemClick(candidate, "Lucky Radio")
+                                            onItemClick(candidate, "Roll a Dice")
                                         }
                                     }
                                 },

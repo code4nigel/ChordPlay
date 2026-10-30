@@ -246,6 +246,13 @@ fun BrowseActionsSheet(
                     )
                 },
             )
+            onTogglePin?.let {
+                ActionRow(
+                    BitChordIcons.Pin,
+                    if (isPinned) "Unpin from Library" else "Pin to Library",
+                    onClick = it,
+                )
+            }
             onDownloadAll?.let { download ->
                 // Saying which of the three it is, rather than offering the same row
                 // whatever the state — this is where a release is asked for now that
@@ -296,13 +303,6 @@ fun BrowseActionsSheet(
             }
             onShare?.let {
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), onClick = it)
-            }
-            onTogglePin?.let {
-                ActionRow(
-                    BitChordIcons.Pin,
-                    stringResource(if (isPinned) R.string.unpin else R.string.pin),
-                    onClick = it,
-                )
             }
             if (onRename != null) {
                 ActionRow(Icons.Rounded.Edit, stringResource(R.string.rename)) {

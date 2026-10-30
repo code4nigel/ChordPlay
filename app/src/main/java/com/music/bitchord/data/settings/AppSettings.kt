@@ -404,7 +404,7 @@ object AppSettings {
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
     val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
-    val colorPalette = MutableStateFlow(ChordPlayPalette.CHORDPLAY_CRIMSON)
+    val colorPalette = MutableStateFlow(ChordPlayPalette.DYNAMIC_ARTWORK)
 
     /** Currently playing track artwork URL for dynamic artwork theming. */
     val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
@@ -641,6 +641,7 @@ object AppSettings {
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
     val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
+    val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
 
     /**
      * Each album/playlist page's track-list order, keyed by browse id —
@@ -921,8 +922,8 @@ object AppSettings {
         }.getOrDefault(ThemeMode.DARK)
 
         colorPalette.value = runCatching {
-            ChordPlayPalette.valueOf(prefs.getString(KEY_COLOR_PALETTE, null) ?: ChordPlayPalette.CHORDPLAY_CRIMSON.name)
-        }.getOrDefault(ChordPlayPalette.CHORDPLAY_CRIMSON)
+            ChordPlayPalette.valueOf(prefs.getString(KEY_COLOR_PALETTE, null) ?: ChordPlayPalette.DYNAMIC_ARTWORK.name)
+        }.getOrDefault(ChordPlayPalette.DYNAMIC_ARTWORK)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
@@ -1018,6 +1019,9 @@ object AppSettings {
         libraryViewMode.value = prefs.getString(KEY_LIBRARY_VIEW_MODE, null)
             ?.let { saved -> LibraryViewMode.entries.firstOrNull { it.name == saved } }
             ?: LibraryViewMode.GRID
+        speedDialLayoutMode.value = prefs.getString(KEY_SPEED_DIAL_LAYOUT_MODE, null)
+            ?.let { saved -> if (saved == "COMPACT_CAROUSEL") SpeedDialLayoutMode.ONE_BY_FOUR_LIST else SpeedDialLayoutMode.entries.firstOrNull { it.name == saved } }
+            ?: SpeedDialLayoutMode.TWO_BY_THREE
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
@@ -1831,6 +1835,11 @@ object AppSettings {
         prefs.edit().putString(KEY_LIBRARY_VIEW_MODE, value.name).apply()
     }
 
+    fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {
+        speedDialLayoutMode.value = value
+        prefs.edit().putString(KEY_SPEED_DIAL_LAYOUT_MODE, value.name).apply()
+    }
+
     fun setDetailSongSort(browseId: String, value: SongSort) {
         detailSongSorts.value = detailSongSorts.value + (browseId to value)
         prefs.edit().putString(
@@ -2260,6 +2269,7 @@ object AppSettings {
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"
     private const val KEY_LIBRARY_SORT = "library_sort"
     private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
+    private const val KEY_SPEED_DIAL_LAYOUT_MODE = "speed_dial_layout_mode"
     private const val KEY_DETAIL_SONG_SORTS = "detail_song_sorts"
     private const val KEY_LOCAL_MUSIC_VIEW_TYPE = "local_music_view_type"
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"

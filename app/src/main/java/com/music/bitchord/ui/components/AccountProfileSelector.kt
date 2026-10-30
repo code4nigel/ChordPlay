@@ -64,6 +64,7 @@ fun AccountProfileSelector(
 ) {
     var managing by remember { mutableStateOf(false) }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val shape = MaterialTheme.shapes.extraLarge
     Column(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .48f))
@@ -81,6 +82,8 @@ fun AccountProfileSelector(
                 .then(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
+                    } else if (liquidGlass && isGlassSupported()) {
+                        Modifier.liquidGlass(shape = shape)
                     } else {
                         Modifier.optimizedHazeEffect(
                             state = hazeState,

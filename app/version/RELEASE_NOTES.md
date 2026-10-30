@@ -1,3 +1,33 @@
+# ChordPlay v1.8.9
+
+Welcome to ChordPlay v1.8.9! This update introduces a full YouTube Music-style Library experience with real-time search, sorting, and view switching, adaptive Speed Dial layout modes with a new 1×4 track column list, default Dynamic Song Art theming, high-contrast chip rendering, and Liquid Glass refinements:
+
+### What's New in v1.8.9:
+- **Dynamic Song Art Enabled by Default**:
+  - The real-time adaptive **Dynamic Song Art** theme is now the default appearance palette, dynamically extracting and matching atmospheric colors and aura lighting from whatever song is currently playing.
+- **YouTube Music-Style Vertical Library with Search & Sorting**:
+  - **Live Search Bar**: Search across all your saved playlists, albums, artists, and downloads directly from the top of the Library screen.
+  - **Sorting Options**: Sort your library by Title (A-Z), Title (Z-A), or Date Added via the dedicated sort menu.
+  - **Grid & List View Switcher**: Seamlessly toggle between full-width vertical list rows and clean multi-column card grids.
+  - **Category Filter Tabs**: Quick scrollable selector tabs for `All`, `Playlists`, `Albums`, `Artists`, and `Downloads`.
+- **Speed Dial Section Header & 3-Way Layout Switcher**:
+  - Added a dedicated **Speed Dial** section header with an instantaneous layout toggle button cycling through 3 distinct presentations:
+    1. **2×3 Grid**: Elegant squircle cards with page dots and quick-return navigation.
+    2. **3×3 Grid**: Compact YouTube Music speed dial grid (9 items per page).
+    3. **1×4 List**: Horizontal swipeable columns of 4 tracks per column, matching the Recents layout.
+- **"Roll a Dice" Discovery Tile & Theme Contrast**:
+  - Transformed the discovery card into a dedicated **Roll a Dice** tile with a dice icon and high-contrast styling that dynamically adapts when white or light theme highlights are selected.
+- **Enhanced Speed Dial Artwork Cutouts**:
+  - Removed cluttering text badges in favor of distinct tactile artwork cutouts: circular avatars for Artists, stacked folder sleeves with micro-badges for Playlists, and vinyl jackets for Albums.
+- **Context Menu "Pin to Library"**:
+  - Clarified library pinning action to **Pin to Library** / **Unpin from Library** and elevated it immediately beneath "Pin to Speed Dial".
+- **Liquid Glass on Account Switcher**:
+  - Extended the tactile Liquid Glass blur and specular highlights to the Account Switcher popup dialog when Liquid Glass is enabled.
+- **High-Contrast Mood Filter Chips**:
+  - Dynamically flips selected chip text to high-contrast dark obsidian when using light or white highlights (such as Monochrome mode).
+
+---
+
 # ChordPlay v1.8.8
 
 Welcome to ChordPlay v1.8.8! This update introduces a unified single-layer Account & Integrations hub, a revamped Miscellaneous section with live in-app update checking and upstream BitChord credit, a prominent golden accent for Dynamic Song Art, flexible playlist swipe actions, dedicated lyrics offset tuning in the music player, and taste-aware lucky discovery:

@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -114,6 +115,7 @@ private fun MoodChip(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
+    val isLightPrimary = primaryColor.luminance() > 0.5f
 
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) primaryColor else surfaceVariant.copy(alpha = 0.55f),
@@ -121,14 +123,20 @@ private fun MoodChip(
         label = "moodChipBackground",
     )
 
+    val selectedContentColor = if (isLightPrimary) Color(0xFF0F080B) else MaterialTheme.colorScheme.onPrimary
+
     val contentColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (isSelected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "moodChipContent",
     )
 
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) primaryColor.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.08f),
+        targetValue = if (isSelected) {
+            if (isLightPrimary) Color.Black.copy(alpha = 0.15f) else primaryColor.copy(alpha = 0.8f)
+        } else {
+            Color.White.copy(alpha = 0.08f)
+        },
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "moodChipBorder",
     )
@@ -140,10 +148,10 @@ private fun MoodChip(
             .then(
                 if (isSelected) {
                     Modifier.shadow(
-                        elevation = 8.dp,
+                        elevation = if (isLightPrimary) 4.dp else 8.dp,
                         shape = CircleShape,
-                        spotColor = primaryColor.copy(alpha = 0.5f),
-                        ambientColor = primaryColor.copy(alpha = 0.25f),
+                        spotColor = if (isLightPrimary) Color.Black.copy(alpha = 0.25f) else primaryColor.copy(alpha = 0.5f),
+                        ambientColor = if (isLightPrimary) Color.Black.copy(alpha = 0.12f) else primaryColor.copy(alpha = 0.25f),
                     )
                 } else {
                     Modifier
