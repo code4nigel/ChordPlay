@@ -7,8 +7,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.parkinsans_bold
+import com.music.bitchord.sharedui.resources.parkinsans_extrabold
+import com.music.bitchord.sharedui.resources.parkinsans_medium
+import com.music.bitchord.sharedui.resources.parkinsans_semibold
 import com.music.bitchord.sharedui.resources.poppins_bold
+import com.music.bitchord.sharedui.resources.poppins_extrabold
+import com.music.bitchord.sharedui.resources.poppins_medium
 import com.music.bitchord.sharedui.resources.poppins_regular
+import com.music.bitchord.sharedui.resources.poppins_semibold
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,12 +75,18 @@ fun rememberLyricsFontFamily(style: LyricsCustomStyle): FontFamily {
         LyricsFontChoice.DEFAULT -> FontFamily.Default
         LyricsFontChoice.POPPINS -> {
             val reg = Font(Res.font.poppins_regular, FontWeight.Normal)
+            val med = Font(Res.font.poppins_medium, FontWeight.Medium)
+            val semi = Font(Res.font.poppins_semibold, FontWeight.SemiBold)
             val bold = Font(Res.font.poppins_bold, FontWeight.Bold)
-            remember(reg, bold) { FontFamily(reg, bold) }
+            val heavy = Font(Res.font.poppins_extrabold, FontWeight.ExtraBold)
+            remember(reg, med, semi, bold, heavy) { FontFamily(reg, med, semi, bold, heavy) }
         }
         LyricsFontChoice.PARKINSANS -> {
+            val med = Font(Res.font.parkinsans_medium, FontWeight.Medium)
+            val semi = Font(Res.font.parkinsans_semibold, FontWeight.SemiBold)
             val bold = Font(Res.font.parkinsans_bold, FontWeight.Bold)
-            remember(bold) { FontFamily(bold) }
+            val heavy = Font(Res.font.parkinsans_extrabold, FontWeight.ExtraBold)
+            remember(med, semi, bold, heavy) { FontFamily(med, semi, bold, heavy) }
         }
         LyricsFontChoice.SERIF -> FontFamily.Serif
         LyricsFontChoice.SANS_SERIF -> FontFamily.SansSerif

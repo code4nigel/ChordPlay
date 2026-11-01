@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -247,11 +248,11 @@ fun GlassNavBar(
                 standaloneTab(
                     key = index,
                     icon = {
-                        Icon(
-                            imageVector = tab.icon,
+                        GlassTabIcon(
+                            icon = if (isSelected) tab.selectedIcon else tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(25.dp),
+                            isSelected = isSelected,
                         )
                     },
                     onClick = onClick,
@@ -260,11 +261,11 @@ fun GlassNavBar(
                 tab(
                     key = index,
                     icon = {
-                        Icon(
-                            imageVector = tab.icon,
+                        GlassTabIcon(
+                            icon = if (isSelected) tab.selectedIcon else tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(25.dp),
+                            isSelected = isSelected,
                         )
                     },
                     title = {
@@ -552,4 +553,29 @@ private fun GlassNowPlaying(
             }
         }
     }
+}
+
+@Composable
+private fun GlassTabIcon(
+    icon: ImageVector,
+    contentDescription: String?,
+    tint: Color,
+    isSelected: Boolean,
+) {
+    val iconScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.10f else 1.0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "glassTabScale",
+    )
+    Icon(
+        imageVector = icon,
+        contentDescription = contentDescription,
+        tint = tint,
+        modifier = Modifier
+            .size(25.dp)
+            .graphicsLayer {
+                scaleX = iconScale
+                scaleY = iconScale
+            },
+    )
 }

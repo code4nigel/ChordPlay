@@ -104,6 +104,7 @@ data class Song(
      * the track played as a 128kbps MP3.
      */
     val sourceQuality: String? = null,
+    val sourceHiRes: Boolean = false,
     /** Explicit-content state from the catalogue; null when that source does not say. */
     val isExplicit: Boolean? = null,
     /**

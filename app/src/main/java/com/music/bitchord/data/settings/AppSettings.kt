@@ -18,6 +18,11 @@ import com.music.bitchord.data.model.ShelfItem
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.util.UUID
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 
 /**
@@ -157,6 +162,16 @@ enum class ChordPlayPalette(
         secondaryColorHex = 0xFF625B71,
     );
 }
+
+@Serializable
+data class CustomPalette(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val primaryHex: Long,
+    val secondaryHex: Long,
+    val backgroundHex: Long,
+    val surfaceHex: Long,
+)
 
 enum class ThemeMode(val label: String) {
     SYSTEM("System"), LIGHT("Light"), DARK("Dark")
@@ -408,6 +423,12 @@ object AppSettings {
 
     /** Currently playing track artwork URL for dynamic artwork theming. */
     val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
+
+    /** Custom saved palettes frozen from dynamic artwork or manually preserved. */
+    val customPalettes = MutableStateFlow<List<CustomPalette>>(emptyList())
+
+    /** Currently active custom palette ID, or null if using a standard [ChordPlayPalette]. */
+    val activeCustomPaletteId = MutableStateFlow<String?>(null)
 
     /** Pinned items in the Home Speed Dial grid. */
     val pinnedSpeedDialItems = MutableStateFlow<List<ShelfItem>>(emptyList())
@@ -1046,6 +1067,13 @@ object AppSettings {
         )
         pinnedPlaylists.value = readPinnedPlaylists()
         pinnedSpeedDialItems.value = readPinnedSpeedDial()
+        customPalettes.value = readCustomPalettes()
+        val savedActiveCustomPaletteId = prefs.getString(KEY_ACTIVE_CUSTOM_PALETTE_ID, null)
+        activeCustomPaletteId.value = if (savedActiveCustomPaletteId != null && customPalettes.value.any { it.id == savedActiveCustomPaletteId }) {
+            savedActiveCustomPaletteId
+        } else {
+            null
+        }
         chordplayPlaylistIds.value = prefs.getStringSet(KEY_CHORDPLAY_PLAYLIST_IDS, emptySet())?.toSet().orEmpty()
         discordToken.value = authStore.discordToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
@@ -1320,7 +1348,54 @@ object AppSettings {
 
     fun setColorPalette(value: ChordPlayPalette) {
         colorPalette.value = value
-        prefs.edit().putString(KEY_COLOR_PALETTE, value.name).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_COLOR_PALETTE, value.name).apply()
+        }
+        selectCustomPalette(null)
+    }
+
+    fun saveCustomPalette(palette: CustomPalette): Boolean {
+        val current = customPalettes.value.toMutableList()
+        val existingIndex = current.indexOfFirst { it.id == palette.id }
+        if (existingIndex >= 0) {
+            current[existingIndex] = palette
+        } else {
+            if (current.size >= 5) return false
+            current.add(palette)
+        }
+        customPalettes.value = current
+        saveCustomPalettes(current)
+        return true
+    }
+
+    fun renameCustomPalette(id: String, newName: String) {
+        val current = customPalettes.value.toMutableList()
+        val index = current.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            current[index] = current[index].copy(name = newName)
+            customPalettes.value = current
+            saveCustomPalettes(current)
+        }
+    }
+
+    fun deleteCustomPalette(id: String) {
+        val current = customPalettes.value.filter { it.id != id }
+        customPalettes.value = current
+        saveCustomPalettes(current)
+        if (activeCustomPaletteId.value == id) {
+            selectCustomPalette(null)
+        }
+    }
+
+    fun selectCustomPalette(id: String?) {
+        activeCustomPaletteId.value = id
+        if (this::prefs.isInitialized) {
+            if (id != null) {
+                prefs.edit().putString(KEY_ACTIVE_CUSTOM_PALETTE_ID, id).apply()
+            } else {
+                prefs.edit().remove(KEY_ACTIVE_CUSTOM_PALETTE_ID).apply()
+            }
+        }
     }
 
     fun setThemeMode(value: ThemeMode) {
@@ -2052,6 +2127,21 @@ object AppSettings {
         prefs.edit().putString(KEY_PINNED_SPEED_DIAL, array.toString()).apply()
     }
 
+    private val json = Json { ignoreUnknownKeys = true }
+
+    private fun saveCustomPalettes(items: List<CustomPalette>) {
+        if (!this::prefs.isInitialized) return
+        val raw = json.encodeToString(items)
+        prefs.edit().putString(KEY_CUSTOM_PALETTES, raw).apply()
+    }
+
+    private fun readCustomPalettes(): List<CustomPalette> {
+        val raw = prefs.getString(KEY_CUSTOM_PALETTES, null) ?: return emptyList()
+        return runCatching {
+            json.decodeFromString<List<CustomPalette>>(raw)
+        }.getOrDefault(emptyList())
+    }
+
     private fun readPinnedSpeedDial(): List<ShelfItem> {
         val raw = prefs.getString(KEY_PINNED_SPEED_DIAL, null) ?: return emptyList()
         return runCatching {
@@ -2223,6 +2313,8 @@ object AppSettings {
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_APP_DESIGN_STYLE = "app_design_style"
     private const val KEY_COLOR_PALETTE = "color_palette"
+    private const val KEY_CUSTOM_PALETTES = "custom_palettes"
+    private const val KEY_ACTIVE_CUSTOM_PALETTE_ID = "active_custom_palette_id"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"

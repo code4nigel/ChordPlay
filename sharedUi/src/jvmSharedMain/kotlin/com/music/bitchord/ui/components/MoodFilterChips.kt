@@ -41,6 +41,7 @@ enum class HomeMood(
 ) {
     ALL("All", emptyList()),
     CHILL("Chill", listOf("chill", "relax", "lo-fi", "lofi", "peaceful", "calm", "acoustic", "ambient", "soft", "jazz", "mellow")),
+    SAD("Sad", listOf("sad", "heartbreak", "cry", "tear", "emotional", "melancholy", "breakup", "lonely", "grief", "pain", "acoustic", "slow", "blue")),
     ENERGY("Energy", listOf("energy", "upbeat", "dance", "electronic", "hype", "boost", "rock", "hits", "edm", "pop", "power")),
     FOCUS("Focus", listOf("focus", "study", "work", "instrumental", "concentration", "deep", "piano", "classical", "reading")),
     WORKOUT("Workout", listOf("workout", "gym", "fitness", "running", "cardio", "power", "pump", "training", "exercise", "motivation")),

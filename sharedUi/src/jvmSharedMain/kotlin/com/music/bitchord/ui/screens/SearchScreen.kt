@@ -91,6 +91,7 @@ import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.SearchField
+import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.songListSkeleton
@@ -222,6 +223,7 @@ fun SearchScreen(
                     placeholder = when (activeSearchSource) {
                         SearchSource.LOCAL -> stringResource(Res.string.search_library_hint)
                         SearchSource.LIBRARY -> "Search saved playlists, albums, artists and tracks"
+                        SearchSource.ADDONS -> stringResource(Res.string.search_addons_hint)
                         SearchSource.YOUTUBE -> stringResource(Res.string.search_hint)
                     },
                     modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
@@ -241,15 +243,18 @@ fun SearchScreen(
             // The filters only mean something once there is a result set to narrow;
             // they stay up for an empty or failed search too, or picking a filter
             // that finds nothing would take away the control needed to leave it.
-            if (results != null && !suggesting) {
-                SearchFilterTabs(
-                    filter = filter,
-                    onFilterChange = onFilterChange,
-                    filters = when (activeSearchSource) {
-                        SearchSource.LOCAL -> LOCAL_FILTERS
-                        SearchSource.LIBRARY -> LIBRARY_FILTERS
-                        SearchSource.YOUTUBE -> SearchFilter.entries
-                    },
+            val currentFilters = when (activeSearchSource) {
+                SearchSource.LOCAL -> LOCAL_FILTERS
+                SearchSource.LIBRARY -> LIBRARY_FILTERS
+                SearchSource.YOUTUBE -> SearchFilter.entries
+                SearchSource.ADDONS -> emptyList()
+            }
+            if (results != null && !suggesting && currentFilters.isNotEmpty()) {
+                PillSegmentedControl(
+                    options = currentFilters.map { it.label },
+                    selectedIndex = currentFilters.indexOf(filter).coerceAtLeast(0),
+                    onSelect = { index -> onFilterChange(currentFilters[index]) },
+                    modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 6.dp),
                 )
             }
         }
@@ -271,6 +276,9 @@ fun SearchScreen(
                 }
                 activeSearchSource == SearchSource.LIBRARY && results == null -> item(key = "library:empty") {
                     MessageState("Search your saved playlists, albums, artists and tracks.")
+                }
+                activeSearchSource == SearchSource.ADDONS && results == null -> item(key = "addons:empty") {
+                    MessageState(stringResource(Res.string.search_addons_empty))
                 }
                 suggesting -> {
                     searchSuggestions(
@@ -317,6 +325,7 @@ fun SearchScreen(
                                 when (activeSearchSource) {
                                     SearchSource.LOCAL -> stringResource(Res.string.search_library_no_results, query.trim())
                                     SearchSource.LIBRARY -> "Nothing in your library matches \"${query.trim()}\"."
+                                    SearchSource.ADDONS -> stringResource(Res.string.search_addons_no_results, query.trim())
                                     SearchSource.YOUTUBE -> stringResource(Res.string.search_empty)
                                 }
                             )
@@ -388,9 +397,10 @@ fun SearchScreen(
                                         }
                                         SongRow(
                                             song = row.song,
+                                            showSourceQuality = activeSearchSource == SearchSource.ADDONS,
                                             onClick = {
-                                                if (row.song.isLocal) {
-                                                    onLibrarySongClick(listOf(row.song), 0)
+                                                if (row.song.isLocal || activeSearchSource == SearchSource.ADDONS) {
+                                                    onLibrarySongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
                                                 } else {
                                                     onSongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
                                                 }

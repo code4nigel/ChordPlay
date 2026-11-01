@@ -1,3 +1,26 @@
+# ChordPlay v2.0.2 — Modern Search, Preserve Style & Typography Release
+
+Welcome to ChordPlay v2.0.2! This release modernizes the search experience inspired by BitChord, introduces custom theme preservation, expands lyrics typography weights, and polishes queue interaction:
+
+### Highlights of v2.0.2:
+- **Modernized Search Experience**:
+  - **Squircle Pill Search Bar**: Sleek continuous squircle pill nested naturally within the frosted top bar with full surface continuity and circular icon touch targets.
+  - **Unified "All in One" Segmented Category Capsule (`PillSegmentedControl`)**: Single squircle capsule track housing all categories with fluid spring-physics sliding pill indicator, quintic smootherStep edge fading on overflow, and haptic response.
+  - **Track Durations in Results**: Song search results now cleanly display track durations (e.g., `3:53`) beside the actions menu.
+- **"Preserve Style" (Custom Color Presets)**:
+  - Freeze and save any active dynamic artwork colorway as a reusable custom preset directly from the Profile Selector.
+  - Sits as a clean, native option matching the profile selector list layout with subtle inline swatch dots.
+  - Saved palettes appear in **Settings → Appearance → Color palette** under "Custom Saves" (up to 5 presets), where you can apply, rename, or delete them anytime.
+- **Custom Lyrics Typography & Multi-Weight Fonts**:
+  - Added full multi-weight font sets for **Poppins** and **Parkinsans** (Medium 500, SemiBold 600, Bold 700, ExtraBold/Heavy 800).
+  - Switching between Medium, SemiBold, Bold, and Heavy now visibly alters weight and line presence across both the live preview sheet and player lyrics display.
+- **Player Queue Polish**:
+  - Resolved stuck pink swipe-to-delete containers with optimistic pending dismissal tracking and timeline index-drift protection during rapid queue edits.
+- **Lossless & Hi-Res Source Integration**:
+  - Expanded external Addon source compatibility with direct lossless and audio quality badges.
+
+---
+
 # ChordPlay v2.0.1 — Maintenance & Spotify Integration Release
 
 Welcome to ChordPlay v2.0.1! This update focuses on fixing Spotify playlist import, resolving playlist indexing delays, smoothing Spotify web connection, and refining in-app navigation:

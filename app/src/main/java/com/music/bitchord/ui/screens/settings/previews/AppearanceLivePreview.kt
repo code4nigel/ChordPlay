@@ -60,11 +60,18 @@ fun AppearanceLivePreview(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
+    val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
+    val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+    val activeCustomPalette = activeCustomPaletteId?.let { id ->
+        customPalettes.firstOrNull { it.id == id }
+    }
 
     val isLight = theme == ThemeMode.LIGHT
     val isChordPlay = designStyle == AppDesignStyle.CHORDPLAY
 
-    val activePrimary = if (isChordPlay) {
+    val activePrimary = if (activeCustomPalette != null) {
+        Color(activeCustomPalette.primaryHex)
+    } else if (isChordPlay) {
         if (palette == ChordPlayPalette.DYNAMIC_MONET) {
             MaterialTheme.colorScheme.primary
         } else {
@@ -74,7 +81,9 @@ fun AppearanceLivePreview(
         if (isLight) Color.Black else Color.White
     }
 
-    val activeSecondary = if (isChordPlay) {
+    val activeSecondary = if (activeCustomPalette != null) {
+        Color(activeCustomPalette.secondaryHex)
+    } else if (isChordPlay) {
         if (palette == ChordPlayPalette.DYNAMIC_MONET) {
             MaterialTheme.colorScheme.secondary
         } else {
@@ -86,6 +95,9 @@ fun AppearanceLivePreview(
 
     val targetBg = when {
         !isChordPlay -> if (isLight) MaterialTheme.colorScheme.surface else Color(0xFF0F1012)
+        activeCustomPalette != null -> {
+            Color(activeCustomPalette.surfaceHex).copy(alpha = if (reduceDynamicBlur) 1f else 0.90f)
+        }
         palette == ChordPlayPalette.DYNAMIC_MONET -> {
             if (reduceDynamicBlur) {
                 MaterialTheme.colorScheme.surfaceVariant

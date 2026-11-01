@@ -295,11 +295,67 @@ fun ChordPlayTheme(
 ) {
     val context = LocalContext.current
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
-    val dynamicArtworkPalette = if (palette == ChordPlayPalette.DYNAMIC_ARTWORK) {
+    val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
+    val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+    val activeCustomPalette = activeCustomPaletteId?.let { id ->
+        customPalettes.firstOrNull { it.id == id }
+    }
+
+    val dynamicArtworkPalette = if (activeCustomPalette == null && palette == ChordPlayPalette.DYNAMIC_ARTWORK) {
         rememberArtworkPalette(imageUrl = activeArtworkUrl, dark = darkTheme)
     } else null
 
     val colorScheme = when {
+        activeCustomPalette != null -> {
+            val primary = Color(activeCustomPalette.primaryHex)
+            val secondary = Color(activeCustomPalette.secondaryHex)
+            val bg = Color(activeCustomPalette.backgroundHex)
+            val surf = Color(activeCustomPalette.surfaceHex)
+
+            if (darkTheme) {
+                darkColorScheme(
+                    primary = primary,
+                    onPrimary = Color.White,
+                    primaryContainer = surf,
+                    onPrimaryContainer = Color.White,
+                    secondary = secondary,
+                    onSecondary = Color.White,
+                    secondaryContainer = surf,
+                    onSecondaryContainer = Color.White,
+                    tertiary = secondary,
+                    onTertiary = Color.White,
+                    background = bg,
+                    onBackground = Color(0xFFF1F1F5),
+                    surface = surf,
+                    onSurface = Color(0xFFF1F1F5),
+                    surfaceVariant = surf,
+                    onSurfaceVariant = Color(0xFFA6ACCD),
+                    outline = primary.copy(alpha = 0.28f),
+                    outlineVariant = primary.copy(alpha = 0.12f),
+                )
+            } else {
+                lightColorScheme(
+                    primary = primary,
+                    onPrimary = Color.White,
+                    primaryContainer = surf,
+                    onPrimaryContainer = Color(0xFF141622),
+                    secondary = secondary,
+                    onSecondary = Color.White,
+                    secondaryContainer = surf,
+                    onSecondaryContainer = Color(0xFF141622),
+                    tertiary = secondary,
+                    onTertiary = Color.White,
+                    background = bg,
+                    onBackground = Color(0xFF141622),
+                    surface = surf,
+                    onSurface = Color(0xFF141622),
+                    surfaceVariant = surf,
+                    onSurfaceVariant = Color(0xFF595D78),
+                    outline = primary.copy(alpha = 0.28f),
+                    outlineVariant = primary.copy(alpha = 0.12f),
+                )
+            }
+        }
         palette == ChordPlayPalette.DYNAMIC_ARTWORK && dynamicArtworkPalette != null -> {
             if (darkTheme) {
                 darkColorScheme(
@@ -377,6 +433,17 @@ fun ChordPlayTheme(
     }
 
     val extendedColors = when {
+        activeCustomPalette != null -> {
+            val primary = Color(activeCustomPalette.primaryHex)
+            val secondary = Color(activeCustomPalette.secondaryHex)
+            val surf = Color(activeCustomPalette.surfaceHex)
+            ChordPlayExtendedColors(
+                glow = secondary,
+                surfaceGlass = surf.copy(alpha = 0.85f),
+                borderHighlight = primary.copy(alpha = 0.25f),
+                isAtmosphericDark = darkTheme,
+            )
+        }
         palette == ChordPlayPalette.DYNAMIC_ARTWORK && dynamicArtworkPalette != null -> {
             ChordPlayExtendedColors(
                 glow = dynamicArtworkPalette.accent,

@@ -325,6 +325,7 @@ fun SongRow(
     searchPlayingStyle: Boolean = false,
     /** True while a Downloads row belongs to the current multi-selection. */
     selected: Boolean = false,
+    showSourceQuality: Boolean = false,
     badge: (@Composable () -> Unit)? = null,
 ) {
     val haptics = rememberHaptics()
@@ -377,6 +378,7 @@ fun SongRow(
             activeTint = activeTint,
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
+            showSourceQuality = showSourceQuality,
             badge = badge,
         )
         return
@@ -433,6 +435,7 @@ fun SongRow(
             activeTint = activeTint,
             searchPlayingStyle = searchPlayingStyle,
             selected = selected,
+            showSourceQuality = showSourceQuality,
             badge = badge,
         )
     }
@@ -517,6 +520,7 @@ private fun SongRowContent(
     activeTint: Color = MaterialTheme.colorScheme.primary,
     searchPlayingStyle: Boolean = false,
     selected: Boolean = false,
+    showSourceQuality: Boolean = false,
     badge: (@Composable () -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
@@ -594,12 +598,21 @@ private fun SongRowContent(
                 color = titleColor,
             )
             Spacer(Modifier.height(2.dp))
+            val subtitle = listOfNotNull(
+                song.artist.takeIf { it.isNotBlank() },
+                song.downloadFormat,
+            ).joinToString(" · ")
+            val quality = if (showSourceQuality) song.sourceQualityBadge() else null
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (quality != null) {
+                    SourceQualityBadge(
+                        quality = quality,
+                        color = subtitleColor,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 Text(
-                    text = listOfNotNull(
-                        song.artist.takeIf { it.isNotBlank() },
-                        song.downloadFormat,
-                    ).joinToString(" · "),
+                    text = if (quality != null && subtitle.isNotEmpty()) " · $subtitle" else subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = subtitleColor,
                     maxLines = 1,

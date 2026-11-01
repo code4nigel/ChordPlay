@@ -624,13 +624,16 @@ private fun ChordPlayHomeHeader(
 ) {
     val titleStyle = MaterialTheme.typography.headlineMedium
     val logoHeight = with(LocalDensity.current) { (MaterialTheme.typography.titleLarge.fontSize * LOGO_TO_FONT).toDp() }
-    val greetings = remember(userName) { getGreetingList(userName) }
-    var greetingIndex by remember { mutableIntStateOf((0 until greetings.size).random()) }
+    val initialGreeting = remember(userName) { getMusicalGreeting(userName) }
+    val greetings = remember(userName) {
+        listOf(initialGreeting) + (getGreetingList(userName) - initialGreeting)
+    }
+    var greetingIndex by remember { mutableIntStateOf(0) }
 
-    // Rotate randomly every 7 seconds via LaunchedEffect
+    // Rotate slowly (every 60 seconds) so the greeting stays calm, readable, and premium
     LaunchedEffect(greetings) {
         while (true) {
-            delay(7000L)
+            delay(60_000L)
             greetingIndex = (greetingIndex + 1) % greetings.size
         }
     }

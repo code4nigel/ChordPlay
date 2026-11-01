@@ -38,6 +38,7 @@ keystore.properties
 !app/keystore/chordplay.keystore
 
 # Project scratch / debug artifacts
+brain/
 .shots/
 .tmp_verify/
 .debug/

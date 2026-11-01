@@ -66,6 +66,7 @@ import kotlin.math.roundToInt
 data class BottomTab(
     val label: String,
     val icon: ImageVector,
+    val selectedIcon: ImageVector = icon,
 )
 
 /**
@@ -340,11 +341,9 @@ private fun BottomBarItem(
     selectedTint: Color? = null,
     unselectedTint: Color? = null,
 ) {
-    // The same spring the indicator rides, so the glyph arriving and the glass
-    // arriving are one movement rather than two that nearly agree.
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.08f else 1f,
-        animationSpec = glassSpec,
+        targetValue = if (selected) 1.10f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
         label = "tabScale",
     )
     val haptics = rememberHaptics()
@@ -376,7 +375,7 @@ private fun BottomBarItem(
             .padding(vertical = TAB_VERTICAL_PADDING),
     ) {
         Icon(
-            imageVector = tab.icon,
+            imageVector = if (selected) tab.selectedIcon else tab.icon,
             contentDescription = tab.label,
             tint = tint,
             modifier = Modifier

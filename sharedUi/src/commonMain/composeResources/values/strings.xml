@@ -162,6 +162,11 @@
     <string name="search_library_empty">Search the songs in your Local Music folder.</string>
     <string name="search_library_hint">Songs, Artists and Albums</string>
     <string name="search_library_no_results">Nothing in Local Music matches “%1$s”.</string>
+    <string name="search_source_addons">Addons</string>
+    <string name="search_addons_hint">Search your addons</string>
+    <string name="search_addons_empty">Search every enabled addon at once. Tracks play straight from the addon.</string>
+    <string name="search_addons_no_results">No addon has “%1”.</string>
+    <string name="search_addons_none">No addons are enabled. Add one in Settings → Sources.</string>
     <string name="selected">Selected</string>
     <string name="share">Share</string>
     <string name="shelf_artists_on_the_rise">Artists on the rise</string>

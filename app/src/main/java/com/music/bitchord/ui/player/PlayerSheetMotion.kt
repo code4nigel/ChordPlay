@@ -4,6 +4,8 @@ import android.view.Window
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Stable
@@ -12,8 +14,15 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.WindowInfo
 import com.music.bitchord.ui.components.MiniPlayerPull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,12 +33,12 @@ import kotlin.math.abs
 
 /**
  * The spring every open and close runs on: critically damped, so it never
- * bounces, with about 0.45s of response — the way Apple Music's player sheet
- * moves. Unlike a timed ease it has no fast end: it leaves briskly and then
- * spends most of its time settling, slower and slower, into place, which is
- * where the eye is following the artwork home.
+ * bounces, with a brisk ~0.3s response that settles into the mini player
+ * quickly without floating sluggishly.
  */
-private const val SLIDE_STIFFNESS = 195f
+private const val SLIDE_STIFFNESS = 480f
+
+private class SnapSettledException : CancellationException("Snap settled")
 
 /** Close enough to stop, in pixels — rather than a spring's whole long tail. */
 private const val SLIDE_SETTLED_PX = 0.5f
@@ -119,7 +128,16 @@ class PlayerSheetMotion(
      * pressed twice, say — restarted the slide from a standstill where it
      * stood, a visible stall halfway home.
      */
-    private var closing = false
+    var closing = false
+        private set
+
+    fun pauseForCatch() {
+        settle?.cancel()
+        val from = if (holding) held.takeUnless { it.isNaN() } ?: 0f else travel()
+        held = from
+        pullStartAt = held
+        pullStartNanos = System.nanoTime()
+    }
 
     private fun travel(): Float =
         dock.sheetTravel.takeIf { it > 0f } ?: (windowInfo?.containerSize?.height ?: 0).toFloat()
@@ -167,20 +185,20 @@ class PlayerSheetMotion(
     private fun recentSheetVelocity(): Float =
         if ((System.nanoTime() - sheetSampleNanos) / 1e6f < SHEET_VELOCITY_FRESH_MS) sheetVelocity else 0f
 
-    /** A tap on the mini player. */
+    /** A tap on the mini player or caught minimizing sheet. */
     fun open() {
-        if (shown()) return
+        if (shown() && !closing) return
         settle?.cancel()
         closing = false
-        val travel = travel()
-        held = travel
+        val from = if (holding) held.takeUnless { it.isNaN() } ?: 0f else travel()
+        held = from
         // Raised already open: [held] is what slides it up.
         setShown(true)
         settle = scope.launch {
             // The sheet's window takes a frame or two to exist. Started before
             // then, the first stretch of the slide would happen to nothing.
             withTimeoutOrNull(LAYOUT_WAIT_MS) { snapshotFlow { laidOut }.first { it } }
-            slide(from = travel, to = 0f)
+            slide(from = from, to = 0f)
             held = Float.NaN
         }
     }
@@ -239,7 +257,7 @@ class PlayerSheetMotion(
         if (!holding) {
             // Only upwards starts one, and only from a closed player: a
             // downward drag on the bar has nothing to pull.
-            if (delta >= 0f || shown()) return
+            if (delta >= 0f || (shown() && !closing)) return
             settle?.cancel()
             closing = false
             held = travel()
@@ -248,6 +266,7 @@ class PlayerSheetMotion(
             setShown(true)
         }
         settle?.cancel()
+        closing = false
         held = (held + delta).coerceIn(0f, travel())
     }
 
@@ -266,6 +285,8 @@ class PlayerSheetMotion(
         if (!open) {
             closing = true
             quietWindow()
+        } else {
+            closing = false
         }
         val from = held
         settle = scope.launch {
@@ -292,26 +313,85 @@ class PlayerSheetMotion(
 
     private suspend fun slide(from: Float, to: Float, velocity: Float = 0f) {
         val travel = travel()
-        animate(
-            initialValue = from,
-            targetValue = to,
-            initialVelocity = velocity,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = SLIDE_STIFFNESS,
-                visibilityThreshold = SLIDE_SETTLED_PX,
-            ),
-        ) { value, _ ->
-            // Critically damped never bounces from rest, but thrown hard
-            // enough at its target it can pass it once: never past open or
-            // past the bar.
-            held = value.coerceIn(0f, travel)
+        try {
+            animate(
+                initialValue = from,
+                targetValue = to,
+                initialVelocity = velocity,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = SLIDE_STIFFNESS,
+                    visibilityThreshold = SLIDE_SETTLED_PX,
+                ),
+            ) { value, _ ->
+                // Critically damped never bounces from rest, but thrown hard
+                // enough at its target it can pass it once: never past open or
+                // past the bar.
+                val clamped = value.coerceIn(0f, travel)
+                held = clamped
+                if (closing && clamped >= travel - 16f) {
+                    throw SnapSettledException()
+                }
+            }
+        } catch (_: SnapSettledException) {
+            held = travel
         }
     }
 
     /** Gone — with the window's own exit animation already off (see [quietWindow]). */
     private fun dismissQuietly() {
+        closing = false
         quietWindow()
         setShown(false)
     }
 }
+
+/**
+ * Catches touches on the sheet while it is minimizing: cancels the close settle,
+ * and either reverses back to open on a tap or follows a drag and releases.
+ */
+fun Modifier.catchClosingSheet(motion: PlayerSheetMotion): Modifier =
+    pointerInput(motion) {
+        val tracker = VelocityTracker()
+        val slop = viewConfiguration.touchSlop
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            if (!motion.closing) return@awaitEachGesture
+            down.consume()
+            tracker.resetTracking()
+            tracker.addPointerInputChange(down)
+            motion.pauseForCatch()
+            var totalDy = 0f
+            var isDragging = false
+            val pointerId = down.id
+
+            var gestureEnded = false
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == pointerId }
+                if (change == null || !change.pressed) {
+                    gestureEnded = true
+                    if (!isDragging) {
+                        motion.open()
+                    } else {
+                        val velocity = tracker.calculateVelocity().y
+                        motion.release(velocity)
+                    }
+                    break
+                }
+                tracker.addPointerInputChange(change)
+                val dy = change.positionChange().y
+                totalDy += dy
+                if (!isDragging && abs(totalDy) > slop) {
+                    isDragging = true
+                }
+                if (isDragging) {
+                    change.consume()
+                    motion.drag(dy)
+                }
+            }
+            if (!gestureEnded) {
+                if (!isDragging) motion.open() else motion.release(0f)
+            }
+        }
+    }

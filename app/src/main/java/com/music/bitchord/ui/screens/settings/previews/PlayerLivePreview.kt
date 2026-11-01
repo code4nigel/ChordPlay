@@ -75,9 +75,16 @@ fun PlayerLivePreview(
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
+    val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
+    val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+    val activeCustomPalette = activeCustomPaletteId?.let { id ->
+        customPalettes.firstOrNull { it.id == id }
+    }
 
     val isChordPlay = designStyle == AppDesignStyle.CHORDPLAY
-    val activePrimary = if (isChordPlay) {
+    val activePrimary = if (activeCustomPalette != null) {
+        Color(activeCustomPalette.primaryHex)
+    } else if (isChordPlay) {
         if (palette == ChordPlayPalette.DYNAMIC_MONET) {
             MaterialTheme.colorScheme.primary
         } else {
@@ -87,7 +94,9 @@ fun PlayerLivePreview(
         Color.White
     }
 
-    val activeSecondary = if (isChordPlay) {
+    val activeSecondary = if (activeCustomPalette != null) {
+        Color(activeCustomPalette.secondaryHex)
+    } else if (isChordPlay) {
         if (palette == ChordPlayPalette.DYNAMIC_MONET) {
             MaterialTheme.colorScheme.secondary
         } else {

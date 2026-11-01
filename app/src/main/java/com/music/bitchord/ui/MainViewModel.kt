@@ -88,6 +88,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.AddonSource
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
@@ -2072,6 +2073,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             SearchSource.YOUTUBE -> {
                 if (_query.value.isNotBlank()) submitSearch()
             }
+            SearchSource.ADDONS -> {
+                if (_query.value.isNotBlank()) submitSearch()
+            }
         }
     }
 
@@ -2238,6 +2242,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             onSuccess = { page -> published(page, key, request.requestId) },
                             onFailure = { failure -> UiState.Error(failure.friendly()) },
                         )
+                    }
+                    SearchSource.ADDONS -> {
+                        val queryTrimmed = request.query.trim()
+                        SearchHistory.recordAddonQuery(queryTrimmed)
+                        val addons = SourceRegistry.active().filterIsInstance<AddonSource>()
+                        if (addons.isEmpty()) {
+                            if (request.requestId != newestRequestId.get()) return@collectLatest
+                            _results.value = UiState.Error(text(R.string.search_addons_none))
+                            return@collectLatest
+                        }
+                        val perAddon = coroutineScope {
+                            addons.map { addon ->
+                                async {
+                                    withTimeoutOrNull(ADDON_SEARCH_TIMEOUT_MS) {
+                                        runCatching { addon.search(queryTrimmed, limit = ADDON_SEARCH_LIMIT) }.getOrDefault(emptyList())
+                                    } ?: emptyList()
+                                }
+                            }.map { it.await() }
+                        }
+                        val merged = buildList {
+                            val longest = perAddon.maxOfOrNull { it.size } ?: 0
+                            for (i in 0 until longest) perAddon.forEach { rows -> rows.getOrNull(i)?.let(::add) }
+                        }
+                        val addonRows = merged.map { SearchResult.Track(it) }
+                        if (request.requestId != newestRequestId.get()) return@collectLatest
+                        if (addonRows.isNotEmpty()) {
+                            published(YtMusicRepository.SearchPage(addonRows, null), key, request.requestId)
+                        } else {
+                            _results.value = UiState.Error(text(R.string.no_results))
+                        }
                     }
                 }
             }
@@ -2551,6 +2585,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        private const val ADDON_SEARCH_TIMEOUT_MS = 12_000L
+        private const val ADDON_SEARCH_LIMIT = 20
+
         /** How many Spotify tracks are looked up on YouTube Music at once. */
         private const val SPOTIFY_MATCH_PARALLELISM = 6
 

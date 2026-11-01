@@ -23,7 +23,8 @@ private fun Player.queueTierAt(index: Int): QueueTier = getMediaItemAt(index).qu
 object QueueCoordinator {
 
     /** @see QueueTimeline.asQueueEntry */
-    fun Song.asQueueEntry(tier: QueueTier): Song = with(QueueTimeline) { asQueueEntry(tier) }
+    fun Song.asQueueEntry(tier: QueueTier, forceNewId: Boolean = false): Song =
+        with(QueueTimeline) { asQueueEntry(tier, forceNewId) }
 
     /** @see QueueTimeline.buildContextQueue */
     fun buildContextQueue(
@@ -119,36 +120,18 @@ object QueueCoordinator {
     ): List<Song>? = QueueTimeline.buildJumpQueue(currentTimeline, currentIndex, targetIndex)
 
     /**
-     * Executes a semantic queue jump on [player], preserving history up to [Player.getCurrentMediaItemIndex]
-     * and avoiding unintended reshuffling.
+     * Executes a semantic queue jump on [player], preserving the entire playlist/queue intact.
      */
     fun jumpToQueueItem(
         player: Player,
         targetIndex: Int,
         cachedTimeline: List<Song>? = null,
     ) {
-        val currentIndex = player.currentMediaItemIndex
         val count = player.mediaItemCount
         if (targetIndex !in 0 until count) return
 
-        if (targetIndex <= currentIndex) {
-            // Backward jump or same track: seek in history without modifying playlist
-            player.seekTo(targetIndex, 0L)
-            player.play()
-            return
-        }
-
-        val currentTimeline = cachedTimeline?.takeIf { it.size == count }
-            ?: (0 until count).map { player.getMediaItemAt(it).toSong() }
-        val newUpcoming = buildJumpQueue(currentTimeline, currentIndex, targetIndex) ?: return
-
-        // Retain played history up to and including currentIndex so backward navigation works
-        val history = (0..currentIndex).map { player.getMediaItemAt(it) }
-        val upcomingMediaItems = newUpcoming.map { it.toMediaItem() }
-
-        val newPlaylist = history + upcomingMediaItems
-        val newTargetIndex = history.size // First track of newUpcoming
-        player.setMediaItems(newPlaylist, newTargetIndex, 0L)
+        // Seek directly to the target song, leaving the entire playlist/queue intact!
+        player.seekTo(targetIndex, 0L)
         if (runCatching { player.playbackState }.getOrNull() == Player.STATE_IDLE) {
             player.prepare()
         }

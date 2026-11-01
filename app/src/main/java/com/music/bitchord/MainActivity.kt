@@ -18,15 +18,25 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -232,6 +242,7 @@ import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.GlassNavBar
 import com.music.bitchord.ui.components.floatingtabbar.rememberFloatingTabBarScrollConnection
 import com.music.bitchord.ui.components.FrostedTopBar
+import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
@@ -252,6 +263,7 @@ import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.sharedui.resources.Res as SharedRes
 import com.music.bitchord.sharedui.resources.search_hint
 import com.music.bitchord.sharedui.resources.search_library_hint
+import com.music.bitchord.sharedui.resources.search_addons_hint
 import com.music.bitchord.ui.components.TopBarDownloadButton
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.components.topBarContentPadding
@@ -267,6 +279,7 @@ import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.player.NowPlayingScreen
 import com.music.bitchord.ui.player.PlayerSheetMotion
+import com.music.bitchord.ui.player.catchClosingSheet
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.window.DialogWindowProvider
@@ -315,6 +328,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -1097,10 +1111,10 @@ private fun BitChordApp(
     val sharedLinkLabel = stringResource(R.string.shared_link)
     val tabs = remember(homeLabel, exploreLabel, libraryLabel, searchLabel) {
         listOf(
-            BottomTab(homeLabel, BitChordIcons.Home),
-            BottomTab(exploreLabel, BitChordIcons.TabExplore),
-            BottomTab(libraryLabel, BitChordIcons.TabLibrary),
-            BottomTab(searchLabel, BitChordIcons.TabSearch),
+            BottomTab(homeLabel, BitChordIcons.HomeOutlined, BitChordIcons.Home),
+            BottomTab(exploreLabel, BitChordIcons.TabExplore, BitChordIcons.TabExploreFilled),
+            BottomTab(libraryLabel, BitChordIcons.TabLibraryOutlined, BitChordIcons.TabLibrary),
+            BottomTab(searchLabel, BitChordIcons.TabSearch, BitChordIcons.TabSearch),
         )
     }
 
@@ -1523,7 +1537,7 @@ private fun BitChordApp(
                     playbackSource = current?.playbackSource ?: queueLabel,
                     playbackSourceType = current?.playbackSourceType ?: PlaybackSourceType.QUEUE,
                     playbackSourceId = current?.playbackSourceId,
-                ).asQueueEntry(QueueTier.USER_QUEUE)
+                ).asQueueEntry(QueueTier.USER_QUEUE, forceNewId = true)
                 it.addMediaItem(at, queued.toMediaItem())
                 showQueueNotice(context.getString(R.string.song_added_to_queue))
             }
@@ -1553,7 +1567,7 @@ private fun BitChordApp(
                     playbackSource = current?.playbackSource ?: queueLabel,
                     playbackSourceType = current?.playbackSourceType ?: PlaybackSourceType.QUEUE,
                     playbackSourceId = current?.playbackSourceId,
-                ).asQueueEntry(QueueTier.USER_QUEUE)
+                ).asQueueEntry(QueueTier.USER_QUEUE, forceNewId = true)
                 it.addMediaItem(at, queued.toMediaItem())
                 showQueueNotice(context.getString(R.string.song_will_play_next))
             }
@@ -1674,7 +1688,7 @@ private fun BitChordApp(
                                 playbackSourceType = current?.playbackSourceType
                                     ?: PlaybackSourceType.QUEUE,
                                 playbackSourceId = current?.playbackSourceId,
-                            ).asQueueEntry(QueueTier.USER_QUEUE).toMediaItem()
+                            ).asQueueEntry(QueueTier.USER_QUEUE, forceNewId = true).toMediaItem()
                         },
                     )
                     val message = context.resources.getQuantityString(
@@ -2329,6 +2343,7 @@ private fun BitChordApp(
                     QueueCoordinator.jumpToQueueItem(c, index, player.queue)
                 }
             },
+            onPlayNext = playNext,
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
@@ -3251,11 +3266,12 @@ private fun BitChordApp(
                             // The settings page's own two-state selector, so the
                             // app has one look for "pick one of these".
                             sourceSwitcher = {
-                                SegmentedControl(
+                                PillSegmentedControl(
                                     options = listOf(
                                         stringResource(R.string.search_source_youtube),
                                         stringResource(R.string.library),
                                         stringResource(R.string.local_music),
+                                        stringResource(R.string.search_source_addons),
                                     ),
                                     selectedIndex = searchSource.ordinal,
                                     onSelect = { index -> onSearchSourceChange(SearchSource.entries[index]) },
@@ -3271,11 +3287,19 @@ private fun BitChordApp(
                                 playFrom(
                                     songs,
                                     index,
-                                    QueueSource(
-                                        context.getString(R.string.local_music),
-                                        PlaybackSourceType.BROWSE,
-                                        "local:all",
-                                    ),
+                                    if (searchSource == SearchSource.ADDONS) {
+                                        QueueSource(
+                                            context.getString(R.string.search_source_addons),
+                                            PlaybackSourceType.BROWSE,
+                                            "addons:search",
+                                        )
+                                    } else {
+                                        QueueSource(
+                                            context.getString(R.string.local_music),
+                                            PlaybackSourceType.BROWSE,
+                                            "local:all",
+                                        )
+                                    },
                                 )
                             },
                         )
@@ -3572,6 +3596,7 @@ private fun BitChordApp(
                                     when (searchSource) {
                                         SearchSource.LOCAL -> SharedRes.string.search_library_hint
                                         SearchSource.LIBRARY -> SharedRes.string.search_library_hint
+                                        SearchSource.ADDONS -> SharedRes.string.search_addons_hint
                                         SearchSource.YOUTUBE -> SharedRes.string.search_hint
                                     },
                                 ),
@@ -3810,8 +3835,18 @@ private fun BitChordApp(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
 
+                val tabScrollJob = remember { arrayOfNulls<Job>(1) }
                 // One tab handler, whichever bar is drawing it.
                 val onTabSelected: (Int) -> Unit = { index ->
+                    if (index == selectedTab && detail == null && !showSettings && !showSpotify && !showDiscord && !showHistory && !showReplay && libraryShowAll == null) {
+                        tabScrollJob[0]?.cancel()
+                        tabScrollJob[0] = scope.launch {
+                            if (currentListState.firstVisibleItemIndex > 8) {
+                                currentListState.scrollToItem(6)
+                            }
+                            currentListState.animateScrollToItem(0)
+                        }
+                    }
                     viewModel.clearDetail()
                     viewModel.closeMoodGenre()
                     showSettings = false
@@ -3822,6 +3857,8 @@ private fun BitChordApp(
                     showReplay = false
                     settingsSubScreen = null
                     showHistory = false
+                    showDiscord = false
+                    showSpotify = false
                     libraryShowAll = null
                     selectedTab = index
 
@@ -3969,7 +4006,13 @@ private fun BitChordApp(
                 }
             }
             ModalBottomSheet(
-                onDismissRequest = { showNowPlaying = false },
+                onDismissRequest = {
+                    if (playerSheetMotion.closing) {
+                        playerSheetMotion.open()
+                    } else {
+                        showNowPlaying = false
+                    }
+                },
                 sheetState = nowPlayingSheetState,
                 // None of M3's: it follows the sheet's own animation, which is
                 // no longer what moves the player. The player draws its own,
@@ -4014,37 +4057,43 @@ private fun BitChordApp(
                 }
                 Box(
                     Modifier
-                        // Where the app is holding the player, if it is — see
-                        // [PlayerSheetMotion.contentOffsetPx]. Placement only.
-                        .offset { IntOffset(0, playerSheetMotion.contentOffsetPx()) }
-                        // The dim behind the player, from the window's top to
-                        // its bottom whatever the player's offset, and as deep
-                        // as the player is open.
-                        .drawBehind {
-                            val open = playerDock.openFraction()
-                            // Not at all under a portrait player that is fully up:
-                            // its own background is opaque, and a full-screen
-                            // blend behind it is paid on every frame the window
-                            // draws for nothing anyone can see.
-                            if (!reducePlayerMotion && open > 0f && !(open >= 1f && playerDock.attached)) {
-                                val top = playerSheetMotion.position().takeUnless { it.isNaN() } ?: 0f
-                                drawRect(
-                                    color = Color.Black.copy(alpha = PLAYER_SCRIM_ALPHA * open),
-                                    topLeft = Offset(0f, -top.toInt().toFloat()),
-                                    size = Size(size.width, size.height),
-                                )
-                            }
-                        }
-                        .guardSheetFromContentTouches(nowPlayingSheetState)
-                        // The sheet fills the window, so its height is the
-                        // whole of its travel: hidden sits that far down.
-                        .onSizeChanged {
-                            playerDock.sheetTravel = it.height.toFloat()
-                            playerSheetMotion.laidOut = true
-                        },
+                        .fillMaxSize()
+                        .catchClosingSheet(playerSheetMotion),
                 ) {
-                    CompositionLocalProvider(LocalPlayerDock provides activeDock) {
-                        nowPlaying(playerSong)
+                    Box(
+                        Modifier
+                            // Where the app is holding the player, if it is — see
+                            // [PlayerSheetMotion.contentOffsetPx]. Placement only.
+                            .offset { IntOffset(0, playerSheetMotion.contentOffsetPx()) }
+                            // The dim behind the player, from the window's top to
+                            // its bottom whatever the player's offset, and as deep
+                            // as the player is open.
+                            .drawBehind {
+                                val open = playerDock.openFraction()
+                                // Not at all under a portrait player that is fully up:
+                                // its own background is opaque, and a full-screen
+                                // blend behind it is paid on every frame the window
+                                // draws for nothing anyone can see.
+                                if (!reducePlayerMotion && open > 0f && !(open >= 1f && playerDock.attached)) {
+                                    val top = playerSheetMotion.position().takeUnless { it.isNaN() } ?: 0f
+                                    drawRect(
+                                        color = Color.Black.copy(alpha = PLAYER_SCRIM_ALPHA * open),
+                                        topLeft = Offset(0f, -top.toInt().toFloat()),
+                                        size = Size(size.width, size.height),
+                                    )
+                                }
+                            }
+                            .guardSheetFromContentTouches(nowPlayingSheetState)
+                            // The sheet fills the window, so its height is the
+                            // whole of its travel: hidden sits that far down.
+                            .onSizeChanged {
+                                playerDock.sheetTravel = it.height.toFloat()
+                                playerSheetMotion.laidOut = true
+                            },
+                    ) {
+                        CompositionLocalProvider(LocalPlayerDock provides activeDock) {
+                            nowPlaying(playerSong)
+                        }
                     }
                 }
             }
@@ -4942,6 +4991,42 @@ private fun BitChordApp(
 
         if (showAccountSelector) {
             BackHandler { showAccountSelector = false }
+        }
+
+        // Decoupled scrim with independent fade transitions
+        AnimatedVisibility(
+            visible = showAccountSelector,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(150)),
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.48f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showAccountSelector = false },
+                    )
+            )
+        }
+
+        // Genie Card Animation originating from top-right avatar
+        AnimatedVisibility(
+            visible = showAccountSelector,
+            enter = fadeIn(animationSpec = tween(180)) +
+                    scaleIn(
+                        initialScale = 0.75f,
+                        transformOrigin = TransformOrigin(0.88f, 0.05f),
+                        animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    ),
+            exit = fadeOut(animationSpec = tween(150)) +
+                   scaleOut(
+                       targetScale = 0.80f,
+                       transformOrigin = TransformOrigin(0.88f, 0.05f),
+                       animationSpec = tween(180, easing = FastOutLinearInEasing),
+                   ),
+        ) {
             AccountProfileSelector(
                 accounts = googleAccounts,
                 activeAccountId = activeAccountId,

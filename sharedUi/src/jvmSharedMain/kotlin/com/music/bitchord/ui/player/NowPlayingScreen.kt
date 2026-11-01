@@ -705,6 +705,7 @@ fun NowPlayingScreen(
     onJumpTo: (Int) -> Unit,
     onRemoveFromQueue: (Int) -> Unit,
     onMoveInQueue: (Int, Int) -> Unit,
+    onPlayNext: ((Song) -> Unit)? = null,
     /**
      * A queue row started or stopped being dragged.
      *
@@ -2068,6 +2069,7 @@ fun NowPlayingScreen(
                         onMove = onMoveInQueue,
                         onClear = onClearQueue,
                         onDragActiveChange = onQueueDragActiveChange,
+                        onPlayNext = onPlayNext,
                         modifier = Modifier.fillMaxSize(),
                     )
                 },
@@ -3617,6 +3619,7 @@ fun NowPlayingScreen(
                             collapsePlayerOnScroll = true,
                             onRevealPlayer = { queueControlsOpen = true },
                             onHidePlayer = { queueControlsOpen = false },
+                            onPlayNext = onPlayNext,
                             modifier = Modifier.weight(1f),
                         )
                     }

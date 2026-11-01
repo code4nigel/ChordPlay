@@ -41,6 +41,14 @@ import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
 import com.music.bitchord.data.settings.SongSwipeAction
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import com.music.bitchord.data.settings.CustomPalette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +56,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -94,10 +103,20 @@ fun AppearanceSection(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
 
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val colorPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
+    val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
+    val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var paletteToRename by remember { mutableStateOf<CustomPalette?>(null) }
+    var renameInput by remember { mutableStateOf("") }
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -186,10 +205,146 @@ fun AppearanceSection(
                     subtitle = stringResource(R.string.color_palette_subtitle),
                 )
                 PaletteCarousel(
-                    selectedPalette = colorPalette,
+                    selectedPalette = if (activeCustomPaletteId != null) null else colorPalette,
                     onSelectPalette = { AppSettings.setColorPalette(it) },
                     modifier = Modifier.padding(bottom = 14.dp),
                 )
+            }
+
+            // 2b. Custom Saves Subsection
+            SettingsGroup(header = "Custom Saves") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ROW_INSET, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Saved Presets",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "${customPalettes.size} of 5 saved",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                if (customPalettes.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(14.dp),
+                    ) {
+                        Text(
+                            text = "Preserve your favorite song-art colorways from the profile menu (up to 5).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        customPalettes.forEach { palette ->
+                            val isSelected = activeCustomPaletteId == palette.id
+                            val primary = Color(palette.primaryHex)
+                            val secondary = Color(palette.secondaryHex)
+                            val bg = Color(palette.backgroundHex)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        AppSettings.selectCustomPalette(palette.id)
+                                    }
+                                    .padding(horizontal = ROW_INSET, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                // Active radio indicator
+                                Icon(
+                                    imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                                    contentDescription = if (isSelected) "Selected" else "Unselected",
+                                    tint = if (isSelected) primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(12.dp))
+
+                                // Swatch preview pill [● ● ●]
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(Modifier.size(10.dp).clip(CircleShape).background(primary))
+                                        Box(Modifier.size(10.dp).clip(CircleShape).background(secondary))
+                                        Box(Modifier.size(10.dp).clip(CircleShape).background(bg))
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+
+                                // Name
+                                Text(
+                                    text = palette.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+
+                                // Rename button
+                                IconButton(
+                                    onClick = {
+                                        paletteToRename = palette
+                                        renameInput = palette.name
+                                        showRenameDialog = true
+                                    },
+                                    modifier = Modifier.size(36.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Edit,
+                                        contentDescription = "Rename preset",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+
+                                // Delete button
+                                IconButton(
+                                    onClick = {
+                                        paletteToDelete = palette
+                                        showDeleteDialog = true
+                                    },
+                                    modifier = Modifier.size(36.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Delete,
+                                        contentDescription = "Delete preset",
+                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -425,6 +580,65 @@ fun AppearanceSection(
             onDismiss = { showLeftSwipePicker = false },
         )
     }
+
+    if (showRenameDialog && paletteToRename != null) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Preset") },
+            text = {
+                OutlinedTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    label = { Text("Preset Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val newName = renameInput.trim()
+                        if (newName.isNotBlank()) {
+                            AppSettings.renameCustomPalette(paletteToRename!!.id, newName)
+                        }
+                        showRenameDialog = false
+                    },
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (showDeleteDialog && paletteToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Preset?") },
+            text = {
+                Text("Are you sure you want to delete \"${paletteToDelete!!.name}\"?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AppSettings.deleteCustomPalette(paletteToDelete!!.id)
+                        showDeleteDialog = false
+                    },
+                ) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -490,7 +704,7 @@ private fun SwipeActionPickerDialog(
  */
 @Composable
 private fun PaletteCarousel(
-    selectedPalette: ChordPlayPalette,
+    selectedPalette: ChordPlayPalette?,
     onSelectPalette: (ChordPlayPalette) -> Unit,
     modifier: Modifier = Modifier,
 ) {

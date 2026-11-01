@@ -3,8 +3,11 @@ package com.music.bitchord.ui.player
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.components.ExplicitSongTitle
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -12,15 +15,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.draw.alpha
-import kotlin.math.abs
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.draw.alpha
+import kotlin.math.abs
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
@@ -30,12 +35,20 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -151,8 +164,9 @@ private data class QueueTrack(val timelineIndex: Int, val song: Song, val key: S
 /** The groups a queue row can be dragged within; a drag never leaves its own. */
 private enum class QueueSection { USER, CONTEXT, AUTOPLAY }
 
-/** The queue as [InlineQueue] lists it: what's playing, then each section in running order. */
+/** The queue as [InlineQueue] lists it: history, what's playing, then each section in running order. */
 private class QueueTracks(
+    val history: List<QueueTrack>,
     val nowPlaying: QueueTrack?,
     val user: List<QueueTrack>,
     val context: List<QueueTrack>,
@@ -165,7 +179,7 @@ private class QueueTracks(
     }
 
     companion object {
-        val EMPTY = QueueTracks(null, emptyList(), emptyList(), emptyList())
+        val EMPTY = QueueTracks(emptyList(), null, emptyList(), emptyList(), emptyList())
     }
 }
 
@@ -180,10 +194,18 @@ private fun splitQueue(queue: List<Song>, currentIndex: Int): QueueTracks {
         val id = queue[i].videoId
         seen.getOrDefault(id, 0).also { seen[id] = it + 1 }
     }
+    val seenKeys = HashSet<String>()
     fun track(index: Int, prefix: String): QueueTrack {
         val song = queue[index]
-        return QueueTrack(index, song, prefix + "_" + (song.queueEntryId ?: "${song.videoId}#${occurrence[index]}"))
+        val rawKey = prefix + "_" + (song.queueEntryId ?: "${song.videoId}#${occurrence[index]}")
+        var key = rawKey
+        var collisionCount = 1
+        while (!seenKeys.add(key)) {
+            key = "${rawKey}_collision_${collisionCount++}"
+        }
+        return QueueTrack(index, song, key)
     }
+    val history = (0 until currentIndex.coerceAtLeast(0)).map { track(it, "history") }
     val user = ArrayList<QueueTrack>()
     val context = ArrayList<QueueTrack>()
     val autoplay = ArrayList<QueueTrack>()
@@ -194,7 +216,7 @@ private fun splitQueue(queue: List<Song>, currentIndex: Int): QueueTracks {
             QueueTier.AUTOPLAY -> autoplay += track(index, "autoplay")
         }
     }
-    return QueueTracks(track(currentIndex, "np"), user, context, autoplay)
+    return QueueTracks(history, track(currentIndex, "np"), user, context, autoplay)
 }
 
 /** Placement-only item motion; see [QUEUE_ROW_MOTION]. */
@@ -222,9 +244,51 @@ internal fun InlineQueue(
     collapsePlayerOnScroll: Boolean = false,
     onRevealPlayer: () -> Unit = {},
     onHidePlayer: () -> Unit = {},
+    onPlayNext: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val listState = rememberLazyListState()
+    val tracks = remember(queue, currentIndex) { splitQueue(queue, currentIndex) }
+    var pendingDismissedKeys by remember { mutableStateOf(setOf<String>()) }
+
+    LaunchedEffect(queue) {
+        if (pendingDismissedKeys.isNotEmpty()) {
+            val allQueueTracks = tracks.history + listOfNotNull(tracks.nowPlaying) + tracks.user + tracks.context + tracks.autoplay
+            val currentKeys = allQueueTracks.map { it.key }.toSet()
+            pendingDismissedKeys = pendingDismissedKeys.intersect(currentKeys)
+        }
+    }
+
+    val visibleHistory = remember(tracks.history, pendingDismissedKeys) {
+        tracks.history.filter { it.key !in pendingDismissedKeys }
+    }
+    val visibleUser = remember(tracks.user, pendingDismissedKeys) {
+        tracks.user.filter { it.key !in pendingDismissedKeys }
+    }
+    val visibleContext = remember(tracks.context, pendingDismissedKeys) {
+        tracks.context.filter { it.key !in pendingDismissedKeys }
+    }
+    val visibleAutoplay = remember(tracks.autoplay, pendingDismissedKeys) {
+        tracks.autoplay.filter { it.key !in pendingDismissedKeys }
+    }
+
+    val onRemoveTrack: (QueueTrack) -> Unit = { track ->
+        pendingDismissedKeys = pendingDismissedKeys + track.key
+
+        val rawIndex = queue.indexOfFirst { qSong ->
+            (track.song.queueEntryId != null && qSong.queueEntryId == track.song.queueEntryId) ||
+            (qSong.videoId == track.song.videoId && qSong.title == track.song.title)
+        }.takeIf { it != -1 } ?: track.timelineIndex
+
+        val allQueueTracks = tracks.history + listOfNotNull(tracks.nowPlaying) + tracks.user + tracks.context + tracks.autoplay
+        val pendingAhead = allQueueTracks.count { other ->
+            other.key != track.key && other.key in pendingDismissedKeys && other.timelineIndex < rawIndex
+        }
+        val liveIndex = (rawIndex - pendingAhead).coerceAtLeast(0)
+        onRemove(liveIndex)
+    }
+
+    val initialIndex = remember { if (queue.isNotEmpty() && currentIndex > 0) 1 + currentIndex.coerceAtMost(queue.size) else 0 }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect(onScrollingChange)
     }
@@ -234,7 +298,6 @@ internal fun InlineQueue(
         onReveal = onRevealPlayer,
         onHide = onHidePlayer,
     )
-    val tracks = remember(queue, currentIndex) { splitQueue(queue, currentIndex) }
     val drag = rememberQueueDrag(listState, tracks, onMove, onDragActiveChange)
     val nowPlaying = tracks.nowPlaying
     val contextSong = tracks.context.firstOrNull()?.song
@@ -243,16 +306,20 @@ internal fun InlineQueue(
         ?: nowPlaying?.song?.playbackSource?.takeIf { it.isNotBlank() }
         ?: nowPlaying?.song?.albumName?.takeIf { it.isNotBlank() }
 
-    // Back to the top on a track change — snapped the first time, animated
+    // Back to the top (Now Playing) on a track change — snapped the first time, animated
     // after — but never mid-drag, which would pull the list from under the finger.
     var hasScrolledOnce by remember { mutableStateOf(false) }
+    val targetIndex = if (tracks.history.isNotEmpty()) 1 + tracks.history.size else 0
+    LaunchedEffect(Unit) {
+        listState.scrollToItem(targetIndex)
+    }
     LaunchedEffect(currentIndex) {
-        val scrolledAway = listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0
+        val scrolledAway = listState.firstVisibleItemIndex != targetIndex || listState.firstVisibleItemScrollOffset != 0
         if (drag.held == null && nowPlaying != null && scrolledAway) {
             if (hasScrolledOnce) {
-                listState.animateScrollToItem(0)
+                listState.animateScrollToItem(targetIndex)
             } else {
-                listState.scrollToItem(0)
+                listState.scrollToItem(targetIndex)
                 hasScrolledOnce = true
             }
         }
@@ -290,7 +357,27 @@ internal fun InlineQueue(
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
                 contentPadding = PaddingValues(horizontal = PLAYER_GUTTER),
             ) {
-                if (nowPlaying != null) {
+                if (visibleHistory.isNotEmpty()) {
+                    item(key = "header-history") {
+                        QueueHeading(
+                            title = "Previously played",
+                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                        )
+                    }
+                    items(visibleHistory, key = { it.key }) { track ->
+                        InlineQueueRow(
+                            song = track.song,
+                            isCurrent = false,
+                            onClick = { onJumpTo(track.timelineIndex) },
+                            onRemove = { onRemoveTrack(track) },
+                            onSwipeRight = onPlayNext?.let { action -> { action(track.song) } },
+                            locked = false,
+                            draggable = false,
+                            modifier = Modifier.alpha(0.65f),
+                        )
+                    }
+                }
+                if (nowPlaying != null && nowPlaying.key !in pendingDismissedKeys) {
                     item(key = "header-now-playing") {
                         QueueHeading(
                             title = stringResource(Res.string.now_playing),
@@ -302,13 +389,13 @@ internal fun InlineQueue(
                             song = nowPlaying.song,
                             isCurrent = true,
                             onClick = { onJumpTo(nowPlaying.timelineIndex) },
-                            onRemove = { onRemove(nowPlaying.timelineIndex) },
+                            onRemove = { onRemoveTrack(nowPlaying) },
                             locked = controlsLocked,
                             modifier = queueMotion(),
                         )
                     }
                 }
-                if (tracks.user.isNotEmpty()) {
+                if (visibleUser.isNotEmpty()) {
                     item(key = "header-user-queue") {
                         QueueHeading(
                             title = stringResource(Res.string.next_in_queue),
@@ -317,9 +404,9 @@ internal fun InlineQueue(
                             QueueClearButton(MaterialTheme.typography.labelLarge, controlsLocked, onClear)
                         }
                     }
-                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(visibleUser, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemoveTrack, onPlayNext)
                 }
-                if (tracks.context.isNotEmpty()) {
+                if (visibleContext.isNotEmpty()) {
                     item(key = "header-context") {
                         QueueHeading(
                             title = if (contextTitle != null) {
@@ -330,13 +417,13 @@ internal fun InlineQueue(
                             modifier = Modifier.padding(top = 16.dp, bottom = 6.dp).then(queueMotion()),
                         )
                     }
-                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(visibleContext, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemoveTrack, onPlayNext)
                 }
-                if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
+                if (autoplayEnabled || visibleAutoplay.isNotEmpty()) {
                     item(key = "autoplay-heading") {
-                        AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty(), modifier = queueMotion())
+                        AutoplayHeading(hasTracks = visibleAutoplay.isNotEmpty(), modifier = queueMotion())
                     }
-                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(visibleAutoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemoveTrack, onPlayNext)
                 }
             }
             // The held row, drawn over the list where the finger is. Positioned
@@ -371,7 +458,8 @@ private fun LazyListScope.queueSection(
     drag: QueueDrag,
     locked: Boolean,
     onJumpTo: (Int) -> Unit,
-    onRemove: (Int) -> Unit,
+    onRemoveTrack: (QueueTrack) -> Unit,
+    onPlayNext: ((Song) -> Unit)? = null,
 ) {
     items(rows, key = { it.key }) { track ->
         val held = drag.held?.key == track.key
@@ -384,7 +472,8 @@ private fun LazyListScope.queueSection(
             song = track.song,
             isCurrent = false,
             onClick = { onJumpTo(track.timelineIndex) },
-            onRemove = { onRemove(track.timelineIndex) },
+            onRemove = { onRemoveTrack(track) },
+            onSwipeRight = onPlayNext?.let { action -> { action(track.song) } },
             locked = locked,
             draggable = !locked,
             onDragStart = { drag.start(track.key, section) },
@@ -686,6 +775,59 @@ private class QueueDrag(private val listState: LazyListState) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QueueSwipeBackground(
+    dismissState: SwipeToDismissBoxState,
+) {
+    val direction = dismissState.dismissDirection
+    val color = when (direction) {
+        SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
+        SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+        else -> Color.Transparent
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(8.dp))
+            .drawWithContent {
+                val offset = try { dismissState.requireOffset() } catch (e: Exception) { 0f }
+                if (offset > 0f) {
+                    clipRect(left = 0f, top = 0f, right = offset, bottom = size.height) {
+                        this@drawWithContent.drawContent()
+                    }
+                } else if (offset < 0f) {
+                    clipRect(left = size.width + offset, top = 0f, right = size.width, bottom = size.height) {
+                        this@drawWithContent.drawContent()
+                    }
+                }
+            }
+            .background(color)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        if (direction == SwipeToDismissBoxValue.StartToEnd) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                contentDescription = "Play Next",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.weight(1f))
+        } else if (direction == SwipeToDismissBoxValue.EndToStart) {
+            Spacer(Modifier.weight(1f))
+            Icon(
+                imageVector = Icons.Rounded.Delete,
+                contentDescription = stringResource(Res.string.remove_from_queue),
+                tint = Color.White,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InlineQueueRow(
     song: Song,
@@ -693,6 +835,7 @@ private fun InlineQueueRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    onSwipeRight: (() -> Unit)? = null,
     /** @see InlineQueue */
     locked: Boolean = false,
     /** Shows the handle; drags on it go to the callbacks below. */
@@ -703,88 +846,119 @@ private fun InlineQueueRow(
     onDrag: (Float) -> Unit = {},
     onDragEnd: () -> Unit = {},
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
-            // Disabled rather than ignored: a tap that ripples and then does
-            // nothing reads as the app having missed it.
-            .clickable(enabled = !locked, onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (draggable) {
-            Icon(
-                Icons.Rounded.DragHandle,
-                contentDescription = stringResource(Res.string.drag_to_reorder),
-                tint = Color.White.copy(alpha = 0.4f),
+    val enableSwipe = !locked && !lifted && !isCurrent
+
+    @Composable
+    fun RowContent(contentModifier: Modifier) {
+        Row(
+            modifier = contentModifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
+                // Disabled rather than ignored: a tap that ripples and then does
+                // nothing reads as the app having missed it.
+                .clickable(enabled = !locked, onClick = onClick)
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AsyncImage(
+                model = rememberRemoteArtworkUrl(song),
+                contentDescription = null,
                 modifier = Modifier
-                    .size(20.dp)
-                    // The glyph sits well inset in its own box; this pulls it
-                    // back to the row's edge.
-                    .offset(x = (-4).dp)
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragStart = { onDragStart() },
-                            onDragEnd = { onDragEnd() },
-                            onDragCancel = { onDragEnd() },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                onDrag(amount.y)
-                            },
-                        )
-                    },
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .thumbnailBorder(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.08f)),
             )
-            Spacer(Modifier.width(4.dp))
-        }
-        AsyncImage(
-            model = rememberRemoteArtworkUrl(song),
-            contentDescription = null,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .thumbnailBorder(RoundedCornerShape(6.dp))
-                .background(Color.White.copy(alpha = 0.08f)),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            ExplicitSongTitle(
-                song = song,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
-            )
-            Text(
-                text = song.artist,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        if (isCurrent) {
-            Icon(
-                Icons.Rounded.GraphicEq,
-                contentDescription = stringResource(Res.string.now_playing),
-                tint = Color.White,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-        }
-        if (!locked) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onRemove),
-                contentAlignment = Alignment.Center,
-            ) {
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                ExplicitSongTitle(
+                    song = song,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.92f),
+                )
+                Text(
+                    text = song.artist,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.55f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (isCurrent) {
                 Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(Res.string.remove_from_queue),
-                    tint = Color.White.copy(alpha = 0.55f),
+                    Icons.Rounded.GraphicEq,
+                    contentDescription = stringResource(Res.string.now_playing),
+                    tint = Color.White,
                     modifier = Modifier.size(18.dp),
                 )
+                Spacer(Modifier.width(6.dp))
+            }
+            if (draggable) {
+                Icon(
+                    Icons.Rounded.DragHandle,
+                    contentDescription = stringResource(Res.string.drag_to_reorder),
+                    tint = Color.White.copy(alpha = 0.4f),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .padding(2.dp)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { onDragStart() },
+                                onDragEnd = { onDragEnd() },
+                                onDragCancel = { onDragEnd() },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    onDrag(amount.y)
+                                },
+                            )
+                        },
+                )
+            }
+        }
+    }
+
+    if (!enableSwipe) {
+        RowContent(contentModifier = modifier)
+    } else {
+        key(song.queueEntryId ?: song.videoId, song.title) {
+            var isDismissed by remember(song.queueEntryId ?: song.videoId) { mutableStateOf(false) }
+
+            AnimatedVisibility(
+                visible = !isDismissed,
+                exit = shrinkVertically(
+                    animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                    shrinkTowards = Alignment.Top,
+                ) + fadeOut(animationSpec = tween(durationMillis = 200)),
+            ) {
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        when (value) {
+                            SwipeToDismissBoxValue.EndToStart -> {
+                                isDismissed = true
+                                onRemove()
+                                false
+                            }
+                            SwipeToDismissBoxValue.StartToEnd -> {
+                                onSwipeRight?.invoke()
+                                false
+                            }
+                            SwipeToDismissBoxValue.Settled -> false
+                        }
+                    },
+                    positionalThreshold = { it * 0.40f },
+                )
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = onSwipeRight != null,
+                    enableDismissFromEndToStart = true,
+                    backgroundContent = {
+                        QueueSwipeBackground(dismissState)
+                    },
+                    modifier = modifier,
+                ) {
+                    RowContent(contentModifier = Modifier)
+                }
             }
         }
     }

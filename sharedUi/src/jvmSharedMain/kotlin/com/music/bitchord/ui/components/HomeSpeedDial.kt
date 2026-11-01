@@ -2,6 +2,7 @@ package com.music.bitchord.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -43,12 +44,18 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +70,7 @@ import com.music.bitchord.ui.screens.CompactTrackRow
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.SpeedDialLayoutMode
 import com.music.bitchord.ui.icons.BitChordIcons
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -83,8 +91,7 @@ fun SpeedDialSectionHeader(
     ) {
         Text(
             text = "Speed Dial",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
         IconButton(
@@ -187,6 +194,16 @@ private fun HomeSpeedDialTwoByThree(
 
     val pagerState = rememberPagerState(pageCount = { totalPages })
 
+    var showIndicators by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState.isScrollInProgress) {
+        if (pagerState.isScrollInProgress) {
+            showIndicators = true
+        } else {
+            delay(2000L)
+            showIndicators = false
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -271,9 +288,9 @@ private fun HomeSpeedDialTwoByThree(
 
             // Floating Left Quick-Return Button
             androidx.compose.animation.AnimatedVisibility(
-                visible = pagerState.currentPage > 0,
-                enter = fadeIn(tween(200)) + slideInHorizontally(tween(200)) { -it },
-                exit = fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { -it },
+                visible = showIndicators && pagerState.currentPage > 0,
+                enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { -it },
+                exit = fadeOut(tween(350)) + slideOutHorizontally(tween(350)) { -it },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 4.dp),
@@ -310,25 +327,35 @@ private fun HomeSpeedDialTwoByThree(
 
         // Horizontal Page Indicator dots if more than 1 page
         if (totalPages > 1) {
-            Row(
+            val indicatorAlpha by animateFloatAsState(
+                targetValue = if (showIndicators) 1f else 0f,
+                animationSpec = tween(durationMillis = 300),
+                label = "indicatorAlpha",
+            )
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(24.dp), // Fixed reserved height prevents layout shifts!
+                contentAlignment = Alignment.Center,
             ) {
-                repeat(totalPages) { pageIdx ->
-                    val isSelected = pagerState.currentPage == pageIdx
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 3.dp)
-                            .size(if (isSelected) 6.dp else 4.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            ),
-                    )
+                Row(
+                    modifier = Modifier.graphicsLayer { alpha = indicatorAlpha },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    repeat(totalPages) { pageIdx ->
+                        val isSelected = pagerState.currentPage == pageIdx
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(if (isSelected) 6.dp else 4.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                ),
+                        )
+                    }
                 }
             }
         }
@@ -353,6 +380,16 @@ private fun HomeSpeedDialThreeByThree(
     val totalPages = 1 + additionalPages.size
 
     val pagerState = rememberPagerState(pageCount = { totalPages })
+
+    var showIndicators by remember { mutableStateOf(false) }
+    LaunchedEffect(pagerState.isScrollInProgress) {
+        if (pagerState.isScrollInProgress) {
+            showIndicators = true
+        } else {
+            delay(2000L)
+            showIndicators = false
+        }
+    }
 
     Column(
         modifier = modifier
@@ -458,9 +495,9 @@ private fun HomeSpeedDialThreeByThree(
 
             // Floating Left Quick-Return Button
             androidx.compose.animation.AnimatedVisibility(
-                visible = pagerState.currentPage > 0,
-                enter = fadeIn(tween(200)) + slideInHorizontally(tween(200)) { -it },
-                exit = fadeOut(tween(200)) + slideOutHorizontally(tween(200)) { -it },
+                visible = showIndicators && pagerState.currentPage > 0,
+                enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { -it },
+                exit = fadeOut(tween(350)) + slideOutHorizontally(tween(350)) { -it },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 4.dp),
@@ -497,25 +534,35 @@ private fun HomeSpeedDialThreeByThree(
 
         // Horizontal Page Indicator dots if more than 1 page
         if (totalPages > 1) {
-            Row(
+            val indicatorAlpha by animateFloatAsState(
+                targetValue = if (showIndicators) 1f else 0f,
+                animationSpec = tween(durationMillis = 300),
+                label = "indicatorAlpha",
+            )
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(24.dp), // Fixed reserved height prevents layout shifts!
+                contentAlignment = Alignment.Center,
             ) {
-                repeat(totalPages) { pageIdx ->
-                    val isSelected = pagerState.currentPage == pageIdx
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 3.dp)
-                            .size(if (isSelected) 6.dp else 4.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            ),
-                    )
+                Row(
+                    modifier = Modifier.graphicsLayer { alpha = indicatorAlpha },
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    repeat(totalPages) { pageIdx ->
+                        val isSelected = pagerState.currentPage == pageIdx
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(if (isSelected) 6.dp else 4.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                ),
+                        )
+                    }
                 }
             }
         }

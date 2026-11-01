@@ -151,6 +151,32 @@ object BitChordIcons {
         }.build()
     }
 
+    val HomeOutlined: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_home_outlined",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = 1.7f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12f, 4.05f)
+                lineTo(19.75f, 11.35f)
+                lineTo(19.75f, 19.65f)
+                lineTo(14.95f, 19.65f)
+                lineTo(14.95f, 15.6f)
+                lineTo(9.05f, 15.6f)
+                lineTo(9.05f, 19.65f)
+                lineTo(4.25f, 19.65f)
+                lineTo(4.25f, 11.35f)
+                close()
+            }
+        }.build()
+    }
+
     /**
      * The phone tab bar's Explore, Library and Search glyphs: solid-weight
      * iOS shapes rather than this file's stroked family, taken from the
@@ -176,6 +202,16 @@ object BitChordIcons {
         )
     }
 
+    val TabExploreFilled: ImageVector by lazy {
+        fontGlyph(
+            "bc_tab_explore_filled",
+            "M99.5 230.24Q58.5 230.24 58.5 188.24V93.24Q58.5 51.24 99.5 51.24H197.5Q238.5 51.24 238.5 93.24V188.24Q238.5 230.24 197.5 230.24Z" +
+                "M314.5 230.24Q273.5 230.24 273.5 188.24V93.24Q273.5 51.24 314.5 51.24H412.5Q453.5 51.24 453.5 93.24V188.24Q453.5 230.24 412.5 230.24Z" +
+                "M99.5 445.24Q58.5 445.24 58.5 403.24V307.24Q58.5 266.24 99.5 266.24H197.5Q238.5 266.24 238.5 307.24V403.24Q238.5 445.24 197.5 445.24Z" +
+                "M314.5 445.24Q273.5 445.24 273.5 403.24V307.24Q273.5 266.24 314.5 266.24H412.5Q453.5 266.24 453.5 307.24V403.24Q453.5 445.24 412.5 445.24Z",
+        )
+    }
+
     /**
      * Two units lower than the font sets it: the back card's top edge rises
      * just past the em box, and the viewport would clip it flat.
@@ -186,6 +222,16 @@ object BitChordIcons {
             "M154 27.24Q156 0.24 185 0.24H322Q352 0.24 353 27.24Z" +
                 "M116 87.24Q121 56.24 150 56.24H356Q385 56.24 390 87.24Z" +
                 "M133 500.24Q66 500.24 66 434.24V187.24Q66 121.24 133 121.24H378Q446 121.24 446 187.24V434.24Q446 500.24 385 500.24Z",
+        )
+    }
+
+    val TabLibraryOutlined: ImageVector by lazy {
+        fontGlyph(
+            "bc_tab_library_outlined",
+            "M154 27.24Q156 0.24 185 0.24H322Q352 0.24 353 27.24Z" +
+                "M116 87.24Q121 56.24 150 56.24H356Q385 56.24 390 87.24Z" +
+                "M133 500.24Q66 500.24 66 434.24V187.24Q66 121.24 133 121.24H378Q446 121.24 446 187.24V434.24Q446 500.24 385 500.24Z" +
+                "M133 470.24H385Q416 470.24 416 434.24V187.24Q416 151.24 378 151.24H133Q96 151.24 96 187.24V434.24Q96 470.24 133 470.24Z",
         )
     }
 

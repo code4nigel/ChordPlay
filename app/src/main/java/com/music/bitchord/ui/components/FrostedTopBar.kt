@@ -43,6 +43,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -318,7 +319,13 @@ fun FrostedTopBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (accessory != null) {
-                    Box(Modifier.weight(1f)) { accessory() }
+                    Box(Modifier.weight(1f)) {
+                        AccessoryPill(
+                            floating = useFloatingChrome,
+                            hazeState = backButtonHazeState,
+                            content = accessory,
+                        )
+                    }
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
@@ -332,6 +339,57 @@ fun FrostedTopBar(
         RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
     }
 }
+
+/**
+ * The bar's accessory — the Search tab's field — as a squircle pill at the
+ * height of the controls beside it. On floating chrome it is cut from the same
+ * surface as those controls, its glyphs and words in the glass's content
+ * colour; on the plain bar it keeps the field's own fill. Same shape and size
+ * either way, so turning Liquid Glass off changes the material and nothing else.
+ */
+@Composable
+private fun AccessoryPill(
+    floating: Boolean,
+    hazeState: HazeState?,
+    content: @Composable () -> Unit,
+) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glass = floating && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val shape = remember { SquirclePillShape() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(TOP_CONTROL_SIZE)
+            .then(
+                if (floating) {
+                    artworkPageSurface(shape = shape, hazeState = hazeState)
+                } else {
+                    Modifier
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                },
+            ),
+    ) {
+        CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
+            if (glass) {
+                val glassContent = glassContentColor()
+                MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(
+                        onBackground = glassContent,
+                        onSurfaceVariant = glassContent.copy(alpha = ACCESSORY_HINT_ALPHA),
+                        primary = glassContent,
+                    ),
+                    content = content,
+                )
+            } else {
+                content()
+            }
+        }
+    }
+}
+
+private const val ACCESSORY_HINT_ALPHA = 0.6f
+private val TOP_CONTROL_SIZE = 44.dp
 
 /** Circular floating back affordance, material-matched to the navbar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)

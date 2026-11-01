@@ -221,6 +221,9 @@ class AddonSource(
                         } else {
                             ModuleSource.qualityTier("${track.audioQuality} ${track.format}")
                         },
+                        sourceHiRes = "${track.audioQuality} ${track.format}".uppercase(Locale.ROOT).let {
+                            it.contains("HI-RES") || it.contains("HIRES") || it.contains("24-BIT")
+                        },
                     )
                 }
                 .toList()

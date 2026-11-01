@@ -41,9 +41,9 @@ object QueueTimeline {
      * Invariant: [Song.queueEntryId] is assigned ONCE when entering the queue and is strictly
      * immutable across all transformations, upgrades, and round-trips.
      */
-    fun Song.asQueueEntry(tier: QueueTier): Song = copy(
+    fun Song.asQueueEntry(tier: QueueTier, forceNewId: Boolean = false): Song = copy(
         queueTier = tier,
-        queueEntryId = queueEntryId ?: UUID.randomUUID().toString(),
+        queueEntryId = if (forceNewId || queueEntryId == null) UUID.randomUUID().toString() else queueEntryId,
     )
 
     private fun upcomingUserQueue(timeline: List<Song>, currentIndex: Int): List<Song> =
