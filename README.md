@@ -22,6 +22,7 @@
 ---
 
 ## Overview
+NOTE: IF ANY LYRICS PROVIDER HAVE ISSUE WITH LYRICS DOWNLOAD MESSAGE ME OR MAIL ME AT impemailsyuses
 
 ChordPlay is a modern, high-performance music client designed for listeners who care about both audio quality and visual craft. Engineered with Jetpack Compose and Kotlin Multiplatform, ChordPlay combines the extensive streaming catalog of YouTube Music with a fluid, tactile interface inspired by modern glassmorphic design systems.
 
