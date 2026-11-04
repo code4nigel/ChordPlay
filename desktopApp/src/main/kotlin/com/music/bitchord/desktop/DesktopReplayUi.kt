@@ -389,22 +389,30 @@ private fun EmptyReplay(period: DesktopReplayPeriod) {
 /** The artwork's own colours, averaged into a mesh and held still. */
 @Composable
 internal fun DesktopMesh(url: String?) {
-    val mesh by produceState<ImageBitmap?>(initialValue = null, key1 = url) {
-        value = withContext(Dispatchers.IO) {
-            DesktopArtworkCache.load(url.artworkAt(MESH_SOURCE_PX) ?: url)
-                ?.let { DesktopArtworkMesh.of(it, seed = url.hashCode()) }
-        }
-    }
-    val texture = mesh
-    if (texture == null) {
-        Box(Modifier.fillMaxSize().background(DesktopBackground))
-        return
-    }
+    val palette = rememberDesktopArtworkPalette(url)
     Canvas(Modifier.fillMaxSize()) {
-        drawImage(
-            image = texture,
-            dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
-            filterQuality = FilterQuality.Low,
+        val maxDim = maxOf(size.width, size.height)
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    palette.primaryGlow.copy(alpha = 0.32f),
+                    palette.primaryGlow.copy(alpha = 0.10f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.75f, size.height * 0.15f),
+                radius = maxDim * 0.85f,
+            ),
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    palette.ambientAura.copy(alpha = 0.40f),
+                    palette.ambientAura.copy(alpha = 0.12f),
+                    Color.Transparent,
+                ),
+                center = Offset(size.width * 0.20f, size.height * 0.25f),
+                radius = maxDim * 0.90f,
+            ),
         )
     }
 }

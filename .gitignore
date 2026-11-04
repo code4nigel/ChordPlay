@@ -54,3 +54,9 @@ Inspiration/
 version/Android/*.apk
 version/Android/**/*.apk
 app/version/*.apk
+version/Desktop/*.exe
+version/Desktop/*.msi
+version/Desktop/*.zip
+*.exe
+*.msi
+*.zip

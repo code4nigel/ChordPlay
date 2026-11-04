@@ -206,4 +206,21 @@
     <string name="member_since">Member since</string>
     <string name="import_spotify">Import Spotify</string>
     <string name="import_spotify_subtitle">From a playlist link</string>
+    <string name="your_space">Your Space</string>
+    <string name="roll_a_dice">Roll a Dice</string>
+    <string name="instant_discovery_mix">Instant discovery mix</string>
+    <string name="lyrics_options">Lyrics Options</string>
+    <string name="lyrics_options_subtitle">Customize typography, timing offset, and appearance</string>
+    <string name="sync_offset">Sync Offset</string>
+    <string name="font_family">Font Family</string>
+    <string name="upload_custom_font">Upload Custom Font</string>
+    <string name="import_font_hint">Import .ttf or .otf font from device</string>
+    <string name="text_size">Text Size</string>
+    <string name="font_weight">Font Weight</string>
+    <string name="text_alignment">Text Alignment</string>
+    <string name="align_left">Left</string>
+    <string name="align_center">Center</string>
+    <string name="browse">Browse</string>
+    <string name="change">Change</string>
+    <string name="music_feels_better">Music feels better with you</string>
 </resources>

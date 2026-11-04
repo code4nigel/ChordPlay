@@ -43,10 +43,11 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     val canvasOverCellular by PlayerSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val prioritizeSpotifyCanvas by PlayerSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
     val meteredConnection by PlayerSettings.meteredConnection.collectAsStateWithLifecycle()
+    val videoQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     // The switch turns the feature off outright; this is the narrower "not
     // over cellular" case — see [PlayerSettings.canvasOverCellular] for why a
     // clip's own loop makes that worth guarding separately from a still image.
-    val canvasAllowedNow = canvasEnabled && (meteredConnection != true || canvasOverCellular)
+    val canvasAllowedNow = (canvasEnabled && (meteredConnection != true || canvasOverCellular)) || song.isVideo
     // Keyed on the song's identity rather than its videoId: a version switch
     // swaps the videoId for another cut of the *same* song, and a canvas is
     // searched for by title and artist — resetting here threw the clip out
@@ -54,9 +55,9 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     // which is the flicker. A different song keys differently and starts
     // clean; the same-titled-impostor case is guarded where the clip is
     // adopted, by [CanvasArtwork.matches].
-    var canvas by remember(song.title, song.artist) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas) {
-        if (!canvasAllowedNow) {
+    var canvas by remember(song.videoId, song.isVideo) { mutableStateOf<CanvasArtwork?>(null) }
+    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, song.isVideo, videoQuality) {
+        if (!canvasAllowedNow && !song.isVideo) {
             canvas = null
             return@LaunchedEffect
         }
@@ -77,7 +78,7 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
         // all that was spent waiting is the wait. If it never does — a track
         // with no album, or a lookup that failed — the search still goes out,
         // just a beat later, which is imperceptible for decoration.
-        if (canvas == null && song.albumName == null) delay(ALBUM_SETTLE_MS)
+        if (canvas == null && song.albumName == null && !song.isVideo) delay(ALBUM_SETTLE_MS)
         // Keep what an earlier pass found if this one comes back empty, rather
         // than pulling a playing clip out from under itself.
         canvas = PlayerPlatform.host.canvasFor(song) ?: canvas

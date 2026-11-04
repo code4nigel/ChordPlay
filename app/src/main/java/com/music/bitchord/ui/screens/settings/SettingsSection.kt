@@ -4,6 +4,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SmartDisplay
@@ -19,9 +21,11 @@ enum class SettingsSection(
     val icon: ImageVector,
 ) {
     APPEARANCE(R.string.appearance, Icons.Rounded.Brightness4),
+    SHELVES(R.string.home_shelves, androidx.compose.material.icons.Icons.Rounded.ViewAgenda),
     PLAYER(R.string.playback, Icons.Rounded.SmartDisplay),
     LYRICS(R.string.synced_lyrics, Icons.AutoMirrored.Rounded.Notes),
     AUDIO(R.string.audio_quality, Icons.Rounded.GraphicEq),
+    DOWNLOADS(R.string.downloads, Icons.Rounded.Download),
     STORAGE(R.string.storage, Icons.Rounded.Storage),
     INTEGRATIONS(R.string.account_integrations, Icons.Rounded.Person),
     ABOUT(R.string.miscellaneous, Icons.Rounded.AutoAwesome);

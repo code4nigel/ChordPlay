@@ -233,7 +233,7 @@ fun BrowseActionsSheet(
             )
             ActionRow(
                 icon = Icons.Rounded.PushPin,
-                label = if (isSpeedDialPinned) "Unpin from Speed Dial" else "Pin to Speed Dial",
+                label = if (isSpeedDialPinned) stringResource(R.string.unpin_from_your_space) else stringResource(R.string.pin_to_your_space),
                 onClick = {
                     AppSettings.togglePinSpeedDial(
                         com.music.bitchord.data.model.ShelfItem(

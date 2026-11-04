@@ -280,16 +280,11 @@ object InnertubeParser {
         val header = carousel.o("header").o("musicCarouselShelfBasicHeaderRenderer")
         val title = header.o("title").runs()
         val strapline = header.o("strapline").runs()
-        // Whole shelves like "Video charts" carry nothing but video
-        // compilations — each card would fail its own video check on the
-        // way to a dead-end page, so the shelf is dropped outright.
-        if (VIDEO_WORD.containsMatchIn(title)) return null
         val items = carousel.a("contents").orEmpty().mapNotNull { item ->
             parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
                 ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
-                    ?.takeUnless { it.isVideo }
                     ?.let { song ->
-                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null)
+                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null, isVideo = song.isVideo)
                     }
                 // A chart row with nothing to play — "Top artists" lists the
                 // artist alone, no track — falls through parseResponsiveListItem
@@ -301,11 +296,9 @@ object InnertubeParser {
 
     private fun plainShelf(shelf: JsonObject): HomeShelf? {
         val title = shelf.o("title").runs()
-        if (VIDEO_WORD.containsMatchIn(title)) return null
         val items = shelf.a("contents").orEmpty().mapNotNull {
             parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-        }.filterNot { it.isVideo }
-            .map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) }
+        }.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = it.isVideo) }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
     }
 
@@ -1368,11 +1361,7 @@ object InnertubeParser {
         val thumbnails = renderer.o("thumbnailRenderer").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
         val subtitle = renderer.o("subtitle").runs()
-        // A card with no browse target is a playable track, not an album,
-        // playlist or artist; widescreen art on one of those means it's a
-        // music-video upload rather than the catalogue track — drop it, same
-        // as the equivalent check in parseResponsiveListItem.
-        if (resolvedBrowseId == null && videoId != null && thumbnails.isNotSquare()) return null
+        val isWidescreenVideo = resolvedBrowseId == null && videoId != null && thumbnails.isNotSquare()
         // An album/playlist billed as a video chart/compilation — "N videos"
         // in the subtitle, or "video" in the card's own title (e.g. "Daily
         // Top Music Videos") — is the same dead-end as in parseBrowseItem.
@@ -1393,6 +1382,7 @@ object InnertubeParser {
             thumbnailUrl = thumbnails.best(),
             videoId = videoId,
             browseId = resolvedBrowseId,
+            isVideo = isWidescreenVideo || VIDEO_WORD.containsMatchIn(title),
         )
     }
 

@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
@@ -78,8 +79,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
         override val appDesignStyle get() = AppSettings.appDesignStyle
         override val playerLayoutMode get() = AppSettings.playerLayoutMode
+        override val playerInterfaceStyle get() = AppSettings.playerInterfaceStyle
+        override fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) = AppSettings.setPlayerInterfaceStyle(value)
         override val fullscreenArtworkLyricsStyle get() = AppSettings.fullscreenArtworkLyricsStyle
         override val enableBreathingAura get() = AppSettings.enableBreathingAura
+        override val videoQuality get() = AppSettings.videoQuality
+        override fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) = AppSettings.setVideoQuality(value)
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
@@ -171,11 +176,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         com.music.bitchord.ui.components.CastDialog(hazeState = hazeState, onDismiss = onDismiss)
 
     @Composable
-    override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit) =
+    override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color?) =
         com.music.bitchord.ui.components.AudioPipelineDialog(
             hazeState = hazeState,
             onDismiss = onDismiss,
             isPlaying = isPlaying,
+            accentColor = accentColor,
         )
 
     // The phone is the platform that can turn picked lyrics into a picture: a

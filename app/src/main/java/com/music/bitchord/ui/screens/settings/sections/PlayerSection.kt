@@ -51,6 +51,7 @@ fun PlayerSection(
     modifier: Modifier = Modifier,
 ) {
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
+    val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
@@ -79,6 +80,17 @@ fun PlayerSection(
 
         // Player Layout & Experience Group
         SettingsGroup(header = "Player Experience") {
+            SettingsRow(
+                icon = Icons.Rounded.GraphicEq,
+                title = "Player Interface",
+                subtitle = playerInterfaceStyle.detail,
+            )
+            SegmentedControl(
+                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.label },
+                selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
+                onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
+                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+            )
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
                 title = "Player Layout",

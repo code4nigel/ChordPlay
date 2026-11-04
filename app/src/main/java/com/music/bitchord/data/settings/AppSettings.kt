@@ -1,6 +1,7 @@
 package com.music.bitchord.data.settings
 
 import com.music.bitchord.data.webdav.update
+import com.music.bitchord.data.LocalMediaRepository
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
@@ -287,6 +288,10 @@ object AppSettings {
      */
     val exportDownloads = MutableStateFlow(false)
 
+    val saveToCustomDownloadLocation = MutableStateFlow(false)
+    val customDownloadLocationUri = MutableStateFlow<String?>(null)
+    val downloadLyricsOffline = MutableStateFlow(false)
+
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
@@ -420,6 +425,9 @@ object AppSettings {
     val themeMode = MutableStateFlow(ThemeMode.DARK)
     val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
     val colorPalette = MutableStateFlow(ChordPlayPalette.DYNAMIC_ARTWORK)
+    val amoledDarkMode = MutableStateFlow(false)
+    val appFontChoice = MutableStateFlow(AppFontChoice.APPLE_SF_PRO)
+    val videoQuality = MutableStateFlow(VideoQuality.Q_720P)
 
     /** Currently playing track artwork URL for dynamic artwork theming. */
     val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
@@ -484,6 +492,7 @@ object AppSettings {
 
     /** Real backdrop-sampled glass (blur, lens refraction) on the floating nav bar, Android 12+ only. */
     val liquidGlass = MutableStateFlow(false)
+    val liquidGlassIntensity = MutableStateFlow(0.75f)
 
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
@@ -568,6 +577,7 @@ object AppSettings {
 
     /** Player screen layout: Modern Ambient with breathing aura vs Classic Clean. */
     val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+    val playerInterfaceStyle = MutableStateFlow(PlayerInterfaceStyle.WAVEPLAY)
 
     /** Presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
     val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
@@ -663,6 +673,8 @@ object AppSettings {
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
     val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
     val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
+    val homeShelfOrder = MutableStateFlow<List<HomeShelfKey>>(HomeShelfKey.DEFAULT_ORDER)
+    val disabledHomeShelves = MutableStateFlow<Set<HomeShelfKey>>(emptySet())
 
     /**
      * Each album/playlist page's track-list order, keyed by browse id —
@@ -908,6 +920,9 @@ object AppSettings {
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
+        saveToCustomDownloadLocation.value = prefs.getBoolean(KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION, false)
+        customDownloadLocationUri.value = prefs.getString(KEY_CUSTOM_DOWNLOAD_LOCATION_URI, null)
+        downloadLyricsOffline.value = prefs.getBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
@@ -963,6 +978,7 @@ object AppSettings {
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
+        liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
@@ -978,6 +994,9 @@ object AppSettings {
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
 
+        playerInterfaceStyle.value = runCatching {
+            PlayerInterfaceStyle.valueOf(prefs.getString(KEY_PLAYER_INTERFACE_STYLE, null) ?: PlayerInterfaceStyle.WAVEPLAY.name)
+        }.getOrDefault(PlayerInterfaceStyle.WAVEPLAY)
         playerLayoutMode.value = runCatching {
             PlayerLayoutMode.valueOf(prefs.getString(KEY_PLAYER_LAYOUT_MODE, null) ?: PlayerLayoutMode.MODERN_AMBIENT.name)
         }.getOrDefault(PlayerLayoutMode.MODERN_AMBIENT)
@@ -1044,6 +1063,28 @@ object AppSettings {
             ?.let { saved -> if (saved == "COMPACT_CAROUSEL") SpeedDialLayoutMode.ONE_BY_FOUR_LIST else SpeedDialLayoutMode.entries.firstOrNull { it.name == saved } }
             ?: SpeedDialLayoutMode.TWO_BY_THREE
         detailSongSorts.value = readDetailSongSorts()
+        amoledDarkMode.value = prefs.getBoolean("amoled_dark_mode", false)
+        appFontChoice.value = prefs.getString("app_font_choice", null)
+            ?.let { s -> AppFontChoice.entries.firstOrNull { it.name == s } } ?: AppFontChoice.APPLE_SF_PRO
+        videoQuality.value = prefs.getString("video_quality", null)
+            ?.let { s -> VideoQuality.entries.firstOrNull { it.name == s } } ?: VideoQuality.Q_720P
+        val savedHomeOrder = prefs.getString("home_shelf_order", null)
+        if (savedHomeOrder != null) {
+            val parsed = savedHomeOrder.split(",")
+                .mapNotNull { name -> HomeShelfKey.entries.firstOrNull { it.name == name.trim() } }
+            val missing = HomeShelfKey.entries.filter { it !in parsed }
+            homeShelfOrder.value = parsed + missing
+        } else {
+            homeShelfOrder.value = HomeShelfKey.DEFAULT_ORDER
+        }
+        val savedDisabledShelves = prefs.getStringSet("disabled_home_shelves", null)
+        if (savedDisabledShelves != null) {
+            disabledHomeShelves.value = savedDisabledShelves
+                .mapNotNull { name -> HomeShelfKey.entries.firstOrNull { it.name == name } }
+                .toSet()
+        } else {
+            disabledHomeShelves.value = emptySet()
+        }
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
         webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
@@ -1403,6 +1444,21 @@ object AppSettings {
         prefs.edit().putString(KEY_THEME, value.name).apply()
     }
 
+    fun setAmoledDarkMode(enabled: Boolean) {
+        amoledDarkMode.value = enabled
+        prefs.edit().putBoolean("amoled_dark_mode", enabled).apply()
+    }
+
+    fun setAppFontChoice(choice: AppFontChoice) {
+        appFontChoice.value = choice
+        prefs.edit().putString("app_font_choice", choice.name).apply()
+    }
+
+    fun setVideoQuality(quality: VideoQuality) {
+        videoQuality.value = quality
+        prefs.edit().putString("video_quality", quality.name).apply()
+    }
+
     fun setReduceAnimation(value: Boolean) {
         reduceAnimation.value = value
         if (value) highPerformanceMode.value = false
@@ -1457,6 +1513,12 @@ object AppSettings {
     fun setLiquidGlass(value: Boolean) {
         liquidGlass.value = value
         prefs.edit().putBoolean(KEY_LIQUID_GLASS, value).apply()
+    }
+
+    fun setLiquidGlassIntensity(value: Float) {
+        val clamped = value.coerceIn(0.1f, 1f)
+        liquidGlassIntensity.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_INTENSITY, clamped).apply()
     }
 
     fun setHighPerformanceMode(value: Boolean) {
@@ -1632,6 +1694,13 @@ object AppSettings {
 
 
 
+    fun setPlayerInterfaceStyle(value: PlayerInterfaceStyle) {
+        playerInterfaceStyle.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_PLAYER_INTERFACE_STYLE, value.name).apply()
+        }
+    }
+
     fun setPlayerLayoutMode(value: PlayerLayoutMode) {
         playerLayoutMode.value = value
         if (this::prefs.isInitialized) {
@@ -1768,6 +1837,31 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
     }
 
+    fun setSaveToCustomDownloadLocation(value: Boolean) {
+        saveToCustomDownloadLocation.value = value
+        prefs.edit().putBoolean(KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION, value).apply()
+    }
+
+    fun setCustomDownloadLocationUri(value: String?) {
+        customDownloadLocationUri.value = value
+        if (value != null) {
+            prefs.edit().putString(KEY_CUSTOM_DOWNLOAD_LOCATION_URI, value).apply()
+        } else {
+            prefs.edit().remove(KEY_CUSTOM_DOWNLOAD_LOCATION_URI).apply()
+        }
+    }
+
+    fun setDownloadLyricsOffline(value: Boolean) {
+        downloadLyricsOffline.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, value).apply()
+    }
+
+    fun customDownloadLocationDisplay(): String {
+        val uri = customDownloadLocationUri.value
+        if (uri.isNullOrBlank()) return "Download/Music/ChordPlay"
+        return LocalMediaRepository.selectedFolderLabel(uri) ?: "Download/Music/ChordPlay"
+    }
+
     fun setLastfmPrimaryArtistOnly(value: Boolean) {
         lastfmPrimaryArtistOnly.value = value
         prefs.edit().putBoolean(KEY_LASTFM_PRIMARY_ARTIST_ONLY, value).apply()
@@ -1898,6 +1992,38 @@ object AppSettings {
     fun setDownloadedMusicSort(value: LocalMusicSort) {
         downloadedMusicSort.value = value
         prefs.edit().putString(KEY_DOWNLOADED_MUSIC_SORT, value.name).apply()
+    }
+
+    fun moveHomeShelf(key: HomeShelfKey, delta: Int) {
+        val current = homeShelfOrder.value.toMutableList()
+        val index = current.indexOf(key)
+        if (index == -1) return
+        val newIndex = (index + delta).coerceIn(0, current.lastIndex)
+        if (newIndex == index) return
+        current.removeAt(index)
+        current.add(newIndex, key)
+        homeShelfOrder.value = current
+        prefs.edit().putString("home_shelf_order", current.joinToString(",") { it.name }).apply()
+    }
+
+    fun setHomeShelfEnabled(key: HomeShelfKey, enabled: Boolean) {
+        val current = disabledHomeShelves.value.toMutableSet()
+        if (enabled) {
+            current.remove(key)
+        } else {
+            current.add(key)
+        }
+        disabledHomeShelves.value = current
+        prefs.edit().putStringSet("disabled_home_shelves", current.map { it.name }.toSet()).apply()
+    }
+
+    fun resetHomeShelves() {
+        homeShelfOrder.value = HomeShelfKey.DEFAULT_ORDER
+        disabledHomeShelves.value = emptySet()
+        prefs.edit()
+            .remove("home_shelf_order")
+            .remove("disabled_home_shelves")
+            .apply()
     }
 
     fun setLibrarySort(value: LibrarySort) {
@@ -2292,6 +2418,9 @@ object AppSettings {
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
+    private const val KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION = "save_to_custom_download_location"
+    private const val KEY_CUSTOM_DOWNLOAD_LOCATION_URI = "custom_download_location_uri"
+    private const val KEY_DOWNLOAD_LYRICS_OFFLINE = "download_lyrics_offline"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
@@ -2333,6 +2462,7 @@ object AppSettings {
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
+    private const val KEY_LIQUID_GLASS_INTENSITY = "liquid_glass_intensity"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
@@ -2343,6 +2473,7 @@ object AppSettings {
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
+    private const val KEY_PLAYER_INTERFACE_STYLE = "player_interface_style"
     private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
     private const val KEY_SONG_SWIPE_RIGHT_ACTION = "song_swipe_right_action"
     private const val KEY_SONG_SWIPE_LEFT_ACTION = "song_swipe_left_action"

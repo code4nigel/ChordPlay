@@ -1,3 +1,47 @@
+# ChordPlay v2.0.3 — Massive UI Overhaul, Offline Lyrics, Shelves Reordering & "Your Space" Release
+
+Welcome to ChordPlay v2.0.3! This release introduces a comprehensive visual and functional overhaul across the app, including offline synced lyrics, complete home shelf customization, an elevated Settings experience, "Your Space" speed dial enhancements, and robust offline playback:
+
+### Highlights of v2.0.3:
+- **Massive Settings Overhaul & Checkout Hub**:
+  - **Integrated Settings Search**: Clean squircle pill search bar at the top of Settings with real-time query filtering and clear button.
+  - **Featured Checkout Section**: Prominently groups Account & Integrations, Listen Together (Play Together), Spotify Login, and Liquid Glass control with an interactive real-time intensity slider.
+  - **Sleek Aesthetic Categories**: Redesigned all settings sections with circular frosted icons, clean titles without redundant cluttering subtext, and full Liquid Glass support.
+  - **Refined Naming & Attribution**: Renamed "Synced lyrics" to "Lyrics", "Audio quality" to "Audio", and updated About attribution to highlight ChordPlay by Shivanshu (code4nigel) with GitHub repo links and upstream BitChord attribution.
+- **Offline Synced Lyrics Support (With Agreement)**:
+  - Downloaded tracks can now store synchronized lyrics (syllable-level word-by-word and line-by-line) offline directly on device!
+  - Offline songs automatically display their synced lyrics without requiring any network connection.
+  - **User Agreement Gate**: Stored offline lyrics are disabled by default. Enabling the toggle prompts users with an agreement explaining personal offline usage and lyrics provider contact details (`impemailsyuess@gmail.com`).
+  - Configurable download destination path (defaults to `Download/Music/ChordPlay`).
+- **Home Shelves Customization & Full Reordering**:
+  - Reorganized Home Shelves settings allowing users to inspect, toggle, and reorder all recommendation shelves (Quick Picks, Listen Again, Similar To, Mixed for You, Community playlists, etc.).
+  - Move community playlists, customized mixes, or favorite genres right to the top of your feed.
+- **"Your Space" & Discovery Refinements**:
+  - Speed Dial officially renamed to **"Your Space"** across the entire UI and settings.
+  - Enhanced mix generation integration for one-tap listening.
+  - Enlarged the discovery dice icon for **Lucky Radio** with responsive palette adaptation.
+- **Seamless Player & Now Playing Polish**:
+  - **Continuous Waveform Animation**: The breathing waveform ring around the play/pause button is now seamless and continuous without abrupt loop cuts or visual jumps.
+  - **Adaptive Contrast Top Bar**: Player top down arrow and share button automatically transition to high-contrast dark tones over bright artwork backgrounds.
+  - **Theme-Matched Player Action Buttons**: Like, Add-to-playlist, and Overflow buttons now tightly cluster and take dynamic accent colors from the song artwork for enhanced contrast on dark backdrops.
+  - **Morphing Transport Controls**: Forward and rewind buttons dynamically morph and expand when entering the queue view, while shuffle and repeat cleanly fade out, returning smoothly on exit.
+  - Cleaned one-line lyrics ticker in Now Playing by removing the redundant arrow.
+  - **Preserve Style Icon Update**: Updated to a native color palette and paintbrush icon with rich blurred backdrop for custom preset creation.
+- **Search Category Chip Styling**:
+  - Category filter pills (YouTube, Library, Local Music, Addons) now dynamically inherit theme accent colors from active song artwork instead of remaining flat gray.
+- **Robust Offline Library & Downloads**:
+  - Resolved the offline library bug where the Library tab displayed "Nothing in your library yet [Retry]".
+  - Downloads, downloaded albums, and offline playlists now load immediately without internet connectivity.
+- **In-Playlist Direct Add & Two-Way Sync**:
+  - Added an in-playlist `+` button in playlist headers to directly search and add tracks from YouTube Music recommendations without leaving the playlist.
+  - Tapping an added song or its checkmark removes it immediately with haptic feedback, keeping local and remote state synchronized.
+  - Evicts deleted songs from cache and pending additions so songs can be removed and re-added smoothly.
+  - Revamped playlist picker and add-song sheets with pill grab handles, 10.dp squircle artwork with `thumbnailBorder`, and glassy contours.
+- **Multi-Language Translations**:
+  - Added full UI translations for all new ChordPlay features and settings in **Hindi**, **Spanish**, and **Polish**.
+
+---
+
 # ChordPlay v2.0.2 — Modern Search, Preserve Style & Typography Release
 
 Welcome to ChordPlay v2.0.2! This release modernizes the search experience inspired by BitChord, introduces custom theme preservation, expands lyrics typography weights, and polishes queue interaction:

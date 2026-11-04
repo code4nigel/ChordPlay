@@ -244,7 +244,15 @@ internal fun AndroidCanvasArtworkPlayer(
         reportAspect(0f)
         val item = MediaItem.Builder().setUri(url)
         mimeTypeOf(url)?.let { item.setMimeType(it) }
-        player.setMediaItem(item.build())
+        val mediaItem = item.build()
+        if (url.contains("googlevideo.com")) {
+            val headers = com.music.bitchord.data.innertube.StreamResolver.mediaHeadersFor(url)
+            val dataSourceFactory = OkHttpDataSource.Factory(Http.client).setDefaultRequestProperties(headers)
+            val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+            player.setMediaSource(mediaSourceFactory.createMediaSource(mediaItem))
+        } else {
+            player.setMediaItem(mediaItem)
+        }
         player.prepare()
     }
 
@@ -473,8 +481,8 @@ internal fun AndroidCanvasArtworkPlayer(
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)) {
-                    view.setBottomFade(bottomFade, bounds, bottomFadeEndPx)
+                if (applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx, clipAspect)) {
+                    view.setBottomFade(bottomFade, bounds, bottomFadeEndPx, clipAspect)
                 }
             } else {
                 frame.fadeFraction = bottomFade
@@ -566,15 +574,20 @@ private fun TextureView.applyContentTransform(
         0f
     } else bounds.height / 2f
     val matrix = Matrix().apply {
-        val fit = contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f
-        if (fit && clipAspect > viewAspect) {
-            setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
-        } else if (fit) {
-            setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
-        } else if (clipAspect > viewAspect) {
-            setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
+        if (clipAspect > 1.15f) {
+            val targetScaleY = (viewAspect / clipAspect) * 1.04f
+            setScale(1f, targetScaleY, bounds.width / 2f, bounds.height * 0.44f)
         } else {
-            setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
+            val fit = contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f
+            if (fit && clipAspect > viewAspect) {
+                setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
+            } else if (fit) {
+                setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
+            } else if (clipAspect > viewAspect) {
+                setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
+            } else {
+                setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
+            }
         }
     }
     setTransform(matrix)
@@ -594,7 +607,54 @@ private fun TextureView.applyContentTransform(
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
+private fun TextureView.setBottomFade(
+    fraction: Float,
+    bounds: IntSize,
+    endPx: Float?,
+    clipAspect: Float = 0f,
+) {
+    if (bounds.width <= 0 || bounds.height <= 0) {
+        setRenderEffect(null)
+        return
+    }
+    if (clipAspect > 1.15f) {
+        val totalH = bounds.height.toFloat()
+        val totalW = bounds.width.toFloat()
+        val vGradient = LinearGradient(
+            0f, 0f, 0f, totalH,
+            intArrayOf(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.BLACK,
+                android.graphics.Color.BLACK,
+                android.graphics.Color.TRANSPARENT,
+            ),
+            floatArrayOf(0f, 0.18f, 0.82f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        val hGradient = LinearGradient(
+            0f, 0f, totalW, 0f,
+            intArrayOf(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.BLACK,
+                android.graphics.Color.BLACK,
+                android.graphics.Color.TRANSPARENT,
+            ),
+            floatArrayOf(0f, 0.08f, 0.92f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        val baseEffect = RenderEffect.createBlendModeEffect(
+            RenderEffect.createOffsetEffect(0f, 0f),
+            RenderEffect.createShaderEffect(vGradient),
+            BlendMode.DST_IN,
+        )
+        val combinedEffect = RenderEffect.createBlendModeEffect(
+            baseEffect,
+            RenderEffect.createShaderEffect(hGradient),
+            BlendMode.DST_IN,
+        )
+        setRenderEffect(combinedEffect)
+        return
+    }
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
     if (fraction <= 0.001f || endY <= 0f) {
         setRenderEffect(null)
@@ -650,6 +710,7 @@ private class AppliedLook {
     private var fade = Float.NaN
     private var fadeBounds = IntSize(-1, -1)
     private var fadeEnd: Float? = Float.NaN
+    private var fadeClipAspect = Float.NaN
 
     fun transformDiffers(
         clipAspect: Float,
@@ -669,11 +730,12 @@ private class AppliedLook {
         return true
     }
 
-    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?): Boolean {
-        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd) return false
+    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?, clipAspect: Float = 0f): Boolean {
+        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd && clipAspect == fadeClipAspect) return false
         fade = fraction
         fadeBounds = bounds
         fadeEnd = endPx
+        fadeClipAspect = clipAspect
         return true
     }
 }

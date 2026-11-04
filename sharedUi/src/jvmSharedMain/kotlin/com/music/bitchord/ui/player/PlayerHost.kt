@@ -2,6 +2,7 @@ package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.data.canvas.CanvasArtwork
@@ -90,7 +91,7 @@ interface PlayerHost {
 
     /** The full signal-chain readout, opened from the output drawer. */
     @Composable
-    fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit)
+    fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color? = null)
 
     /** Casting to a network receiver. Absent, and so never drawn, where the platform has none. */
     val castState: StateFlow<CastUi> get() = NoCast
@@ -170,12 +171,16 @@ interface PlayerSettingsSource {
     val versionAlignmentInProgress: StateFlow<Boolean>
     val appDesignStyle: StateFlow<AppDesignStyle>
     val playerLayoutMode: StateFlow<PlayerLayoutMode>
+    val playerInterfaceStyle: StateFlow<com.music.bitchord.data.settings.PlayerInterfaceStyle> get() = MutableStateFlow(com.music.bitchord.data.settings.PlayerInterfaceStyle.WAVEPLAY)
     val fullscreenArtworkLyricsStyle: StateFlow<FullscreenArtworkLyricsStyle>
     val enableBreathingAura: StateFlow<Boolean>
+    val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.Q_720P)
 
+    fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) {}
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
+    fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) {}
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
@@ -328,5 +333,5 @@ internal fun rememberRemoteArtworkUrl(song: Song?): String? =
     PlayerPlatform.host.rememberRemoteArtworkUrl(song)
 
 @Composable
-internal fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit) =
+internal fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color? = null) =
     PlayerPlatform.host.AudioPipelineDialog(hazeState, isPlaying, onDismiss)

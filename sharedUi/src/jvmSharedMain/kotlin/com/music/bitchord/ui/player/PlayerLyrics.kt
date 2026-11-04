@@ -22,6 +22,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -1253,20 +1254,20 @@ internal fun TranslationToggleButton(
     onClick: () -> Unit,
 ) {
     val active = showingTranslation || state is LyricsTranslationUiState.Loading
+    val primary = MaterialTheme.colorScheme.primary
     val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.42f)
-        active -> Color.White
-        else -> Color.White.copy(alpha = 0.78f)
+        !enabled || state is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+        active -> primary
+        else -> Color.White.copy(alpha = 0.90f)
     }
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
-        label = "translateDisc",
-    )
+    val bgColor = if (active) primary.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.38f)
+    val borderColor = if (active) primary.copy(alpha = 0.75f) else primary.copy(alpha = 0.22f)
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = discAlpha))
+            .background(bgColor)
+            .border(width = 0.8.dp, color = borderColor, shape = CircleShape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -1304,20 +1305,20 @@ internal fun RomanizationToggleButton(
     onClick: () -> Unit,
 ) {
     val active = showingRomanization || state is LyricsTranslationUiState.Loading
+    val primary = MaterialTheme.colorScheme.primary
     val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.42f)
-        active -> Color.White
-        else -> Color.White.copy(alpha = 0.78f)
+        !enabled || state is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+        active -> primary
+        else -> Color.White.copy(alpha = 0.90f)
     }
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
-        label = "romanizeDisc",
-    )
+    val bgColor = if (active) primary.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.38f)
+    val borderColor = if (active) primary.copy(alpha = 0.75f) else primary.copy(alpha = 0.22f)
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = discAlpha))
+            .background(bgColor)
+            .border(width = 0.8.dp, color = borderColor, shape = CircleShape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -1346,18 +1347,22 @@ internal fun RomanizationToggleButton(
     }
 }
 
-/** The button opening the lyrics appearance and font customization panel. */
+/** The button opening the lyrics appearance, options and offset customization panel. */
 @Composable
 internal fun LyricsStyleToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val tint = if (enabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.42f)
+    val primary = MaterialTheme.colorScheme.primary
+    val tint = if (enabled) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.40f)
+    val bgColor = Color.Black.copy(alpha = 0.38f)
+    val borderColor = primary.copy(alpha = 0.22f)
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.18f))
+            .background(bgColor)
+            .border(width = 0.8.dp, color = borderColor, shape = CircleShape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -1368,7 +1373,7 @@ internal fun LyricsStyleToggleButton(
     ) {
         Icon(
             imageVector = Icons.Rounded.FormatSize,
-            contentDescription = "Lyrics Font & Styling",
+            contentDescription = stringResource(Res.string.lyrics_options),
             tint = tint,
             modifier = Modifier.size(19.dp),
         )
@@ -1381,12 +1386,16 @@ internal fun LyricsOffsetToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val tint = if (enabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.42f)
+    val primary = MaterialTheme.colorScheme.primary
+    val tint = if (enabled) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.40f)
+    val bgColor = Color.Black.copy(alpha = 0.38f)
+    val borderColor = primary.copy(alpha = 0.22f)
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.18f))
+            .background(bgColor)
+            .border(width = 0.8.dp, color = borderColor, shape = CircleShape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -2586,13 +2595,6 @@ private fun CurrentLyricLine(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
-            Spacer(Modifier.width(6.dp))
-            Icon(
-                imageVector = BitChordIcons.ChevronRight,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.size(14.dp),
-            )
         }
         return
     }
@@ -2689,14 +2691,6 @@ private fun CurrentLyricLine(
                 )
             }
         }
-        Spacer(Modifier.width(6.dp))
-        // Disclosure hint: this strip opens the full lyrics screen.
-        Icon(
-            imageVector = BitChordIcons.ChevronRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.5f),
-            modifier = Modifier.size(14.dp),
-        )
     }
 }
 

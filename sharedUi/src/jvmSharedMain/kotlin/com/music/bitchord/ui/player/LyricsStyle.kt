@@ -15,6 +15,11 @@ import com.music.bitchord.sharedui.resources.poppins_extrabold
 import com.music.bitchord.sharedui.resources.poppins_medium
 import com.music.bitchord.sharedui.resources.poppins_regular
 import com.music.bitchord.sharedui.resources.poppins_semibold
+import com.music.bitchord.sharedui.resources.sf_pro_display_bold
+import com.music.bitchord.sharedui.resources.sf_pro_display_heavy
+import com.music.bitchord.sharedui.resources.sf_pro_display_medium
+import com.music.bitchord.sharedui.resources.sf_pro_display_regular
+import com.music.bitchord.sharedui.resources.sf_pro_display_semibold
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,7 +77,14 @@ data class LyricsCustomStyle(
 @Composable
 fun rememberLyricsFontFamily(style: LyricsCustomStyle): FontFamily {
     return when (style.fontChoice) {
-        LyricsFontChoice.DEFAULT -> FontFamily.Default
+        LyricsFontChoice.DEFAULT -> {
+            val reg = Font(Res.font.sf_pro_display_regular, FontWeight.Normal)
+            val med = Font(Res.font.sf_pro_display_medium, FontWeight.Medium)
+            val semi = Font(Res.font.sf_pro_display_semibold, FontWeight.SemiBold)
+            val bold = Font(Res.font.sf_pro_display_bold, FontWeight.Bold)
+            val heavy = Font(Res.font.sf_pro_display_heavy, FontWeight.ExtraBold)
+            remember(reg, med, semi, bold, heavy) { FontFamily(reg, med, semi, bold, heavy) }
+        }
         LyricsFontChoice.POPPINS -> {
             val reg = Font(Res.font.poppins_regular, FontWeight.Normal)
             val med = Font(Res.font.poppins_medium, FontWeight.Medium)

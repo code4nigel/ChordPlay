@@ -387,15 +387,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // only needed to *match* a track against a stranger's database, and
             // nothing is being matched here — these lyrics were written into
             // this exact file, for this exact recording.
-            if (localUri != null) {
-                EmbeddedLyrics.forUri(getApplication(), localUri)?.let { embedded ->
-                    _lyrics.value = embedded
-                    // No source to name: what the file records is the lyrics,
-                    // not which of the eight services they came from months ago.
-                    _lyricsSource.value = null
-                    _lyricsChecked.value = true
-                    return@launch
-                }
+            // Check embedded tags, sidecar, or offline lyrics folder first
+            EmbeddedLyrics.forTrack(getApplication(), localUri, videoId, title, artist)?.let { embedded ->
+                _lyrics.value = embedded
+                // No source to name: what the file records is the lyrics,
+                // not which of the eight services they came from months ago.
+                _lyricsSource.value = null
+                _lyricsChecked.value = true
+                return@launch
             }
             if (durationMs <= 0L) {
                 // Duration arrives a beat after the track does; wait for it.
@@ -569,6 +568,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** In-memory cache for newly created/imported playlists to bridge YouTube Music's backend indexing delay. */
     private val preseededSongs = java.util.concurrent.ConcurrentHashMap<String, List<Song>>()
+    private val pendingPlaylistAdditions = java.util.concurrent.ConcurrentHashMap<String, List<Song>>()
 
     private val _releaseLibrary = MutableStateFlow<Map<String, LibraryState>>(emptyMap())
 
@@ -1005,11 +1005,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
     private suspend fun removeOne(playlist: UserPlaylist, song: Song): Boolean {
+        val cleanId = playlist.playlistId.removePrefix("VL")
+        pendingPlaylistAdditions[cleanId]?.let { pending ->
+            pendingPlaylistAdditions[cleanId] = pending.filterNot { it.videoId == song.videoId }
+        }
+        if (com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(playlist.playlistId) != null) {
+            val removed = com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(playlist.playlistId, song.videoId)
+            if (removed) {
+                PlaylistMembershipCache.remove(cleanId, song.videoId)
+                PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+                _detailStack.value = _detailStack.value.map { page ->
+                    val songs = (page.songs as? UiState.Success)?.data
+                    if (page.browseId != playlist.browseId || songs == null) {
+                        page
+                    } else {
+                        page.copy(
+                            songs = UiState.Success(
+                                songs.filterNot { it.videoId == song.videoId },
+                            ),
+                        )
+                    }
+                }
+                return true
+            }
+            return false
+        }
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
         val cachedSetVideoId = song.setVideoId
             ?: openSongs?.firstOrNull { it.videoId == song.videoId }?.setVideoId
             ?: PlaylistMembershipCache.getSetVideoId(playlist.playlistId, song.videoId)
+            ?: PlaylistMembershipCache.getSetVideoId(cleanId, song.videoId)
             ?: runCatching {
                 YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
                     ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
@@ -1023,6 +1049,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             onSuccess = {
                 libraryStale = true
                 PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+                PlaylistMembershipCache.remove(cleanId, song.videoId)
                 _detailStack.value = _detailStack.value.map { page ->
                     val songs = (page.songs as? UiState.Success)?.data
                     if (page.browseId != playlist.browseId || songs == null) {
@@ -1042,16 +1069,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {
+        val cleanId = playlist.playlistId.removePrefix("VL")
+        if (com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(playlist.playlistId) != null) {
+            val addedLocal = com.music.bitchord.data.spotify.LocalPlaylistStore.addSong(playlist.playlistId, song)
+            if (addedLocal) {
+                PlaylistMembershipCache.add(cleanId, song.videoId)
+                appendToOpenPlaylist(playlist.browseId, song, null)
+                return AddOutcome.ADDED
+            }
+            return AddOutcome.ALREADY_THERE
+        }
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
         if (openSongs?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
-        if (PlaylistMembershipCache.contains(playlist.playlistId, song.videoId)) return AddOutcome.ALREADY_THERE
 
-        return YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
+        return YtMusicRepository.addToPlaylist(cleanId, listOf(song.videoId)).fold(
             onSuccess = { added ->
                 libraryStale = true
                 val newSetVideoId = added[song.videoId]
-                PlaylistMembershipCache.add(playlist.playlistId, song.videoId, newSetVideoId)
+                val songWithSetId = song.copy(setVideoId = newSetVideoId)
+                PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
+                val existingPending = pendingPlaylistAdditions[cleanId].orEmpty()
+                if (existingPending.none { it.videoId == song.videoId }) {
+                    pendingPlaylistAdditions[cleanId] = existingPending + songWithSetId
+                }
                 appendToOpenPlaylist(playlist.browseId, song, newSetVideoId)
                 AddOutcome.ADDED
             },
@@ -1188,16 +1229,57 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * row out from under the reader rather than waiting for a re-fetch.
      */
     fun removeFromPlaylist(browseId: String, song: Song) {
-        val setVideoId = song.setVideoId ?: return
+        val cleanId = browseId.removePrefix("VL")
+        pendingPlaylistAdditions[cleanId]?.let { pending ->
+            pendingPlaylistAdditions[cleanId] = pending.filterNot { it.videoId == song.videoId }
+        }
+        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
+            ?: com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(cleanId)
+        if (local != null) {
+            val removed = com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(local.id, song.videoId)
+            if (removed) {
+                PlaylistMembershipCache.remove(cleanId, song.videoId)
+                PlaylistMembershipCache.remove(browseId, song.videoId)
+                PlaylistMembershipCache.remove(local.id, song.videoId)
+                _detailStack.value = _detailStack.value.map { page ->
+                    val songs = (page.songs as? UiState.Success)?.data
+                    if (page.browseId != browseId || songs == null) {
+                        page
+                    } else {
+                        page.copy(
+                            songs = UiState.Success(
+                                songs.filterNot { it.videoId == song.videoId },
+                            ),
+                        )
+                    }
+                }
+            }
+            return
+        }
+
+        val openSongs = (_detailStack.value.firstOrNull { it.browseId == browseId }?.songs as? UiState.Success)?.data
+        val effectiveSetVideoId = song.setVideoId
+            ?: openSongs?.firstOrNull { it.videoId == song.videoId }?.setVideoId
+            ?: PlaylistMembershipCache.getSetVideoId(browseId, song.videoId)
+            ?: PlaylistMembershipCache.getSetVideoId(cleanId, song.videoId)
+
         if (!requireSignIn()) return
-        val playlistId = browseId.removePrefix("VL")
+        val playlistId = cleanId
         viewModelScope.launch {
+            val targetSetVideoId = effectiveSetVideoId ?: runCatching {
+                YtMusicRepository.browseSongs(browseId).getOrNull()?.songs
+                    ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
+            }.getOrNull() ?: return@launch
+
             YtMusicRepository.removeFromPlaylist(
                 playlistId,
-                listOf(setVideoId to song.videoId),
+                listOf(targetSetVideoId to song.videoId),
             ).fold(
                 onSuccess = {
                     libraryStale = true
+                    PlaylistMembershipCache.remove(playlistId, song.videoId)
+                    PlaylistMembershipCache.remove(browseId, song.videoId)
+                    PlaylistMembershipCache.remove("VL$playlistId", song.videoId)
                     _detailStack.value = _detailStack.value.map { page ->
                         val songs = (page.songs as? UiState.Success)?.data
                         if (page.browseId != browseId || songs == null) {
@@ -1205,7 +1287,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         } else {
                             page.copy(
                                 songs = UiState.Success(
-                                    songs.filterNot { it.setVideoId == setVideoId },
+                                    songs.filterNot { it.setVideoId == targetSetVideoId || it.videoId == song.videoId },
                                 ),
                             )
                         }
@@ -1233,13 +1315,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * than after a re-fetch. A response that named no id still adds the row;
      * it just can't offer to take it back out yet.
      */
-    fun addSuggestedSong(browseId: String, song: Song) {
-        if (!requireSignIn()) return
-        val playlistId = browseId.removePrefix("VL")
+    fun addSuggestedSong(browseId: String, song: Song, onComplete: ((Boolean) -> Unit)? = null) {
+        val cleanId = browseId.removePrefix("VL")
+        val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
+            ?: com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(cleanId)
+        if (localPlaylist != null) {
+            val added = com.music.bitchord.data.spotify.LocalPlaylistStore.addSong(localPlaylist.id, song)
+            if (added) {
+                PlaylistMembershipCache.add(cleanId, song.videoId)
+                PlaylistMembershipCache.add(localPlaylist.id, song.videoId)
+                _detailStack.value = _detailStack.value.map { page ->
+                    if (page.browseId != browseId) {
+                        page
+                    } else {
+                        page.copy(
+                            suggestedSongs = page.suggestedSongs
+                                .filterNot { it.videoId == song.videoId },
+                        )
+                    }
+                }
+                appendToOpenPlaylist(browseId, song, null)
+                onComplete?.invoke(true)
+            } else {
+                onComplete?.invoke(false)
+            }
+            return
+        }
+        if (!requireSignIn()) {
+            onComplete?.invoke(false)
+            return
+        }
+        val playlistId = cleanId
         viewModelScope.launch {
             YtMusicRepository.addToPlaylist(playlistId, listOf(song.videoId)).fold(
                 onSuccess = { added ->
                     libraryStale = true
+                    val newSetVideoId = added[song.videoId]
+                    val songWithSetId = song.copy(setVideoId = newSetVideoId)
+                    PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
+                    val existingPending = pendingPlaylistAdditions[cleanId].orEmpty()
+                    if (existingPending.none { it.videoId == song.videoId }) {
+                        pendingPlaylistAdditions[cleanId] = existingPending + songWithSetId
+                    }
                     _detailStack.value = _detailStack.value.map { page ->
                         if (page.browseId != browseId) {
                             page
@@ -1250,12 +1367,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         }
                     }
-                    appendToOpenPlaylist(browseId, song, added[song.videoId])
+                    appendToOpenPlaylist(browseId, song, newSetVideoId)
+                    onComplete?.invoke(true)
                 },
-                onFailure = {},
+                onFailure = {
+                    onComplete?.invoke(false)
+                },
             )
         }
     }
+
+    fun addSongToPlaylist(browseId: String, song: Song, onComplete: ((Boolean) -> Unit)? = null) =
+        addSuggestedSong(browseId, song, onComplete)
 
     /**
      * Puts [song] at the end of the playlist page at [browseId], if that page
@@ -1276,7 +1399,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (page.browseId != browseId) return@map page
             val songs = when (val state = page.songs) {
                 is UiState.Success -> state.data
-                is UiState.Error -> if (state.message == text(R.string.no_tracks_here)) emptyList() else return@map page
+                is UiState.Error -> if (state.message == text(R.string.no_tracks_here) ||
+                    state.message == text(R.string.spotify_import_empty_playlist) ||
+                    state.message.contains("tracks", ignoreCase = true) ||
+                    state.message.contains("empty", ignoreCase = true)
+                ) emptyList() else return@map page
                 UiState.Loading -> return@map page
             }
             // Already there — a track added twice is two real entries on
@@ -1711,7 +1838,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         .onSuccess { feed ->
                             if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
                             homeContinuation = feed.continuation
-                            publishHomeShelves(feed.shelves)
+                            val topPicksItems = feed.shelves.flatMap { it.items }
+                                .distinctBy { it.videoId ?: it.browseId ?: it.title }
+                                .take(6)
+                            val synthesizedTopPicks = if (topPicksItems.isNotEmpty()) {
+                                HomeShelf(
+                                    title = "Top Picks for You",
+                                    subtitle = "Stations, mixes & fresh drops",
+                                    items = topPicksItems,
+                                )
+                            } else null
+                            val shelvesToPublish = if (synthesizedTopPicks != null) {
+                                listOf(synthesizedTopPicks) + feed.shelves
+                            } else {
+                                feed.shelves
+                            }
+                            publishHomeShelves(shelvesToPublish)
                         }
                         .onFailure { failure ->
                             if (isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
@@ -1722,18 +1864,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     homeShelfRequestSettled(identity, generation)
                 }
             }
-            if (_signedIn.value) {
-                launch {
-                    YtMusicRepository.homeRecentlyPlayed()
-                        .onSuccess { shelf ->
-                            if (isCurrentHomeLoad(identity, generation)) {
-                                _homeRecentlyPlayedLoading.value = false
-                                shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
-                            }
+            launch {
+                YtMusicRepository.homeQuickPicksShelf()
+                    .onSuccess { shelf ->
+                        if (isCurrentHomeLoad(identity, generation)) {
+                            _homeRecentlyPlayedLoading.value = false
+                            shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
                         }
-                        .onFailure {
-                            if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
-                        }
+                    }
+                    .onFailure {
+                        if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
+                    }
+            }
+            launch {
+                YtMusicRepository.homeRemixesShelf().onSuccess { shelf ->
+                    if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
+                }
+            }
+            launch {
+                YtMusicRepository.homeMusicVideosShelf().onSuccess { shelf ->
+                    if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
                 }
             }
             YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
@@ -1776,21 +1926,45 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val added = shelves.withoutRepeatsOf(existing)
             .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+        if (added.isNotEmpty()) {
+            val quickPicksIdx = existing.indexOfFirst { it.title.equals("Quick picks", ignoreCase = true) }
+            val updated = if (quickPicksIdx != -1 && added.any { it.title.equals("Top Picks for You", ignoreCase = true) }) {
+                val topPicks = added.first { it.title.equals("Top Picks for You", ignoreCase = true) }
+                val remaining = added.filterNot { it.title.equals("Top Picks for You", ignoreCase = true) }
+                val list = existing.toMutableList()
+                list.add(quickPicksIdx + 1, topPicks)
+                list.addAll(remaining)
+                list
+            } else {
+                existing + added
+            }
+            _home.value = UiState.Success(updated)
+        }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */
     private suspend fun refreshHome(identity: String?) = coroutineScope {
-        val recent = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
+        val quickPicks = async { YtMusicRepository.homeQuickPicksShelf() }
         YtMusicRepository.home().onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
             homeContinuation = feed.continuation
             homeSeenTitles.clear()
-            val shelves = feed.shelves.withoutRepeatsOf(emptyList())
+            val topPicksItems = feed.shelves.flatMap { it.items }
+                .distinctBy { it.videoId ?: it.browseId ?: it.title }
+                .take(6)
+            val synthesizedTopPicks = if (topPicksItems.isNotEmpty()) {
+                HomeShelf(
+                    title = "Top Picks for You",
+                    subtitle = "Stations, mixes & fresh drops",
+                    items = topPicksItems,
+                )
+            } else null
+            val baseShelves = if (synthesizedTopPicks != null) listOf(synthesizedTopPicks) + feed.shelves else feed.shelves
+            val shelves = baseShelves.withoutRepeatsOf(emptyList())
                 .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
             if (shelves.isNotEmpty()) _home.value = UiState.Success(shelves)
         }
-        recent?.await()?.onSuccess { shelf ->
+        quickPicks.await().onSuccess { shelf ->
             if (identity == listenerKey()) shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
         }
     }
@@ -2854,7 +3028,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                 if (thumbnailUrl == null) artwork = header.thumbnailUrl
                             }
                             description = page.description
-                            if (page.songs.isEmpty()) {
+                            val cleanPlaylistId = browseId.removePrefix("VL")
+                            val pendingAdded = pendingPlaylistAdditions[cleanPlaylistId].orEmpty()
+                            val mergedSongs = if (pendingAdded.isEmpty()) {
+                                page.songs
+                            } else {
+                                val remoteIds = page.songs.mapTo(HashSet()) { it.videoId }
+                                val stillUnindexed = pendingAdded.filterNot { it.videoId in remoteIds }
+                                if (stillUnindexed.isEmpty()) {
+                                    pendingPlaylistAdditions.remove(cleanPlaylistId)
+                                    page.songs
+                                } else {
+                                    page.songs + stillUnindexed
+                                }
+                            }
+                            if (mergedSongs.isEmpty()) {
                                 if (hasPreseeded) {
                                     UiState.Success(preseeded)
                                 } else {
@@ -2866,7 +3054,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                 more = page.continuation
                                 suggested = page.suggested.withArtwork(thumbnailUrl ?: artwork)
                                 library = page.library
-                                UiState.Success(page.songs.withArtwork(thumbnailUrl ?: artwork))
+                                UiState.Success(mergedSongs.withArtwork(thumbnailUrl ?: artwork))
                             }
                         },
                         onFailure = {

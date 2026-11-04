@@ -6598,11 +6598,7 @@ class PlaybackService : MediaLibraryService() {
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
-            val localUri = currentSong.localUri
-            var lines: List<LyricLine>? = null
-            if (localUri != null) {
-                lines = EmbeddedLyrics.forUri(this@PlaybackService, localUri)
-            }
+            var lines = EmbeddedLyrics.forSong(this@PlaybackService, currentSong)
             if (lines == null) {
                 val found = LyricsRepository.lyrics(
                     videoId = currentSong.videoId,

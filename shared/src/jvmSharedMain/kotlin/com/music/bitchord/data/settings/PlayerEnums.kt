@@ -47,6 +47,12 @@ enum class PlayerLayoutMode(val label: String, val detail: String) {
     CLASSIC_CLEAN("Classic BitChord", "Original Apple Music-style player layout"),
 }
 
+/** Player interface style: WavePlay vs ChordPlay OG. */
+enum class PlayerInterfaceStyle(val label: String, val detail: String) {
+    WAVEPLAY("WavePlay", "Synesthesia ribbons, dynamic waveform seekbar, and 5-button glowing orb deck"),
+    CHORDPLAY_OG("ChordPlay OG", "Original classic transport deck, seekbar, and volume slider"),
+}
+
 /** Visual presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
 enum class FullscreenArtworkLyricsStyle(val label: String) {
     FLOATING_CAPSULE("Floating Capsule (Above Title)"),
@@ -65,5 +71,18 @@ enum class SongSwipeAction(val label: String) {
     NONE("None");
 }
 
+/** Video stream resolution tiers. */
+enum class VideoQuality(val label: String, val badge: String, val maxHeight: Int) {
+    Q_360P("360p SD", "SD", 360),
+    Q_480P("480p SD", "SD", 480),
+    Q_720P("720p HD", "HD", 720),
+    Q_1080P("1080p FHD", "FHD", 1080),
+}
 
-
+/** Global typography font choice. */
+enum class AppFontChoice(val label: String, val detail: String) {
+    APPLE_SF_PRO("SF Pro Display", "Signature Apple Music clean grotesque typography"),
+    POPPINS("Poppins", "Modern geometric sans with generous curves"),
+    PARKINSANS("Parkinsans", "Playful grotesque with distinctive curves and character"),
+    SYSTEM_DEFAULT("System Default", "Standard Android system sans-serif"),
+}

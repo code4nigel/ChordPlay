@@ -122,7 +122,7 @@ internal object DesktopJioSaavn {
         val url = decryptUrl(raw.moreInfo.encryptedMediaUrl)
             .takeIf(String::isNotBlank)
             ?: return@runCatching null
-        val rewritten = bestUrl(url, raw.moreInfo.supports320)
+        val rewritten = bestUrl(url, raw.moreInfo.supports320).takeUnless { it.second != null && it.second!! <= 160 } ?: return@runCatching null
         DesktopStream(
             url = rewritten.first,
             // JioSaavn's encrypted URL points to an AAC track inside an MP4 container, and the

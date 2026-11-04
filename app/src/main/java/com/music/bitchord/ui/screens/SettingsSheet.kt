@@ -2,10 +2,13 @@ package com.music.bitchord.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -32,8 +35,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,6 +46,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,21 +79,29 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
+import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.spotify_logo
+import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.settings.sections.AboutSection
 import com.music.bitchord.ui.screens.settings.sections.AppearanceSection
 import com.music.bitchord.ui.screens.settings.sections.AudioSection
+import com.music.bitchord.ui.screens.settings.sections.DownloadsSection
 import com.music.bitchord.ui.screens.settings.sections.IntegrationsSection
 import com.music.bitchord.ui.screens.settings.sections.LyricsSection
 import com.music.bitchord.ui.screens.settings.sections.PlayerSection
+import com.music.bitchord.ui.screens.settings.sections.ShelvesSection
 import com.music.bitchord.ui.screens.settings.sections.StorageSection
+import org.jetbrains.compose.resources.painterResource
 
 /**
- * Root Settings screen featuring a modular, Prism-inspired category hub
- * and focused sub-screens with fluid, non-bouncy deceleration transitions.
+ * Root Settings screen featuring a modern, aesthetic category hub
+ * and focused sub-screens with fluid deceleration transitions.
  */
 @Composable
 fun SettingsScreen(
@@ -121,7 +138,6 @@ fun SettingsScreen(
         targetState = currentSection,
         transitionSpec = {
             if (targetState != null && initialState == null) {
-                // Forward navigation: smooth deceleration glide into view (no bounce)
                 (slideInHorizontally(
                     animationSpec = tween(durationMillis = 260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
                     initialOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() },
@@ -131,7 +147,6 @@ fun SettingsScreen(
                     targetOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
                 ) + fadeOut(animationSpec = tween(150)))
             } else if (targetState == null && initialState != null) {
-                // Backward navigation: smooth pop back to Hub (no bounce)
                 (slideInHorizontally(
                     animationSpec = tween(durationMillis = 240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
                     initialOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
@@ -154,11 +169,17 @@ fun SettingsScreen(
                 channelName = channelName,
                 onSignIn = onSignIn,
                 onSelectSection = { currentSection = it },
+                onListenTogether = onListenTogether,
+                onOpenSpotify = onOpenSpotify,
                 contentPadding = contentPadding,
             )
             SettingsSection.APPEARANCE -> AppearanceSection(
                 onBack = { currentSection = null },
                 onAppLanguage = onAppLanguage,
+                contentPadding = contentPadding,
+            )
+            SettingsSection.SHELVES -> ShelvesSection(
+                onBack = { currentSection = null },
                 contentPadding = contentPadding,
             )
             SettingsSection.PLAYER -> PlayerSection(
@@ -176,6 +197,10 @@ fun SettingsScreen(
             SettingsSection.AUDIO -> AudioSection(
                 onSources = onSources,
                 onEqualizer = onEqualizer,
+                onBack = { currentSection = null },
+                contentPadding = contentPadding,
+            )
+            SettingsSection.DOWNLOADS -> DownloadsSection(
                 onBack = { currentSection = null },
                 contentPadding = contentPadding,
             )
@@ -214,52 +239,55 @@ private fun SettingsHub(
     channelName: String?,
     onSignIn: () -> Unit,
     onSelectSection: (SettingsSection) -> Unit,
+    onListenTogether: () -> Unit,
+    onOpenSpotify: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
 
-    val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
-    val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
-    val lyricsStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
-    val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
-    val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
-    val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
-    val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
-    val cacheLimitMb = (cacheLimitBytes / (1024L * 1024L)).toInt()
-
-    @Composable
-    fun getSubtitle(section: SettingsSection): String = when (section) {
-        SettingsSection.APPEARANCE -> "Theme • ${theme.localizedLabel()}, ${if (liquidGlass) "Frosted Glass" else "Solid"}"
-        SettingsSection.PLAYER -> "Artwork • ${if (fullBleedArtwork) "Full Bleed" else "Standard Sleeve"}, ${if (animatedCanvas) "Canvas On" else "Canvas Off"}"
-        SettingsSection.LYRICS -> "Typography • ${lyricsStyle.fontChoice.label}, ${if (syncedLyrics) "Syllable Sync" else "Standard"}"
-        SettingsSection.AUDIO -> "Audio • ${wifiQuality.localizedQualityLabel()}, ${crossfade}s Crossfade"
-        SettingsSection.STORAGE -> "Storage • $cacheLimitMb MB Limit"
-        SettingsSection.INTEGRATIONS -> "Account • ${if (signedIn) channelName ?: account?.name ?: stringResource(R.string.youtube_music_account) else "Guest"}"
-        SettingsSection.ABOUT -> "ChordPlay v${BuildConfig.VERSION_NAME} • Updates, Links & Info"
-    }
+    val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
+    val spotifyToken by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val party by ListenTogether.state.collectAsStateWithLifecycle()
 
     val filteredSections = remember(searchQuery) {
         if (searchQuery.isBlank()) {
-            SettingsSection.entries
+            // Under Preferences, Integrations is inside Checkout, so show the remaining sections
+            listOf(
+                SettingsSection.APPEARANCE,
+                SettingsSection.SHELVES,
+                SettingsSection.PLAYER,
+                SettingsSection.LYRICS,
+                SettingsSection.AUDIO,
+                SettingsSection.DOWNLOADS,
+                SettingsSection.STORAGE,
+                SettingsSection.ABOUT,
+            )
         } else {
             val q = searchQuery.trim().lowercase()
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
                     SettingsSection.APPEARANCE -> "theme dark light oled black blur liquid glass animation refresh rate high performance display language"
+                    SettingsSection.SHELVES -> "shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize"
                     SettingsSection.PLAYER -> "player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
+                    SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
-                    SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc"
+                    SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
                     SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay"
                 }
                 keywords.contains(q) || section.name.lowercase().contains(q)
             }
         }
     }
+
+    val cardShape = RoundedCornerShape(20.dp)
+    val fallbackSurface = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+    val cardModifier = Modifier
+        .fillMaxWidth()
+        .lightweightLiquidGlass(cardShape, fallbackColor = fallbackSurface)
 
     Column(
         modifier = modifier
@@ -270,22 +298,21 @@ private fun SettingsHub(
     ) {
         Spacer(Modifier.height(12.dp))
 
-        // Search Bar
+        // Search Bar styled matching search page
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .lightweightLiquidGlass(CircleShape, fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(horizontal = 16.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Search,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(20.dp),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(10.dp))
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (searchQuery.isEmpty()) {
                     Text(
@@ -320,25 +347,327 @@ private fun SettingsHub(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
 
-        // Account Banner Card
+        // CHECKOUT Section (Hub Highlights)
         if (searchQuery.isBlank()) {
-            AccountHubCard(
-                signedIn = signedIn,
-                account = account,
-                channelName = channelName,
-                onSignIn = onSignIn,
-                onClick = { onSelectSection(SettingsSection.INTEGRATIONS) },
+            Text(
+                text = stringResource(R.string.checkout).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.1.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
             )
-            Spacer(Modifier.height(16.dp))
+
+            Column(modifier = cardModifier) {
+                // 1. Account & Integrations
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelectSection(SettingsSection.INTEGRATIONS) }
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (signedIn && account != null && !account.thumbnailUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = account.thumbnailUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AccountCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (signedIn && account != null) {
+                                    channelName ?: account.name
+                                } else {
+                                    stringResource(R.string.account_integrations)
+                                },
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (signedIn && account != null) {
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (signedIn) {
+                                stringResource(R.string.youtube_music_account)
+                            } else {
+                                stringResource(R.string.tap_to_sign_in_google)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(start = 68.dp),
+                )
+
+                // 2. Play Together
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onListenTogether)
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Groups,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.play_together),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = if (party != null) stringResource(R.string.play_together_active_desc) else stringResource(R.string.play_together_inactive_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(start = 68.dp),
+                )
+
+                // 3. Spotify Login / Connect
+                val spotifyConnected = !spotifyToken.isNullOrBlank()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenSpotify)
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1DB954).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.spotify_logo),
+                            contentDescription = null,
+                            tint = Color(0xFF1DB954),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "Spotify",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = if (spotifyConnected) stringResource(R.string.spotify_connected_desc) else stringResource(R.string.spotify_connect_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    if (spotifyConnected) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF1DB954).copy(alpha = 0.18f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "Active",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1DB954),
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(start = 68.dp),
+                )
+
+                // 4. Liquid Glass & Intensity Slider
+                val glassSupported = isGlassSupported()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.liquid_glass),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = if (glassSupported) stringResource(R.string.glass_refraction_desc) else stringResource(R.string.liquid_glass_unavailable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                        }
+                        Switch(
+                            checked = liquidGlass,
+                            onCheckedChange = AppSettings::setLiquidGlass,
+                            enabled = glassSupported,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = liquidGlass && glassSupported,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 10.dp, start = 52.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.glass_intensity),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${(liquidGlassIntensity * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Slider(
+                                value = liquidGlassIntensity,
+                                onValueChange = AppSettings::setLiquidGlassIntensity,
+                                valueRange = 0.1f..1f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
         }
 
-        // Category Cards Section
+        // PREFERENCES / RESULTS Section
         Text(
-            text = if (searchQuery.isBlank()) "PREFERENCES" else "RESULTS",
+            text = if (searchQuery.isBlank()) stringResource(R.string.preferences_header) else stringResource(R.string.results_header),
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.1.sp,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
         )
@@ -357,24 +686,17 @@ private fun SettingsHub(
                 )
             }
         } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
-            ) {
+            Column(modifier = cardModifier) {
                 filteredSections.forEachIndexed { index, section ->
-                    CategoryHubRow(
+                    CleanCategoryRow(
                         section = section,
-                        subtitle = getSubtitle(section),
                         onClick = { onSelectSection(section) },
                     )
                     if (index < filteredSections.lastIndex) {
                         HorizontalDivider(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
                             thickness = 0.5.dp,
-                            modifier = Modifier.padding(start = 64.dp),
+                            modifier = Modifier.padding(start = 68.dp),
                         )
                     }
                 }
@@ -383,7 +705,6 @@ private fun SettingsHub(
 
         Spacer(Modifier.height(24.dp))
 
-        // Colophon and attribution footer
         if (searchQuery.isBlank()) {
             SettingsFooter(version = BuildConfig.VERSION_NAME)
         }
@@ -392,123 +713,12 @@ private fun SettingsHub(
     }
 }
 
+/**
+ * Modern, clean category row: circular icon badge + title only (no verbose description subtext).
+ */
 @Composable
-private fun AccountHubCard(
-    signedIn: Boolean,
-    account: Account?,
-    channelName: String?,
-    onSignIn: () -> Unit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (signedIn && account != null) {
-            if (!account.thumbnailUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = account.thumbnailUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape),
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Rounded.AccountCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(46.dp),
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = channelName ?: account.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-                Text(
-                    text = if (channelName != null && channelName != account.name) {
-                        account.name
-                    } else {
-                        stringResource(R.string.youtube_music_account)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(15.dp),
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.AccountCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(46.dp),
-            )
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.youtube_music_account),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.tap_to_sign_in_google),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Button(
-                onClick = onSignIn,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.sign_in),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CategoryHubRow(
+private fun CleanCategoryRow(
     section: SettingsSection,
-    subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -516,13 +726,13 @@ private fun CategoryHubRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
                 .size(38.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
         ) {
@@ -534,24 +744,15 @@ private fun CategoryHubRow(
             )
         }
         Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = stringResource(section.titleRes),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(section.titleRes),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
             contentDescription = null,
@@ -568,39 +769,23 @@ private fun SettingsFooter(version: String, modifier: Modifier = Modifier) {
             val linkStyles = TextLinkStyles(
                 style = SpanStyle(
                     color = MaterialTheme.colorScheme.primary,
-                    textDecoration = TextDecoration.Underline,
+                    textDecoration = TextDecoration.None,
                 ),
             )
-            append("ChordPlay $version by Shivanshu (code4nigel)\n")
+            append("ChordPlay v$version by shivanshu (code4nigel)\n")
             withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay", linkStyles)) {
-                append("GitHub")
+                append("ChordPlay GitHub")
             }
-            append("   ")
-            withLink(LinkAnnotation.Url("https://github.com/code4nigel", linkStyles)) {
-                append("Developer")
-            }
-            append("   ")
-            withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay/releases", linkStyles)) {
-                append("Releases")
-            }
-            append("\nBased on BitChord by Kushagra Singh\n")
+            append("\n\nBased on BitChord\n")
             withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
-                append("GitHub")
-            }
-            append("   ")
-            withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
-                append("Developer")
-            }
-            append("   ")
-            withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord/releases", linkStyles)) {
-                append("Releases")
+                append("BitChord GitHub")
             }
         },
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         textAlign = TextAlign.Center,
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 8.dp),
+            .padding(vertical = 12.dp),
     )
 }

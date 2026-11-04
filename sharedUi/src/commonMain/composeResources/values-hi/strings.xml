@@ -200,4 +200,21 @@
     <string name="search_library_empty">आपके लोकल म्यूज़िक फ़ोल्डर के गाने खोजें.</string>
     <string name="search_library_hint">गाने, कलाकार और एल्बम</string>
     <string name="search_library_no_results">लोकल म्यूज़िक में “%1$s” से मेल खाता कुछ नहीं.</string>
+    <string name="your_space">आपका स्पेस</string>
+    <string name="roll_a_dice">पासा फेंकें</string>
+    <string name="instant_discovery_mix">त्वरित खोज मिक्स</string>
+    <string name="lyrics_options">बोल के विकल्प</string>
+    <string name="lyrics_options_subtitle">टाइपोग्राफी, समय ऑफ़सेट और दिखावट कस्टमाइज़ करें</string>
+    <string name="sync_offset">सिंक ऑफ़सेट</string>
+    <string name="font_family">फ़ॉन्ट फ़ैमिली</string>
+    <string name="upload_custom_font">कस्टम फ़ॉन्ट अपलोड करें</string>
+    <string name="import_font_hint">डिवाइस से .ttf या .otf फ़ॉन्ट आयात करें</string>
+    <string name="text_size">टेक्स्ट का आकार</string>
+    <string name="font_weight">फ़ॉन्ट मोटाई</string>
+    <string name="text_alignment">टेक्स्ट संरेखण</string>
+    <string name="align_left">बाएं</string>
+    <string name="align_center">मध्य</string>
+    <string name="browse">ब्राउज़ करें</string>
+    <string name="change">बदलें</string>
+    <string name="music_feels_better">आपके साथ संगीत और बेहतर लगता है</string>
 </resources>

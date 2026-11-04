@@ -270,18 +270,25 @@ val MonochromeLightColors = lightColorScheme(
 // -------------------------------------------------------------------------
 // Modern Elevated Typography
 // -------------------------------------------------------------------------
-val ChordPlayTypography = Typography(
-    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = 0.sp),
-    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 28.sp, letterSpacing = (-0.2).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = 0.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = 0.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = 0.1.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = 0.2.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = 0.2.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 13.sp, letterSpacing = 0.4.sp),
-    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, letterSpacing = 0.3.sp),
-    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, letterSpacing = 0.3.sp),
-).withFamily(SFProDisplay)
+fun chordPlayTypography(family: androidx.compose.ui.text.font.FontFamily = SFProDisplay) = Typography(
+    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
+    displayMedium = TextStyle(fontWeight = FontWeight.W800, fontSize = 28.sp, letterSpacing = (-0.6).sp),
+    displaySmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 24.sp, letterSpacing = (-0.5).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.45).sp),
+    headlineSmall = TextStyle(fontWeight = FontWeight.W700, fontSize = 18.sp, letterSpacing = (-0.3).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.35).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
+    titleSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 14.sp, letterSpacing = (-0.15).sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp, letterSpacing = (-0.1).sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp, letterSpacing = (-0.1).sp),
+    bodySmall = TextStyle(fontWeight = FontWeight.W400, fontSize = 12.sp, letterSpacing = 0.sp),
+    labelLarge = TextStyle(fontWeight = FontWeight.W600, fontSize = 13.sp, letterSpacing = (-0.1).sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp, letterSpacing = 0.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, letterSpacing = 0.sp),
+).withFamily(family)
+
+val ChordPlayTypography = chordPlayTypography()
 
 /**
  * ChordPlay Modern design system theme provider.
@@ -294,6 +301,8 @@ fun ChordPlayTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
+    val amoledDarkMode by AppSettings.amoledDarkMode.collectAsStateWithLifecycle()
+    val appFontChoice by AppSettings.appFontChoice.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
     val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
     val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
@@ -492,12 +501,32 @@ fun ChordPlayTheme(
         }
     }
 
+    val effectiveColorScheme = if (darkTheme && amoledDarkMode) {
+        colorScheme.copy(
+            background = Color.Black,
+            surface = Color(0xFF050507),
+            surfaceVariant = Color(0xFF0E0E12),
+            outline = colorScheme.primary.copy(alpha = 0.28f),
+        )
+    } else {
+        colorScheme
+    }
+
+    val effectiveExtendedColors = if (darkTheme && amoledDarkMode) {
+        extendedColors.copy(
+            surfaceGlass = Color(0xFF08080C).copy(alpha = 0.88f),
+            borderHighlight = colorScheme.primary.copy(alpha = 0.24f),
+        )
+    } else {
+        extendedColors
+    }
+
     CompositionLocalProvider(
-        LocalChordPlayExtendedColors provides extendedColors,
+        LocalChordPlayExtendedColors provides effectiveExtendedColors,
     ) {
         MaterialTheme(
-            colorScheme = colorScheme,
-            typography = ChordPlayTypography,
+            colorScheme = effectiveColorScheme,
+            typography = chordPlayTypography(fontFamilyFor(appFontChoice)),
             content = content,
         )
     }

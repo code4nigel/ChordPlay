@@ -238,28 +238,39 @@ fun LibraryScreen(
                     )
                 }
 
+                // Always render local downloads regardless of online connection or sign-in state
+                if (selectedFilter == LibraryFilter.DOWNLOADS) {
+                    val downloadsItem = links.firstOrNull { it.item.browseId == "local:downloads" }?.item
+                        ?: ShelfItem(
+                            title = downloadedLabel,
+                            subtitle = "",
+                            thumbnailUrl = null,
+                            videoId = null,
+                            browseId = "local:downloads",
+                        )
+                    val downloadItems = (listOf(downloadsItem) + deviceItems)
+                        .distinctBy { it.browseId ?: it.title }
+                        .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+                    if (downloadItems.isEmpty()) {
+                        item(key = "empty_downloads") {
+                            MessageState(
+                                message = if (searchQuery.isNotBlank()) "No downloads match your search" else "No downloaded music on this device",
+                            )
+                        }
+                    } else {
+                        renderLibraryItems(
+                            items = downloadItems,
+                            viewMode = libraryViewMode,
+                            pinnedPlaylists = pinnedPlaylists.toSet(),
+                            onShelfItemClick = onShelfItemClick,
+                            onShelfItemLongPress = onShelfItemLongPress,
+                        )
+                    }
+                    return@LazyColumn
+                }
+
                 if (!signedIn) {
                     when (selectedFilter) {
-                        LibraryFilter.DOWNLOADS -> {
-                            val downloadItems = (links.map { it.item } + deviceItems)
-                                .distinctBy { it.browseId ?: it.title }
-                                .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
-                            if (downloadItems.isEmpty()) {
-                                item(key = "empty_downloads") {
-                                    MessageState(
-                                        message = if (searchQuery.isNotBlank()) "No downloads match your search" else "No downloaded music on this device",
-                                    )
-                                }
-                            } else {
-                                renderLibraryItems(
-                                    items = downloadItems,
-                                    viewMode = libraryViewMode,
-                                    pinnedPlaylists = pinnedPlaylists.toSet(),
-                                    onShelfItemClick = onShelfItemClick,
-                                    onShelfItemLongPress = onShelfItemLongPress,
-                                )
-                            }
-                        }
                         LibraryFilter.PLAYLISTS -> {
                             if (searchQuery.isBlank()) {
                                 item(key = "new_playlist") {
@@ -310,12 +321,106 @@ fun LibraryScreen(
 
                 when (state) {
                     is UiState.Loading -> librarySkeleton()
-                    is UiState.Error -> item {
-                        MessageState(
-                            state.message,
-                            actionLabel = stringResource(Res.string.retry),
-                            onAction = onRetry,
-                        )
+                    is UiState.Error -> {
+                        when (selectedFilter) {
+                            LibraryFilter.PLAYLISTS -> {
+                                if (searchQuery.isBlank()) {
+                                    item(key = "new_playlist") {
+                                        NewPlaylistActionRow(onClick = onNewPlaylist)
+                                    }
+                                    if (onImportSpotifyPlaylist != null) {
+                                        item(key = "import_spotify") {
+                                            ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
+                                        }
+                                    }
+                                    if (onOpenSpotify != null) {
+                                        item(key = "spotify_playlists") {
+                                            SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
+                                        }
+                                    }
+                                }
+                                val offlinePlaylists = deviceItems.filter {
+                                    it.browseId?.startsWith("local:playlist") == true ||
+                                        it.subtitle.contains("playlist", ignoreCase = true) ||
+                                        it.title.contains("playlist", ignoreCase = true)
+                                }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+
+                                if (offlinePlaylists.isNotEmpty()) {
+                                    renderLibraryItems(
+                                        items = offlinePlaylists,
+                                        viewMode = libraryViewMode,
+                                        pinnedPlaylists = pinnedPlaylists.toSet(),
+                                        onShelfItemClick = onShelfItemClick,
+                                        onShelfItemLongPress = onShelfItemLongPress,
+                                    )
+                                } else {
+                                    item(key = "empty_playlists") {
+                                        MessageState(
+                                            state.message,
+                                            actionLabel = stringResource(Res.string.retry),
+                                            onAction = onRetry,
+                                        )
+                                    }
+                                }
+                            }
+                            LibraryFilter.ALBUMS -> {
+                                val offlineAlbums = deviceItems.filter {
+                                    val id = it.browseId
+                                    !id.isNullOrBlank() &&
+                                        !id.startsWith("local:playlist") &&
+                                        !it.subtitle.contains("playlist", ignoreCase = true)
+                                }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+
+                                if (offlineAlbums.isNotEmpty()) {
+                                    renderLibraryItems(
+                                        items = offlineAlbums,
+                                        viewMode = libraryViewMode,
+                                        pinnedPlaylists = pinnedPlaylists.toSet(),
+                                        onShelfItemClick = onShelfItemClick,
+                                        onShelfItemLongPress = onShelfItemLongPress,
+                                    )
+                                } else {
+                                    item(key = "empty_albums") {
+                                        MessageState(
+                                            state.message,
+                                            actionLabel = stringResource(Res.string.retry),
+                                            onAction = onRetry,
+                                        )
+                                    }
+                                }
+                            }
+                            LibraryFilter.ALL -> {
+                                val offlineItems = (links.map { it.item } + deviceItems)
+                                    .distinctBy { it.browseId ?: it.title }
+                                    .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+                                if (offlineItems.isNotEmpty()) {
+                                    renderLibraryItems(
+                                        items = offlineItems,
+                                        viewMode = libraryViewMode,
+                                        pinnedPlaylists = pinnedPlaylists.toSet(),
+                                        onShelfItemClick = onShelfItemClick,
+                                        onShelfItemLongPress = onShelfItemLongPress,
+                                    )
+                                } else {
+                                    item(key = "offline_empty") {
+                                        MessageState(
+                                            state.message,
+                                            actionLabel = stringResource(Res.string.retry),
+                                            onAction = onRetry,
+                                        )
+                                    }
+                                }
+                            }
+                            else -> {
+                                item(key = "offline_artists") {
+                                    MessageState(
+                                        state.message,
+                                        actionLabel = stringResource(Res.string.retry),
+                                        onAction = onRetry,
+                                    )
+                                }
+                            }
+                        }
                     }
                     is UiState.Success -> {
                         val shelves = state.data.shelves
@@ -411,10 +516,17 @@ fun LibraryScreen(
                                         }
                                     }
                                 }
+                                val localAndDownloadedPlaylists = deviceItems.filter {
+                                    it.browseId?.startsWith("local:playlist") == true ||
+                                        it.subtitle.contains("playlist", ignoreCase = true) ||
+                                        it.title.contains("playlist", ignoreCase = true)
+                                }
                                 val playlistShelf = shelves.firstOrNull {
                                     it.title == PLAYLISTS || it.title.equals("Playlists", ignoreCase = true)
                                 }
-                                val playlists = playlistShelf?.pinnedFirst(pinnedPlaylists)?.items.orEmpty()
+                                val remotePlaylists = playlistShelf?.pinnedFirst(pinnedPlaylists)?.items.orEmpty()
+                                val playlists = (localAndDownloadedPlaylists + remotePlaylists)
+                                    .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
                                 if (playlists.isEmpty()) {
@@ -435,10 +547,18 @@ fun LibraryScreen(
                             }
 
                             LibraryFilter.ALBUMS -> {
+                                val localAndDownloadedAlbums = deviceItems.filter {
+                                    val id = it.browseId
+                                    !id.isNullOrBlank() &&
+                                        !id.startsWith("local:playlist") &&
+                                        !it.subtitle.contains("playlist", ignoreCase = true)
+                                }
                                 val albumShelf = shelves.firstOrNull {
                                     it.title.equals("Albums", ignoreCase = true)
                                 }
-                                val albums = albumShelf?.items.orEmpty()
+                                val remoteAlbums = albumShelf?.items.orEmpty()
+                                val albums = (localAndDownloadedAlbums + remoteAlbums)
+                                    .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
                                 if (albums.isEmpty()) {

@@ -48,6 +48,11 @@ import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.VideoQuality
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -198,6 +203,8 @@ fun SongActionsSheet(
     presentation: SongActionsPresentation = SongActionsPresentation.Sheet,
 ) {
     var pickingSleepTimer by remember { mutableStateOf(false) }
+    var pickingVideoQuality by remember { mutableStateOf(false) }
+    val currentVideoQuality by AppSettings.videoQuality.collectAsStateWithLifecycle()
     val menu = presentation == SongActionsPresentation.Menu
     // Read from the thumbnail the row that opened this sheet was already
     // showing, not a larger copy of it: the tint is a blur and a handful of
@@ -266,6 +273,14 @@ fun SongActionsSheet(
                     onClick = it,
                 )
             }
+            if (!isAudioVersion || song.isVideo) {
+                ActionRow(
+                    icon = Icons.Rounded.HighQuality,
+                    label = "Video Quality • ${currentVideoQuality.label}",
+                    accent = palette.accent,
+                    onClick = { pickingVideoQuality = true },
+                )
+            }
             GroupSeparator(palette)
         }
 
@@ -292,7 +307,7 @@ fun SongActionsSheet(
             )
             ActionRow(
                 icon = Icons.Rounded.PushPin,
-                label = if (isSpeedDialPinned) "Unpin from Speed Dial" else "Pin to Speed Dial",
+                label = if (isSpeedDialPinned) stringResource(R.string.unpin_from_your_space) else stringResource(R.string.pin_to_your_space),
                 accent = palette.accent,
                 onClick = {
                     AppSettings.togglePinSpeedDial(
@@ -407,6 +422,52 @@ fun SongActionsSheet(
         HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
         rows()
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (pickingVideoQuality) {
+        AlertDialog(
+            onDismissRequest = { pickingVideoQuality = false },
+            title = { Text("Video Streaming Quality") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    VideoQuality.entries.forEach { q ->
+                        val selected = q == currentVideoQuality
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    AppSettings.setVideoQuality(q)
+                                    pickingVideoQuality = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = q.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (selected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { pickingVideoQuality = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
     }
 }
 

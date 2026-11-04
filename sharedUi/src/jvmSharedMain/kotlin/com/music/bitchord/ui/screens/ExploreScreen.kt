@@ -154,42 +154,37 @@ private fun MoodGenreCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tone = remember(item.stripeColor, item.title) { moodTone(item) }
     Box(
         modifier = modifier
             .aspectRatio(MOOD_CARD_ASPECT)
             .clip(MOOD_CARD_SHAPE)
-            .background(tone.stripe)
+            .background(Color(0xFF1E1E24))
             .clickable(onClick = onClick),
     ) {
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .fillMaxWidth(1f - MOOD_STRIPE_FRACTION)
-                .background(tone.placeholder),
-        ) {
-            item.thumbnailUrl?.let { artwork ->
-                AsyncImage(
-                    model = artwork,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    colorFilter = tone.duotone,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+        item.thumbnailUrl?.let { artwork ->
+            AsyncImage(
+                model = artwork,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
-        // Pale stripes (Energize's cream, Feel good's mint) would swallow
-        // white type; a soft shade under the title keeps it legible.
+        // Contrast scrim over artwork so title text stays crisp and readable
         Box(
             Modifier
                 .matchParentSize()
-                .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = .24f), .62f to Color.Transparent)),
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.55f),
+                        0.45f to Color.Black.copy(alpha = 0.20f),
+                        1f to Color.Black.copy(alpha = 0.60f),
+                    ),
+                ),
         )
         Text(
             text = item.title,
             style = MaterialTheme.typography.titleMedium.copy(
-                shadow = Shadow(Color.Black.copy(alpha = .35f), offset = Offset(0f, 1f), blurRadius = 6f),
+                shadow = Shadow(Color.Black.copy(alpha = .65f), offset = Offset(0f, 1f), blurRadius = 8f),
             ),
             fontWeight = FontWeight.Bold,
             color = Color.White,

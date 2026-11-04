@@ -1328,4 +1328,59 @@
     <string name="spotify_library_subtitle">Twoje playlisty Spotify</string>
     <string name="spotify_sign_in">Zaloguj się przez Spotify</string>
     <string name="spotify_track_unavailable">Nie znaleziono tego utworu w YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string></resources>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>
+    <!-- Checkout / Hub in Settings -->
+    <string name="checkout">Wyróżnione</string>
+    <string name="play_together">Wspólne odtwarzanie</string>
+    <string name="play_together_active_desc">Połączono z aktywnym pokojem odsłuchu</string>
+    <string name="play_together_inactive_desc">Załóż lub dołącz do zsynchronizowanego pokoju</string>
+    <string name="spotify_connected_desc">Połączono z pętlami wideo Canvas</string>
+    <string name="spotify_connect_desc">Zaloguj się, aby synchronizować Canvas i teksty Spotify</string>
+    <string name="glass_intensity">Intensywność szkła</string>
+    <string name="glass_refraction_desc">Załamanie światła i rozmycie tła</string>
+    <string name="preferences_header">PREFERENCJE</string>
+    <string name="results_header">WYNIKI</string>
+
+    <!-- Downloads Section -->
+    <string name="save_to_custom_download_location">Zapisuj pobrane do własnej lokalizacji</string>
+    <string name="save_to_custom_download_location_subtitle">Zapisuj pobrane utwory w wybranym folderze</string>
+    <string name="download_location">Lokalizacja pobierania</string>
+    <string name="download_lyrics_offline">Pobieraj teksty offline</string>
+    <string name="download_lyrics_offline_subtitle">Zapisuj zsynchronizowane teksty słowo po słowie i wers po wersie offline z muzyką</string>
+    <string name="offline_lyrics_disclaimer_title">Zsynchronizowane teksty offline</string>
+    <string name="offline_lyrics_disclaimer_message">Po włączeniu zsynchronizowane teksty (zarówno słowo po słowie, jak i wers po wersie) będą zapisywane offline razem z Twoją muzyką w folderze Download/Music/ChordPlay/lyrics, aby móc cieszyć się tekstami także bez dostępu do sieci.\n\nWłączając tę opcję, akceptujesz te warunki. Jeśli dostawca tekstów wyrazi sprzeciw, napisz do mnie na adres impemailsyuess@gmail.com.</string>
+    <string name="agree_and_enable">Zgadzam się i włącz</string>
+
+    <!-- Preserve Style & Your Space -->
+    <string name="preserve_style">Zachowaj styl</string>
+    <string name="preserve_current_style">Zachowaj bieżący styl</string>
+    <string name="preserve_style_desc">Zapisz ulubione motywy kolorystyczne z okładek utworów w menu profilu (do 5).</string>
+    <string name="your_space">Twoja przestrzeń</string>
+    <string name="pin_to_your_space">Przypnij do Twojej przestrzeni</string>
+    <string name="unpin_from_your_space">Odepnij z Twojej przestrzeni</string>
+    <string name="roll_a_dice">Rzuć kostką</string>
+    <string name="instant_discovery_mix">Błyskawiczny miks odkryć</string>
+    <string name="lyrics_options">Opcje tekstu</string>
+    <string name="lyrics_options_subtitle">Dostosuj typografię, przesunięcie czasowe i wygląd</string>
+    <string name="sync_offset">Przesunięcie synchronizacji</string>
+    <string name="font_family">Rodzina czcionki</string>
+    <string name="upload_custom_font">Wgraj własną czcionkę</string>
+    <string name="import_font_hint">Importuj plik .ttf lub .otf z urządzenia</string>
+    <string name="text_size">Rozmiar tekstu</string>
+    <string name="font_weight">Grubość czcionki</string>
+    <string name="text_alignment">Wyrównanie tekstu</string>
+    <string name="align_left">Do lewej</string>
+    <string name="align_center">Do środka</string>
+    <string name="browse">Przeglądaj</string>
+    <string name="change">Zmień</string>
+    <string name="arrange_home_shelves">Układaj i przełączaj półki strony głównej</string>
+
+    <!-- Add Songs to Playlist Sheet -->
+    <string name="add_songs_to_playlist">Dodaj utwory do playlisty</string>
+    <string name="search_songs_to_add">Wyszukaj utwory do dodania…</string>
+    <string name="suggested_for_playlist">Sugerowane dla tej playlisty</string>
+    <string name="recommended_songs">Polecane utwory</string>
+    <string name="searching_songs">Wyszukiwanie utworów…</string>
+    <string name="no_songs_found">Nie znaleziono utworów</string>
+    <string name="added">Dodano</string>
+</resources>

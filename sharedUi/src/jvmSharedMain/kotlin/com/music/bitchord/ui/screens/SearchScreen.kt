@@ -254,6 +254,7 @@ fun SearchScreen(
                     options = currentFilters.map { it.label },
                     selectedIndex = currentFilters.indexOf(filter).coerceAtLeast(0),
                     onSelect = { index -> onFilterChange(currentFilters[index]) },
+                    accentColor = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 6.dp),
                 )
             }

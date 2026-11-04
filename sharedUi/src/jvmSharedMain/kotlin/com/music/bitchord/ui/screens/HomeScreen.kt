@@ -68,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,6 +91,7 @@ import com.music.bitchord.data.model.UiState
 import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.LibraryViewType
+import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
@@ -157,10 +159,13 @@ fun HomeScreen(
     currentSong: Song? = null,
     isPlaying: Boolean = false,
     onLuckyDialClick: (() -> Unit)? = null,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
     val speedDialLayoutMode by AppUi.host.speedDialLayoutMode.collectAsStateWithLifecycle()
+    val homeShelfOrder by AppUi.host.homeShelfOrder.collectAsStateWithLifecycle()
+    val disabledHomeShelves by AppUi.host.disabledHomeShelves.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
 
     val pinnedSpeedDial by AppUi.host.pinnedSpeedDial.collectAsStateWithLifecycle()
@@ -169,15 +174,57 @@ fun HomeScreen(
     }
 
     val speedDialItems = remember(state, designStyle, selectedMood, pinnedSpeedDial) {
-        if (designStyle == AppDesignStyle.CHORDPLAY && selectedMood == HomeMood.ALL && state is UiState.Success) {
-            val recents = state.data.firstOrNull { it.title.equals(RECENTS_TITLE, ignoreCase = true) }?.items.orEmpty()
-            val otherItems = state.data
-                .filterNot { it.title.equals(RECENTS_TITLE, ignoreCase = true) }
+        if (designStyle == AppDesignStyle.CHORDPLAY && state is UiState.Success) {
+            val shelves = state.data
+            val shelfMixes = shelves.flatMap { shelf ->
+                shelf.items.filter { item ->
+                    val bId = item.browseId.orEmpty()
+                    bId.startsWith("RD") || bId.startsWith("VLRD") ||
+                        shelf.title.contains("mix", ignoreCase = true) ||
+                        item.subtitle.contains("mix", ignoreCase = true) ||
+                        item.subtitle.contains("radio", ignoreCase = true)
+                }
+            }
+            val seedTracks = shelves
+                .filter { it.title.contains("listen again", true) || it.title.contains("quick", true) || it.title.equals(RECENTS_TITLE, true) }
                 .flatMap { it.items }
-            (pinnedSpeedDial + recents + otherItems).distinctBy { it.videoId ?: it.browseId ?: it.title }
-        } else {
-            emptyList()
-        }
+                .filter { it.videoId != null }
+            val synthMixes = seedTracks.take(4).mapNotNull { t ->
+                val vid = t.videoId ?: return@mapNotNull null
+                val artist = t.subtitle.substringBefore(" • ").trim().ifBlank { t.title }
+                ShelfItem(
+                    title = "$artist Mix",
+                    subtitle = "Mix • Based on ${t.title}",
+                    thumbnailUrl = t.thumbnailUrl,
+                    videoId = null,
+                    browseId = "RDAMVM$vid",
+                )
+            }
+            val allMixes = (shelfMixes + synthMixes).distinctBy { it.browseId ?: it.title }
+            val favTracks = shelves.filter { !it.title.equals(RECENTS_TITLE, ignoreCase = true) }.flatMap { it.items }.filter { it.videoId != null }
+            val recentTracks = shelves.firstOrNull { it.title.equals(RECENTS_TITLE, ignoreCase = true) }?.items.orEmpty()
+            val rankedTracks = (favTracks + recentTracks).distinctBy { it.videoId ?: it.title }
+            val collections = shelves.flatMap { it.items }.filter { it.browseId != null && !it.browseId!!.startsWith("RD") && !it.browseId!!.startsWith("VLRD") }.distinctBy { it.browseId }
+
+            val interleaved = buildList {
+                addAll(pinnedSpeedDial)
+                var mIdx = 0; var tIdx = 0; var cIdx = 0
+                while (size < 26 && (mIdx < allMixes.size || tIdx < rankedTracks.size || cIdx < collections.size)) {
+                    if (mIdx < allMixes.size) add(allMixes[mIdx++])
+                    if (tIdx < rankedTracks.size) add(rankedTracks[tIdx++])
+                    if (cIdx < collections.size) add(collections[cIdx++])
+                    if (tIdx < rankedTracks.size) add(rankedTracks[tIdx++])
+                }
+            }.distinctBy { it.videoId ?: it.browseId ?: it.title }
+
+            if (selectedMood == HomeMood.ALL || selectedMood.keywords.isEmpty()) interleaved
+            else {
+                val moodFiltered = interleaved.filter { item ->
+                    selectedMood.keywords.any { kw -> item.title.contains(kw, true) || item.subtitle.contains(kw, true) }
+                }
+                if (moodFiltered.size >= 5) (pinnedSpeedDial + moodFiltered).distinctBy { it.videoId ?: it.browseId ?: it.title } else interleaved
+            }
+        } else emptyList()
     }
 
     PullToRefresh(
@@ -245,8 +292,46 @@ fun HomeScreen(
                     // The loading skeleton already owns the hero slot. Until
                     // Recently Played lands, every real shelf must retain its
                     // compact-card layout instead of briefly becoming a hero.
-                    // Speed Dial Grid (ChordPlay Modern only)
-                    if (speedDialItems.isNotEmpty()) {
+                    val showSpeedDial = speedDialItems.isNotEmpty() && HomeShelfKey.SPEED_DIAL !in disabledHomeShelves
+                    val speedDialIndex = homeShelfOrder.indexOf(HomeShelfKey.SPEED_DIAL)
+
+                    val orderedShelves = run {
+                        val base = if (designStyle == AppDesignStyle.CHORDPLAY) selectedMood.filterShelves(state.data) else state.data
+                        base
+                            .filter { it.toShelfKey() !in disabledHomeShelves }
+                            .sortedBy { shelf ->
+                                val idx = homeShelfOrder.indexOf(shelf.toShelfKey())
+                                if (idx == -1) 999 else idx
+                            }
+                    }
+
+                    val beforeSpeedDialShelves = if (speedDialIndex == -1 || !showSpeedDial) emptyList()
+                    else orderedShelves.filter {
+                        val idx = homeShelfOrder.indexOf(it.toShelfKey())
+                        idx in 0 until speedDialIndex
+                    }
+
+                    val afterSpeedDialShelves = if (speedDialIndex == -1 || !showSpeedDial) orderedShelves
+                    else orderedShelves.filterNot { it in beforeSpeedDialShelves }
+
+                    if (beforeSpeedDialShelves.isNotEmpty()) {
+                        itemsIndexedShelves(
+                            shelves = beforeSpeedDialShelves,
+                            onItemClick = onItemClick,
+                            onItemLongPress = onItemLongPress,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            firstIsHero = false,
+                            recentsViewType = recentsViewType,
+                            onRecentsViewTypeToggle = {
+                                AppUi.host.setHomeRecentsViewType(
+                                    if (recentsViewType == LibraryViewType.LIST) LibraryViewType.GRID else LibraryViewType.LIST
+                                )
+                            },
+                        )
+                    }
+
+                    if (showSpeedDial) {
                         item(key = "home_speed_dial_header") {
                             SpeedDialSectionHeader(
                                 layoutMode = speedDialLayoutMode,
@@ -262,7 +347,8 @@ fun HomeScreen(
                                 currentSong = currentSong,
                                 isPlaying = isPlaying,
                                 layoutMode = speedDialLayoutMode,
-                                onItemClick = { item -> onItemClick(item, "Speed Dial") },
+                                onItemClick = { item -> onItemClick(item, "Your Space") },
+                                onPlayMixClick = onPlayMixClick,
                                 onLuckyDialClick = {
                                     if (onLuckyDialClick != null) {
                                         onLuckyDialClick()
@@ -280,27 +366,22 @@ fun HomeScreen(
                         }
                     }
 
-                    itemsIndexedShelves(
-                        shelves = run {
-                            val display = if (designStyle == AppDesignStyle.CHORDPLAY) selectedMood.filterShelves(state.data) else state.data
-                            display
-                        },
-                        onItemClick = onItemClick,
-                        onItemLongPress = onItemLongPress,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        firstIsHero = leadHero && !recentlyPlayedLoading && designStyle == AppDesignStyle.CLASSIC_BITCHORD,
-                        recentsViewType = recentsViewType,
-                        onRecentsViewTypeToggle = {
-                            AppUi.host.setHomeRecentsViewType(
-                                if (recentsViewType == LibraryViewType.LIST) {
-                                    LibraryViewType.GRID
-                                } else {
-                                    LibraryViewType.LIST
-                                },
-                            )
-                        },
-                    )
+                    if (afterSpeedDialShelves.isNotEmpty()) {
+                        itemsIndexedShelves(
+                            shelves = afterSpeedDialShelves,
+                            onItemClick = onItemClick,
+                            onItemLongPress = onItemLongPress,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            firstIsHero = leadHero && !recentlyPlayedLoading && designStyle == AppDesignStyle.CLASSIC_BITCHORD && beforeSpeedDialShelves.isEmpty(),
+                            recentsViewType = recentsViewType,
+                            onRecentsViewTypeToggle = {
+                                AppUi.host.setHomeRecentsViewType(
+                                    if (recentsViewType == LibraryViewType.LIST) LibraryViewType.GRID else LibraryViewType.LIST
+                                )
+                            },
+                        )
+                    }
                     if (loadingMore) feedMoreSkeleton()
                 }
             }
@@ -344,7 +425,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     shelves.forEachIndexed { index, shelf ->
         item(key = shelf.title + index) {
             val openItem: (ShelfItem) -> Unit = { item -> onItemClick(item, shelf.title) }
-            if (index == 0 && shelf.title.equals(RECENTS_TITLE, ignoreCase = true)) {
+            if (shelf.title.equals(RECENTS_TITLE, ignoreCase = true) || shelf.title.equals("Quick picks", ignoreCase = true)) {
                 RecentShelf(
                     shelf = shelf,
                     onItemClick = openItem,
@@ -641,23 +722,22 @@ private fun ChordPlayHomeHeader(
     Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
         ) {
             Icon(
                 painter = painterResource(Res.drawable.ic_logo),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .height(logoHeight)
-                    .aspectRatio(LOGO_ASPECT),
+                modifier = Modifier.size(28.dp),
             )
             Text(
                 text = "ChordPlay",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    letterSpacing = (-0.2).sp,
+                ),
                 color = MaterialTheme.colorScheme.primary,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                letterSpacing = 0.5.sp,
             )
         }
         Box(
@@ -1053,6 +1133,7 @@ internal fun Shelf(
     currentSong: Song? = null,
     isPlaying: Boolean = false,
 ) {
+    val isVideoShelf = shelf.title.contains("video", ignoreCase = true) || shelf.items.any { it.isVideo }
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(shelf.title, shelf.subtitle)
         ShelfRow(
@@ -1067,6 +1148,7 @@ internal fun Shelf(
                     onLongPress = onItemLongPress?.let { { it(item) } },
                     isCurrent = item.matchesCurrentlyPlaying(currentSong),
                     isPlaying = item.matchesCurrentlyPlaying(currentSong) && isPlaying,
+                    isVideo = isVideoShelf || item.isVideo,
                 )
             }
         }
@@ -1171,7 +1253,8 @@ internal fun ShelfCard(
     item: ShelfItem,
     onClick: () -> Unit,
     onLongPress: (() -> Unit)? = null,
-    modifier: Modifier = Modifier.width(SHELF_CARD_WIDTH),
+    isVideo: Boolean = false,
+    modifier: Modifier = if (isVideo) Modifier.width(220.dp) else Modifier.width(SHELF_CARD_WIDTH),
     /** Set on a Library playlist card that's in [AppSettings.pinnedPlaylists][com.music.bitchord.data.settings.AppSettings.pinnedPlaylists]. */
     isPinned: Boolean = false,
     isCurrent: Boolean = false,
@@ -1227,15 +1310,16 @@ internal fun ShelfCard(
                 icon = Icons.Rounded.Storage,
             )
             else -> {
+                val cardShape = RoundedCornerShape(if (isVideo) 16.dp else if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f)
+                        .aspectRatio(if (isVideo) 16f / 9f else 1f)
                         .then(
-                            if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
+                            if (!isVideo && AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
                                 Modifier.shadow(
                                     elevation = 6.dp,
-                                    shape = RoundedCornerShape(20.dp),
+                                    shape = cardShape,
                                     spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                     ambientColor = Color.Black.copy(alpha = 0.3f),
                                 )
@@ -1243,8 +1327,8 @@ internal fun ShelfCard(
                                 Modifier
                             },
                         )
-                        .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
-                        .thumbnailBorder(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
+                        .clip(cardShape)
+                        .thumbnailBorder(cardShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 ) {
                     AsyncImage(
@@ -1254,6 +1338,24 @@ internal fun ShelfCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (isCurrent && isPlaying) SearchPlayingBars(Modifier.align(Alignment.Center))
+                    if (isVideo) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.Black.copy(alpha = 0.75f))
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = "VIDEO",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = 10.sp,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1288,5 +1390,23 @@ internal fun ShelfCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+private fun HomeShelf.toShelfKey(): HomeShelfKey {
+    val t = title.lowercase()
+    return when {
+        t.contains("quick pick") || t.equals(RECENTS_TITLE, ignoreCase = true) -> HomeShelfKey.QUICK_PICKS
+        t.contains("top pick") -> HomeShelfKey.TOP_PICKS
+        t.contains("similar to") || t.contains("similar") || t.contains("tương tự") -> HomeShelfKey.SIMILAR_TO
+        t.contains("community") || t.contains("cộng đồng") || t.contains("コミュニティ") -> HomeShelfKey.COMMUNITY_PLAYLISTS
+        t.contains("featured playlist") -> HomeShelfKey.FEATURED_PLAYLISTS
+        t.contains("chart") || t.contains("trending") || t.contains("bảng xếp hạng") || t.contains("thịnh hành") || t.contains("hits today") || t.contains("today's hits") -> HomeShelfKey.CHARTS
+        t.contains("remix") -> HomeShelfKey.REMIXES
+        t.contains("video") -> HomeShelfKey.MUSIC_VIDEOS
+        t.contains("mixed for you") || t.contains("my mix") || t.contains("mixes") -> HomeShelfKey.MIXED_FOR_YOU
+        t.contains("listen again") || t.contains("favorite") || t.contains("rotation") || t.contains("nghe lại") || t.contains("quen thuộc") -> HomeShelfKey.LISTEN_AGAIN
+        t.contains("new release") || t.contains("bản phát hành mới") || t.contains("mới") -> HomeShelfKey.NEW_RELEASES
+        else -> HomeShelfKey.OTHER
     }
 }

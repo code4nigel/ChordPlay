@@ -1289,4 +1289,59 @@
     <string name="spotify_library_subtitle">आपकी Spotify प्लेलिस्ट</string>
     <string name="spotify_sign_in">Spotify से साइन इन करें</string>
     <string name="spotify_track_unavailable">वह गाना YouTube Music पर नहीं मिला</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string></resources>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>
+    <!-- Checkout / Hub in Settings -->
+    <string name="checkout">त्वरित पहुँच</string>
+    <string name="play_together">साथ में सुनें</string>
+    <string name="play_together_active_desc">सक्रिय लिसनिंग रूम कनेक्टेड है</string>
+    <string name="play_together_inactive_desc">सिंक्रनाइज़्ड रूम होस्ट करें या जुड़ें</string>
+    <string name="spotify_connected_desc">कैनवास वीडियो लूप के लिए कनेक्टेड</string>
+    <string name="spotify_connect_desc">स्पॉटिफ़ाई कैनवास और बोल सिंक करने के लिए साइन इन करें</string>
+    <string name="glass_intensity">ग्लास तीव्रता</string>
+    <string name="glass_refraction_desc">बैकड्रॉप अपवर्तन और ब्लर</string>
+    <string name="preferences_header">प्राथमिकताएं</string>
+    <string name="results_header">परिणाम</string>
+
+    <!-- Downloads Section -->
+    <string name="save_to_custom_download_location">कस्टम स्थान पर डाउनलोड सहेजें</string>
+    <string name="save_to_custom_download_location_subtitle">डाउनलोड किए गए ऑडियो को अपनी पसंद के फ़ोल्डर में रखें</string>
+    <string name="download_location">डाउनलोड स्थान</string>
+    <string name="download_lyrics_offline">ऑफ़लाइन बोल डाउनलोड करें</string>
+    <string name="download_lyrics_offline_subtitle">संगीत के साथ शब्द-दर-शब्द और पंक्ति-दर-पंक्ति सिंक किए गए बोल ऑफ़लाइन सहेजें</string>
+    <string name="offline_lyrics_disclaimer_title">ऑफ़लाइन सिंक्रोनाइज़्ड बोल</string>
+    <string name="offline_lyrics_disclaimer_message">सक्षम होने पर, सिंक किए गए बोल (शब्द-दर-शब्द और पंक्ति-दर-पंक्ति दोनों) आपके संगीत के साथ Download/Music/ChordPlay/lyrics पर ऑफ़लाइन सहेजे जाएंगे ताकि आप इंटरनेट के बिना भी सिंक किए गए बोलों का आनंद ले सकें।\n\nइस विकल्प को चालू करके, आप इन शर्तों से सहमत होते हैं। यदि कोई गीत-बोल प्रदाता असंतुष्ट है, तो कृपया मुझे impemailsyuess@gmail.com पर ईमेल करें।</string>
+    <string name="agree_and_enable">सहमत हों और चालू करें</string>
+
+    <!-- Preserve Style & Your Space -->
+    <string name="preserve_style">शैली सुरक्षित करें</string>
+    <string name="preserve_current_style">वर्तमान शैली सुरक्षित करें</string>
+    <string name="preserve_style_desc">प्रोफ़ाइल मेनू से अपने पसंदीदा गाने के कला रंग सुरक्षित करें (5 तक)।</string>
+    <string name="your_space">आपका स्पेस</string>
+    <string name="pin_to_your_space">अपने स्पेस में पिन करें</string>
+    <string name="unpin_from_your_space">अपने स्पेस से अनपिन करें</string>
+    <string name="roll_a_dice">पासा फेंकें</string>
+    <string name="instant_discovery_mix">त्वरित खोज मिक्स</string>
+    <string name="lyrics_options">बोल के विकल्प</string>
+    <string name="lyrics_options_subtitle">टाइपोग्राफी, समय ऑफ़सेट और दिखावट कस्टमाइज़ करें</string>
+    <string name="sync_offset">सिंक ऑफ़सेट</string>
+    <string name="font_family">फ़ॉन्ट फ़ैमिली</string>
+    <string name="upload_custom_font">कस्टम फ़ॉन्ट अपलोड करें</string>
+    <string name="import_font_hint">डिवाइस से .ttf या .otf फ़ॉन्ट आयात करें</string>
+    <string name="text_size">टेक्स्ट का आकार</string>
+    <string name="font_weight">फ़ॉन्ट मोटाई</string>
+    <string name="text_alignment">टेक्स्ट संरेखण</string>
+    <string name="align_left">बाएं</string>
+    <string name="align_center">मध्य</string>
+    <string name="browse">ब्राउज़ करें</string>
+    <string name="change">बदलें</string>
+    <string name="arrange_home_shelves">होम अलमारियों को व्यवस्थित और टॉगल करें</string>
+
+    <!-- Add Songs to Playlist Sheet -->
+    <string name="add_songs_to_playlist">प्लेलिस्ट में गाने जोड़ें</string>
+    <string name="search_songs_to_add">जोड़ने के लिए गाने खोजें…</string>
+    <string name="suggested_for_playlist">इस प्लेलिस्ट के लिए सुझाए गए</string>
+    <string name="recommended_songs">सुझाए गए गाने</string>
+    <string name="searching_songs">गाने खोज रहे हैं…</string>
+    <string name="no_songs_found">कोई गाना नहीं मिला</string>
+    <string name="added">जोड़ा गया</string>
+</resources>

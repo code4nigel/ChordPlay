@@ -38,12 +38,16 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Casino
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.*
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,7 +94,7 @@ fun SpeedDialSectionHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = "Speed Dial",
+            text = stringResource(Res.string.your_space),
             style = MaterialTheme.typography.headlineMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -132,6 +136,7 @@ fun HomeSpeedDial(
     modifier: Modifier = Modifier,
     layoutMode: SpeedDialLayoutMode = SpeedDialLayoutMode.TWO_BY_THREE,
     onItemLongPress: ((ShelfItem) -> Unit)? = null,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
 
@@ -145,6 +150,7 @@ fun HomeSpeedDial(
                 onItemClick = onItemClick,
                 onLuckyDialClick = onLuckyDialClick,
                 onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
                 modifier = modifier,
             )
         }
@@ -157,6 +163,7 @@ fun HomeSpeedDial(
                 onItemClick = onItemClick,
                 onLuckyDialClick = onLuckyDialClick,
                 onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
                 modifier = modifier,
             )
         }
@@ -185,6 +192,7 @@ private fun HomeSpeedDialTwoByThree(
     onLuckyDialClick: () -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     modifier: Modifier = Modifier,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     // Page 1 gets up to 5 items + Lucky Dial in slot 5
     val page1Items = items.take(5)
@@ -228,6 +236,7 @@ private fun HomeSpeedDialTwoByThree(
                             isPlaying = isPlaying,
                             onItemClick = onItemClick,
                             onItemLongPress = onItemLongPress,
+                            onPlayMixClick = onPlayMixClick,
                         )
                         SpeedDialRow(
                             item1 = page1Items.getOrNull(2),
@@ -237,6 +246,7 @@ private fun HomeSpeedDialTwoByThree(
                             isPlaying = isPlaying,
                             onItemClick = onItemClick,
                             onItemLongPress = onItemLongPress,
+                            onPlayMixClick = onPlayMixClick,
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -252,6 +262,7 @@ private fun HomeSpeedDialTwoByThree(
                                     isCompact = false,
                                     onItemClick = onItemClick,
                                     onItemLongPress = onItemLongPress,
+                                    onPlayMixClick = onPlayMixClick,
                                     modifier = Modifier.weight(1f),
                                 )
                             } else {
@@ -277,6 +288,7 @@ private fun HomeSpeedDialTwoByThree(
                                 isPlaying = isPlaying,
                                 onItemClick = onItemClick,
                                 onItemLongPress = onItemLongPress,
+                                onPlayMixClick = onPlayMixClick,
                             )
                         }
                         repeat(3 - rows.size) {
@@ -372,6 +384,7 @@ private fun HomeSpeedDialThreeByThree(
     onLuckyDialClick: () -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     modifier: Modifier = Modifier,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     // Page 1 gets up to 8 items + Lucky Dial in slot 8 (row 3, col 3)
     val page1Items = items.take(8)
@@ -416,6 +429,7 @@ private fun HomeSpeedDialThreeByThree(
                             isPlaying = isPlaying,
                             onItemClick = onItemClick,
                             onItemLongPress = onItemLongPress,
+                            onPlayMixClick = onPlayMixClick,
                         )
                         // Row 2: items 3, 4, 5
                         SpeedDialRow3(
@@ -427,6 +441,7 @@ private fun HomeSpeedDialThreeByThree(
                             isPlaying = isPlaying,
                             onItemClick = onItemClick,
                             onItemLongPress = onItemLongPress,
+                            onPlayMixClick = onPlayMixClick,
                         )
                         // Row 3: items 6, 7 + Lucky Dial in slot 8
                         Row(
@@ -443,6 +458,7 @@ private fun HomeSpeedDialThreeByThree(
                                     isCompact = true,
                                     onItemClick = onItemClick,
                                     onItemLongPress = onItemLongPress,
+                                    onPlayMixClick = onPlayMixClick,
                                     modifier = Modifier.weight(1f),
                                 )
                             } else {
@@ -459,6 +475,7 @@ private fun HomeSpeedDialThreeByThree(
                                     isCompact = true,
                                     onItemClick = onItemClick,
                                     onItemLongPress = onItemLongPress,
+                                    onPlayMixClick = onPlayMixClick,
                                     modifier = Modifier.weight(1f),
                                 )
                             } else {
@@ -484,6 +501,7 @@ private fun HomeSpeedDialThreeByThree(
                                 isPlaying = isPlaying,
                                 onItemClick = onItemClick,
                                 onItemLongPress = onItemLongPress,
+                                onPlayMixClick = onPlayMixClick,
                             )
                         }
                         repeat(3 - rows.size) {
@@ -638,6 +656,7 @@ private fun SpeedDialRow(
     isPlaying: Boolean,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     if (item1 == null && item2 == null) return
     Row(
@@ -653,6 +672,7 @@ private fun SpeedDialRow(
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -668,6 +688,7 @@ private fun SpeedDialRow(
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -686,6 +707,7 @@ private fun SpeedDialRow3(
     isPlaying: Boolean,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     if (item1 == null && item2 == null && item3 == null) return
     Row(
@@ -702,6 +724,7 @@ private fun SpeedDialRow3(
                     isCompact = true,
                     onItemClick = onItemClick,
                     onItemLongPress = onItemLongPress,
+                    onPlayMixClick = onPlayMixClick,
                     modifier = Modifier.weight(1f),
                 )
             } else {
@@ -712,6 +735,7 @@ private fun SpeedDialRow3(
 }
 
 private enum class SpeedDialItemType {
+    MIX,
     SONG,
     ALBUM,
     PLAYLIST,
@@ -723,6 +747,9 @@ private fun ShelfItem.detectType(): SpeedDialItemType {
     val vId = videoId
     val sub = subtitle.lowercase()
     return when {
+        bId?.startsWith("RD") == true || bId?.startsWith("VLRD") == true ||
+            sub.contains("mix") || sub.contains("radio") || sub.contains("station") ||
+            title.lowercase().let { it.contains("supermix") || it.contains("my mix") || it.endsWith(" mix") || it.endsWith(" radio") } -> SpeedDialItemType.MIX
         bId?.startsWith("UC") == true || sub.contains("artist") -> SpeedDialItemType.ARTIST
         bId?.startsWith("VL") == true || bId?.startsWith("PL") == true || bId?.startsWith("RD") == true || sub.contains("playlist") -> SpeedDialItemType.PLAYLIST
         bId?.startsWith("MPREb_") == true || bId?.startsWith("OLAK") == true || sub.contains("album") || sub.contains("single") || sub.contains("ep") -> SpeedDialItemType.ALBUM
@@ -735,6 +762,7 @@ private fun ShelfItem.detectType(): SpeedDialItemType {
 private fun cleanTypeSubtitle(subtitle: String, type: SpeedDialItemType): String {
     if (subtitle.isBlank()) return ""
     return when (type) {
+        SpeedDialItemType.MIX -> subtitle.removePrefix("Mix • ").removePrefix("Radio • ").trim()
         SpeedDialItemType.SONG -> subtitle.removePrefix("Song • ").trim()
         SpeedDialItemType.ALBUM -> subtitle.removePrefix("Album • ").removePrefix("Single • ").removePrefix("EP • ").trim()
         SpeedDialItemType.PLAYLIST -> subtitle.removePrefix("Playlist • ").trim()
@@ -752,6 +780,7 @@ private fun SpeedDialTile(
     onItemLongPress: ((ShelfItem) -> Unit)?,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier,
+    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     val type = item.detectType()
     val shape = RoundedCornerShape(12.dp)
@@ -767,6 +796,7 @@ private fun SpeedDialTile(
     }
 
     val tileBg = when (type) {
+        SpeedDialItemType.MIX -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f)
         SpeedDialItemType.PLAYLIST -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
         SpeedDialItemType.ALBUM -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
         SpeedDialItemType.ARTIST -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
@@ -797,6 +827,57 @@ private fun SpeedDialTile(
                 contentAlignment = Alignment.Center,
             ) {
                 when (type) {
+                    SpeedDialItemType.MIX -> {
+                        val artSize = if (isCompact) 40.dp else 46.dp
+                        Box(
+                            modifier = Modifier
+                                .size(artSize)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
+                        ) {
+                            AsyncImage(
+                                model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            // "MIX" micro-badge at Alignment.TopStart
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(2.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(MaterialTheme.colorScheme.primary)
+                                    .padding(horizontal = 3.dp, vertical = 1.dp),
+                            ) {
+                                Text(
+                                    text = "MIX",
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontSize = 7.sp,
+                                    fontWeight = FontWeight.Black,
+                                    lineHeight = 8.sp,
+                                )
+                            }
+                            // 20.dp circular Play icon button at Alignment.BottomEnd
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(2.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.75f))
+                                    .clickable { onPlayMixClick?.invoke(item) ?: onItemClick(item) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = "Play Mix",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+                    }
                     SpeedDialItemType.ARTIST -> {
                         // Circular avatar with subtle primary glow ring
                         Box(
@@ -1023,9 +1104,9 @@ private fun LuckyDialCard(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Casino,
-                    contentDescription = "Roll a Dice",
+                    contentDescription = stringResource(Res.string.roll_a_dice),
                     tint = contentColor,
-                    modifier = Modifier.size(if (isCompact) 20.dp else 24.dp),
+                    modifier = Modifier.size(if (isCompact) 28.dp else 34.dp),
                 )
             }
 
@@ -1036,7 +1117,7 @@ private fun LuckyDialCard(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = "Roll a Dice",
+                    text = stringResource(Res.string.roll_a_dice),
                     style = if (isCompact) MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold) else MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -1044,7 +1125,7 @@ private fun LuckyDialCard(
                     color = contentColor,
                 )
                 Text(
-                    text = "Instant discovery mix",
+                    text = stringResource(Res.string.instant_discovery_mix),
                     style = if (isCompact) MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp) else MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

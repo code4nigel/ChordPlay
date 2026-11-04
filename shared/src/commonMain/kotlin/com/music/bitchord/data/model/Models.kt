@@ -342,6 +342,7 @@ data class ShelfItem(
     val thumbnailUrl: String?,
     val videoId: String?,
     val browseId: String?,
+    val isVideo: Boolean = false,
 )
 
 /** The signed-in Google account, as YouTube Music reports it. */

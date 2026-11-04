@@ -52,6 +52,8 @@ param(
 
     [switch]$Clean,
 
+    [switch]$NoDaemon,
+
     [switch]$Both,
 
     [string]$DestinationDir = "version/Android"
@@ -202,6 +204,7 @@ if ($Clean) {
 }
 $gradleArgs += $taskName
 $gradleArgs += "--stacktrace"
+if ($NoDaemon) { $gradleArgs += "--no-daemon" }
 
 Write-Host "`nRunning Gradle Build: .\gradlew.bat $($gradleArgs -join ' ')" -ForegroundColor Cyan
 $sw = [System.Diagnostics.Stopwatch]::StartNew()

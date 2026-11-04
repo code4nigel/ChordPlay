@@ -64,6 +64,29 @@ val SFProDisplay = FontFamily(
     Font(R.font.sf_pro_display_heavy, FontWeight.W800),
 )
 
+val PoppinsFontFamily = FontFamily(
+    Font(R.font.poppins_regular, FontWeight.W400),
+    Font(R.font.poppins_medium, FontWeight.W500),
+    Font(R.font.poppins_semibold, FontWeight.W600),
+    Font(R.font.poppins_bold, FontWeight.W700),
+    Font(R.font.poppins_extrabold, FontWeight.W800),
+)
+
+val ParkinsansFontFamily = FontFamily(
+    Font(R.font.parkinsans_medium, FontWeight.W400),
+    Font(R.font.parkinsans_medium, FontWeight.W500),
+    Font(R.font.parkinsans_semibold, FontWeight.W600),
+    Font(R.font.parkinsans_bold, FontWeight.W700),
+    Font(R.font.parkinsans_extrabold, FontWeight.W800),
+)
+
+fun fontFamilyFor(choice: com.music.bitchord.data.settings.AppFontChoice): FontFamily = when (choice) {
+    com.music.bitchord.data.settings.AppFontChoice.APPLE_SF_PRO -> SFProDisplay
+    com.music.bitchord.data.settings.AppFontChoice.POPPINS -> PoppinsFontFamily
+    com.music.bitchord.data.settings.AppFontChoice.PARKINSANS -> ParkinsansFontFamily
+    com.music.bitchord.data.settings.AppFontChoice.SYSTEM_DEFAULT -> FontFamily.Default
+}
+
 // Heavy, tight typography — the backbone of the Apple Music look.
 val BitChordTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),

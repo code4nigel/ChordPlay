@@ -1027,6 +1027,35 @@ object StreamResolver {
         }
     }
 
+    data class ResolvedVideoStream(val url: String, val height: Int)
+    private val videoStreamCache = ConcurrentHashMap<String, ResolvedVideoStream>()
+
+    suspend fun resolveVideoStream(videoId: String, maxHeight: Int): ResolvedVideoStream? =
+        withContext(Dispatchers.IO) {
+            init
+            val cacheKey = "$videoId:$maxHeight"
+            videoStreamCache[cacheKey]?.let { return@withContext it }
+            runCatching {
+                extractionGate.withLock {
+                    val extractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
+                    extractor.fetchPage()
+                    val muxed = runCatching { extractor.videoStreams }.getOrDefault(emptyList())
+                        .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+                    val videoOnly = runCatching { extractor.videoOnlyStreams }.getOrDefault(emptyList())
+                        .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && it.format == MediaFormat.MPEG_4 }
+                    val all = (muxed + videoOnly).filter { it.height >= 240 }
+                    val picked = all.filter { it.height <= maxHeight }.maxByOrNull { it.height }
+                        ?: all.minByOrNull { it.height }
+                        ?: return@withLock null
+                    ResolvedVideoStream(url = picked.content, height = picked.height).also {
+                        videoStreamCache[cacheKey] = it
+                    }
+                }
+            }.getOrNull()
+        }
+
+
+
     /**
      * The container, which is all NewPipe's mime type reports.
      *

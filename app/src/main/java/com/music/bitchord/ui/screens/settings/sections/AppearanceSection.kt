@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
 import com.music.bitchord.data.settings.SongSwipeAction
@@ -83,6 +84,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
+import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
@@ -106,10 +108,13 @@ fun AppearanceSection(
     val haptics = LocalHapticFeedback.current
 
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
+    val amoledDarkMode by AppSettings.amoledDarkMode.collectAsStateWithLifecycle()
+    val appFontChoice by AppSettings.appFontChoice.collectAsStateWithLifecycle()
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val colorPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
     val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
     val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+    val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var paletteToRename by remember { mutableStateOf<CustomPalette?>(null) }
@@ -196,6 +201,35 @@ fun AppearanceSection(
             }
         }
 
+        // Player Interface Switcher (WavePlay vs ChordPlay OG)
+        SettingsGroup(header = "Player Interface") {
+            SettingsRow(
+                icon = Icons.Rounded.GraphicEq,
+                title = "Player Interface",
+                subtitle = "Choose between WavePlay or original ChordPlay layout",
+            )
+            SegmentedControl(
+                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.label },
+                selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
+                onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
+                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = playerInterfaceStyle.detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         // 2. Curated Atmospheric Color Palettes (When ChordPlay Modern is active)
         if (designStyle == AppDesignStyle.CHORDPLAY) {
             SettingsGroup(header = stringResource(R.string.color_palette)) {
@@ -243,7 +277,7 @@ fun AppearanceSection(
                             .padding(14.dp),
                     ) {
                         Text(
-                            text = "Preserve your favorite song-art colorways from the profile menu (up to 5).",
+                            text = stringResource(R.string.preserve_style_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -356,6 +390,36 @@ fun AppearanceSection(
                 options = ThemeMode.entries.map { it.localizedLabel() },
                 selectedIndex = ThemeMode.entries.indexOf(theme),
                 onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
+                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+            )
+            SettingsRow(
+                icon = Icons.Rounded.Brightness4,
+                title = "Pure Black (AMOLED)",
+                subtitle = "Turn dark backgrounds pure black for OLED power savings",
+                trailing = {
+                    Switch(
+                        checked = amoledDarkMode,
+                        onCheckedChange = AppSettings::setAmoledDarkMode,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setAmoledDarkMode(!amoledDarkMode) },
+            )
+        }
+
+        SettingsGroup(header = "System Typography") {
+            SettingsRow(
+                icon = Icons.Rounded.Style,
+                title = appFontChoice.label,
+                subtitle = appFontChoice.detail,
+            )
+            SegmentedControl(
+                options = AppFontChoice.entries.map { it.label },
+                selectedIndex = AppFontChoice.entries.indexOf(appFontChoice),
+                onSelect = { AppSettings.setAppFontChoice(AppFontChoice.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
             )
         }

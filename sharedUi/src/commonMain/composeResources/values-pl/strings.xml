@@ -200,4 +200,21 @@
     <string name="search_library_empty">Szukaj utworów w folderze muzyki lokalnej.</string>
     <string name="search_library_hint">Utwory, wykonawcy i albumy</string>
     <string name="search_library_no_results">NIC w muzyce lokalnej nie pasuje do „%1$s”.</string>
+    <string name="your_space">Twoja przestrzeń</string>
+    <string name="roll_a_dice">Rzuć kostką</string>
+    <string name="instant_discovery_mix">Błyskawiczny miks odkryć</string>
+    <string name="lyrics_options">Opcje tekstu</string>
+    <string name="lyrics_options_subtitle">Dostosuj typografię, przesunięcie czasowe i wygląd</string>
+    <string name="sync_offset">Przesunięcie synchronizacji</string>
+    <string name="font_family">Rodzina czcionki</string>
+    <string name="upload_custom_font">Wgraj własną czcionkę</string>
+    <string name="import_font_hint">Importuj plik .ttf lub .otf z urządzenia</string>
+    <string name="text_size">Rozmiar tekstu</string>
+    <string name="font_weight">Grubość czcionki</string>
+    <string name="text_alignment">Wyrównanie tekstu</string>
+    <string name="align_left">Do lewej</string>
+    <string name="align_center">Do środka</string>
+    <string name="browse">Przeglądaj</string>
+    <string name="change">Zmień</string>
+    <string name="music_feels_better">Z Tobą muzyka brzmi lepiej</string>
 </resources>

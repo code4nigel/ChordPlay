@@ -72,6 +72,24 @@ object CanvasRepository {
      * ([NowPlayingScreen], which checks [AppSettings.canvasOverCellular]).
      */
     suspend fun canvasFor(song: Song): CanvasArtwork? {
+        val wantsVideoStream = song.isVideo ||
+            song.title.contains("official video", ignoreCase = true) ||
+            song.title.contains("music video", ignoreCase = true) ||
+            song.title.contains("lyric video", ignoreCase = true) ||
+            song.title.contains("(lyrics)", ignoreCase = true)
+        if (wantsVideoStream && song.videoId.isNotBlank()) {
+            val maxH = AppSettings.videoQuality.value.maxHeight
+            val resolved = com.music.bitchord.data.innertube.StreamResolver.resolveVideoStream(song.videoId, maxH)
+            if (resolved != null) {
+                return CanvasArtwork(
+                    url = resolved.url,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.albumName,
+                    source = CanvasSource.OTHER,
+                )
+            }
+        }
         // Only skip when there is no catalogue identity to search on.
         if (song.videoId.isBlank() && (song.localUri != null || song.localPath != null)) return null
 
@@ -115,6 +133,12 @@ object CanvasRepository {
      * through the settling delay again to arrive back at the same clip.
      */
     fun cached(song: Song): CanvasArtwork? {
+        val wantsVideoStream = song.isVideo ||
+            song.title.contains("official video", ignoreCase = true) ||
+            song.title.contains("music video", ignoreCase = true) ||
+            song.title.contains("lyric video", ignoreCase = true) ||
+            song.title.contains("(lyrics)", ignoreCase = true)
+        if (wantsVideoStream) return null
         val key = cacheKey(
             base = "song|${song.videoId}",
             spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value,

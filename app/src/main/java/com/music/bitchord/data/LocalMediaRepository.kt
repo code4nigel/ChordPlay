@@ -322,9 +322,9 @@ object LocalMediaRepository {
         return candidate == folder.absolutePath || candidate.startsWith("${folder.absolutePath}/")
     }
 
-    private data class SelectedFolder(val absolutePath: String, val label: String)
+    internal data class SelectedFolder(val absolutePath: String, val label: String)
 
-    private fun selectedFolder(treeUri: String): SelectedFolder? = runCatching {
+    internal fun selectedFolder(treeUri: String): SelectedFolder? = runCatching {
         val documentId = DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
         if (documentId.startsWith("raw:")) {
             val path = documentId.removePrefix("raw:").normalizedPath()

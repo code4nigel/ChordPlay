@@ -158,30 +158,49 @@ fun PlaylistPickerSheet(
     LaunchedEffect(song?.videoId) {
         val target = song ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
+            val localIds = com.music.bitchord.data.spotify.LocalPlaylistStore.playlists.value
+                .filter { pl -> pl.songs.any { it.videoId == target.videoId } }
+                .map { it.id }
+                .toSet()
+
             val result = YtMusicRepository.getPlaylistsContainingSong(target.videoId)
             val containingIds = result.getOrNull()
             if (containingIds != null) {
+                val allActualContaining = (containingIds + localIds)
                 withContext(Dispatchers.Main) {
-                    initiallyPresent = initiallyPresent + containingIds
-                    val unmodified = containingIds.filter { it !in userToggledPlaylists }
-                    selected = selected + unmodified
+                    initiallyPresent = allActualContaining
+                    val unmodified = allActualContaining.filter { it !in userToggledPlaylists }
+                    val toggledSelected = selected.filter { it in userToggledPlaylists }
+                    selected = (unmodified + toggledSelected).toSet()
                 }
-                // Cache result in PlaylistMembershipCache
-                containingIds.forEach { plId ->
-                    PlaylistMembershipCache.add(plId, target.videoId)
+                // Sync cache: remove playlists that no longer contain the song, add those that do
+                playlists.forEach { pl ->
+                    val clean = pl.playlistId.removePrefix("VL")
+                    val isPresent = pl.playlistId in allActualContaining || clean in allActualContaining
+                    if (isPresent) {
+                        PlaylistMembershipCache.add(pl.playlistId, target.videoId)
+                        PlaylistMembershipCache.add(clean, target.videoId)
+                    } else {
+                        PlaylistMembershipCache.remove(pl.playlistId, target.videoId)
+                        PlaylistMembershipCache.remove(clean, target.videoId)
+                        PlaylistMembershipCache.remove("VL$clean", target.videoId)
+                    }
                 }
             } else {
-                // If offline or on failure, fall back to PlaylistMembershipCache without crashing or hanging
+                // If offline or on failure, fall back to LocalPlaylistStore + PlaylistMembershipCache
                 val cached = playlists
-                    .filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, target.videoId) }
+                    .filter { pl ->
+                        pl.playlistId in localIds ||
+                            pl.playlistId.removePrefix("VL") in localIds ||
+                            PlaylistMembershipCache.contains(pl.playlistId, target.videoId)
+                    }
                     .map { it.playlistId }
                     .toSet()
-                if (cached.isNotEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        initiallyPresent = initiallyPresent + cached
-                        val unmodified = cached.filter { it !in userToggledPlaylists }
-                        selected = selected + unmodified
-                    }
+                withContext(Dispatchers.Main) {
+                    initiallyPresent = cached
+                    val unmodified = cached.filter { it !in userToggledPlaylists }
+                    val toggledSelected = selected.filter { it in userToggledPlaylists }
+                    selected = (unmodified + toggledSelected).toSet()
                 }
             }
         }
@@ -495,9 +514,9 @@ private fun PlaylistRow(
             model = playlist.thumbnailUrl.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .thumbnailBorder(RoundedCornerShape(7.dp))
+                .size(48.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .thumbnailBorder(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         )
         Spacer(Modifier.width(16.dp))

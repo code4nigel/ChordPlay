@@ -140,6 +140,7 @@ fun AudioPipelineDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
+    accentColor: Color? = null,
 ) {
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
@@ -217,6 +218,7 @@ fun AudioPipelineDialog(
         subtitle = stringResource(R.string.audio_pipeline_subtitle),
         doneLabel = stringResource(R.string.done),
         onDismiss = onDismiss,
+        accentColor = accentColor,
         modifier = modifier,
     ) {
         // The signal flow redraws every frame while playing. On its own

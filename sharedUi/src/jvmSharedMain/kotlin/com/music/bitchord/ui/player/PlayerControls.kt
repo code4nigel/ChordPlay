@@ -11,6 +11,8 @@ import com.music.bitchord.data.model.creditSegments
 import com.music.bitchord.sharedui.resources.*
 
 import org.jetbrains.compose.resources.DrawableResource
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
@@ -157,18 +159,22 @@ internal fun PlaybackOriginCaption(
     textAlign: TextAlign,
     /** Inside the touch target, so it widens what a finger can hit. */
     contentPadding: PaddingValues,
+    textColor: Color = Color.White,
     modifier: Modifier = Modifier,
 ) {
+    val isLight = (textColor.red * 0.299f + textColor.green * 0.587f + textColor.blue * 0.114f) > 0.5f
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall.copy(
-            shadow = Shadow(
-                color = Color.Black.copy(alpha = 0.55f),
-                offset = Offset(0f, 1f),
-                blurRadius = 4f,
-            ),
+            shadow = if (isLight) {
+                Shadow(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    offset = Offset(0f, 1f),
+                    blurRadius = 4f,
+                )
+            } else null,
         ),
-        color = Color.White,
+        color = textColor,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         textAlign = textAlign,
@@ -557,6 +563,11 @@ internal fun PlayerActionRow(
     onListenTogether: () -> Unit,
     /** Opens [ListenTogetherMembersSheet] rather than settings directly. */
     onOpenListenTogetherMembers: () -> Unit,
+    song: com.music.bitchord.data.model.Song? = null,
+    isLoading: Boolean = false,
+    isModernOrVinyl: Boolean = false,
+    onOpenPipeline: (() -> Unit)? = null,
+    palette: MeshPalette? = null,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         // Sized for the wider of the two capsules — the three-up one — in both
@@ -564,6 +575,11 @@ internal fun PlayerActionRow(
         // swap, and the lyrics and queue glyphs would slide with it.
         val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(3)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)
+        val pillAccent = palette?.colors?.getOrNull(0) ?: Color(0xFFFF6D33)
+        val avgLuminance = palette?.colors?.takeIf { it.isNotEmpty() }?.let { colors ->
+            colors.map { it.luminance() }.average().toFloat()
+        } ?: 0f
+        val isDarkBg = avgLuminance < 0.40f
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = edgeInset),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -577,15 +593,24 @@ internal fun PlayerActionRow(
                 onClick = onToggleLyrics,
                 onLongClick = onLyricsOffset,
                 highlighted = lyricsOpen,
+                accentColor = pillAccent,
+                isDarkBg = isDarkBg,
             )
             AnimatedContent(
                 targetState = queueOpen,
                 transitionSpec = {
-                    (fadeIn(tween(180, delayMillis = 140)) togetherWith fadeOut(tween(140)))
+                    (fadeIn(tween(200, delayMillis = 60)) togetherWith fadeOut(tween(140)))
                         // Unclipped: the capsule's own rounded ends are what
                         // the eye follows through the width change, and the
                         // default clip cuts them square while it happens.
-                        .using(SizeTransform(clip = false) { _, _ -> tween(220) })
+                        .using(
+                            SizeTransform(clip = false) { _, _ ->
+                                spring(
+                                    dampingRatio = 0.82f,
+                                    stiffness = Spring.StiffnessMediumLow,
+                                )
+                            },
+                        )
                 },
                 label = "playerBottomPill",
             ) { showQueueModes ->
@@ -593,7 +618,7 @@ internal fun PlayerActionRow(
                     // Always three-up, unlike the output/party capsule — so it
                     // always takes the narrower spacing. See
                     // [PILL_SEGMENT_WIDTH_TRIPLE].
-                    Pill {
+                    Pill(accentColor = pillAccent) {
                         PillSegment(
                             icon = BitChordIcons.Shuffle,
                             contentDescription = stringResource(
@@ -604,6 +629,8 @@ internal fun PlayerActionRow(
                             haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
+                            accentColor = pillAccent,
+                            isDarkBg = isDarkBg,
                         )
                         PillDivider()
                         PillSegment(
@@ -626,6 +653,8 @@ internal fun PlayerActionRow(
                                 else -> Haptic.Select
                             },
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
+                            accentColor = pillAccent,
+                            isDarkBg = isDarkBg,
                         )
                         PillDivider()
                         PillSegment(
@@ -638,14 +667,26 @@ internal fun PlayerActionRow(
                             haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
+                            accentColor = pillAccent,
+                            isDarkBg = isDarkBg,
                         )
                     }
                 } else {
-                    OutputPartyPill(
-                        onOutput = onOpenOutput,
-                        onParty = onListenTogether,
-                        onOpenMembers = onOpenListenTogetherMembers,
-                    )
+                    if (isModernOrVinyl && song != null && onOpenPipeline != null) {
+                        ChordPlayPipelineBottomPill(
+                            song = song,
+                            isLoading = isLoading,
+                            onOpenPipeline = onOpenPipeline,
+                            onOpenOutput = onOpenOutput,
+                            palette = palette ?: remember { MeshPalette(emptyList()) },
+                        )
+                    } else {
+                        OutputPartyPill(
+                            onOutput = onOpenOutput,
+                            onParty = onListenTogether,
+                            onOpenMembers = onOpenListenTogetherMembers,
+                        )
+                    }
                 }
             }
             BottomGlyph(
@@ -654,6 +695,8 @@ internal fun PlayerActionRow(
                 onClick = onToggleQueue,
                 highlighted = queueOpen,
                 haptic = if (queueOpen) Haptic.Tap else Haptic.Expand,
+                accentColor = pillAccent,
+                isDarkBg = isDarkBg,
             )
         }
     }
@@ -676,15 +719,17 @@ internal fun CircleGlyph(
     haptic: Haptic = Haptic.Tap,
 ) {
     val haptics = rememberHaptics()
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
-        label = "glyphDisc",
-    )
+    val primary = MaterialTheme.colorScheme.primary
+    val bgColor = if (active) primary.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.38f)
+    val borderColor = if (active) primary.copy(alpha = 0.75f) else primary.copy(alpha = 0.22f)
+    val iconTint = if (active) primary else Color.White.copy(alpha = 0.90f)
+
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(36.dp)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = discAlpha))
+            .background(bgColor)
+            .border(width = 0.8.dp, color = borderColor, shape = CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -702,7 +747,7 @@ internal fun CircleGlyph(
             Icon(
                 imageVector = glyph,
                 contentDescription = contentDescription,
-                tint = Color.White,
+                tint = iconTint,
                 modifier = Modifier.size(19.dp),
             )
         }
@@ -812,13 +857,22 @@ private fun pillWidth(segments: Int): Dp =
 @Composable
 private fun Pill(
     modifier: Modifier = Modifier,
+    accentColor: Color? = null,
+    isDarkBg: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
         modifier = modifier
             .height(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(Color.Black.copy(alpha = 0.28f))
+            .background(accentColor?.copy(alpha = 0.12f) ?: Color.White.copy(alpha = 0.12f))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(
+                width = 0.8.dp,
+                color = accentColor?.copy(alpha = 0.40f) ?: Color.White.copy(alpha = 0.18f),
+                shape = CircleShape,
+            )
             .animateContentSize(
                 animationSpec = spring(
                     dampingRatio = 0.82f,
@@ -915,14 +969,32 @@ private fun PillSegment(
     tapWindowMs: Long = 0L,
     /** Per-segment override — see [OutputPartyPill]'s three-up capsule. */
     width: Dp = PILL_SEGMENT_WIDTH,
+    accentColor: Color? = null,
+    isDarkBg: Boolean = true,
 ) {
     val haptics = rememberHaptics()
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
+    val baseAccent = accentColor ?: Color(0xFFFF6D33)
+    val lightArtworkTone = remember(baseAccent) { baseAccent.toLightArtworkTone() }
+    val darkArtworkTone = remember(baseAccent) { baseAccent.toDarkArtworkTone() }
+    val targetSegBg = when {
+        highlighted && isDarkBg -> lightArtworkTone.copy(alpha = 0.94f)
+        highlighted && accentColor != null -> accentColor.copy(alpha = 0.32f)
+        highlighted -> Color.White.copy(alpha = 0.14f)
+        else -> Color.Transparent
+    }
+    val targetTint = when {
+        highlighted && isDarkBg -> darkArtworkTone
+        highlighted -> Color.White
+        else -> Color.White.copy(alpha = 0.75f)
+    }
+    val segBg by animateColorAsState(targetSegBg, label = "pillSegmentBg")
+    val tint by animateColorAsState(targetTint, label = "pillSegmentTint")
     Box(
         modifier = Modifier
             .width(width)
             .height(BOTTOM_ACTION_SIZE)
-            .background(if (highlighted) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+            .background(segBg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -938,7 +1010,6 @@ private fun PillSegment(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f)
         Crossfade(
             targetState = loading,
             animationSpec = tween(durationMillis = 200),
@@ -1123,26 +1194,43 @@ private fun BottomGlyph(
     highlighted: Boolean = false,
     haptic: Haptic = Haptic.Tap,
     label: String? = null,
-    /**
-     * Shortest gap between taps that both reach [onClick]. A tap inside the
-     * window of the last one is dropped whole — haptic included, so a swallowed
-     * tap doesn't buzz as though something happened. The default lets every tap
-     * through: only the glyphs whose work is too heavy to repeat at finger speed
-     * ask for a window.
-     */
     tapWindowMs: Long = 0L,
+    accentColor: Color? = null,
+    isDarkBg: Boolean = true,
 ) {
     val haptics = rememberHaptics()
-    // Read only from the click handler, never during composition, so writing it
-    // costs no recomposition. Starts a full window in the past so the first tap
-    // is never the one that gets swallowed.
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
+    val baseAccent = accentColor ?: Color(0xFFFF6D33)
+    val lightArtworkTone = remember(baseAccent) { baseAccent.toLightArtworkTone() }
+    val darkArtworkTone = remember(baseAccent) { baseAccent.toDarkArtworkTone() }
+    val targetBg = when {
+        highlighted && isDarkBg -> lightArtworkTone.copy(alpha = 0.94f)
+        highlighted && accentColor != null -> accentColor.copy(alpha = 0.32f)
+        highlighted -> Color.White.copy(alpha = 0.20f)
+        else -> Color.Transparent
+    }
+    val targetBorder = when {
+        highlighted && isDarkBg -> lightArtworkTone
+        highlighted && accentColor != null -> accentColor.copy(alpha = 0.50f)
+        else -> Color.Transparent
+    }
+    val targetTint = when {
+        highlighted && isDarkBg -> darkArtworkTone
+        highlighted -> Color.White
+        else -> Color.White.copy(alpha = 0.75f)
+    }
+    val bg by animateColorAsState(targetBg, label = "bottomGlyphBg")
+    val borderCol by animateColorAsState(targetBorder, label = "bottomGlyphBorder")
+    val tint by animateColorAsState(targetTint, label = "bottomGlyphTint")
     Box(
         modifier = Modifier
             .size(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(
-                if (highlighted) Color.White.copy(alpha = 0.20f) else Color.Transparent,
+            .background(bg)
+            .then(
+                if (highlighted) {
+                    Modifier.border(width = 0.8.dp, color = borderCol, shape = CircleShape)
+                } else Modifier
             )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -1165,7 +1253,6 @@ private fun BottomGlyph(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f)
         if (icon != null) {
             Icon(
                 imageVector = icon,
@@ -1780,4 +1867,55 @@ private fun TrackAnalysisState.localizedLabel(): String = when (this) {
     TrackAnalysisState.ANALYSING -> stringResource(Res.string.analysis_in_progress)
     TrackAnalysisState.WAITING -> stringResource(Res.string.waiting)
     TrackAnalysisState.FAILED -> stringResource(Res.string.failed)
+}
+
+private fun Color.toLightArtworkTone(): Color {
+    val r = red
+    val g = green
+    val b = blue
+    val max = maxOf(r, g, b)
+    val min = minOf(r, g, b)
+    val d = max - min
+    val h = when {
+        d == 0f -> 0f
+        max == r -> (((g - b) / d) % 6f) * 60f
+        max == g -> (((b - r) / d) + 2f) * 60f
+        else -> (((r - g) / d) + 4f) * 60f
+    }.let { if (it < 0f) it + 360f else it }
+    return hslToColor(h, 0.52f, 0.86f)
+}
+
+private fun Color.toDarkArtworkTone(): Color {
+    val r = red
+    val g = green
+    val b = blue
+    val max = maxOf(r, g, b)
+    val min = minOf(r, g, b)
+    val d = max - min
+    val h = when {
+        d == 0f -> 0f
+        max == r -> (((g - b) / d) % 6f) * 60f
+        max == g -> (((b - r) / d) + 2f) * 60f
+        else -> (((r - g) / d) + 4f) * 60f
+    }.let { if (it < 0f) it + 360f else it }
+    return hslToColor(h, 0.65f, 0.12f)
+}
+
+private fun hslToColor(hue: Float, saturation: Float, lightness: Float): Color {
+    val c = (1f - kotlin.math.abs(2f * lightness - 1f)) * saturation
+    val x = c * (1f - kotlin.math.abs((hue / 60f) % 2f - 1f))
+    val m = lightness - c / 2f
+    val (r1, g1, b1) = when {
+        hue < 60f -> Triple(c, x, 0f)
+        hue < 120f -> Triple(x, c, 0f)
+        hue < 180f -> Triple(0f, c, x)
+        hue < 240f -> Triple(0f, x, c)
+        hue < 300f -> Triple(x, 0f, c)
+        else -> Triple(c, 0f, x)
+    }
+    return Color(
+        red = (r1 + m).coerceIn(0f, 1f),
+        green = (g1 + m).coerceIn(0f, 1f),
+        blue = (b1 + m).coerceIn(0f, 1f),
+    )
 }

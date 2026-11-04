@@ -472,7 +472,7 @@ internal fun LandscapeCredits(
                 active = liked,
                 haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
         }
         if (onAddToPlaylist != null && song.localUri == null) {
             CircleGlyph(
@@ -481,7 +481,7 @@ internal fun LandscapeCredits(
                 onClick = onAddToPlaylist,
                 haptic = Haptic.Tap,
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
         }
         CircleGlyph(
             icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,

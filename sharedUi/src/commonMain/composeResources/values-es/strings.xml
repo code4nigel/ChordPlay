@@ -200,4 +200,21 @@
     <string name="search_library_empty">Busca las canciones de tu carpeta de Música local.</string>
     <string name="search_library_hint">Canciones, artistas y álbumes</string>
     <string name="search_library_no_results">Nada en Música local coincide con “%1$s”.</string>
+    <string name="your_space">Tu espacio</string>
+    <string name="roll_a_dice">Tirar el dado</string>
+    <string name="instant_discovery_mix">Mezcla instantánea de descubrimiento</string>
+    <string name="lyrics_options">Opciones de letra</string>
+    <string name="lyrics_options_subtitle">Personaliza tipografía, compensación de tiempo y apariencia</string>
+    <string name="sync_offset">Compensación de sincronización</string>
+    <string name="font_family">Familia de fuentes</string>
+    <string name="upload_custom_font">Subir fuente personalizada</string>
+    <string name="import_font_hint">Importar fuente .ttf u .otf desde el dispositivo</string>
+    <string name="text_size">Tamaño del texto</string>
+    <string name="font_weight">Grosor de la fuente</string>
+    <string name="text_alignment">Alineación del texto</string>
+    <string name="align_left">Izquierda</string>
+    <string name="align_center">Centro</string>
+    <string name="browse">Explorar</string>
+    <string name="change">Cambiar</string>
+    <string name="music_feels_better">La música se siente mejor contigo</string>
 </resources>

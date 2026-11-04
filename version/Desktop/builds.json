@@ -1,0 +1,55 @@
+{
+  "project": "ChordPlay Desktop",
+  "version": "1.8-beta1",
+  "versionCode": 29,
+  "packageVersion": "1.8.29",
+  "buildDate": "2026-11-01T23:52:29.370816+05:30",
+  "platform": "Windows 10 / 11 (x86_64)",
+  "runtime": "Java 21 / Compose Desktop / Skia / FFmpeg 7.1",
+  "phase": "Desktop-First Transformation & Upstream Detachment",
+  "artifacts": [
+    {
+      "fileName": "ChordPlay-1.8.29.exe",
+      "format": "exe",
+      "type": "Standalone Windows Installer",
+      "sizeBytes": 320720384,
+      "sizeMB": 305.86,
+      "sha256": "A7E4BA73A6D2809059F6693DA572BB805810278558FB53A87FFC24591A5520B6"
+    },
+    {
+      "fileName": "ChordPlay-1.8.29.msi",
+      "format": "msi",
+      "type": "Windows Installer Package",
+      "sizeBytes": 320040798,
+      "sizeMB": 305.21,
+      "sha256": "F4C430CF5DAEC4AA5C34F666163072824E05751911F41B65762BCCA8263BACB4"
+    },
+    {
+      "fileName": "ChordPlay-1.8-beta1-windows-portable.zip",
+      "format": "zip",
+      "type": "Windows Portable Distribution",
+      "sizeBytes": 280985355,
+      "sizeMB": 267.97,
+      "sha256": "3F2ACA0E321C4FA776DEB84729C2F4BCEA019036B1980BEF11E279ED67875A84"
+    },
+    {
+      "fileName": "ChordPlay-portable-preview.zip",
+      "format": "zip",
+      "type": "Portable Preview Archive",
+      "sizeBytes": 280985355,
+      "sizeMB": 267.97,
+      "sha256": "3F2ACA0E321C4FA776DEB84729C2F4BCEA019036B1980BEF11E279ED67875A84"
+    }
+  ],
+  "deliverables": [
+    "Severed all upstream BitChord update checking and external repository links",
+    "Eliminated mobile drag handle ('\u2014') and modal sheet hijacking",
+    "Implemented dedicated Panoramic Full-Screen / Cinema Mode with two-column panoramic layout",
+    "Left cinema stage: large high-res album art with ambient aura, lossless audio specs card, transport controls, and precision scrubber",
+    "Right cinema stage: synchronized karaoke lyrics with active-line glow and tabbed queue inspector",
+    "Clean 48dp Top Bar with ChordPlay branding, back/forward navigation, global desktop search with Ctrl+F badge, and native Windows caption controls (_, \u25a1, \u2715)",
+    "Fixed 82dp Bottom Player Dock (left: artwork, title, artist, favorite heart, lossless quality badge; center: transport & precision scrubber; right: volume, device switcher, lyrics & queue panel toggles, cinema mode toggle)",
+    "Speed Dial 2x3 quick-launch card grid on Home feed with hover-to-play circular buttons",
+    "Rebranded packaging and window metadata to 'ChordPlay Desktop' with registered native DWM bridge"
+  ]
+}

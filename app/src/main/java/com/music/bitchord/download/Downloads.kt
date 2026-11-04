@@ -5,7 +5,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Environment
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.LocalMediaRepository
 import androidx.core.content.ContextCompat
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
@@ -1005,6 +1007,10 @@ object Downloads {
                         )
                     }
                     remember(song, track, savedUri, route.downloadFormat)
+                    val words = lyrics?.await()
+                    if (AppSettings.downloadLyricsOffline.value && words != null) {
+                        saveLyricsOffline(context, track, words)
+                    }
                     DownloadSession.done(id)
                     clear(id)
                     Log.d(TAG, "saved offline ${if (manifest.dash) "DASH" else "HLS"} package for $name")
@@ -1027,6 +1033,9 @@ object Downloads {
                 MediaTagger.embed(context, destination.tagUri, track, route.extension, words, cover)
                 val artworkUri = MediaTagger.persistArtwork(context, track.thumbnailUrl, cover)
                 val savedUri = destination.commit()
+                if (AppSettings.downloadLyricsOffline.value && words != null) {
+                    saveLyricsOffline(context, track, words)
+                }
                 pending = null
                 remember(song, track, savedUri, route.downloadFormat, artworkUri)
                 DownloadSession.done(id)
@@ -1044,6 +1053,48 @@ object Downloads {
             // a lyrics search per already-downloaded track.
             lyrics?.cancel()
             artwork?.cancel()
+        }
+    }
+
+    private fun saveLyricsOffline(context: Context, track: Song, words: LyricsTag.Embeddable) {
+        val lrc = words.enhanced?.takeIf { it.isNotBlank() } ?: words.plain
+        if (lrc.isBlank()) return
+
+        val stem = DownloadStore.fileNameFor(track, "").removeSuffix(".")
+        val lrcName = "$stem.lrc"
+        val videoIdLrc = "${track.videoId}.lrc"
+
+        runCatching {
+            // 1. Download/Music/ChordPlay/lyrics
+            val defaultLyricsDir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                "Music/ChordPlay/lyrics"
+            )
+            if (!defaultLyricsDir.exists()) defaultLyricsDir.mkdirs()
+            File(defaultLyricsDir, lrcName).writeText(lrc)
+            File(defaultLyricsDir, videoIdLrc).writeText(lrc)
+
+            // 2. Custom folder / lyrics if configured
+            val customUri = AppSettings.customDownloadLocationUri.value
+            if (AppSettings.saveToCustomDownloadLocation.value && !customUri.isNullOrBlank()) {
+                val folder = LocalMediaRepository.selectedFolder(customUri)
+                if (folder != null) {
+                    val customLyricsDir = File(folder.absolutePath, "lyrics")
+                    if (!customLyricsDir.exists()) customLyricsDir.mkdirs()
+                    File(customLyricsDir, lrcName).writeText(lrc)
+                    File(customLyricsDir, videoIdLrc).writeText(lrc)
+                }
+            }
+
+            // 3. App private lyrics backup
+            val privateLyricsDir = File(context.filesDir, "downloads/lyrics")
+            if (!privateLyricsDir.exists()) privateLyricsDir.mkdirs()
+            File(privateLyricsDir, lrcName).writeText(lrc)
+            File(privateLyricsDir, videoIdLrc).writeText(lrc)
+
+            Log.d(TAG, "saved offline synced lyrics for ${track.videoId} ($lrcName)")
+        }.onFailure {
+            Log.w(TAG, "could not save offline lyrics for ${track.videoId}: ${it.message}")
         }
     }
 

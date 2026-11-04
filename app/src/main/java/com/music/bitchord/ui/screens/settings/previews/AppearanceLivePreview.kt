@@ -55,6 +55,7 @@ fun AppearanceLivePreview(
     modifier: Modifier = Modifier,
 ) {
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
+    val amoledDarkMode by AppSettings.amoledDarkMode.collectAsStateWithLifecycle()
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val palette by AppSettings.colorPalette.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -94,6 +95,7 @@ fun AppearanceLivePreview(
     }
 
     val targetBg = when {
+        !isLight && amoledDarkMode -> Color.Black
         !isChordPlay -> if (isLight) MaterialTheme.colorScheme.surface else Color(0xFF0F1012)
         activeCustomPalette != null -> {
             Color(activeCustomPalette.surfaceHex).copy(alpha = if (reduceDynamicBlur) 1f else 0.90f)

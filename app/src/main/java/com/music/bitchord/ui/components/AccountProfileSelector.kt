@@ -55,7 +55,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Brush
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
@@ -158,8 +165,8 @@ fun AccountProfileSelector(
                 item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts), onClick = { managing = !managing }) }
                 item {
                     SelectorAction(
-                        icon = Icons.Rounded.AutoAwesome,
-                        label = "Preserve style",
+                        icon = Icons.Rounded.Brush,
+                        label = stringResource(R.string.preserve_style),
                         onClick = {
                             if (customPalettes.size >= 5) {
                                 Toast.makeText(
@@ -190,11 +197,46 @@ fun AccountProfileSelector(
     }
 
     if (showSavePresetDialog) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showSavePresetDialog = false },
-            title = { Text("Preserve Current Style") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            val dialogShape = RoundedCornerShape(24.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 380.dp)
+                        .fillMaxWidth()
+                        .clip(dialogShape)
+                        .then(
+                            if (reduceDynamicBlur) {
+                                Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                            } else {
+                                Modifier
+                                    .optimizedHazeEffect(
+                                        state = hazeState,
+                                        style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
+                                    )
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
+                            }
+                        )
+                        .border(1.dp, activeAccent.copy(alpha = 0.35f), dialogShape)
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.preserve_current_style),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                     Text(
                         text = "Freeze active song's colorway as a custom preset.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -233,39 +275,42 @@ fun AccountProfileSelector(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val finalName = presetNameInput.trim().ifBlank { "Style ${customPalettes.size + 1}" }
-                        val newPalette = CustomPalette(
-                            name = finalName,
-                            primaryHex = activeAccent.toArgb().toLong() and 0xFFFFFFFFL,
-                            secondaryHex = activeSecondary.toArgb().toLong() and 0xFFFFFFFFL,
-                            backgroundHex = activeBackground.toArgb().toLong() and 0xFFFFFFFFL,
-                            surfaceHex = activeSurfaceVariant.toArgb().toLong() and 0xFFFFFFFFL,
-                        )
-                        AppSettings.saveCustomPalette(newPalette)
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        Toast.makeText(
-                            context,
-                            "Style \"${finalName}\" saved! Apply it in Settings → Appearance → Color palette",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                        showSavePresetDialog = false
-                        onDismiss()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = { showSavePresetDialog = false }) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        TextButton(
+                            onClick = {
+                                val finalName = presetNameInput.trim().ifBlank { "Style ${customPalettes.size + 1}" }
+                                val newPalette = CustomPalette(
+                                    name = finalName,
+                                    primaryHex = activeAccent.toArgb().toLong() and 0xFFFFFFFFL,
+                                    secondaryHex = activeSecondary.toArgb().toLong() and 0xFFFFFFFFL,
+                                    backgroundHex = activeBackground.toArgb().toLong() and 0xFFFFFFFFL,
+                                    surfaceHex = activeSurfaceVariant.toArgb().toLong() and 0xFFFFFFFFL,
+                                )
+                                AppSettings.saveCustomPalette(newPalette)
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                Toast.makeText(
+                                    context,
+                                    "Style \"${finalName}\" saved! Apply it in Settings → Appearance → Color palette",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                                showSavePresetDialog = false
+                                onDismiss()
+                            },
+                        ) {
+                            Text("Save", color = activeAccent, fontWeight = FontWeight.Bold)
+                        }
                     }
-                ) {
-                    Text("Save")
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSavePresetDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
+            }
+        }
     }
 }
 

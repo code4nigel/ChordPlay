@@ -1,6 +1,7 @@
 package com.music.bitchord.desktop
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -170,7 +171,7 @@ internal object DesktopPlayerHost : PlayerHost {
     var pipelineDialog: (@Composable (onDismiss: () -> Unit) -> Unit)? = null
 
     @Composable
-    override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit) {
+    override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color?) {
         pipelineDialog?.invoke(onDismiss)
     }
 }

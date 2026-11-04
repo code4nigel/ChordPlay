@@ -27,6 +27,8 @@ object AndroidAppUiHost : AppUiHost {
     override fun setLibraryViewMode(value: LibraryViewMode) = AppSettings.setLibraryViewMode(value)
     override val speedDialLayoutMode = AppSettings.speedDialLayoutMode
     override fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) = AppSettings.setSpeedDialLayoutMode(value)
+    override val homeShelfOrder = AppSettings.homeShelfOrder
+    override val disabledHomeShelves = AppSettings.disabledHomeShelves
 
     @Composable
     override fun downloadedIds(): Set<String> {

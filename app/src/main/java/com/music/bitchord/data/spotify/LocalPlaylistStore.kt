@@ -94,6 +94,43 @@ object LocalPlaylistStore {
         return _playlists.value.firstOrNull { it.id == cleanId || it.id == id || it.browseId == id }
     }
 
+    fun addSong(id: String, song: Song): Boolean {
+        val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
+        var changed = false
+        val updated = _playlists.value.map { pl ->
+            if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
+                if (pl.songs.none { it.videoId == song.videoId }) {
+                    changed = true
+                    pl.copy(songs = pl.songs + song)
+                } else pl
+            } else pl
+        }
+        if (changed) {
+            _playlists.value = updated
+            persist(updated)
+        }
+        return changed
+    }
+
+    fun removeSong(id: String, videoId: String): Boolean {
+        val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
+        var changed = false
+        val updated = _playlists.value.map { pl ->
+            if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
+                val filtered = pl.songs.filterNot { it.videoId == videoId }
+                if (filtered.size != pl.songs.size) {
+                    changed = true
+                    pl.copy(songs = filtered)
+                } else pl
+            } else pl
+        }
+        if (changed) {
+            _playlists.value = updated
+            persist(updated)
+        }
+        return changed
+    }
+
     private fun persist(list: List<LocalPlaylist>) {
         if (!this::prefs.isInitialized) return
         runCatching {

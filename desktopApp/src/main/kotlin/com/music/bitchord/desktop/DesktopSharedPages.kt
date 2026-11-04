@@ -83,7 +83,7 @@ internal object DesktopAppUiHost : AppUiHost {
     )
     override val librarySort: StateFlow<LibrarySort> = _librarySort
 
-    fun setLibrarySort(value: LibrarySort) {
+    override fun setLibrarySort(value: LibrarySort) {
         persistence.saveString(KEY_LIBRARY_SORT, value.name)
         _librarySort.value = value
     }

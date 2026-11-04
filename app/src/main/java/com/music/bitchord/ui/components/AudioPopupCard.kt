@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -34,7 +37,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
-private val POPUP_CARD_SHAPE = RoundedCornerShape(ALERT_CORNER)
+private val POPUP_CARD_SHAPE = RoundedCornerShape(28.dp)
 private val POPUP_SCRIM_COLOR = Color.Black.copy(alpha = 0.4f)
 private val POPUP_WIDTH = 320.dp
 private val POPUP_CONTENT_MAX_HEIGHT = 420.dp
@@ -62,6 +65,7 @@ internal fun AudioPopupCard(
     doneLabel: String,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    accentColor: Color? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -84,15 +88,53 @@ internal fun AudioPopupCard(
                 .clip(POPUP_CARD_SHAPE)
                 .then(
                     if (reduceDynamicBlur) {
-                        Modifier.background(Color(0xFF121212))
+                        Modifier.background(
+                            if (accentColor != null) {
+                                Brush.verticalGradient(
+                                    listOf(
+                                        accentColor.copy(alpha = 0.22f),
+                                        Color(0xFF141416).copy(alpha = 0.94f),
+                                    )
+                                )
+                            } else {
+                                SolidColor(Color(0xFF141416).copy(alpha = 0.94f))
+                            }
+                        )
                     } else {
                         Modifier
                             .optimizedHazeEffect(
                                 state = hazeState,
-                                style = HazeMaterials.regular(Color(0xFF141414)),
+                                style = HazeMaterials.ultraThin(Color(0xFF141416)),
                             )
-                            .background(Color(0xFF121212).copy(alpha = 0.9f))
+                            .background(
+                                if (accentColor != null) {
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            accentColor.copy(alpha = 0.30f),
+                                            Color(0xFF141418).copy(alpha = 0.65f),
+                                            Color(0xFF0F0F12).copy(alpha = 0.78f),
+                                        )
+                                    )
+                                } else {
+                                    SolidColor(Color(0xFF121215).copy(alpha = 0.68f))
+                                }
+                            )
                     }
+                )
+                .border(
+                    width = 1.dp,
+                    brush = if (accentColor != null) {
+                        Brush.verticalGradient(
+                            listOf(
+                                accentColor.copy(alpha = 0.55f),
+                                Color.White.copy(alpha = 0.20f),
+                                Color.White.copy(alpha = 0.08f),
+                            )
+                        )
+                    } else {
+                        SolidColor(Color.White.copy(alpha = 0.16f))
+                    },
+                    shape = POPUP_CARD_SHAPE,
                 )
                 // Swallows the tap before it reaches the scrim behind, so
                 // touching the card itself never dismisses it.

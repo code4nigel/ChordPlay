@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">ChordPlay</string>
+    <string name="home_shelves">Home Shelves</string>
     <string name="playback_channel_name">Now playing</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Songs being saved to your Music folder</string>
@@ -239,7 +240,7 @@
     <string name="list_view">List</string>
     <string name="switch_to_grid_view">Switch to grid view</string>
     <string name="switch_to_list_view">Switch to list view</string>
-    <string name="audio_quality">Audio quality</string>
+    <string name="audio_quality">Audio</string>
     <string name="playback">Playback</string>
     <string name="appearance">Appearance</string>
     <string name="storage">Storage</string>
@@ -333,7 +334,7 @@
     <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
     <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
     <string name="animated_cover_art">Animated cover art</string>
-    <string name="synced_lyrics">Synced lyrics</string>
+    <string name="synced_lyrics">Lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
     <string name="lyrics_sources">Lyrics sources</string>
     <string name="song_cache_limit">Song cache limit</string>
@@ -1144,4 +1145,61 @@
     <string name="local_playlist_subtitle">%1$d songs · On this device</string>
     <string name="spotify_import_empty_playlist">No songs in this playlist</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
+    <string name="lyrics_original_title">Search lyrics with original title</string>
+    <string name="lyrics_original_title_desc">Restore YouTube original title before searching lyrics, so translated titles can still be found</string>
+
+    <!-- Checkout / Hub in Settings -->
+    <string name="checkout">Checkout</string>
+    <string name="play_together">Play Together</string>
+    <string name="play_together_active_desc">Active listening room connected</string>
+    <string name="play_together_inactive_desc">Host or join a synchronized room</string>
+    <string name="spotify_connected_desc">Connected for Canvas video loops</string>
+    <string name="spotify_connect_desc">Sign in to sync Spotify Canvas &amp; lyrics</string>
+    <string name="glass_intensity">Glass Intensity</string>
+    <string name="glass_refraction_desc">Backdrop-sampled refraction &amp; blur</string>
+    <string name="preferences_header">PREFERENCES</string>
+    <string name="results_header">RESULTS</string>
+
+    <!-- Downloads Section -->
+    <string name="save_to_custom_download_location">Save download to custom location</string>
+    <string name="save_to_custom_download_location_subtitle">Store downloaded audio in a folder of your choice</string>
+    <string name="download_location">Download location</string>
+    <string name="download_lyrics_offline">Download lyrics offline</string>
+    <string name="download_lyrics_offline_subtitle">Save word-by-word and line-by-line synced lyrics offline with music</string>
+    <string name="offline_lyrics_disclaimer_title">Offline Synced Lyrics</string>
+    <string name="offline_lyrics_disclaimer_message">When enabled, synced lyrics (both word-by-word and line-by-line) will be saved offline together with your music at Download/Music/ChordPlay/lyrics so you can enjoy synced lyrics even while offline.\n\nBy enabling this option, you agree to these terms. If any lyrics provider is unhappy, please mail me at impemailsyuess@gmail.com.</string>
+    <string name="agree_and_enable">Agree &amp; Enable</string>
+
+    <!-- Preserve Style & Your Space -->
+    <string name="preserve_style">Preserve style</string>
+    <string name="preserve_current_style">Preserve Current Style</string>
+    <string name="preserve_style_desc">Preserve your favorite song-art colorways from the profile menu (up to 5).</string>
+    <string name="your_space">Your Space</string>
+    <string name="pin_to_your_space">Pin to Your Space</string>
+    <string name="unpin_from_your_space">Unpin from Your Space</string>
+    <string name="roll_a_dice">Roll a Dice</string>
+    <string name="instant_discovery_mix">Instant discovery mix</string>
+    <string name="lyrics_options">Lyrics Options</string>
+    <string name="lyrics_options_subtitle">Customize typography, timing offset, and appearance</string>
+    <string name="sync_offset">Sync Offset</string>
+    <string name="font_family">Font Family</string>
+    <string name="upload_custom_font">Upload Custom Font</string>
+    <string name="import_font_hint">Import .ttf or .otf font from device</string>
+    <string name="text_size">Text Size</string>
+    <string name="font_weight">Font Weight</string>
+    <string name="text_alignment">Text Alignment</string>
+    <string name="align_left">Left</string>
+    <string name="align_center">Center</string>
+    <string name="browse">Browse</string>
+    <string name="change">Change</string>
+    <string name="arrange_home_shelves">Arrange &amp; Toggle Home Shelves</string>
+
+    <!-- Add Songs to Playlist Sheet -->
+    <string name="add_songs_to_playlist">Add songs to playlist</string>
+    <string name="search_songs_to_add">Search songs to add…</string>
+    <string name="suggested_for_playlist">Suggested for this playlist</string>
+    <string name="recommended_songs">Recommended songs</string>
+    <string name="searching_songs">Searching songs…</string>
+    <string name="no_songs_found">No songs found</string>
+    <string name="added">Added</string>
 </resources>

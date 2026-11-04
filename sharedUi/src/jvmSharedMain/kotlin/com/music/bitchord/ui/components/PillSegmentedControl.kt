@@ -63,6 +63,7 @@ fun PillSegmentedControl(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    accentColor: Color? = null,
 ) {
     if (options.isEmpty()) return
     val haptics = LocalHapticFeedback.current
@@ -71,8 +72,10 @@ fun PillSegmentedControl(
     val measurer = rememberTextMeasurer()
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val trackColor = TRACK_FILL.copy(alpha = if (light) LIGHT_TRACK_ALPHA else DARK_TRACK_ALPHA)
-    val pillColor = if (light) Color.White else DARK_PILL
-    val labelColor = if (light) Color.Black else Color.White
+    val effectivePill = accentColor ?: MaterialTheme.colorScheme.primary
+    val pillColor = effectivePill
+    val selectedLabelColor = if (effectivePill.luminance() > 0.45f) Color(0xFF141414) else Color.White
+    val unselectedLabelColor = if (light) Color.Black.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.65f)
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val selected = selectedIndex.takeIf { it in options.indices }
 
@@ -175,8 +178,10 @@ fun PillSegmentedControl(
                     ) {
                         Text(
                             text = label,
-                            style = style,
-                            color = labelColor,
+                            style = style.copy(
+                                fontWeight = if (index == selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal
+                            ),
+                            color = if (index == selected) selectedLabelColor else unselectedLabelColor,
                             maxLines = 1,
                             softWrap = false,
                         )

@@ -175,14 +175,24 @@ private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
 
     LaunchedEffect(imageUrl, artPx) {
         if (imageUrl == null || seed != null) return@LaunchedEffect
+        val candidateUrl = imageUrl.artworkAt(artPx) ?: imageUrl
         val request = ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(artPx))
+            .data(candidateUrl)
             .size(PALETTE_PX)
             .forPixelAccess()
             .build()
         val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
-        val found = withContext(Dispatchers.Default) { seedOf(bitmap) } ?: return@LaunchedEffect
+        var bitmap = (result as? SuccessResult)?.image?.toImageBitmap()
+        if (bitmap == null && candidateUrl != imageUrl) {
+            val fallbackReq = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .size(PALETTE_PX)
+                .forPixelAccess()
+                .build()
+            val fallbackRes = SingletonImageLoader.get(context).execute(fallbackReq)
+            bitmap = (fallbackRes as? SuccessResult)?.image?.toImageBitmap()
+        }
+        val found = bitmap?.let { withContext(Dispatchers.Default) { seedOf(it) } } ?: return@LaunchedEffect
         seedCache[imageUrl] = found
         seed = found
     }

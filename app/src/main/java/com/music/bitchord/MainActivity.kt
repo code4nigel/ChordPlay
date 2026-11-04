@@ -255,6 +255,7 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
+import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
 import com.music.bitchord.ui.components.TopBarAccountButton
@@ -278,6 +279,8 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.player.NowPlayingScreen
+import com.music.bitchord.ui.player.rememberFullArtworkBlurImage
+import com.music.bitchord.ui.player.FullArtworkBlurBackdrop
 import com.music.bitchord.ui.player.PlayerSheetMotion
 import com.music.bitchord.ui.player.catchClosingSheet
 import androidx.compose.ui.geometry.Offset
@@ -1812,6 +1815,7 @@ private fun BitChordApp(
                 title = item.title,
                 artist = InnertubeParser.artistFromSubtitle(item.subtitle),
                 thumbnailUrl = item.thumbnailUrl,
+                isVideo = item.isVideo,
             )
         }
     }
@@ -2206,11 +2210,12 @@ private fun BitChordApp(
     // so a menu opened before the lookup above resolves would otherwise be
     // stuck without album/artist rows even after the ids come in. Keep it in
     // sync while it's showing this track.
-    LaunchedEffect(playerSong) {
+    val playerRemoteArt = rememberRemoteArtworkUrl(player.song)
+    LaunchedEffect(player.song?.videoId, playerRemoteArt, playerSong) {
         if (playerSong != null && songActions?.videoId == playerSong.videoId) {
             songActions = playerSong
         }
-        AppSettings.activeTrackArtworkUrl.value = playerSong?.thumbnailUrl
+        AppSettings.activeTrackArtworkUrl.value = playerRemoteArt ?: playerSong?.thumbnailUrl
     }
 
     // The player's whole parameter list, kept apart from the sheet that
@@ -2355,6 +2360,13 @@ private fun BitChordApp(
                 songMenuOrigin = null
                 songActions = song
             },
+            onShareSong = {
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${song.videoId}")
+                }
+                context.startActivity(Intent.createChooser(sendIntent, song.title))
+            },
             onAddToPlaylist = {
                 viewModel.loadPlaylists()
                 playlistTarget = song
@@ -2488,11 +2500,73 @@ private fun BitChordApp(
         )
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-    ) {
+    val currentSong = player.song
+    val appBlurImage = rememberFullArtworkBlurImage(
+        imageUrl = currentSong?.thumbnailUrl,
+        prepare = currentSong != null,
+    )
+
+    val windowBackground = MaterialTheme.colorScheme.background
+    val paintBackdrop: ContentDrawScope.() -> Unit = remember(windowBackground, appBlurImage, darkTheme) {
+        {
+            try {
+                if (appBlurImage != null && appBlurImage.width > 0 && appBlurImage.height > 0 && size.width > 1f && size.height > 1f) {
+                    val scale = maxOf(size.width / appBlurImage.width.toFloat(), size.height / appBlurImage.height.toFloat())
+                    if (scale > 0f) {
+                        val srcWidth = (size.width / scale).toInt().coerceIn(1, appBlurImage.width)
+                        val srcHeight = (size.height / scale).toInt().coerceIn(1, appBlurImage.height)
+                        val srcLeft = ((appBlurImage.width - srcWidth) / 2).coerceIn(0, (appBlurImage.width - srcWidth).coerceAtLeast(0))
+                        val srcTop = ((appBlurImage.height - srcHeight) / 2).coerceIn(0, (appBlurImage.height - srcHeight).coerceAtLeast(0))
+                        drawImage(
+                            image = appBlurImage,
+                            srcOffset = androidx.compose.ui.unit.IntOffset(srcLeft, srcTop),
+                            srcSize = androidx.compose.ui.unit.IntSize(srcWidth, srcHeight),
+                            dstOffset = androidx.compose.ui.unit.IntOffset.Zero,
+                            dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+                        )
+                        drawRect(
+                            brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                0f to Color.Black.copy(alpha = 0.34f),
+                                0.55f to Color.Black.copy(alpha = 0.48f),
+                                1f to Color.Black.copy(alpha = 0.64f),
+                            ),
+                        )
+                        val overlayAlpha = if (darkTheme) 0.50f else 0.70f
+                        drawRect(if (darkTheme) Color.Black.copy(alpha = overlayAlpha) else windowBackground.copy(alpha = overlayAlpha))
+                    } else {
+                        drawRect(windowBackground)
+                    }
+                } else {
+                    drawRect(windowBackground)
+                }
+            } catch (_: Throwable) {
+                drawRect(windowBackground)
+            }
+            drawContent()
+        }
+    }
+    val effectiveAppBackdrop = rememberLayerBackdrop(onDraw = paintBackdrop)
+
+    CompositionLocalProvider(LocalAppBackdrop provides effectiveAppBackdrop) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+        ) {
+        if (appBlurImage != null) {
+            FullArtworkBlurBackdrop(
+                image = appBlurImage,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(
+                        if (darkTheme) Color.Black.copy(alpha = 0.50f)
+                        else MaterialTheme.colorScheme.background.copy(alpha = 0.70f),
+                    ),
+            )
+        }
         // A pushed album/artist/playlist page replaces the tab content but
         // leaves the tab bar and mini player in place.
         // Replay's three layers unwind in the order they were opened. Ahead of
@@ -2646,7 +2720,7 @@ private fun BitChordApp(
                                     // cost that setting exists to remove.
                                     .then(
                                         if (glassSamplesBackdrop) {
-                                            Modifier.layerBackdrop(appBackdrop)
+                                            Modifier.layerBackdrop(effectiveAppBackdrop)
                                         } else {
                                             Modifier
                                         },
@@ -3027,6 +3101,7 @@ private fun BitChordApp(
                                 viewModel.openDetail(id, name, "Artist", null, BrowseType.ARTIST)
                             },
                             onAddSuggested = { song -> viewModel.addSuggestedSong(page.browseId, song) },
+                            onRemoveSong = { song -> viewModel.removeFromPlaylist(page.browseId, song) },
                             // Saving is an account action, so it isn't offered to a
                             // guest at all — same as the like and add-to-playlist rows
                             // in the track menu.
@@ -3069,16 +3144,59 @@ private fun BitChordApp(
                                 // property declared in another module.
                                 val browseId = item.browseId
                                 when {
-                                    song != null -> playRadio(
-                                        song,
-                                        QueueSource(shelfTitle, PlaybackSourceType.HOME),
-                                    )
+                                    browseId != null && (item.videoId == null || browseId.startsWith("RD") || browseId.startsWith("VLRD")) -> {
+                                        viewModel.openDetail(
+                                            browseId = browseId,
+                                            title = item.title,
+                                            subtitle = item.subtitle,
+                                            thumbnailUrl = item.thumbnailUrl,
+                                            type = BrowseType.PLAYLIST,
+                                        )
+                                    }
+                                    song != null -> {
+                                        val isVideoTrack = song.isVideo || item.isVideo || shelfTitle.contains("video", ignoreCase = true)
+                                        if (isVideoTrack) {
+                                            keepVideoId = song.videoId
+                                        }
+                                        playRadio(
+                                            if (isVideoTrack) song.copy(isVideo = true) else song,
+                                            QueueSource(shelfTitle, PlaybackSourceType.HOME),
+                                        )
+                                    }
                                     browseId != null -> viewModel.openDetail(
                                         browseId = browseId,
                                         title = item.title,
                                         subtitle = item.subtitle,
                                         thumbnailUrl = item.thumbnailUrl,
                                     )
+                                }
+                            },
+                            onPlayMixClick = { item ->
+                                val song = shelfSong(item)
+                                    ?: item.browseId?.removePrefix("VL")?.removePrefix("RDAMVM")?.takeIf { !item.browseId.orEmpty().contains("RDTM") && !item.browseId.orEmpty().contains("RDCL") }?.let { vid ->
+                                        Song(
+                                            videoId = vid,
+                                            title = item.title,
+                                            artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                                            thumbnailUrl = item.thumbnailUrl,
+                                        )
+                                    }
+                                if (song != null) {
+                                    playRadio(
+                                        song,
+                                        QueueSource(item.title, PlaybackSourceType.HOME),
+                                    )
+                                } else {
+                                    val browseId = item.browseId
+                                    if (browseId != null) {
+                                        viewModel.openDetail(
+                                            browseId = browseId,
+                                            title = item.title,
+                                            subtitle = item.subtitle,
+                                            thumbnailUrl = item.thumbnailUrl,
+                                            type = BrowseType.PLAYLIST,
+                                        )
+                                    }
                                 }
                             },
                             onItemLongPress = onShelfLongPress,
@@ -3275,6 +3393,7 @@ private fun BitChordApp(
                                     ),
                                     selectedIndex = searchSource.ordinal,
                                     onSelect = { index -> onSearchSourceChange(SearchSource.entries[index]) },
+                                    accentColor = MaterialTheme.colorScheme.primary,
                                 )
                             },
                             searchSource = searchSource,
@@ -5334,6 +5453,7 @@ private fun BitChordApp(
             )
         }
 
+    }
     }
 }
 

@@ -58,11 +58,17 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.music.bitchord.ui.components.AddSongToPlaylistSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -237,6 +243,7 @@ private fun String.looksLikeCredit() = CREDIT_SEPARATOR.containsMatchIn(this)
  * nothing you can read — and the list of titles, buttons and rows over it.
  * Nothing in either is re-blurred while the page scrolls.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
     page: DetailPage,
@@ -251,6 +258,7 @@ fun DetailScreen(
     onSectionItemClick: (ShelfItem) -> Unit,
     onArtistClick: (String, String) -> Unit,
     onAddSuggested: (Song) -> Unit,
+    onRemoveSong: ((Song) -> Unit)? = null,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
@@ -335,6 +343,7 @@ fun DetailScreen(
     // page that appears to have lost most of its tracks.
     var searching by rememberSaveable(page.browseId) { mutableStateOf(false) }
     var query by rememberSaveable(page.browseId) { mutableStateOf("") }
+    var showAddSongSheet by rememberSaveable(page.browseId) { mutableStateOf(false) }
     // Whether the field still owes the keyboard an appearance. Held here rather
     // than in the field, which is a row in a lazy list: scrolled out of sight it
     // is disposed, and a field that asks for focus every time it is composed
@@ -473,6 +482,7 @@ fun DetailScreen(
                                 focusSearch = true
                             }
                         },
+                        onAddSongs = { showAddSongSheet = true },
                         onMore = onMore,
                         onArtistClick = onArtistClick,
                         onToggleLibrary = onToggleLibrary,
@@ -570,7 +580,37 @@ fun DetailScreen(
 
             when (val state = page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
-                is UiState.Error -> item { MessageState(state.message) }
+                is UiState.Error -> item {
+                    if (page.type == BrowseType.PLAYLIST) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 40.dp, horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.no_tracks_here),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = palette.onBackgroundVariant,
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(
+                                onClick = { showAddSongSheet = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = palette.accent,
+                                    contentColor = palette.background,
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                            ) {
+                                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.add_songs_to_playlist))
+                            }
+                        }
+                    } else {
+                        MessageState(state.message)
+                    }
+                }
                 is UiState.Success -> if (isArtist) {
                     // An artist's full song list would bury the album shelves, so
                     // it pages sideways four at a time and stops at twenty.
@@ -731,6 +771,25 @@ fun DetailScreen(
     )
 }
 }
+
+    if (showAddSongSheet) {
+        val addSongSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showAddSongSheet = false },
+            sheetState = addSongSheetState,
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        ) {
+            AddSongToPlaylistSheet(
+                playlistTitle = page.title,
+                initialSongs = songs,
+                suggestedSongs = page.suggestedSongs,
+                onAddSong = onAddSuggested,
+                onRemoveSong = onRemoveSong,
+                onDismiss = { showAddSongSheet = false },
+            )
+        }
+    }
 }
 
 /**
@@ -753,6 +812,7 @@ private fun ReleaseHeader(
     onShuffle: () -> Unit,
     searching: Boolean,
     onSearch: () -> Unit,
+    onAddSongs: (() -> Unit)? = null,
     onMore: ((List<Song>) -> Unit)?,
     onArtistClick: (String, String) -> Unit,
     onToggleLibrary: (() -> Unit)?,
@@ -845,23 +905,30 @@ private fun ReleaseHeader(
 
             // Action buttons — live inside the header so there is zero gap
             // between the cover zone and the first song row.
-            if (songs.isNotEmpty()) {
+            val isPlaylist = page.type == BrowseType.PLAYLIST && onAddSongs != null
+            if (songs.isNotEmpty() || isPlaylist) {
                 // Only where YouTube said the release can be saved and the
                 // caller is willing to take the write — see [onToggleLibrary].
                 val library = page.library?.takeIf { onToggleLibrary != null }
-                // All release actions are circles. On a 360dp screen a full
-                // five-control row comes down 4dp so it stays inside the shared
-                // header gutter instead of running off the edge.
-                val circles = listOfNotNull(library, onMore).size + 2 // + Shuffle, Search
-                val full = circles >= 4
-                val circleSize = if (full) 46.dp else 50.dp
+                val circles = listOfNotNull(library, onMore, onAddSongs.takeIf { isPlaylist }).size +
+                    (if (songs.isNotEmpty()) 2 else 0) // + Shuffle, Search
+                val circleSize = when {
+                    circles >= 5 -> 42.dp
+                    circles >= 4 -> 46.dp
+                    else -> 50.dp
+                }
+                val circleSpacing = when {
+                    circles >= 5 -> 6.dp
+                    circles >= 4 -> 8.dp
+                    else -> 10.dp
+                }
                 Spacer(Modifier.height(14.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = HEADER_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(
-                        if (full) 8.dp else 10.dp,
+                        circleSpacing,
                         Alignment.CenterHorizontally,
                     ),
                     verticalAlignment = Alignment.CenterVertically,
@@ -882,33 +949,40 @@ private fun ReleaseHeader(
                             size = circleSize,
                         )
                     }
-                    CircleIconButton(
-                        icon = BitChordIcons.Shuffle,
-                        contentDescription = stringResource(R.string.shuffle),
-                        palette = palette,
-                        onClick = onShuffle,
-                        haptic = Haptic.Resume,
-                        size = circleSize,
-                    )
-                    PlayPill(
-                        onClick = onPlay,
-                        iconOnly = true,
-                        size = circleSize,
-                    )
-                    // Where the download circle used to be. Downloading a
-                    // release is a thing done once and then not thought about;
-                    // finding a track on a long playlist is a thing done while
-                    // reading the page, so it is the one that earns a button and
-                    // the download moved to the overflow beside it.
-                    CircleIconButton(
-                        icon = if (searching) Icons.Rounded.Close else BitChordIcons.Search,
-                        contentDescription = stringResource(
-                            if (searching) R.string.close_search else R.string.search_this_list,
-                        ),
-                        palette = palette,
-                        onClick = onSearch,
-                        size = circleSize,
-                    )
+                    if (isPlaylist) {
+                        CircleIconButton(
+                            icon = BitChordIcons.Plus,
+                            contentDescription = stringResource(R.string.add_songs_to_playlist),
+                            palette = palette,
+                            onClick = { onAddSongs?.invoke() },
+                            haptic = Haptic.ToggleOn,
+                            size = circleSize,
+                        )
+                    }
+                    if (songs.isNotEmpty()) {
+                        CircleIconButton(
+                            icon = BitChordIcons.Shuffle,
+                            contentDescription = stringResource(R.string.shuffle),
+                            palette = palette,
+                            onClick = onShuffle,
+                            haptic = Haptic.Resume,
+                            size = circleSize,
+                        )
+                        PlayPill(
+                            onClick = onPlay,
+                            iconOnly = true,
+                            size = circleSize,
+                        )
+                        CircleIconButton(
+                            icon = if (searching) Icons.Rounded.Close else BitChordIcons.Search,
+                            contentDescription = stringResource(
+                                if (searching) R.string.close_search else R.string.search_this_list,
+                            ),
+                            palette = palette,
+                            onClick = onSearch,
+                            size = circleSize,
+                        )
+                    }
                     onMore?.let { more ->
                         CircleIconButton(
                             icon = Icons.Rounded.MoreHoriz,

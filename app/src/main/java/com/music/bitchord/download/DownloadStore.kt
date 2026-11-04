@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.settings.AppSettings
 import androidx.annotation.RequiresApi
 import com.music.bitchord.data.model.Song
@@ -56,7 +57,7 @@ object DownloadStore {
     private const val TAG = "BitChord"
 
     /** The subfolder of Music that everything lands in. */
-    const val FOLDER = "BitChord"
+    const val FOLDER = "ChordPlay"
 
     private val relativePath = "${Environment.DIRECTORY_MUSIC}/$FOLDER"
 
@@ -84,15 +85,19 @@ object DownloadStore {
      * else — no tags to group by — so leading with the artist is the only thing
      * that puts an album back together in the listing.
      */
-    fun fileNameFor(song: Song, extension: String): String {
-        val artist = sanitise(song.artist)
-        val title = sanitise(song.title)
+    fun fileNameFor(song: Song, extension: String): String =
+        fileNameFor(song.artist, song.title, song.videoId, extension)
+
+    fun fileNameFor(artistRaw: String, titleRaw: String, videoId: String, extension: String): String {
+        val artist = sanitise(artistRaw)
+        val title = sanitise(titleRaw)
         val stem = when {
             artist.isEmpty() -> title
             title.isEmpty() -> artist
             else -> "$artist - $title"
-        }.ifEmpty { song.videoId }
-        return "${stem.take(MAX_STEM_CHARS).trimEnd()}.$extension"
+        }.ifEmpty { videoId }
+        val extPart = if (extension.isBlank()) "" else ".$extension"
+        return "${stem.take(MAX_STEM_CHARS).trimEnd()}$extPart"
     }
 
     /**
@@ -148,14 +153,30 @@ object DownloadStore {
      * taps download twice gets two copies rather than being told they already
      * have one.
      */
-    fun existing(context: Context, name: String): Uri? =
-        if (!AppSettings.exportDownloads.value) {
+    fun existing(context: Context, name: String): Uri? {
+        val customLocEnabled = AppSettings.saveToCustomDownloadLocation.value
+        if (customLocEnabled) {
+            val customUri = AppSettings.customDownloadLocationUri.value
+            if (!customUri.isNullOrBlank()) {
+                val folder = LocalMediaRepository.selectedFolder(customUri)
+                if (folder != null) {
+                    val file = File(folder.absolutePath, name)
+                    if (file.exists()) return Uri.fromFile(file)
+                }
+            } else {
+                val defaultDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
+                val file = File(defaultDir, name)
+                if (file.exists()) return Uri.fromFile(file)
+            }
+        }
+        return if (!AppSettings.exportDownloads.value && !customLocEnabled) {
             privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mediaStoreEntry(context, name)
         } else {
             legacyFile(name).takeIf { it.exists() }?.let(Uri::fromFile)
         }
+    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
@@ -264,6 +285,25 @@ object DownloadStore {
      *   download cannot start rather than that it might not finish.
      */
     fun begin(context: Context, name: String, mimeType: String): Pending {
+        val customLocEnabled = AppSettings.saveToCustomDownloadLocation.value
+        if (customLocEnabled) {
+            val customUri = AppSettings.customDownloadLocationUri.value
+            val folder: File = if (!customUri.isNullOrBlank()) {
+                val selected = LocalMediaRepository.selectedFolder(customUri)
+                if (selected != null) File(selected.absolutePath)
+                else File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
+            } else {
+                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
+            }
+            if (!folder.exists() && !folder.mkdirs()) {
+                Log.w(TAG, "could not make custom dir ${folder.path}")
+            }
+            val target = File(folder, name)
+            val part = File(folder, ".$name.part")
+            part.delete()
+            return Pending(context, Uri.fromFile(target), name, part = part, target = target)
+        }
+
         if (!AppSettings.exportDownloads.value) {
             val target = privateFile(context, name)
             val folder = target.parentFile ?: error("No download folder")

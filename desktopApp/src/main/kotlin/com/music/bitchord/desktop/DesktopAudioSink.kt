@@ -102,7 +102,7 @@ internal class DesktopAudioSink {
         }
         try {
             // Roughly a fifth of a second in the device's hands.
-            opened.open(accepted.toAudioFormat(), accepted.byteRate / 5)
+            opened.open(accepted.toAudioFormat(), (accepted.byteRate * 750) / 1000)
             opened.start()
         } catch (failure: Throwable) {
             runCatching { opened.close() }

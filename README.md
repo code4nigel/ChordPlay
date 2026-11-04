@@ -61,43 +61,37 @@ ChordPlay is built upon the open-source foundation of [BitChord](https://github.
 - **Vinyl Turntable**: Interactive spinning vinyl with groove texture and an animated tone-arm pickup that moves on play/pause.
 - **Classic Clean**: Minimalist, distraction-free playback view.
 
-### 2. Smart Home Speed Dial
-- **Visual Identity**: Distinct card styles for Artists (circular frames), Albums (vinyl sleeves), Playlists (stacked cards), and Tracks (squircles).
-- **Clean Titles**: Automatically cleans redundant prefixes for a tidy grid.
-- **Instant Pinning**: 0s latency reactive toggling to pin or unpin favorites.
+### 2. "Your Space" & Discovery
+- **"Your Space" Grid**: Distinct card styles for Artists (circular frames), Albums (vinyl sleeves), Playlists (stacked cards), and Tracks (squircles) with instant pinning and 1×4 track column list mode.
+- **Mixes & Radio**: Direct integration with custom mixes, quick picks, and contextual radios.
+- **Lucky Radio**: One-tap discovery dice with adaptive theming generating instant streaming mixes across 25+ genres.
+- **Home Shelves Reordering**: Full customization to toggle and reorder all home recommendation shelves—move community playlists, mixes, or genres right to the top.
 
-### 3. Home & Discovery
-- **Contextual Greetings**: Rotating witty greetings personalized with your profile name.
-- **Lucky Radio**: One-tap discovery dice generating instant streaming mixes across 25+ genres.
-- **Jump Back In**: Quick carousel to resume recent listening sessions right where you left off.
+### 3. Dynamic Theming & Living Stages
+- **Modern Ambient**: Breathing album-art aura lighting, seamless continuous waveform ring around the play button, and real-time audio bitrate badges (`OPUS` / `AAC`).
+- **Dynamic Artwork Palette**: Real-time theme extracting adaptive colors directly from whatever song is currently playing, with high-contrast text and adaptive top bar navigation.
+- **Morphing Transport Controls**: Player controls dynamically morph and expand when opening the queue, while repeat/shuffle gently fade.
+- **Preserve Style**: Freeze and save active dynamic artwork colorways as reusable custom presets directly from the Profile Selector.
+- **Liquid Glass**: Frosted-glass navigation with fluid spring micro-interactions and intensity slider.
 
-### 4. Dynamic Theming
-- **Dynamic Song Art**: Real-time theme adapting colors and ambient aura to the current song's album art.
-- **ChordPlay Crimson**: Signature obsidian-and-ruby dark theme.
-- **Material You & OLED**: Wallpaper-matched Monet palettes and true `#000000` AMOLED mode.
-- **Liquid Glass**: Frosted-glass bottom navigation with fluid spring micro-interactions.
-
-### 5. Tactile Gestures & Controls
-- **Swipe-to-Skip**: Swipe left/right on the MiniPlayer to change tracks with spring physics.
-- **Playlist Swipe Actions**: Swipe songs to remove them from playlists or pop up the 3-dot context menu.
-- **Progress Glow Ring**: Dynamic glowing border tracing playback progress.
-- **Micro-Haptics**: Subtle tactile clicks on transport controls and scrubbers.
-
-### 6. Fast Playlist Management
+### 4. Fast Playlist Management & In-Playlist Search
+- **In-Playlist Direct Add**: Tap the `+` button directly within any playlist to search YouTube Music or suggested recommendations and add songs without leaving the page.
+- **Two-Way Reactive Toggling**: Easily check or uncheck songs to add or remove them instantly with haptic feedback.
 - **Height-Locked Sheet**: Bottom sheet stays fixed when the keyboard opens—no accidental collapses.
-- **Two-Way Batch Toggles**: Queue additions or removals in bulk, then commit in one tap.
-- **Zero-Lag Performance**: Fast local caching and optimistic UI eliminates stutter.
+- **Zero-Lag Performance**: Fast local caching, robust membership tracking, and optimistic UI eliminates stutter.
 
-### 7. Modular Settings & Typography
+### 5. Modular Settings & Checkout Hub
+- **Top Settings Search**: Clean pill search bar to instantly find any preference or option.
+- **Featured Checkout**: Fast access to Account & Integrations, Listen Together (Play Together), Spotify Login, and Liquid Glass intensity.
 - **Live Preview Cards**: Real-time interactive previews for Theme and Player settings before applying.
 - **Custom Typography**: Handcrafted fonts (Poppins, Parkinsans, Serif) plus custom `.ttf`/`.otf` file import.
-- **Synced Lyrics Modes**: Fullscreen single-line lyrics strips, floating capsules, and dedicated lyrics offset tuning.
 
-### 8. Audiophile Streaming & Integrations
+### 6. Audiophile Streaming, Offline Lyrics & Integrations
+- **Offline Synced Lyrics**: Save synchronized (word-by-word and line-by-line) lyrics offline alongside downloaded songs, with personal offline usage agreement.
 - **High-Bitrate Audio**: Streams up to 289K Opus & 256K AAC with gapless playback and crossfade.
 - **Synchronized Lyrics**: Syllable-level and line-by-line animations via LRCLIB, Musixmatch, and Genius.
 - **Unified Integrations Hub**: YouTube Music account, channel switching, Spotify, Discord Rich Presence, Listen Together, Last.fm, and ListenBrainz in one unnested screen.
-- **Offline Downloads**: High-res offline caching with embedded artwork and full ID3 tags.
+- **Offline Downloads & Library**: Robust offline playback for downloaded songs, albums, playlists, and local files even without an internet connection.
 
 ---
 

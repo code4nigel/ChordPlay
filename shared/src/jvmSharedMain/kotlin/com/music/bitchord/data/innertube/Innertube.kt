@@ -596,9 +596,10 @@ object Innertube {
      * The watch queue that YouTube Music would play after [videoId] — the
      * "RDAMVM" radio mix. Used to keep AutoPlay going past the last track.
      */
-    suspend fun next(videoId: String): JsonObject = postMusic("next") {
-        put("videoId", videoId)
-        put("playlistId", "RDAMVM$videoId")
+    suspend fun next(videoId: String? = null, playlistId: String? = null): JsonObject = postMusic("next") {
+        videoId?.let { put("videoId", it) }
+        val pId = playlistId ?: videoId?.let { "RDAMVM$it" }
+        pId?.let { put("playlistId", it) }
         put("isAudioOnly", true)
     }
 
@@ -1017,6 +1018,7 @@ object Innertube {
                 addJsonObject {
                     put("action", "ACTION_ADD_VIDEO")
                     put("addedVideoId", videoId)
+                    put("dedupeOption", "DEDUPE_OPTION_SKIP")
                 }
             }
         }

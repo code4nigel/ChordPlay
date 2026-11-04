@@ -2,7 +2,12 @@ package com.music.bitchord.data.lyrics
 
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.LocalMediaRepository
+import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.download.DownloadStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -77,10 +82,93 @@ object EmbeddedLyrics {
                 ?.withBackgroundVocals()
         }
 
+    /**
+     * Resolves offline lyrics for [song], checking embedded tags, sidecar files,
+     * and the offline lyrics directories (`Download/Music/ChordPlay/lyrics`).
+     */
+    suspend fun forSong(context: Context, song: Song): List<LyricLine>? =
+        forTrack(context, song.localUri, song.videoId, song.title, song.artist)
+
+    suspend fun forTrack(
+        context: Context,
+        localUri: String?,
+        videoId: String,
+        title: String,
+        artist: String,
+    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        if (localUri != null) {
+            forUri(context, localUri)?.let { return@withContext it }
+        }
+        val raw = findOfflineLyricsRaw(context, videoId, title, artist) ?: return@withContext null
+        LrcLib.parseLrc(raw).takeIf { lines -> lines.any { it.text.isNotBlank() } }
+            ?.withBackgroundVocals()
+    }
+
     /** The raw LRC text for the file, preferring this app's word-timed field. */
     private fun read(context: Context, uri: Uri): String? =
         sidecar(uri.path.takeIf { uri.scheme == "file" })
             ?: open(context, uri)?.use { fromBytes(it.readAtMost(MAX_TAG_BYTES)) }
+            ?: localLrcFile(context, uri)
+
+    private fun localLrcFile(context: Context, uri: Uri): String? = runCatching {
+        if (uri.scheme == "file" && uri.path != null) {
+            val file = File(uri.path)
+            val direct = File(file.parentFile, "${file.nameWithoutExtension}.lrc")
+            if (direct.isFile && direct.length() in 1..MAX_TAG_BYTES.toLong()) {
+                return@runCatching direct.readText().takeIf { it.isNotBlank() }
+            }
+            val sub = File(file.parentFile, "lyrics/${file.nameWithoutExtension}.lrc")
+            if (sub.isFile && sub.length() in 1..MAX_TAG_BYTES.toLong()) {
+                return@runCatching sub.readText().takeIf { it.isNotBlank() }
+            }
+            val defaultLyrics = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                "Music/ChordPlay/lyrics/${file.nameWithoutExtension}.lrc"
+            )
+            if (defaultLyrics.isFile && defaultLyrics.length() in 1..MAX_TAG_BYTES.toLong()) {
+                return@runCatching defaultLyrics.readText().takeIf { it.isNotBlank() }
+            }
+        }
+        null
+    }.getOrNull()
+
+    private fun findOfflineLyricsRaw(
+        context: Context,
+        videoId: String,
+        title: String,
+        artist: String,
+    ): String? = runCatching {
+        val stem = DownloadStore.fileNameFor(artist, title, videoId, "")
+        val candidates = listOf(
+            "$videoId.lrc",
+            "$stem.lrc",
+        )
+
+        val searchDirs = buildList {
+            // 1. Download/Music/ChordPlay/lyrics
+            add(File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay/lyrics"))
+            // 2. Custom folder / lyrics
+            val customUri = AppSettings.customDownloadLocationUri.value
+            if (AppSettings.saveToCustomDownloadLocation.value && !customUri.isNullOrBlank()) {
+                val folder = LocalMediaRepository.selectedFolder(customUri)
+                if (folder != null) add(File(folder.absolutePath, "lyrics"))
+            }
+            // 3. App private lyrics backup
+            add(File(context.filesDir, "downloads/lyrics"))
+        }
+
+        for (dir in searchDirs) {
+            if (!dir.exists() || !dir.isDirectory) continue
+            for (candidateName in candidates) {
+                val file = File(dir, candidateName)
+                if (file.isFile && file.length() in 1..MAX_TAG_BYTES.toLong()) {
+                    val text = file.readText()
+                    if (text.isNotBlank()) return@runCatching text
+                }
+            }
+        }
+        null
+    }.getOrNull()
 
     /**
      * The `lyrics.lrc` written next to the offline package playlist at [path].

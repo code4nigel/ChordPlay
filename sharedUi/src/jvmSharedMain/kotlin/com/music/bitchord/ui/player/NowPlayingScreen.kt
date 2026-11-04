@@ -13,6 +13,7 @@ import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.SizeTransform
@@ -74,6 +75,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material3.Icon
@@ -717,6 +721,7 @@ fun NowPlayingScreen(
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
     onAddToPlaylist: (() -> Unit)? = null,
+    onShareSong: (() -> Unit)? = null,
     onOpenAlbum: (String) -> Unit,
     /**
      * Opens an artist's page. [browseId] is null for anyone but the lead credit:
@@ -764,11 +769,14 @@ fun NowPlayingScreen(
     // lies beneath the status bar when the player expands to full bleed.
     val artTopLuminance = rememberArtworkTopBandLuminance(remoteArt, ART_PX)
     val artworkStatusScrimAlpha = topBandScrimAlpha(artTopLuminance)
+    val isTopBright = (artTopLuminance ?: 0f) > 0.45f
+    val topBarGlyphTint by animateColorAsState(
+        targetValue = if (isTopBright) Color(0xFF161616).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.85f),
+        label = "topBarGlyphTint",
+    )
 
-    // Media-player convention: the player always owns light status icons. The
-    // top treatment below, rather than a window-flag flip per cover, provides
-    // their contrast and stays visually stable through artwork transitions.
-    StatusBarIcons(dark = false)
+    // Status bar icons adapt: dark icons on bright covers, light icons on dark covers.
+    StatusBarIcons(dark = isTopBright)
 
     // Kept local to the player: a modal player is not in the page's Haze
     // source tree, so it needs its own source for the same frosted material as
@@ -809,6 +817,9 @@ fun NowPlayingScreen(
     val isModernAmbient = isChordPlay && playerLayoutMode == PlayerLayoutMode.MODERN_AMBIENT
     val isVinylRecord = isChordPlay && playerLayoutMode == PlayerLayoutMode.VINYL_RECORD
     val isModernOrVinyl = isModernAmbient || isVinylRecord
+    val playerInterfaceStyle by PlayerSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
+    val isWavePlay = isModernOrVinyl && playerInterfaceStyle == com.music.bitchord.data.settings.PlayerInterfaceStyle.WAVEPLAY
+
 
     // Animated cover art: the looping video some labels publish alongside a
     // release, laid over the sleeve. A miss is the normal answer — see
@@ -831,6 +842,8 @@ fun NowPlayingScreen(
     val canvasRenderedState = remember(canvas?.url) { mutableStateOf(false) }
     var canvasRendered by canvasRenderedState
     var canvasFrame by remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
+    val synesthesiaPalette = rememberArtworkColors(remoteArt, canvasFrame)
+
     // Spotify's phone presentation starts with the full control deck over its
     // video. It leaves on a Canvas tap, or after the optional idle timeout.
     var spotifyCanvasControlsOpen by remember(canvas?.url) { mutableStateOf(true) }
@@ -1243,7 +1256,7 @@ fun NowPlayingScreen(
     // still-art full-bleed preference. Other providers and static artwork keep
     // answering to that preference exactly as before.
     val heroMode = spotifyCanvasOnPhone ||
-        (fullBleedArt && playerFillsWindow(windowWidth))
+        ((fullBleedArt || song.isVideo || canvasAspect > 1.15f) && playerFillsWindow(windowWidth))
 
     // Whether there's a still image to blow out — a placeholder tile is a card
     // or it is nothing, and going full-bleed with one would just tint the top
@@ -1523,18 +1536,25 @@ fun NowPlayingScreen(
             onOpenOutput = openAudioOutput,
             onListenTogether = onListenTogether,
             onOpenListenTogetherMembers = openListenTogetherMembers,
+            song = song,
+            isLoading = isLoading,
+            isModernOrVinyl = isWavePlay,
+            onOpenPipeline = { showAudioPipeline = true },
+            palette = synesthesiaPalette,
         )
-        // Keep the current output caption visible in every state.
-        Spacer(Modifier.height(18.dp))
-        Box(
-            modifier = Modifier.fillMaxWidth().height(20.dp),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            OutputCaption(
-                accountName = accountName,
-                onOpenOutput = openAudioOutput,
-                onOpenMembers = openListenTogetherMembers,
-            )
+        if (!isWavePlay) {
+            // Keep the current output caption visible in every state.
+            Spacer(Modifier.height(18.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth().height(20.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                OutputCaption(
+                    accountName = accountName,
+                    onOpenOutput = openAudioOutput,
+                    onOpenMembers = openListenTogetherMembers,
+                )
+            }
         }
     }
 
@@ -1564,6 +1584,7 @@ fun NowPlayingScreen(
             LyricsStyleSheet(
                 hazeState = playerHaze,
                 onDismiss = { showLyricsStyleSheet = false },
+                accentColor = synesthesiaPalette.colors.firstOrNull(),
             )
         }
         if (showAudioPipeline) {
@@ -1571,6 +1592,7 @@ fun NowPlayingScreen(
                 hazeState = playerHaze,
                 isPlaying = isPlaying,
                 onDismiss = { showAudioPipeline = false },
+                accentColor = synesthesiaPalette.colors.firstOrNull(),
             )
         }
         if (showCast) {
@@ -2010,19 +2032,10 @@ fun NowPlayingScreen(
                             )
                         },
                         styleToggle = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                LyricsOffsetToggleButton(
-                                    enabled = !lyrics.isNullOrEmpty(),
-                                    onClick = { localLyricsOffsetOpen = true },
-                                )
-                                LyricsStyleToggleButton(
-                                    enabled = !lyrics.isNullOrEmpty(),
-                                    onClick = { showLyricsStyleSheet = true },
-                                )
-                            }
+                            LyricsStyleToggleButton(
+                                enabled = !lyrics.isNullOrEmpty(),
+                                onClick = { showLyricsStyleSheet = true },
+                            )
                         },
                     ) { panelModifier ->
                         LyricsTranslationMotion(
@@ -2126,18 +2139,31 @@ fun NowPlayingScreen(
             MeshGradientBackground(
                 palette = rememberArtworkColors(remoteArt, canvasFrame),
                 trackKey = song.videoId,
-                modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
+                modifier = Modifier
+                    .graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha }
+                    .hazeSource(playerHaze),
             )
         } else if (!tabletArtworkBackdrop && !spotifyCanvasPresentation) {
             ArtworkMeshBackdrop(
                 mesh = artMesh,
                 seam = if (canvasFirstPortrait) renderedCanvasBottom else if (heroMode) heroHeight else 0.dp,
-                modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
+                modifier = Modifier
+                    .graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha }
+                    .hazeSource(playerHaze),
             )
         }
         fullArtworkBlurContent(
-            Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
+            Modifier
+                .graphicsLayer { alpha = fullArtworkBackdropAlpha }
+                .hazeSource(playerHaze),
         )
+        if (isWavePlay && !lyricsOpen && !queueOpen && !spotifyCanvasPresentation) {
+            SynesthesiaNocturneOverlay(
+                palette = synesthesiaPalette,
+                isPlaying = isPlaying,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         // Mount once, behind the controls. A known portrait aspect changes the
         // invisible view to full-player bounds before its first frame is shown.
@@ -2390,31 +2416,88 @@ fun NowPlayingScreen(
                 // the top of the strip. As lyrics or the queue replace the
                 // album-cover player, it glides into the now-empty strip's
                 // vertical centre alongside the caption's fade.
-                Box(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .offset {
-                            IntOffset(
-                                x = 0,
-                                y = lerp(
-                                    6.dp,
-                                    (topStrip - 5.dp).coerceAtLeast(0.dp) / 2,
-                                    p(),
-                                ).roundToPx(),
-                            )
-                        }
-                        .width(38.dp)
-                        .height(5.dp)
-                        .graphicsLayer { alpha = spotifyChromeAlpha }
-                        .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(Color.White.copy(alpha = 0.70f)),
-                )
+                if (!isWavePlay) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .offset {
+                                IntOffset(
+                                    x = 0,
+                                    y = lerp(
+                                        6.dp,
+                                        (topStrip - 5.dp).coerceAtLeast(0.dp) / 2,
+                                        p(),
+                                    ).roundToPx(),
+                                )
+                            }
+                            .width(38.dp)
+                            .height(5.dp)
+                            .graphicsLayer { alpha = spotifyChromeAlpha }
+                            .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color.White.copy(alpha = 0.70f)),
+                    )
+                }
                 // [p] is the shared album-to-panel transition. Keeping this in
                 // composition until its final frame gives the caption a real
                 // fade on both entry and exit, but removes its click target
                 // entirely once lyrics or the queue owns the player.
-                if (!hideSongStatus) {
+                if (isWavePlay) {
+                    WhileShown({ !collapseAlmostDone }) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = 16.dp, vertical = 2.dp)
+                                .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = onOpenPlaybackSource,
+                                    ),
+                                contentAlignment = Alignment.CenterStart,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = topBarGlyphTint,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                            PlaybackOriginCaption(
+                                text = playbackOriginText(song, playedBy),
+                                onClick = openPlaybackOrigin,
+                                textAlign = TextAlign.Center,
+                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp),
+                                textColor = topBarGlyphTint,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { onShareSong?.invoke() ?: onOpenMenu() },
+                                    ),
+                                contentAlignment = Alignment.CenterEnd,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Share,
+                                    contentDescription = stringResource(Res.string.share),
+                                    tint = topBarGlyphTint,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                        }
+                    }
+                } else if (!hideSongStatus) {
                     WhileShown({ !collapseAlmostDone }) {
                         PlaybackOriginCaption(
                             text = playbackOriginText(song, playedBy),
@@ -3380,7 +3463,8 @@ fun NowPlayingScreen(
                                 MarqueeText(
                                     text = song.title,
                                     style = MaterialTheme.typography.titleLarge.copy(
-                                        fontSize = 20.sp,
+                                        fontSize = if (isWavePlay) 24.sp else 20.sp,
+                                        fontWeight = FontWeight.Bold,
                                     ),
                                     color = Color.White,
                                     enabled = scrolling,
@@ -3401,9 +3485,9 @@ fun NowPlayingScreen(
                                     },
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.W500,
-                                        fontSize = 20.sp,
+                                        fontSize = if (isWavePlay) 16.sp else 20.sp,
                                     ),
-                                    color = Color.White.copy(alpha = 0.55f),
+                                    color = Color.White.copy(alpha = if (isWavePlay) 0.65f else 0.55f),
                                     enabled = scrolling,
                                     // A title that's also scrolling gets to go first —
                                     // starting together reads as clutter, so the artist
@@ -3411,6 +3495,7 @@ fun NowPlayingScreen(
                                     startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
                                     onOpenArtist = onOpenArtist,
                                 )
+
                             }
                         }
                     }
@@ -3432,7 +3517,7 @@ fun NowPlayingScreen(
                             active = liked,
                             haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
                     }
                     if (onAddToPlaylist != null && (song.localUri == null || isModernOrVinyl)) {
                         CircleGlyph(
@@ -3441,7 +3526,7 @@ fun NowPlayingScreen(
                             onClick = onAddToPlaylist,
                             haptic = Haptic.Tap,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
                     }
                     CircleGlyph(
                         icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
@@ -3532,13 +3617,9 @@ fun NowPlayingScreen(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .graphicsLayer { alpha = translateFade },
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            LyricsOffsetToggleButton(
-                                enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                onClick = { localLyricsOffsetOpen = true },
-                            )
                             LyricsStyleToggleButton(
                                 enabled = translateShown && !lyrics.isNullOrEmpty(),
                                 onClick = { showLyricsStyleSheet = true },
@@ -3714,32 +3795,29 @@ fun NowPlayingScreen(
                         .padding(vertical = 4.dp),
                 )
             }
-            val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
-            PlayerScrubber(
-                shown = shown,
-                durationMs = durationMs,
-                loading = versionSwitching,
-                mixing = mixing && !scrub.scrubbing,
-                // Hidden while scrubbing: the planner is still describing
-                // where the transition *would* be, and a marker sitting under
-                // a finger that is moving the playhead invites reading it as
-                // a drag target.
-                transitionWindow = transitionWindow
-                    ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                    ?.let { it.start..it.end },
-                onScrub = onScrub,
-                onScrubFinished = onScrubFinished,
-            ) {
-                if (isModernOrVinyl) {
-                    ChordPlayAudioFidelityBadge(
-                        song = song,
-                        isLoading = isLoading,
-                        onClick = { showAudioPipeline = true },
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = 8.dp),
-                    )
-                } else {
+            if (isWavePlay) {
+                SynesthesiaWaveformScrubber(
+                    shown = shown,
+                    durationMs = durationMs,
+                    isPlaying = isPlaying && position.advancing,
+                    onScrub = onScrub,
+                    onScrubFinished = onScrubFinished,
+                    trackKey = song.videoId,
+                    palette = synesthesiaPalette,
+                )
+            } else {
+                val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
+                PlayerScrubber(
+                    shown = shown,
+                    durationMs = durationMs,
+                    loading = versionSwitching,
+                    mixing = mixing && !scrub.scrubbing,
+                    transitionWindow = transitionWindow
+                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                        ?.let { it.start..it.end },
+                    onScrub = onScrub,
+                    onScrubFinished = onScrubFinished,
+                ) {
                     PlaybackQualityLabel(
                         song = song,
                         isLoading = isLoading,
@@ -3757,7 +3835,7 @@ fun NowPlayingScreen(
             // centre rather than drifting up under the seek bar.
             Spacer(Modifier.height(8.dp + controlSpread / 2))
 
-            if (isModernOrVinyl) {
+            if (isWavePlay) {
                 ChordPlayTransportDeck(
                     isPlaying = isPlaying,
                     isLoading = isLoading || audioVersionSwitching,
@@ -3767,7 +3845,13 @@ fun NowPlayingScreen(
                     onPrevious = onPrevious,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
+                    shuffleEnabled = shuffleEnabled,
+                    repeatMode = repeatMode,
+                    onToggleShuffle = onToggleShuffle,
+                    onCycleRepeat = onCycleRepeat,
+                    palette = synesthesiaPalette,
                     hazeState = playerHaze,
+                    queueOpen = queueOpen,
                 )
             } else {
                 TransportRow(
@@ -3782,25 +3866,23 @@ fun NowPlayingScreen(
                 )
             }
 
-            // Keep the volume slot's full footprint when its contents are
-            // hidden. Removing the slot itself shortened the controls by 50dp
-            // and moved every control below it. A display preference should not
-            // change the half-player's geometry.
-            Spacer(Modifier.height(12.dp + controlSpread / 2))
+            if (!isWavePlay) {
+                Spacer(Modifier.height(12.dp + controlSpread / 2))
 
-            if (!hideVolumeBar) {
-                VolumeRow(
-                    value = { volume.level.value },
-                    onValueChange = onVolumeChange,
-                    onValueChangeFinished = onVolumeChangeFinished,
-                )
+                if (!hideVolumeBar) {
+                    VolumeRow(
+                        value = { volume.level.value },
+                        onValueChange = onVolumeChange,
+                        onValueChangeFinished = onVolumeChangeFinished,
+                    )
+                } else {
+                    Spacer(Modifier.height(VOLUME_ROW_HEIGHT))
+                }
+
+                Spacer(Modifier.height(6.dp))
             } else {
-                Spacer(Modifier.height(VOLUME_ROW_HEIGHT))
+                Spacer(Modifier.height(14.dp + controlSpread / 3))
             }
-
-            // The volume slider already has 13dp below its drawn track.
-            // Balance that invisible inset with the caption gap below the icons.
-            Spacer(Modifier.height(6.dp))
 
             playerActions()
             Spacer(Modifier.height(18.dp))
@@ -4090,13 +4172,6 @@ private fun CanvasLyricStrip(
                 )
             }
         }
-        Spacer(Modifier.width(6.dp))
-        Icon(
-            imageVector = BitChordIcons.ChevronRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.6f),
-            modifier = Modifier.size(15.dp),
-        )
     }
 }
 
