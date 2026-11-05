@@ -1167,7 +1167,7 @@
     <string name="download_lyrics_offline">Download lyrics offline</string>
     <string name="download_lyrics_offline_subtitle">Save word-by-word and line-by-line synced lyrics offline with music</string>
     <string name="offline_lyrics_disclaimer_title">Offline Synced Lyrics</string>
-    <string name="offline_lyrics_disclaimer_message">When enabled, synced lyrics (both word-by-word and line-by-line) will be saved offline together with your music at Download/Music/ChordPlay/lyrics so you can enjoy synced lyrics even while offline.\n\nBy enabling this option, you agree to these terms. If any lyrics provider is unhappy, please mail me at impemailsyuess@gmail.com.</string>
+    <string name="offline_lyrics_disclaimer_message">When enabled, synced lyrics (both word-by-word and line-by-line) will be saved offline together with your music at Download/Music/ChordPlay/lyrics so you can enjoy synced lyrics even while offline.\n\nBy enabling this option, you agree to these terms. If any lyrics provider is unhappy, please mail me at impemailsyuses@gmail.com.</string>
     <string name="agree_and_enable">Agree &amp; Enable</string>
 
     <!-- Preserve Style & Your Space -->

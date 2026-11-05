@@ -11,7 +11,7 @@ Welcome to ChordPlay v2.0.3! This release introduces a comprehensive visual and 
 - **Offline Synced Lyrics Support (With Agreement)**:
   - Downloaded tracks can now store synchronized lyrics (syllable-level word-by-word and line-by-line) offline directly on device!
   - Offline songs automatically display their synced lyrics without requiring any network connection.
-  - **User Agreement Gate**: Stored offline lyrics are disabled by default. Enabling the toggle prompts users with an agreement explaining personal offline usage and lyrics provider contact details (`impemailsyuess@gmail.com`).
+  - **User Agreement Gate**: Stored offline lyrics are disabled by default. Enabling the toggle prompts users with an agreement explaining personal offline usage and lyrics provider contact details (`impemailsyuses@gmail.com`).
   - Configurable download destination path (defaults to `Download/Music/ChordPlay`).
 - **Home Shelves Customization & Full Reordering**:
   - Reorganized Home Shelves settings allowing users to inspect, toggle, and reorder all recommendation shelves (Quick Picks, Listen Again, Similar To, Mixed for You, Community playlists, etc.).

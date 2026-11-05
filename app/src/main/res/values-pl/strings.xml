@@ -1348,7 +1348,7 @@
     <string name="download_lyrics_offline">Pobieraj teksty offline</string>
     <string name="download_lyrics_offline_subtitle">Zapisuj zsynchronizowane teksty słowo po słowie i wers po wersie offline z muzyką</string>
     <string name="offline_lyrics_disclaimer_title">Zsynchronizowane teksty offline</string>
-    <string name="offline_lyrics_disclaimer_message">Po włączeniu zsynchronizowane teksty (zarówno słowo po słowie, jak i wers po wersie) będą zapisywane offline razem z Twoją muzyką w folderze Download/Music/ChordPlay/lyrics, aby móc cieszyć się tekstami także bez dostępu do sieci.\n\nWłączając tę opcję, akceptujesz te warunki. Jeśli dostawca tekstów wyrazi sprzeciw, napisz do mnie na adres impemailsyuess@gmail.com.</string>
+    <string name="offline_lyrics_disclaimer_message">Po włączeniu zsynchronizowane teksty (zarówno słowo po słowie, jak i wers po wersie) będą zapisywane offline razem z Twoją muzyką w folderze Download/Music/ChordPlay/lyrics, aby móc cieszyć się tekstami także bez dostępu do sieci.\n\nWłączając tę opcję, akceptujesz te warunki. Jeśli dostawca tekstów wyrazi sprzeciw, napisz do mnie na adres impemailsyuses@gmail.com.</string>
     <string name="agree_and_enable">Zgadzam się i włącz</string>
 
     <!-- Preserve Style & Your Space -->

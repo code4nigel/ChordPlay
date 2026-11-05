@@ -1309,7 +1309,7 @@
     <string name="download_lyrics_offline">ऑफ़लाइन बोल डाउनलोड करें</string>
     <string name="download_lyrics_offline_subtitle">संगीत के साथ शब्द-दर-शब्द और पंक्ति-दर-पंक्ति सिंक किए गए बोल ऑफ़लाइन सहेजें</string>
     <string name="offline_lyrics_disclaimer_title">ऑफ़लाइन सिंक्रोनाइज़्ड बोल</string>
-    <string name="offline_lyrics_disclaimer_message">सक्षम होने पर, सिंक किए गए बोल (शब्द-दर-शब्द और पंक्ति-दर-पंक्ति दोनों) आपके संगीत के साथ Download/Music/ChordPlay/lyrics पर ऑफ़लाइन सहेजे जाएंगे ताकि आप इंटरनेट के बिना भी सिंक किए गए बोलों का आनंद ले सकें।\n\nइस विकल्प को चालू करके, आप इन शर्तों से सहमत होते हैं। यदि कोई गीत-बोल प्रदाता असंतुष्ट है, तो कृपया मुझे impemailsyuess@gmail.com पर ईमेल करें।</string>
+    <string name="offline_lyrics_disclaimer_message">सक्षम होने पर, सिंक किए गए बोल (शब्द-दर-शब्द और पंक्ति-दर-पंक्ति दोनों) आपके संगीत के साथ Download/Music/ChordPlay/lyrics पर ऑफ़लाइन सहेजे जाएंगे ताकि आप इंटरनेट के बिना भी सिंक किए गए बोलों का आनंद ले सकें।\n\nइस विकल्प को चालू करके, आप इन शर्तों से सहमत होते हैं। यदि कोई गीत-बोल प्रदाता असंतुष्ट है, तो कृपया मुझे impemailsyuses@gmail.com पर ईमेल करें।</string>
     <string name="agree_and_enable">सहमत हों और चालू करें</string>
 
     <!-- Preserve Style & Your Space -->

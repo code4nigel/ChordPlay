@@ -1281,7 +1281,7 @@
     <string name="download_lyrics_offline">Descargar letras sin conexión</string>
     <string name="download_lyrics_offline_subtitle">Guarda letras sincronizadas palabra por palabra y línea por línea sin conexión con la música</string>
     <string name="offline_lyrics_disclaimer_title">Letras sincronizadas sin conexión</string>
-    <string name="offline_lyrics_disclaimer_message">Al habilitar esta opción, las letras sincronizadas (tanto palabra por palabra como línea por línea) se guardarán sin conexión junto con tu música en Download/Music/ChordPlay/lyrics para que puedas disfrutarlas sin conexión.\n\nAl activar esta opción, aceptas estos términos. Si algún proveedor de letras no está de acuerdo, comuníquese conmigo a impemailsyuess@gmail.com.</string>
+    <string name="offline_lyrics_disclaimer_message">Al habilitar esta opción, las letras sincronizadas (tanto palabra por palabra como línea por línea) se guardarán sin conexión junto con tu música en Download/Music/ChordPlay/lyrics para que puedas disfrutarlas sin conexión.\n\nAl activar esta opción, aceptas estos términos. Si algún proveedor de letras no está de acuerdo, comuníquese conmigo a impemailsyuses@gmail.com.</string>
     <string name="agree_and_enable">Aceptar y activar</string>
 
     <!-- Preserve Style & Your Space -->
