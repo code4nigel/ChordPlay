@@ -1022,7 +1022,7 @@
 
     <string name="auto_unavailable_subtitle">Reopen the folder and try again</string>
 
-    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_hint">Buscar en ajustes</string>
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
@@ -1434,4 +1434,22 @@
     <string name="action_open_menu">Abrir menú</string>
     <string name="action_none">Ninguno</string>
     <string name="links_and_community">Enlaces y comunidad</string>
+
+    <!-- System Typography Font Choices -->
+    <string name="font_choice_apple_desc">Tipografía limpia y grotesca característica de Apple Music</string>
+    <string name="font_choice_poppins_desc">Sans geométrica moderna con curvas generosas</string>
+    <string name="font_choice_parkinsans_desc">Grotesca divertida con curvas distintivas y carácter</string>
+    <string name="font_choice_system_default">Predeterminado del sistema</string>
+    <string name="font_choice_system_default_desc">Sans-serif estándar del sistema Android</string>
+
+    <!-- Links & Community -->
+    <string name="github_repository">Repositorio de GitHub</string>
+    <string name="latest_releases">Últimos lanzamientos</string>
+    <string name="latest_releases_subtitle">Consultar actualizaciones y notas de versión</string>
+    <string name="developer_profile">Perfil del desarrollador</string>
+    <string name="bitchord_upstream_repo">Repositorio ascendente BitChord</string>
+    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Crédito del proyecto ascendente</string>
+
+    <!-- Search Source Chips -->
+    <string name="search_source_addons">Complementos</string>
 </resources>

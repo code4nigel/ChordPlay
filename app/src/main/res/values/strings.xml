@@ -31,7 +31,7 @@
     <string name="downloads">Downloads</string>
     <string name="downloaded_songs">Downloaded songs</string>
     <string name="local_music">Local Music</string>
-    <string name="search_source_youtube" translatable="false">YouTube</string>
+    <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Addons</string>
     <string name="search_addons_none">No addons are enabled. Add one in Settings → Sources.</string>
     <string name="audio_files_on_device">Audio files on device</string>
@@ -1303,4 +1303,19 @@
     <string name="action_open_menu">Open Menu</string>
     <string name="action_none">None</string>
     <string name="links_and_community">Links &amp; Community</string>
+
+    <!-- System Typography Font Choices -->
+    <string name="font_choice_apple_desc">Signature Apple Music clean grotesque typography</string>
+    <string name="font_choice_poppins_desc">Modern geometric sans with generous curves</string>
+    <string name="font_choice_parkinsans_desc">Playful grotesque with distinctive curves and character</string>
+    <string name="font_choice_system_default">System Default</string>
+    <string name="font_choice_system_default_desc">Standard Android system sans-serif</string>
+
+    <!-- Links & Community -->
+    <string name="github_repository">GitHub Repository</string>
+    <string name="latest_releases">Latest Releases</string>
+    <string name="latest_releases_subtitle">Check for updates and release notes</string>
+    <string name="developer_profile">Developer Profile</string>
+    <string name="bitchord_upstream_repo">BitChord Upstream Repository</string>
+    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Upstream project credit</string>
 </resources>

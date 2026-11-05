@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.settings.PlayerInterfaceStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
@@ -120,5 +121,21 @@ fun SongSwipeAction.localizedLabel(): String = when (this) {
     SongSwipeAction.REMOVE_FROM_PLAYLIST -> stringResource(R.string.action_remove_from_playlist)
     SongSwipeAction.OPEN_MENU -> stringResource(R.string.action_open_menu)
     SongSwipeAction.NONE -> stringResource(R.string.action_none)
+}
+
+@Composable
+fun AppFontChoice.localizedLabel(): String = when (this) {
+    AppFontChoice.APPLE_SF_PRO -> this.label
+    AppFontChoice.POPPINS -> this.label
+    AppFontChoice.PARKINSANS -> this.label
+    AppFontChoice.SYSTEM_DEFAULT -> stringResource(R.string.font_choice_system_default)
+}
+
+@Composable
+fun AppFontChoice.localizedDetail(): String = when (this) {
+    AppFontChoice.APPLE_SF_PRO -> stringResource(R.string.font_choice_apple_desc)
+    AppFontChoice.POPPINS -> stringResource(R.string.font_choice_poppins_desc)
+    AppFontChoice.PARKINSANS -> stringResource(R.string.font_choice_parkinsans_desc)
+    AppFontChoice.SYSTEM_DEFAULT -> stringResource(R.string.font_choice_system_default_desc)
 }
 

@@ -303,7 +303,7 @@ fun AboutSection(
         SettingsGroup(header = stringResource(R.string.links_and_community)) {
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "GitHub Repository",
+                title = stringResource(R.string.github_repository),
                 subtitle = "code4nigel/ChordPlay",
                 onClick = {
                     runCatching {
@@ -314,8 +314,8 @@ fun AboutSection(
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "Latest Releases",
-                subtitle = "Check for updates and release notes",
+                title = stringResource(R.string.latest_releases),
+                subtitle = stringResource(R.string.latest_releases_subtitle),
                 onClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay/releases")))
@@ -325,7 +325,7 @@ fun AboutSection(
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "Developer Profile",
+                title = stringResource(R.string.developer_profile),
                 subtitle = "github.com/code4nigel",
                 onClick = {
                     runCatching {
@@ -336,8 +336,8 @@ fun AboutSection(
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
-                title = "BitChord Upstream Repository",
-                subtitle = "github.com/kushagrasinghx/BitChord • Upstream project credit",
+                title = stringResource(R.string.bitchord_upstream_repo),
+                subtitle = stringResource(R.string.bitchord_upstream_subtitle),
                 onClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))

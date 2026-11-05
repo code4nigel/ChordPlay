@@ -415,11 +415,11 @@ fun AppearanceSection(
         SettingsGroup(header = stringResource(R.string.system_typography)) {
             SettingsRow(
                 icon = Icons.Rounded.Style,
-                title = appFontChoice.label,
-                subtitle = appFontChoice.detail,
+                title = appFontChoice.localizedLabel(),
+                subtitle = appFontChoice.localizedDetail(),
             )
             SegmentedControl(
-                options = AppFontChoice.entries.map { it.label },
+                options = AppFontChoice.entries.map { it.localizedLabel() },
                 selectedIndex = AppFontChoice.entries.indexOf(appFontChoice),
                 onSelect = { AppSettings.setAppFontChoice(AppFontChoice.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),

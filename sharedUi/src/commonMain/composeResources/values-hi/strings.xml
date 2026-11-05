@@ -217,4 +217,31 @@
     <string name="browse">ब्राउज़ करें</string>
     <string name="change">बदलें</string>
     <string name="music_feels_better">आपके साथ संगीत और बेहतर लगता है</string>
+    <string name="shelf_start_radio_desc">गीत से रेडियो शुरू करें</string>
+    <string name="shelf_top_picks_for_you">आपके लिए शीर्ष चयन</string>
+    <string name="shelf_stations_mixes_desc">स्टेशन, मिक्स और नए रिलीज़</string>
+    <string name="shelf_remixes_edits">रीमिक्स और संपादन</string>
+    <string name="shelf_club_mixes_desc">क्लब मिक्स, वीआईपी और पुनर्कल्पित ट्रैक</string>
+    <string name="shelf_music_videos_for_you">आपके लिए म्यूजिक वीडियो</string>
+    <string name="shelf_widescreen_videos_desc">16:9 वाइडस्क्रीन आधिकारिक वीडियो</string>
+
+    <!-- Mood Category Filter Chips -->
+    <string name="mood_all">सभी</string>
+    <string name="mood_chill">शांत</string>
+    <string name="mood_sad">उदासी</string>
+    <string name="mood_energy">ऊर्जा</string>
+    <string name="mood_focus">एकाग्रता</string>
+    <string name="mood_workout">वर्कआउट</string>
+    <string name="mood_party">पार्टी</string>
+    <string name="mood_sleep">नींद</string>
+
+    <!-- Additional Home Shelf Titles & Subtitles -->
+    <string name="shelf_covers_remixes">कवर्स और रीमिक्स</string>
+    <string name="shelf_music_videos">म्यूजिक वीडियो</string>
+    <string name="shelf_new_music_videos">नए म्यूजिक वीडियो</string>
+    <string name="shelf_albums_singles">एल्बम और एकल</string>
+    <string name="shelf_new_albums_singles_top_songs">नए एल्बम, एकल और शीर्ष गीत</string>
+    <string name="shelf_new_albums_singles">नए एल्बम और एकल</string>
+    <string name="shelf_top_songs">शीर्ष गीत</string>
+    <string name="shelf_top_picks_desc">कलाकार स्टेशन, मिक्स और स्पॉटलाइट कार्ड</string>
 </resources>

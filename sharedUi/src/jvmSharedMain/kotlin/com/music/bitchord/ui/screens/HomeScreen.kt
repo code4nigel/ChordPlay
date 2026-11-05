@@ -938,6 +938,7 @@ internal fun localizeShelfTitle(title: String): String {
             trimmed.equals("コンサート", ignoreCase = true) ->
             stringResource(Res.string.shelf_concerts)
         trimmed.startsWith("Shorts", ignoreCase = true) ||
+            trimmed.equals("Krótkie filmy", ignoreCase = true) ||
             trimmed.equals("Shorts nổi bật", ignoreCase = true) ||
             trimmed.equals("ショート", ignoreCase = true) ->
             stringResource(Res.string.shelf_shorts)
@@ -945,12 +946,39 @@ internal fun localizeShelfTitle(title: String): String {
             trimmed.equals("Thịnh hành", ignoreCase = true) ||
             trimmed.equals("急上昇", ignoreCase = true) ->
             stringResource(Res.string.shelf_trending)
-        trimmed.equals("Top Picks for You", ignoreCase = true) ->
+        trimmed.equals("Top Picks for You", ignoreCase = true) ||
+            trimmed.equals("Top picks for you", ignoreCase = true) ||
+            trimmed.equals("Top picks", ignoreCase = true) ->
             stringResource(Res.string.shelf_top_picks_for_you)
-        trimmed.equals("Remixes & Edits", ignoreCase = true) ->
+        trimmed.equals("Remixes & Edits", ignoreCase = true) ||
+            trimmed.equals("Remixes & edits", ignoreCase = true) ||
+            trimmed.equals("Remixes and edits", ignoreCase = true) ||
+            trimmed.equals("Remixes and edit", ignoreCase = true) ||
+            trimmed.equals("Remixes", ignoreCase = true) ->
             stringResource(Res.string.shelf_remixes_edits)
-        trimmed.equals("Music Videos for You", ignoreCase = true) ->
+        trimmed.equals("Covers and remixes", ignoreCase = true) ||
+            trimmed.equals("Covers & remixes", ignoreCase = true) ->
+            stringResource(Res.string.shelf_covers_remixes)
+        trimmed.equals("Music Videos for You", ignoreCase = true) ||
+            trimmed.equals("Music videos for you", ignoreCase = true) ->
             stringResource(Res.string.shelf_music_videos_for_you)
+        trimmed.equals("Music videos", ignoreCase = true) ||
+            trimmed.equals("Music Videos", ignoreCase = true) ->
+            stringResource(Res.string.shelf_music_videos)
+        trimmed.equals("New music videos", ignoreCase = true) ||
+            trimmed.equals("New Music Videos", ignoreCase = true) ->
+            stringResource(Res.string.shelf_new_music_videos)
+        trimmed.equals("Albums and singles", ignoreCase = true) ||
+            trimmed.equals("Albums & singles", ignoreCase = true) ->
+            stringResource(Res.string.shelf_albums_singles)
+        trimmed.equals("New albums and singles and top songs", ignoreCase = true) ||
+            trimmed.equals("New albums & singles & top songs", ignoreCase = true) ->
+            stringResource(Res.string.shelf_new_albums_singles_top_songs)
+        trimmed.equals("New albums and singles", ignoreCase = true) ||
+            trimmed.equals("New albums & singles", ignoreCase = true) ->
+            stringResource(Res.string.shelf_new_albums_singles)
+        trimmed.equals("Top songs", ignoreCase = true) ->
+            stringResource(Res.string.shelf_top_songs)
         else -> title
     }
 }
@@ -958,15 +986,20 @@ internal fun localizeShelfTitle(title: String): String {
 internal fun localizeShelfSubtitle(subtitle: String): String {
     val trimmed = subtitle.trim()
     return when {
-        trimmed.equals("Start a radio from a song", ignoreCase = true) ->
+        trimmed.contains("start a radio", ignoreCase = true) ->
             stringResource(Res.string.shelf_start_radio_desc)
-        trimmed.equals("Stations, mixes & fresh drops", ignoreCase = true) ->
+        trimmed.contains("fresh drops", ignoreCase = true) ||
+            trimmed.contains("Stations, mixes", ignoreCase = true) ->
             stringResource(Res.string.shelf_stations_mixes_desc)
-        trimmed.equals("Club mixes, VIPs & reimagined cuts", ignoreCase = true) ||
-            trimmed.equals("Club mixes, VIP edits & reimagined tracks", ignoreCase = true) ->
+        trimmed.contains("Artist stations", ignoreCase = true) ||
+            trimmed.contains("spotlight cards", ignoreCase = true) ->
+            stringResource(Res.string.shelf_top_picks_desc)
+        trimmed.contains("club mixes", ignoreCase = true) ||
+            trimmed.contains("VIPs & reimagined", ignoreCase = true) ||
+            trimmed.contains("VIP edits", ignoreCase = true) ->
             stringResource(Res.string.shelf_club_mixes_desc)
-        trimmed.equals("16:9 widescreen official videos", ignoreCase = true) ||
-            trimmed.equals("16:9 widescreen music videos & live sessions", ignoreCase = true) ->
+        trimmed.contains("16:9 widescreen", ignoreCase = true) ||
+            trimmed.contains("widescreen official videos", ignoreCase = true) ->
             stringResource(Res.string.shelf_widescreen_videos_desc)
         trimmed.equals("TOP TUNES RIGHT NOW", ignoreCase = true) ||
             trimmed.equals("Top tunes right now", ignoreCase = true) ||

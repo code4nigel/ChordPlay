@@ -217,4 +217,31 @@
     <string name="browse">Explorar</string>
     <string name="change">Cambiar</string>
     <string name="music_feels_better">La música se siente mejor contigo</string>
+    <string name="shelf_start_radio_desc">Iniciar radio desde una canción</string>
+    <string name="shelf_top_picks_for_you">Top para ti</string>
+    <string name="shelf_stations_mixes_desc">Estaciones, mezclas y novedades</string>
+    <string name="shelf_remixes_edits">Remezclas y ediciones</string>
+    <string name="shelf_club_mixes_desc">Mezclas de club, VIP y temas reimaginados</string>
+    <string name="shelf_music_videos_for_you">Vídeos musicales para ti</string>
+    <string name="shelf_widescreen_videos_desc">Vídeos oficiales panorámicos 16:9</string>
+
+    <!-- Mood Category Filter Chips -->
+    <string name="mood_all">Todo</string>
+    <string name="mood_chill">Relax</string>
+    <string name="mood_sad">Triste</string>
+    <string name="mood_energy">Energía</string>
+    <string name="mood_focus">Concentración</string>
+    <string name="mood_workout">Entrenamiento</string>
+    <string name="mood_party">Fiesta</string>
+    <string name="mood_sleep">Dormir</string>
+
+    <!-- Additional Home Shelf Titles & Subtitles -->
+    <string name="shelf_covers_remixes">Versiones y remezclas</string>
+    <string name="shelf_music_videos">Vídeos musicales</string>
+    <string name="shelf_new_music_videos">Nuevos vídeos musicales</string>
+    <string name="shelf_albums_singles">Álbumes y sencillos</string>
+    <string name="shelf_new_albums_singles_top_songs">Nuevos álbumes, sencillos y mejores canciones</string>
+    <string name="shelf_new_albums_singles">Nuevos álbumes y sencillos</string>
+    <string name="shelf_top_songs">Mejores canciones</string>
+    <string name="shelf_top_picks_desc">Estaciones de artistas, mezclas y tarjetas destacadas</string>
 </resources>

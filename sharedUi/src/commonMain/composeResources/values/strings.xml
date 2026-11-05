@@ -230,4 +230,24 @@
     <string name="shelf_club_mixes_desc">Club mixes, VIPs &amp; reimagined cuts</string>
     <string name="shelf_music_videos_for_you">Music Videos for You</string>
     <string name="shelf_widescreen_videos_desc">16:9 widescreen official videos</string>
+
+    <!-- Mood Category Filter Chips -->
+    <string name="mood_all">All</string>
+    <string name="mood_chill">Chill</string>
+    <string name="mood_sad">Sad</string>
+    <string name="mood_energy">Energy</string>
+    <string name="mood_focus">Focus</string>
+    <string name="mood_workout">Workout</string>
+    <string name="mood_party">Party</string>
+    <string name="mood_sleep">Sleep</string>
+
+    <!-- Additional Home Shelf Titles & Subtitles -->
+    <string name="shelf_covers_remixes">Covers and remixes</string>
+    <string name="shelf_music_videos">Music videos</string>
+    <string name="shelf_new_music_videos">New music videos</string>
+    <string name="shelf_albums_singles">Albums and singles</string>
+    <string name="shelf_new_albums_singles_top_songs">New albums and singles &amp; top songs</string>
+    <string name="shelf_new_albums_singles">New albums &amp; singles</string>
+    <string name="shelf_top_songs">Top songs</string>
+    <string name="shelf_top_picks_desc">Artist stations, mixes &amp; spotlight cards</string>
 </resources>

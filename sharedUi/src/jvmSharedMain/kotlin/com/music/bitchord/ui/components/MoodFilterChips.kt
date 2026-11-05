@@ -1,5 +1,8 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.sharedui.resources.*
+import org.jetbrains.compose.resources.stringResource
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -80,6 +83,18 @@ enum class HomeMood(
 
         return if (filtered.isNotEmpty()) filtered else shelves
     }
+}
+
+@Composable
+fun HomeMood.localizedLabel(): String = when (this) {
+    HomeMood.ALL -> stringResource(Res.string.mood_all)
+    HomeMood.CHILL -> stringResource(Res.string.mood_chill)
+    HomeMood.SAD -> stringResource(Res.string.mood_sad)
+    HomeMood.ENERGY -> stringResource(Res.string.mood_energy)
+    HomeMood.FOCUS -> stringResource(Res.string.mood_focus)
+    HomeMood.WORKOUT -> stringResource(Res.string.mood_workout)
+    HomeMood.PARTY -> stringResource(Res.string.mood_party)
+    HomeMood.SLEEP -> stringResource(Res.string.mood_sleep)
 }
 
 /**
@@ -170,7 +185,7 @@ private fun MoodChip(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = mood.label,
+            text = mood.localizedLabel(),
             color = contentColor,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,

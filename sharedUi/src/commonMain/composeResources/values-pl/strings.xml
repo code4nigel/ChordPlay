@@ -176,7 +176,7 @@
     <string name="shelf_quick_picks">Szybki wybór</string>
     <string name="shelf_recents">Ostatnie</string>
     <string name="shelf_recommended_music_videos">Polecane teledyski</string>
-    <string name="shelf_shorts">Shorts</string>
+    <string name="shelf_shorts">Krótkie filmy</string>
     <string name="shelf_similar_to">Podobne do %1$s</string>
     <string name="shelf_single">Singiel</string>
     <string name="shelf_song_item">Utwór</string>
@@ -224,4 +224,24 @@
     <string name="shelf_club_mixes_desc">Klubowe miksy, wersje VIP i nowe aranżacje</string>
     <string name="shelf_music_videos_for_you">Teledyski dla Ciebie</string>
     <string name="shelf_widescreen_videos_desc">Panoramiczne oficjalne teledyski 16:9</string>
+
+    <!-- Mood Category Filter Chips -->
+    <string name="mood_all">Wszystko</string>
+    <string name="mood_chill">Relaks</string>
+    <string name="mood_sad">Smutek</string>
+    <string name="mood_energy">Energia</string>
+    <string name="mood_focus">Skupienie</string>
+    <string name="mood_workout">Trening</string>
+    <string name="mood_party">Impreza</string>
+    <string name="mood_sleep">Sen</string>
+
+    <!-- Additional Home Shelf Titles & Subtitles -->
+    <string name="shelf_covers_remixes">Covery i remiksy</string>
+    <string name="shelf_music_videos">Teledyski</string>
+    <string name="shelf_new_music_videos">Nowe teledyski</string>
+    <string name="shelf_albums_singles">Albumy i single</string>
+    <string name="shelf_new_albums_singles_top_songs">Nowe albumy i single oraz najpopularniejsze utwory</string>
+    <string name="shelf_new_albums_singles">Nowe albumy i single</string>
+    <string name="shelf_top_songs">Najpopularniejsze utwory</string>
+    <string name="shelf_top_picks_desc">Stacje wykonawców, miksy i wyróżnione karty</string>
 </resources>

@@ -990,7 +990,7 @@
 
     <string name="shelf_sad">Smutek</string>
 
-    <string name="shelf_shorts">Shorts</string>
+    <string name="shelf_shorts">Krótkie filmy</string>
 
     <string name="shelf_similar_to">Podobne do %1$s</string>
 
@@ -1087,7 +1087,7 @@
 
     <string name="auto_unavailable_subtitle">Reopen the folder and try again</string>
 
-    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_hint">Szukaj w ustawieniach</string>
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
@@ -1501,4 +1501,22 @@
     <string name="action_open_menu">Otwórz menu</string>
     <string name="action_none">Brak</string>
     <string name="links_and_community">Linki i społeczność</string>
+
+    <!-- System Typography Font Choices -->
+    <string name="font_choice_apple_desc">Klasyczna, przejrzysta typografia Apple Music</string>
+    <string name="font_choice_poppins_desc">Nowoczesny geometryczny krój o łagodnych łukach</string>
+    <string name="font_choice_parkinsans_desc">Wyrazisty krój o charakterystycznych liniach</string>
+    <string name="font_choice_system_default">Domyślna systemowa</string>
+    <string name="font_choice_system_default_desc">Standardowy bezszeryfowy krój systemu Android</string>
+
+    <!-- Links & Community -->
+    <string name="github_repository">Repozytorium GitHub</string>
+    <string name="latest_releases">Najnowsze wydania</string>
+    <string name="latest_releases_subtitle">Sprawdź aktualizacje i informacje o wydaniu</string>
+    <string name="developer_profile">Profil programisty</string>
+    <string name="bitchord_upstream_repo">Repozytorium bazowe BitChord</string>
+    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Uznanie dla projektu bazowego</string>
+
+    <!-- Search Source Chips -->
+    <string name="search_source_addons">Dodatki</string>
 </resources>
