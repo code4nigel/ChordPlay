@@ -81,3 +81,13 @@ This directory contains versioned Production APK builds (com.chordplay.music) fo
   - `ChordPlay-v2.0.3-vc51-prodDebug-armeabi-v7a.apk` (85.41 MB)
   - `ChordPlay-v2.0.3-vc51-prodDebug-universal.apk` (187.23 MB)
   - `ChordPlay-v2.0.3-vc51-prodDebug-x86_64.apk` (99.93 MB)
+
+### Build v2.0.3 (versionCode: 52)
+- **Timestamp**: 2026-11-05 17:40:07
+- **Variant**: prodDebug
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.0.3-vc52-prodDebug-arm64-v8a.apk` (94.08 MB)
+  - `ChordPlay-v2.0.3-vc52-prodDebug-armeabi-v7a.apk` (85.48 MB)
+  - `ChordPlay-v2.0.3-vc52-prodDebug-universal.apk` (187.3 MB)
+  - `ChordPlay-v2.0.3-vc52-prodDebug-x86_64.apk` (100 MB)

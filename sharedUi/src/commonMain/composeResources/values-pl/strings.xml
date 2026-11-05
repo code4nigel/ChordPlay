@@ -217,4 +217,11 @@
     <string name="browse">Przeglądaj</string>
     <string name="change">Zmień</string>
     <string name="music_feels_better">Z Tobą muzyka brzmi lepiej</string>
+    <string name="shelf_start_radio_desc">Uruchom radio na podstawie utworu</string>
+    <string name="shelf_top_picks_for_you">Polecane dla Ciebie</string>
+    <string name="shelf_stations_mixes_desc">Stacje, miksy i świeże nowości</string>
+    <string name="shelf_remixes_edits">Remiksy i edycje</string>
+    <string name="shelf_club_mixes_desc">Klubowe miksy, wersje VIP i nowe aranżacje</string>
+    <string name="shelf_music_videos_for_you">Teledyski dla Ciebie</string>
+    <string name="shelf_widescreen_videos_desc">Panoramiczne oficjalne teledyski 16:9</string>
 </resources>

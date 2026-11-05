@@ -300,7 +300,7 @@ fun AboutSection(
         }
 
         // Project Links Group
-        SettingsGroup(header = "Links & Community") {
+        SettingsGroup(header = stringResource(R.string.links_and_community)) {
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
                 title = "GitHub Repository",

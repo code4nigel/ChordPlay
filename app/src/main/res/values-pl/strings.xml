@@ -1328,7 +1328,23 @@
     <string name="spotify_library_subtitle">Twoje playlisty Spotify</string>
     <string name="spotify_sign_in">Zaloguj się przez Spotify</string>
     <string name="spotify_track_unavailable">Nie znaleziono tego utworu w YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>
+    <string name="search_playlists">Szukaj playlist</string>
+    <string name="chinese_simplified">Chiński (uproszczony)</string>
+    <string name="chinese_traditional">Chiński (tradycyjny)</string>
+    <string name="design_style">Styl wyglądu</string>
+    <string name="design_style_subtitle">Przełączaj między nowoczesnym ChordPlay a klasycznym BitChord</string>
+    <string name="color_palette">Paleta kolorów</string>
+    <string name="color_palette_subtitle">Wyselekcjonowane nastrojowe motywy ze świecącymi akcentami</string>
+    <string name="palette_electric_violet">Elektryczny fiolet</string>
+    <string name="palette_sunset_amber">Bursztynowy zachód</string>
+    <string name="palette_emerald_noir">Szmaragdowy noir</string>
+    <string name="palette_dynamic_monet">Dynamiczny Monet</string>
+    <string name="song_removed_from_playlist">Usunięto z playlisty</string>
+    <string name="cannot_remove_not_in_playlist">Dostępne tylko w obrębie playlisty</string>
+    <string name="in_playlist">W playliście</string>
+    <string name="will_remove">Zostanie usunięte</string>
+    <string name="will_add">Zostanie dodane</string>
+    <string name="playlists_updated">Zaktualizowano playlisty</string>
     <!-- Checkout / Hub in Settings -->
     <string name="checkout">Wyróżnione</string>
     <string name="play_together">Wspólne odtwarzanie</string>
@@ -1383,4 +1399,106 @@
     <string name="searching_songs">Wyszukiwanie utworów…</string>
     <string name="no_songs_found">Nie znaleziono utworów</string>
     <string name="added">Dodano</string>
+
+    <!-- Settings: Home Shelves Management -->
+    <string name="home_shelves">Półki strony głównej</string>
+    <string name="live_layout_preview">Podgląd układu na żywo</string>
+    <string name="shelves_active_count">%1$d aktywne</string>
+    <string name="all_shelves_disabled">Wszystkie półki są obecnie wyłączone. Wyświetlane będą domyślne rekomendacje.</string>
+    <string name="move_up">Przenieś w górę</string>
+    <string name="move_down">Przenieś w dół</string>
+
+    <!-- Home Shelf Titles & Subtitles -->
+    <string name="shelf_speed_dial_label">Twoja przestrzeń</string>
+    <string name="shelf_speed_dial_desc">Przypięte ulubione, miksy i siatka częstych wyborów</string>
+    <string name="shelf_quick_picks_label">Szybki wybór</string>
+    <string name="shelf_quick_picks_desc">4 rzędy utworów do natychmiastowego startu radia</string>
+    <string name="shelf_top_picks_label">Polecane dla Ciebie</string>
+    <string name="shelf_top_picks_desc">Stacje wykonawców, miksy i wyróżnione karty</string>
+    <string name="shelf_similar_to_label">Podobne do ostatnio słuchanych</string>
+    <string name="shelf_similar_to_desc">Rekomendacje i radia na podstawie ostatnich utworów</string>
+    <string name="shelf_community_playlists_label">Playlisty społeczności</string>
+    <string name="shelf_community_playlists_desc">Popularne playlisty od społeczności YouTube Music</string>
+    <string name="shelf_featured_playlists_label">Wyróżnione playlisty</string>
+    <string name="shelf_featured_playlists_desc">Kolekcje redakcyjne i wyselekcjonowane playlisty</string>
+    <string name="shelf_charts_label">Listy przebojów i trendy</string>
+    <string name="shelf_charts_desc">Najlepsze utwory, globalne/regionalne listy i hity na czasie</string>
+    <string name="shelf_remixes_label">Remiksy i edycje</string>
+    <string name="shelf_remixes_desc">Klubowe miksy, wersje VIP i nowe aranżacje</string>
+    <string name="shelf_music_videos_label">Teledyski</string>
+    <string name="shelf_music_videos_desc">Panoramiczne teledyski 16:9 i występy na żywo</string>
+    <string name="shelf_mixed_for_you_label">Zmiksowane dla Ciebie</string>
+    <string name="shelf_mixed_for_you_desc">Spersonalizowane miksy YouTube Music</string>
+    <string name="shelf_listen_again_label">Posłuchaj ponownie i ulubione</string>
+    <string name="shelf_listen_again_desc">Zapomniane ulubione i często odtwarzane utwory</string>
+    <string name="shelf_new_releases_label">Nowe wydania</string>
+    <string name="shelf_new_releases_desc">Najnowsze albumy, single i EP-ki</string>
+    <string name="shelf_other_label">Więcej rekomendacji</string>
+    <string name="shelf_other_desc">Gatunki, nastroje i inne odkrycia muzyczne</string>
+
+    <!-- Settings: Appearance & Design Style -->
+    <string name="design_style_chordplay">Nowoczesny ChordPlay</string>
+    <string name="design_style_chordplay_desc">Nastrojowe świecące szkło, żywe palety, intuicyjne sterowanie i dynamiczne odkrywanie</string>
+    <string name="design_style_classic">Klasyczny BitChord</string>
+    <string name="design_style_classic_desc">Oryginalny monochromatyczny ciemny interfejs w stylu Apple Music, standardowy odtwarzacz i domyślne półki</string>
+
+    <!-- Settings: Player Experience & Layout -->
+    <string name="player_experience">Wrażenia z odtwarzacza</string>
+    <string name="player_interface">Interfejs odtwarzacza</string>
+    <string name="player_interface_desc">Wybierz między układem WavePlay a oryginalnym ChordPlay</string>
+    <string name="player_interface_waveplay">WavePlay</string>
+    <string name="player_interface_waveplay_desc">Wstęgi synestezji, dynamiczny pasek fali dźwiękowej i 5-przyciskowy świecący pulpit</string>
+    <string name="player_interface_og">ChordPlay OG</string>
+    <string name="player_interface_og_desc">Klasyczny pulpit sterowania, pasek postępu i suwak głośności</string>
+
+    <string name="player_layout">Układ odtwarzacza</string>
+    <string name="player_layout_modern">Nowoczesny</string>
+    <string name="player_layout_modern_desc">Pływająca okładka z pulsującą poświatą, kapsułkowy pulpit i szybkie akcje</string>
+    <string name="player_layout_vinyl">Gramofon winylowy</string>
+    <string name="player_layout_vinyl_desc">Kręcąca się płyta winylowa wysuwająca się z okładki z ruchomym ramieniem</string>
+    <string name="player_layout_classic">Klasyczny BitChord</string>
+    <string name="player_layout_classic_desc">Oryginalny układ odtwarzacza w stylu Apple Music</string>
+
+    <string name="breathing_artwork_aura">Pulsująca poświata okładki</string>
+    <string name="breathing_artwork_aura_desc">Subtelna nastrojowa poświata okładki pulsująca w rytm odtwarzania</string>
+    <string name="artwork_and_visuals">Okładka i efekty wizualne</string>
+
+    <!-- Settings: Custom Saves & Swipe Gestures & Typography -->
+    <string name="custom_saves">Własne motywy</string>
+    <string name="saved_presets">Zapisane motywy</string>
+    <string name="saved_presets_count">Zapisano %1$d z %2$d</string>
+    <string name="system_typography">Typografia systemowa</string>
+    <string name="swipe_gestures">Gesty przesuwania</string>
+    <string name="right_swipe_action">Akcja gestu w prawo</string>
+    <string name="left_swipe_action">Akcja gestu w lewo</string>
+    <string name="pure_black_amoled">Głęboka czerń (AMOLED)</string>
+    <string name="pure_black_amoled_desc">Czysta czerń ciemnego tła dla oszczędzania baterii na ekranach OLED</string>
+
+    <!-- Settings: Typography & Fonts (Lyrics) -->
+    <string name="typography_and_fonts">Typografia i czcionki</string>
+    <string name="font_family_subtitle">Wybierz spośród przygotowanych krojów lub załaduj własny plik czcionki</string>
+    <string name="custom_font_file">Własny plik</string>
+    <string name="size_and_alignment">Rozmiar i wyrównanie</string>
+    <string name="size_scale">Skala rozmiaru</string>
+    <string name="font_size_compact">Mały</string>
+    <string name="font_size_standard">Normalny</string>
+    <string name="font_size_large">Duży</string>
+    <string name="font_size_huge">Ogromny</string>
+    <string name="font_weight_medium">Średnia</string>
+    <string name="font_weight_semibold">Półgruba</string>
+    <string name="font_weight_bold">Gruba</string>
+    <string name="font_weight_heavy">Bardzo gruba</string>
+    <string name="font_family_default">Domyślna</string>
+    <string name="font_family_serif">Szeryfowa</string>
+    <string name="font_family_sans_serif">Bezszeryfowa</string>
+    <string name="font_family_monospace">Stała szerokość</string>
+    <string name="font_family_script">Pismo odręczne</string>
+    <string name="fullscreen_artwork_lyrics">Tekst na pełnym ekranie okładki</string>
+
+    <!-- Swipe Actions -->
+    <string name="action_like_favorite">Polub / Ulubione</string>
+    <string name="action_remove_from_playlist">Usuń z playlisty</string>
+    <string name="action_open_menu">Otwórz menu</string>
+    <string name="action_none">Brak</string>
+    <string name="links_and_community">Linki i społeczność</string>
 </resources>

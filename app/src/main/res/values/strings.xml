@@ -1202,4 +1202,105 @@
     <string name="searching_songs">Searching songs…</string>
     <string name="no_songs_found">No songs found</string>
     <string name="added">Added</string>
+
+    <!-- Settings: Home Shelves Management -->
+    <string name="live_layout_preview">Live Layout Preview</string>
+    <string name="shelves_active_count">%1$d active</string>
+    <string name="all_shelves_disabled">All shelves are currently disabled. Default recommendations will appear.</string>
+    <string name="move_up">Move Up</string>
+    <string name="move_down">Move Down</string>
+
+    <!-- Home Shelf Titles & Subtitles -->
+    <string name="shelf_speed_dial_label">Your Space</string>
+    <string name="shelf_speed_dial_desc">Pinned favorites, mixes &amp; high-frequency grid</string>
+    <string name="shelf_quick_picks_label">Quick Picks</string>
+    <string name="shelf_quick_picks_desc">4-row instant radio starter tracks</string>
+    <string name="shelf_top_picks_label">Top Picks for You</string>
+    <string name="shelf_top_picks_desc">Artist stations, mixes &amp; spotlight cards</string>
+    <string name="shelf_similar_to_label">Similar to Recent Listens</string>
+    <string name="shelf_similar_to_desc">Recommendations &amp; radios based on recent tracks</string>
+    <string name="shelf_community_playlists_label">Community Playlists</string>
+    <string name="shelf_community_playlists_desc">Trending playlists from the YouTube Music community</string>
+    <string name="shelf_featured_playlists_label">Featured Playlists</string>
+    <string name="shelf_featured_playlists_desc">Editorial spotlights &amp; curated playlist carousels</string>
+    <string name="shelf_charts_label">Charts &amp; Trending</string>
+    <string name="shelf_charts_desc">Top tracks, global/regional charts &amp; trending hits</string>
+    <string name="shelf_remixes_label">Remixes &amp; Edits</string>
+    <string name="shelf_remixes_desc">Club mixes, VIP edits &amp; reimagined tracks</string>
+    <string name="shelf_music_videos_label">Music Videos</string>
+    <string name="shelf_music_videos_desc">16:9 widescreen music videos &amp; live sessions</string>
+    <string name="shelf_mixed_for_you_label">Mixed for You</string>
+    <string name="shelf_mixed_for_you_desc">YouTube Music personalized mix carousels</string>
+    <string name="shelf_listen_again_label">Listen Again &amp; Favorites</string>
+    <string name="shelf_listen_again_desc">Forgotten favorites &amp; heavy rotation shelves</string>
+    <string name="shelf_new_releases_label">New Releases</string>
+    <string name="shelf_new_releases_desc">Latest albums, singles &amp; EPs</string>
+    <string name="shelf_other_label">More Recommendations</string>
+    <string name="shelf_other_desc">Genre spotlights, moods &amp; other discoveries</string>
+
+    <!-- Settings: Appearance & Design Style -->
+    <string name="design_style_chordplay">ChordPlay Modern</string>
+    <string name="design_style_chordplay_desc">Atmospheric glowing glass, vibrant palettes, tactile controls, and dynamic discovery</string>
+    <string name="design_style_classic">Classic BitChord</string>
+    <string name="design_style_classic_desc">Original Apple Music-inspired monochrome dark UI, standard player, and default shelves</string>
+
+    <!-- Settings: Player Experience & Layout -->
+    <string name="player_experience">Player Experience</string>
+    <string name="player_interface">Player Interface</string>
+    <string name="player_interface_desc">Choose between WavePlay or original ChordPlay layout</string>
+    <string name="player_interface_waveplay">WavePlay</string>
+    <string name="player_interface_waveplay_desc">Synesthesia ribbons, dynamic waveform seekbar, and 5-button glowing orb deck</string>
+    <string name="player_interface_og">ChordPlay OG</string>
+    <string name="player_interface_og_desc">Original classic transport deck, seekbar, and volume slider</string>
+
+    <string name="player_layout">Player Layout</string>
+    <string name="player_layout_modern">Modern Ambient</string>
+    <string name="player_layout_modern_desc">Floating cover with breathing aura, frosted capsule deck, and quick actions</string>
+    <string name="player_layout_vinyl">Vinyl Turntable</string>
+    <string name="player_layout_vinyl_desc">Spinning vinyl record sliding out from sleeve with moving tonearm</string>
+    <string name="player_layout_classic">Classic BitChord</string>
+    <string name="player_layout_classic_desc">Original Apple Music-style player layout</string>
+
+    <string name="breathing_artwork_aura">Breathing Artwork Aura</string>
+    <string name="breathing_artwork_aura_desc">Subtle ambient artwork glow pulsing with audio playback</string>
+    <string name="artwork_and_visuals">Artwork &amp; Visuals</string>
+
+    <!-- Settings: Custom Saves & Swipe Gestures & Typography -->
+    <string name="custom_saves">Custom Saves</string>
+    <string name="saved_presets">Saved Presets</string>
+    <string name="saved_presets_count">%1$d of %2$d saved</string>
+    <string name="system_typography">System Typography</string>
+    <string name="swipe_gestures">Swipe Gestures</string>
+    <string name="right_swipe_action">Right Swipe Action</string>
+    <string name="left_swipe_action">Left Swipe Action</string>
+    <string name="pure_black_amoled">Pure Black (AMOLED)</string>
+    <string name="pure_black_amoled_desc">Turn dark backgrounds pure black for OLED power savings</string>
+
+    <!-- Settings: Typography & Fonts (Lyrics) -->
+    <string name="typography_and_fonts">Typography &amp; Fonts</string>
+    <string name="font_family_subtitle">Choose from handcrafted typefaces or load your own custom font file</string>
+    <string name="custom_font_file">Custom File</string>
+    <string name="size_and_alignment">Size &amp; Alignment</string>
+    <string name="size_scale">Size Scale</string>
+    <string name="font_size_compact">Small</string>
+    <string name="font_size_standard">Normal</string>
+    <string name="font_size_large">Large</string>
+    <string name="font_size_huge">Huge</string>
+    <string name="font_weight_medium">Medium</string>
+    <string name="font_weight_semibold">SemiBold</string>
+    <string name="font_weight_bold">Bold</string>
+    <string name="font_weight_heavy">Heavy</string>
+    <string name="font_family_default">Default</string>
+    <string name="font_family_serif">Serif</string>
+    <string name="font_family_sans_serif">Sans-Serif</string>
+    <string name="font_family_monospace">Monospace</string>
+    <string name="font_family_script">Script</string>
+    <string name="fullscreen_artwork_lyrics">Fullscreen Artwork Lyrics</string>
+
+    <!-- Swipe Actions -->
+    <string name="action_like_favorite">Like / Favorite</string>
+    <string name="action_remove_from_playlist">Remove from Playlist</string>
+    <string name="action_open_menu">Open Menu</string>
+    <string name="action_none">None</string>
+    <string name="links_and_community">Links &amp; Community</string>
 </resources>

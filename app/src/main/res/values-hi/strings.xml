@@ -1289,7 +1289,23 @@
     <string name="spotify_library_subtitle">आपकी Spotify प्लेलिस्ट</string>
     <string name="spotify_sign_in">Spotify से साइन इन करें</string>
     <string name="spotify_track_unavailable">वह गाना YouTube Music पर नहीं मिला</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>
+    <string name="search_playlists">प्लेलिस्ट खोजें</string>
+    <string name="chinese_simplified">चीनी (सरलीकृत)</string>
+    <string name="chinese_traditional">चीनी (पारंपरिक)</string>
+    <string name="design_style">डिज़ाइन शैली</string>
+    <string name="design_style_subtitle">आधुनिक ChordPlay और क्लासिक BitChord के बीच स्विच करें</string>
+    <string name="color_palette">रंग पैलेट</string>
+    <string name="color_palette_subtitle">चमकदार लहजे के साथ चयनित वायुमंडलीय थीम</string>
+    <string name="palette_electric_violet">इलेक्ट्रिक वायलेट</string>
+    <string name="palette_sunset_amber">सनसेट एम्बर</string>
+    <string name="palette_emerald_noir">एमराल्ड नोयर</string>
+    <string name="palette_dynamic_monet">डायनामिक मोनेट</string>
+    <string name="song_removed_from_playlist">प्लेलिस्ट से हटाया गया</string>
+    <string name="cannot_remove_not_in_playlist">केवल प्लेलिस्ट के भीतर उपलब्ध</string>
+    <string name="in_playlist">प्लेलिस्ट में</string>
+    <string name="will_remove">हटा दिया जाएगा</string>
+    <string name="will_add">जोड़ दिया जाएगा</string>
+    <string name="playlists_updated">प्लेलिस्ट अपडेट की गईं</string>
     <!-- Checkout / Hub in Settings -->
     <string name="checkout">त्वरित पहुँच</string>
     <string name="play_together">साथ में सुनें</string>
@@ -1344,4 +1360,106 @@
     <string name="searching_songs">गाने खोज रहे हैं…</string>
     <string name="no_songs_found">कोई गाना नहीं मिला</string>
     <string name="added">जोड़ा गया</string>
+
+    <!-- Settings: Home Shelves Management -->
+    <string name="home_shelves">होम शेल्फ़</string>
+    <string name="live_layout_preview">लाइव लेआउट पूर्वावलोकन</string>
+    <string name="shelves_active_count">%1$d सक्रिय</string>
+    <string name="all_shelves_disabled">सभी शेल्फ़ वर्तमान में अक्षम हैं। डिफ़ॉल्ट सिफ़ारिशें दिखाई देंगी।</string>
+    <string name="move_up">ऊपर ले जाएं</string>
+    <string name="move_down">नीचे ले जाएं</string>
+
+    <!-- Home Shelf Titles & Subtitles -->
+    <string name="shelf_speed_dial_label">आपका स्पेस</string>
+    <string name="shelf_speed_dial_desc">पिन किए गए पसंदीदा, मिक्स और त्वरित ग्रिड</string>
+    <string name="shelf_quick_picks_label">त्वरित चयन</string>
+    <string name="shelf_quick_picks_desc">रेडियो तुरंत शुरू करने के लिए 4 पंक्तियों के ट्रैक</string>
+    <string name="shelf_top_picks_label">आपके लिए शीर्ष चयन</string>
+    <string name="shelf_top_picks_desc">कलाकार स्टेशन, मिक्स और स्पॉटलाइट कार्ड</string>
+    <string name="shelf_similar_to_label">हाल ही में सुने गए गानों के समान</string>
+    <string name="shelf_similar_to_desc">हाल के ट्रैक पर आधारित सिफ़ारिशें और रेडियो</string>
+    <string name="shelf_community_playlists_label">समुदाय प्लेलिस्ट</string>
+    <string name="shelf_community_playlists_desc">YouTube Music समुदाय की लोकप्रिय प्लेलिस्ट</string>
+    <string name="shelf_featured_playlists_label">विशेष रुप से प्रदर्शित प्लेलिस्ट</string>
+    <string name="shelf_featured_playlists_desc">संपादकीय स्पॉटलाइट और क्यूरेटेड प्लेलिस्ट</string>
+    <string name="shelf_charts_label">चार्ट और ट्रेंडिंग</string>
+    <string name="shelf_charts_desc">शीर्ष ट्रैक, वैश्विक/क्षेत्रीय चार्ट और ट्रेंडिंग हिट्स</string>
+    <string name="shelf_remixes_label">रीमिक्स और संपादन</string>
+    <string name="shelf_remixes_desc">क्लब मिक्स, वीआईपी संपादन और पुनर्कल्पित ट्रैक</string>
+    <string name="shelf_music_videos_label">म्यूजिक वीडियो</string>
+    <string name="shelf_music_videos_desc">16:9 वाइडस्क्रीन आधिकारिक वीडियो और लाइव सत्र</string>
+    <string name="shelf_mixed_for_you_label">आपके लिए मिश्रित</string>
+    <string name="shelf_mixed_for_you_desc">YouTube Music व्यक्तिगत मिक्स कैरोसेल</string>
+    <string name="shelf_listen_again_label">फिर से सुनें और पसंदीदा</string>
+    <string name="shelf_listen_again_desc">भूले हुए पसंदीदा और बार-बार सुने जाने वाले शेल्फ़</string>
+    <string name="shelf_new_releases_label">नई रिलीज़</string>
+    <string name="shelf_new_releases_desc">नवीनतम एल्बम, एकल और ईपी</string>
+    <string name="shelf_other_label">अधिक सिफ़ारिशें</string>
+    <string name="shelf_other_desc">शैली स्पॉटलाइट, मूड और अन्य खोजें</string>
+
+    <!-- Settings: Appearance & Design Style -->
+    <string name="design_style_chordplay">ChordPlay आधुनिक</string>
+    <string name="design_style_chordplay_desc">वायुमंडलीय चमकदार ग्लास, जीवंत पैलेट, स्पर्श नियंत्रण और गतिशील खोज</string>
+    <string name="design_style_classic">क्लासिक BitChord</string>
+    <string name="design_style_classic_desc">Apple Music से प्रेरित मोनोक्रोम डार्क UI, मानक प्लेयर और डिफ़ॉल्ट शेल्फ़</string>
+
+    <!-- Settings: Player Experience & Layout -->
+    <string name="player_experience">प्लेयर अनुभव</string>
+    <string name="player_interface">प्लेयर इंटरफ़ेस</string>
+    <string name="player_interface_desc">WavePlay या मूल ChordPlay लेआउट के बीच चुनें</string>
+    <string name="player_interface_waveplay">WavePlay</string>
+    <string name="player_interface_waveplay_desc">सिनेस्थेसिया रिबन, डायनामिक वेवफ़ॉर्म सीकबार और 5-बटन ग्लोइंग ऑर्ब डेक</string>
+    <string name="player_interface_og">ChordPlay OG</string>
+    <string name="player_interface_og_desc">मूल क्लासिक ट्रांसपोर्ट डेक, सीकबार और वॉल्यूम स्लाइडर</string>
+
+    <string name="player_layout">प्लेयर लेआउट</string>
+    <string name="player_layout_modern">आधुनिक</string>
+    <string name="player_layout_modern_desc">ब्रीदिंग ऑरा के साथ फ्लोटिंग कवर, फ्रॉस्टेड कैप्सूल डेक और त्वरित क्रियाएं</string>
+    <string name="player_layout_vinyl">विनाइल टर्नटेबल</string>
+    <string name="player_layout_vinyl_desc">स्लीव से बाहर निकलता घूमता हुआ विनाइल रिकॉर्ड और टोनआर्म</string>
+    <string name="player_layout_classic">क्लासिक BitChord</string>
+    <string name="player_layout_classic_desc">Apple Music शैली का क्लासिक प्लेयर लेआउट</string>
+
+    <string name="breathing_artwork_aura">ब्रीदिंग आर्टवर्क ऑरा</string>
+    <string name="breathing_artwork_aura_desc">ऑडियो प्लेबैक के साथ स्पंदित होने वाला सूक्ष्म परिवेशी आर्टवर्क ग्लो</string>
+    <string name="artwork_and_visuals">आर्टवर्क और विज़ुअल्स</string>
+
+    <!-- Settings: Custom Saves & Swipe Gestures & Typography -->
+    <string name="custom_saves">कस्टम थीम</string>
+    <string name="saved_presets">सहेजे गए प्रीसेट</string>
+    <string name="saved_presets_count">%2$d में से %1$d सहेजे गए</string>
+    <string name="system_typography">सिस्टम टाइपोग्राफी</string>
+    <string name="swipe_gestures">स्वाइप जेस्चर</string>
+    <string name="right_swipe_action">दायां स्वाइप एक्शन</string>
+    <string name="left_swipe_action">बायां स्वाइप एक्शन</string>
+    <string name="pure_black_amoled">शुद्ध काला (AMOLED)</string>
+    <string name="pure_black_amoled_desc">OLED बिजली बचत के लिए गहरे बैकग्राउंड को शुद्ध काला बनाएं</string>
+
+    <!-- Settings: Typography & Fonts (Lyrics) -->
+    <string name="typography_and_fonts">टाइपोग्राफी और फ़ॉन्ट</string>
+    <string name="font_family_subtitle">हैंडक्राफ़्टेड टाइपफेस में से चुनें या अपनी खुद की फ़ॉन्ट फ़ाइल लोड करें</string>
+    <string name="custom_font_file">कस्टम फ़ाइल</string>
+    <string name="size_and_alignment">आकार और संरेखण</string>
+    <string name="size_scale">आकार स्केल</string>
+    <string name="font_size_compact">छोटा</string>
+    <string name="font_size_standard">सामान्य</string>
+    <string name="font_size_large">बड़ा</string>
+    <string name="font_size_huge">विशाल</string>
+    <string name="font_weight_medium">मध्यम</string>
+    <string name="font_weight_semibold">सेमी-बोल्ड</string>
+    <string name="font_weight_bold">बोल्ड</string>
+    <string name="font_weight_heavy">हैवी</string>
+    <string name="font_family_default">डिफ़ॉल्ट</string>
+    <string name="font_family_serif">सेरिफ़</string>
+    <string name="font_family_sans_serif">सैंस-सेरिफ़</string>
+    <string name="font_family_monospace">मोनोस्पेस</string>
+    <string name="font_family_script">स्क्रिप्ट</string>
+    <string name="fullscreen_artwork_lyrics">फुलस्क्रीन आर्टवर्क बोल</string>
+
+    <!-- Swipe Actions -->
+    <string name="action_like_favorite">पसंद / पसंदीदा</string>
+    <string name="action_remove_from_playlist">प्लेलिस्ट से हटाएं</string>
+    <string name="action_open_menu">मेनू खोलें</string>
+    <string name="action_none">कोई नहीं</string>
+    <string name="links_and_community">लिंक्स और समुदाय</string>
 </resources>

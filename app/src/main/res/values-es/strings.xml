@@ -1261,7 +1261,23 @@
     <string name="spotify_library_subtitle">Tus playlists de Spotify</string>
     <string name="spotify_sign_in">Iniciar sesión con Spotify</string>
     <string name="spotify_track_unavailable">No se encontró esa canción en YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>
+    <string name="search_playlists">Buscar playlists</string>
+    <string name="chinese_simplified">Chino (simplificado)</string>
+    <string name="chinese_traditional">Chino (tradicional)</string>
+    <string name="design_style">Estilo de diseño</string>
+    <string name="design_style_subtitle">Cambia entre el estilo moderno de ChordPlay y el clásico de BitChord</string>
+    <string name="color_palette">Paleta de colores</string>
+    <string name="color_palette_subtitle">Temas atmosféricos seleccionados con acentos brillantes</string>
+    <string name="palette_electric_violet">Violeta eléctrico</string>
+    <string name="palette_sunset_amber">Ámbar atardecer</string>
+    <string name="palette_emerald_noir">Esmeralda noir</string>
+    <string name="palette_dynamic_monet">Monet dinámico</string>
+    <string name="song_removed_from_playlist">Eliminado de la playlist</string>
+    <string name="cannot_remove_not_in_playlist">Solo disponible dentro de una playlist</string>
+    <string name="in_playlist">En la playlist</string>
+    <string name="will_remove">Se eliminará</string>
+    <string name="will_add">Se añadirá</string>
+    <string name="playlists_updated">Playlists actualizadas</string>
     <!-- Checkout / Hub in Settings -->
     <string name="checkout">Destacados</string>
     <string name="play_together">Escuchar juntos</string>
@@ -1316,4 +1332,106 @@
     <string name="searching_songs">Buscando canciones…</string>
     <string name="no_songs_found">No se encontraron canciones</string>
     <string name="added">Añadido</string>
+
+    <!-- Settings: Home Shelves Management -->
+    <string name="home_shelves">Estantes de inicio</string>
+    <string name="live_layout_preview">Vista previa en vivo del diseño</string>
+    <string name="shelves_active_count">%1$d activos</string>
+    <string name="all_shelves_disabled">Todos los estantes están actualmente desactivados. Aparecerán las recomendaciones predeterminadas.</string>
+    <string name="move_up">Mover arriba</string>
+    <string name="move_down">Mover abajo</string>
+
+    <!-- Home Shelf Titles & Subtitles -->
+    <string name="shelf_speed_dial_label">Tu espacio</string>
+    <string name="shelf_speed_dial_desc">Favoritos fijados, mezclas y cuadrícula de alta frecuencia</string>
+    <string name="shelf_quick_picks_label">Selección rápida</string>
+    <string name="shelf_quick_picks_desc">4 filas de pistas para iniciar radio al instante</string>
+    <string name="shelf_top_picks_label">Especialmente para ti</string>
+    <string name="shelf_top_picks_desc">Estaciones de artistas, mezclas y tarjetas destacadas</string>
+    <string name="shelf_similar_to_label">Similar a lo escuchado recientemente</string>
+    <string name="shelf_similar_to_desc">Recomendaciones y radios basadas en pistas recientes</string>
+    <string name="shelf_community_playlists_label">Playlists de la comunidad</string>
+    <string name="shelf_community_playlists_desc">Playlists populares de la comunidad de YouTube Music</string>
+    <string name="shelf_featured_playlists_label">Playlists destacadas</string>
+    <string name="shelf_featured_playlists_desc">Destacados editoriales y carruseles curados</string>
+    <string name="shelf_charts_label">Éxitos y tendencias</string>
+    <string name="shelf_charts_desc">Pistas más populares, listas globales/regionales y éxitos de moda</string>
+    <string name="shelf_remixes_label">Remixes y ediciones</string>
+    <string name="shelf_remixes_desc">Mezclas de club, ediciones VIP y pistas reinventadas</string>
+    <string name="shelf_music_videos_label">Videos musicales</string>
+    <string name="shelf_music_videos_desc">Videos musicales en 16:9 y sesiones en vivo</string>
+    <string name="shelf_mixed_for_you_label">Mezclado para ti</string>
+    <string name="shelf_mixed_for_you_desc">Carruseles de mezclas personalizadas de YouTube Music</string>
+    <string name="shelf_listen_again_label">Volver a escuchar y favoritos</string>
+    <string name="shelf_listen_again_desc">Favoritos olvidados y estantes de reproducción frecuente</string>
+    <string name="shelf_new_releases_label">Nuevos lanzamientos</string>
+    <string name="shelf_new_releases_desc">Últimos álbumes, sencillos y EPs</string>
+    <string name="shelf_other_label">Más recomendaciones</string>
+    <string name="shelf_other_desc">Géneros destacados, estados de ánimo y otros descubrimientos</string>
+
+    <!-- Settings: Appearance & Design Style -->
+    <string name="design_style_chordplay">ChordPlay Moderno</string>
+    <string name="design_style_chordplay_desc">Cristal brillante atmosférico, paletas vibrantes, controles táctiles y descubrimiento dinámico</string>
+    <string name="design_style_classic">BitChord Clásico</string>
+    <string name="design_style_classic_desc">Interfaz oscura monocromática original inspirada en Apple Music, reproductor estándar y estantes predeterminados</string>
+
+    <!-- Settings: Player Experience & Layout -->
+    <string name="player_experience">Experiencia del reproductor</string>
+    <string name="player_interface">Interfaz del reproductor</string>
+    <string name="player_interface_desc">Elige entre el diseño WavePlay o el original de ChordPlay</string>
+    <string name="player_interface_waveplay">WavePlay</string>
+    <string name="player_interface_waveplay_desc">Cintas de sinestesia, barra de forma de onda dinámica y base de 5 orbes brillantes</string>
+    <string name="player_interface_og">ChordPlay OG</string>
+    <string name="player_interface_og_desc">Base de transporte clásica, barra de búsqueda y control de volumen</string>
+
+    <string name="player_layout">Diseño del reproductor</string>
+    <string name="player_layout_modern">Moderno</string>
+    <string name="player_layout_modern_desc">Portada flotante con aura de respiración, base en cápsula esmerilada y acciones rápidas</string>
+    <string name="player_layout_vinyl">Tocadiscos de vinilo</string>
+    <string name="player_layout_vinyl_desc">Disco de vinilo giratorio saliendo de la funda con brazo móvil</string>
+    <string name="player_layout_classic">BitChord Clásico</string>
+    <string name="player_layout_classic_desc">Diseño de reproductor clásico estilo Apple Music</string>
+
+    <string name="breathing_artwork_aura">Aura de respiración de portada</string>
+    <string name="breathing_artwork_aura_desc">Brillo ambiental sutil de la portada pulsando con la reproducción de audio</string>
+    <string name="artwork_and_visuals">Arte y efectos visuales</string>
+
+    <!-- Settings: Custom Saves & Swipe Gestures & Typography -->
+    <string name="custom_saves">Temas personalizados</string>
+    <string name="saved_presets">Temas guardados</string>
+    <string name="saved_presets_count">%1$d de %2$d guardados</string>
+    <string name="system_typography">Tipografía del sistema</string>
+    <string name="swipe_gestures">Gestos de deslizamiento</string>
+    <string name="right_swipe_action">Acción al deslizar a la derecha</string>
+    <string name="left_swipe_action">Acción al deslizar a la izquierda</string>
+    <string name="pure_black_amoled">Negro puro (AMOLED)</string>
+    <string name="pure_black_amoled_desc">Fondo completamente negro para ahorrar batería en pantallas OLED</string>
+
+    <!-- Settings: Typography & Fonts (Lyrics) -->
+    <string name="typography_and_fonts">Tipografía y fuentes</string>
+    <string name="font_family_subtitle">Elige entre tipos de letra seleccionados o carga tu propio archivo de fuente</string>
+    <string name="custom_font_file">Archivo personalizado</string>
+    <string name="size_and_alignment">Tamaño y alineación</string>
+    <string name="size_scale">Escala de tamaño</string>
+    <string name="font_size_compact">Pequeño</string>
+    <string name="font_size_standard">Normal</string>
+    <string name="font_size_large">Grande</string>
+    <string name="font_size_huge">Enorme</string>
+    <string name="font_weight_medium">Medio</string>
+    <string name="font_weight_semibold">Seminegrita</string>
+    <string name="font_weight_bold">Negrita</string>
+    <string name="font_weight_heavy">Muy negrita</string>
+    <string name="font_family_default">Predeterminada</string>
+    <string name="font_family_serif">Con serifa</string>
+    <string name="font_family_sans_serif">Sin serifa</string>
+    <string name="font_family_monospace">Monoespaciada</string>
+    <string name="font_family_script">Manuscrita</string>
+    <string name="fullscreen_artwork_lyrics">Letras en portada a pantalla completa</string>
+
+    <!-- Swipe Actions -->
+    <string name="action_like_favorite">Me gusta / Favorito</string>
+    <string name="action_remove_from_playlist">Eliminar de la playlist</string>
+    <string name="action_open_menu">Abrir menú</string>
+    <string name="action_none">Ninguno</string>
+    <string name="links_and_community">Enlaces y comunidad</string>
 </resources>

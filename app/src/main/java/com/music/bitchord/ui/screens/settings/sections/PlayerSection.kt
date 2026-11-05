@@ -37,6 +37,8 @@ import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import com.music.bitchord.ui.screens.*
+import com.music.bitchord.ui.screens.settings.localizedLabel
+import com.music.bitchord.ui.screens.settings.localizedDetail
 import com.music.bitchord.ui.screens.settings.previews.PlayerLivePreview
 
 /**
@@ -79,25 +81,25 @@ fun PlayerSection(
         PlayerLivePreview()
 
         // Player Layout & Experience Group
-        SettingsGroup(header = "Player Experience") {
+        SettingsGroup(header = stringResource(R.string.player_experience)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
-                title = "Player Interface",
-                subtitle = playerInterfaceStyle.detail,
+                title = stringResource(R.string.player_interface),
+                subtitle = playerInterfaceStyle.localizedDetail(),
             )
             SegmentedControl(
-                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.label },
+                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.localizedLabel() },
                 selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
                 onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
             )
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
-                title = "Player Layout",
-                subtitle = playerLayoutMode.detail,
+                title = stringResource(R.string.player_layout),
+                subtitle = playerLayoutMode.localizedDetail(),
             )
             SegmentedControl(
-                options = PlayerLayoutMode.entries.map { it.label },
+                options = PlayerLayoutMode.entries.map { it.localizedLabel() },
                 selectedIndex = PlayerLayoutMode.entries.indexOf(playerLayoutMode),
                 onSelect = { AppSettings.setPlayerLayoutMode(PlayerLayoutMode.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
@@ -105,8 +107,8 @@ fun PlayerSection(
 
             SettingsRow(
                 icon = Icons.Rounded.Animation,
-                title = "Breathing Artwork Aura",
-                subtitle = "Subtle ambient artwork glow pulsing with audio playback",
+                title = stringResource(R.string.breathing_artwork_aura),
+                subtitle = stringResource(R.string.breathing_artwork_aura_desc),
                 trailing = {
                     Switch(
                         checked = enableBreathingAura,
@@ -122,7 +124,7 @@ fun PlayerSection(
         }
 
         // Artwork & Video Visuals Group
-        SettingsGroup(header = "Artwork & Visuals") {
+        SettingsGroup(header = stringResource(R.string.artwork_and_visuals)) {
             if (fullBleedArtworkAvailable(windowWidth)) {
                 val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
                 SettingsRow(

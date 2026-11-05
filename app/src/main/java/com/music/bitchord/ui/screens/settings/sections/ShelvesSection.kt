@@ -45,6 +45,8 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
+import com.music.bitchord.ui.screens.settings.localizedLabel
+import com.music.bitchord.ui.screens.settings.localizedSubtitle
 
 @Composable
 fun ShelvesSection(
@@ -85,13 +87,13 @@ fun ShelvesSection(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = key.label,
+                            text = key.localizedLabel(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         )
                         Text(
-                            text = key.subtitle,
+                            text = key.localizedSubtitle(),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isEnabled) 1f else 0.5f),
                         )
@@ -108,7 +110,7 @@ fun ShelvesSection(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.ArrowUpward,
-                                contentDescription = "Move Up",
+                                contentDescription = stringResource(R.string.move_up),
                                 tint = if (canMoveUp) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                 modifier = Modifier.size(18.dp),
                             )
@@ -121,7 +123,7 @@ fun ShelvesSection(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.ArrowDownward,
-                                contentDescription = "Move Down",
+                                contentDescription = stringResource(R.string.move_down),
                                 tint = if (canMoveDown) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                 modifier = Modifier.size(18.dp),
                             )
@@ -158,7 +160,7 @@ fun ShelvesSection(
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Reset to Default")
+                Text(stringResource(R.string.reset_to_default))
             }
         }
     }
@@ -187,20 +189,20 @@ private fun ShelvesMiniPreview(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Live Layout Preview",
+                    text = stringResource(R.string.live_layout_preview),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "${enabledShelves.size} active",
+                    text = stringResource(R.string.shelves_active_count, enabledShelves.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (enabledShelves.isEmpty()) {
                 Text(
-                    text = "All shelves are currently disabled. Default recommendations will appear.",
+                    text = stringResource(R.string.all_shelves_disabled),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -221,7 +223,7 @@ private fun ShelvesMiniPreview(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = "${index + 1}. ${shelf.label}",
+                                text = "${index + 1}. ${shelf.localizedLabel()}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 2,

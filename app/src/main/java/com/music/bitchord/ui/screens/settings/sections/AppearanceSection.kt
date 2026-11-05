@@ -91,6 +91,8 @@ import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.ui.screens.*
+import com.music.bitchord.ui.screens.settings.localizedLabel
+import com.music.bitchord.ui.screens.settings.localizedDetail
 import com.music.bitchord.ui.screens.settings.previews.AppearanceLivePreview
 import java.util.Locale
 
@@ -180,7 +182,7 @@ fun AppearanceSection(
                 subtitle = stringResource(R.string.design_style_subtitle),
             )
             SegmentedControl(
-                options = AppDesignStyle.entries.map { it.label },
+                options = AppDesignStyle.entries.map { it.localizedLabel() },
                 selectedIndex = AppDesignStyle.entries.indexOf(designStyle),
                 onSelect = { AppSettings.setAppDesignStyle(AppDesignStyle.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
@@ -194,7 +196,7 @@ fun AppearanceSection(
                     .padding(12.dp),
             ) {
                 Text(
-                    text = designStyle.detail,
+                    text = designStyle.localizedDetail(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -202,14 +204,14 @@ fun AppearanceSection(
         }
 
         // Player Interface Switcher (WavePlay vs ChordPlay OG)
-        SettingsGroup(header = "Player Interface") {
+        SettingsGroup(header = stringResource(R.string.player_interface)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
-                title = "Player Interface",
-                subtitle = "Choose between WavePlay or original ChordPlay layout",
+                title = stringResource(R.string.player_interface),
+                subtitle = stringResource(R.string.player_interface_desc),
             )
             SegmentedControl(
-                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.label },
+                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.localizedLabel() },
                 selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
                 onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
@@ -223,7 +225,7 @@ fun AppearanceSection(
                     .padding(12.dp),
             ) {
                 Text(
-                    text = playerInterfaceStyle.detail,
+                    text = playerInterfaceStyle.localizedDetail(),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -246,7 +248,7 @@ fun AppearanceSection(
             }
 
             // 2b. Custom Saves Subsection
-            SettingsGroup(header = "Custom Saves") {
+            SettingsGroup(header = stringResource(R.string.custom_saves)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -255,13 +257,13 @@ fun AppearanceSection(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Saved Presets",
+                        text = stringResource(R.string.saved_presets),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "${customPalettes.size} of 5 saved",
+                        text = stringResource(R.string.saved_presets_count, customPalettes.size, 5),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -394,8 +396,8 @@ fun AppearanceSection(
             )
             SettingsRow(
                 icon = Icons.Rounded.Brightness4,
-                title = "Pure Black (AMOLED)",
-                subtitle = "Turn dark backgrounds pure black for OLED power savings",
+                title = stringResource(R.string.pure_black_amoled),
+                subtitle = stringResource(R.string.pure_black_amoled_desc),
                 trailing = {
                     Switch(
                         checked = amoledDarkMode,
@@ -410,7 +412,7 @@ fun AppearanceSection(
             )
         }
 
-        SettingsGroup(header = "System Typography") {
+        SettingsGroup(header = stringResource(R.string.system_typography)) {
             SettingsRow(
                 icon = Icons.Rounded.Style,
                 title = appFontChoice.label,
@@ -487,17 +489,17 @@ fun AppearanceSection(
         }
 
         // 5. Swipe Gestures Group
-        SettingsGroup(header = "Swipe Gestures") {
+        SettingsGroup(header = stringResource(R.string.swipe_gestures)) {
             SettingsRow(
                 icon = Icons.Rounded.SwipeRight,
-                title = "Right Swipe Action",
-                subtitle = songSwipeRightAction.label,
+                title = stringResource(R.string.right_swipe_action),
+                subtitle = songSwipeRightAction.localizedLabel(),
                 onClick = { showRightSwipePicker = true },
             )
             SettingsRow(
                 icon = Icons.Rounded.SwipeLeft,
-                title = "Left Swipe Action",
-                subtitle = songSwipeLeftAction.label,
+                title = stringResource(R.string.left_swipe_action),
+                subtitle = songSwipeLeftAction.localizedLabel(),
                 onClick = { showLeftSwipePicker = true },
             )
         }
@@ -620,7 +622,7 @@ fun AppearanceSection(
 
     if (showRightSwipePicker) {
         SwipeActionPickerDialog(
-            title = "Right Swipe Action",
+            title = stringResource(R.string.right_swipe_action),
             currentAction = songSwipeRightAction,
             onSelect = { action ->
                 AppSettings.setSongSwipeRightAction(action)
@@ -636,7 +638,7 @@ fun AppearanceSection(
 
     if (showLeftSwipePicker) {
         SwipeActionPickerDialog(
-            title = "Left Swipe Action",
+            title = stringResource(R.string.left_swipe_action),
             currentAction = songSwipeLeftAction,
             onSelect = { action ->
                 AppSettings.setSongSwipeLeftAction(action)
@@ -737,7 +739,7 @@ private fun SwipeActionPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = action.label,
+                            text = action.localizedLabel(),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,

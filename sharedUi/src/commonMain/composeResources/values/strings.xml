@@ -223,4 +223,11 @@
     <string name="browse">Browse</string>
     <string name="change">Change</string>
     <string name="music_feels_better">Music feels better with you</string>
+    <string name="shelf_start_radio_desc">Start a radio from a song</string>
+    <string name="shelf_top_picks_for_you">Top Picks for You</string>
+    <string name="shelf_stations_mixes_desc">Stations, mixes &amp; fresh drops</string>
+    <string name="shelf_remixes_edits">Remixes &amp; Edits</string>
+    <string name="shelf_club_mixes_desc">Club mixes, VIPs &amp; reimagined cuts</string>
+    <string name="shelf_music_videos_for_you">Music Videos for You</string>
+    <string name="shelf_widescreen_videos_desc">16:9 widescreen official videos</string>
 </resources>

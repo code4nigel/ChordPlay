@@ -70,6 +70,7 @@ import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.player.LyricsWeightChoice
 import com.music.bitchord.ui.player.rememberLyricsFontFamily
 import com.music.bitchord.ui.screens.*
+import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.previews.LyricsLivePreview
 import java.io.File
 import java.util.Locale
@@ -127,21 +128,21 @@ fun LyricsSection(
         LyricsLivePreview()
 
         // Typography: Font Family Picker
-        SettingsGroup(header = "Typography & Fonts") {
+        SettingsGroup(header = stringResource(R.string.typography_and_fonts)) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = ROW_INSET, vertical = 12.dp),
             ) {
                 Text(
-                    text = "Font Family",
+                    text = stringResource(R.string.font_family),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Choose from handcrafted typefaces or load your own custom font file",
+                    text = stringResource(R.string.font_family_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -174,7 +175,7 @@ fun LyricsSection(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                text = font.label,
+                                text = font.localizedLabel(),
                                 fontFamily = chipFontFamily,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -218,7 +219,7 @@ fun LyricsSection(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = customStyle.customFontName ?: "Custom File",
+                                text = customStyle.customFontName ?: stringResource(R.string.custom_font_file),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isCustom) FontWeight.Bold else FontWeight.Normal,
                                 color = if (isCustom) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
@@ -230,7 +231,7 @@ fun LyricsSection(
         }
 
         // Scale, Weight, and Alignment Group
-        SettingsGroup(header = "Size & Alignment") {
+        SettingsGroup(header = stringResource(R.string.size_and_alignment)) {
             // Scale Slider
             Column(
                 modifier = Modifier
@@ -243,12 +244,12 @@ fun LyricsSection(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Size Scale",
+                        text = stringResource(R.string.size_scale),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = customStyle.sizeScale.label,
+                        text = customStyle.sizeScale.localizedLabel(),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -277,13 +278,13 @@ fun LyricsSection(
                     .padding(horizontal = ROW_INSET, vertical = 8.dp),
             ) {
                 Text(
-                    text = "Font Weight",
+                    text = stringResource(R.string.font_weight),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(Modifier.height(8.dp))
                 SegmentedControl(
-                    options = LyricsWeightChoice.entries.map { it.label },
+                    options = LyricsWeightChoice.entries.map { it.localizedLabel() },
                     selectedIndex = LyricsWeightChoice.entries.indexOf(customStyle.weightChoice).coerceAtLeast(0),
                     onSelect = { LyricsStyleManager.updateWeight(LyricsWeightChoice.entries[it]) },
                 )
@@ -298,7 +299,7 @@ fun LyricsSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text = "Text Alignment",
+                    text = stringResource(R.string.text_alignment),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -323,7 +324,7 @@ fun LyricsSection(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.FormatAlignLeft,
-                            contentDescription = "Left",
+                            contentDescription = stringResource(R.string.align_left),
                             tint = if (!customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp),
@@ -343,7 +344,7 @@ fun LyricsSection(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.FormatAlignCenter,
-                            contentDescription = "Center",
+                            contentDescription = stringResource(R.string.align_center),
                             tint = if (customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp),
@@ -422,7 +423,7 @@ fun LyricsSection(
 
                 SettingsRow(
                     icon = Icons.Rounded.Fullscreen,
-                    title = "Fullscreen Artwork Lyrics",
+                    title = stringResource(R.string.fullscreen_artwork_lyrics),
                     subtitle = fullscreenArtworkLyricsStyle.label,
                     trailing = { Chevron() },
                     onClick = { showFullscreenLyricsDialog = true },
@@ -435,7 +436,7 @@ fun LyricsSection(
                 onDismissRequest = { showFullscreenLyricsDialog = false },
                 title = {
                     Text(
-                        text = "Fullscreen Artwork Lyrics",
+                        text = stringResource(R.string.fullscreen_artwork_lyrics),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )

@@ -526,6 +526,8 @@ private fun RecentSectionHeader(
     viewType: LibraryViewType,
     onViewTypeToggle: () -> Unit,
 ) {
+    val displayTitle = localizeShelfTitle(title)
+    val displaySubtitle = localizeShelfSubtitle(subtitle)
     Row(
         modifier = Modifier
             .padding(horizontal = PAGE_GUTTER, vertical = 10.dp)
@@ -534,15 +536,15 @@ private fun RecentSectionHeader(
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = title,
+                text = displayTitle,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (subtitle.isNotBlank()) {
+            if (displaySubtitle.isNotBlank()) {
                 Text(
-                    text = subtitle,
+                    text = displaySubtitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -943,6 +945,12 @@ internal fun localizeShelfTitle(title: String): String {
             trimmed.equals("Thịnh hành", ignoreCase = true) ||
             trimmed.equals("急上昇", ignoreCase = true) ->
             stringResource(Res.string.shelf_trending)
+        trimmed.equals("Top Picks for You", ignoreCase = true) ->
+            stringResource(Res.string.shelf_top_picks_for_you)
+        trimmed.equals("Remixes & Edits", ignoreCase = true) ->
+            stringResource(Res.string.shelf_remixes_edits)
+        trimmed.equals("Music Videos for You", ignoreCase = true) ->
+            stringResource(Res.string.shelf_music_videos_for_you)
         else -> title
     }
 }
@@ -950,6 +958,16 @@ internal fun localizeShelfTitle(title: String): String {
 internal fun localizeShelfSubtitle(subtitle: String): String {
     val trimmed = subtitle.trim()
     return when {
+        trimmed.equals("Start a radio from a song", ignoreCase = true) ->
+            stringResource(Res.string.shelf_start_radio_desc)
+        trimmed.equals("Stations, mixes & fresh drops", ignoreCase = true) ->
+            stringResource(Res.string.shelf_stations_mixes_desc)
+        trimmed.equals("Club mixes, VIPs & reimagined cuts", ignoreCase = true) ||
+            trimmed.equals("Club mixes, VIP edits & reimagined tracks", ignoreCase = true) ->
+            stringResource(Res.string.shelf_club_mixes_desc)
+        trimmed.equals("16:9 widescreen official videos", ignoreCase = true) ||
+            trimmed.equals("16:9 widescreen music videos & live sessions", ignoreCase = true) ->
+            stringResource(Res.string.shelf_widescreen_videos_desc)
         trimmed.equals("TOP TUNES RIGHT NOW", ignoreCase = true) ||
             trimmed.equals("Top tunes right now", ignoreCase = true) ||
             trimmed.equals("Giai điệu hàng đầu hiện nay", ignoreCase = true) ||
