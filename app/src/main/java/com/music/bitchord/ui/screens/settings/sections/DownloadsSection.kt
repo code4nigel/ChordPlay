@@ -33,10 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.screens.SettingsGroup
-import com.music.bitchord.ui.screens.SettingsRow
-import com.music.bitchord.ui.screens.SettingsSubPageHeader
-import com.music.bitchord.ui.screens.localizedLabel
+import com.music.bitchord.ui.screens.*
 
 /**
  * Downloads management sub-page: custom storage location, offline synced lyrics,
@@ -78,6 +75,8 @@ fun DownloadsSection(
         AppSettings.customDownloadLocationDisplay()
     }
 
+    var searchQuery by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -87,10 +86,12 @@ fun DownloadsSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.downloads),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
-        // Group 1: Storage Location
-        SettingsGroup(header = stringResource(R.string.download_location)) {
+        // Single Unified Downloads Block
+        SettingsGroup(header = stringResource(R.string.downloads)) {
             val saveCustomTitle = stringResource(R.string.save_to_custom_download_location)
             SettingsRow(
                 icon = Icons.Rounded.FolderSpecial,
@@ -109,6 +110,8 @@ fun DownloadsSection(
                 onClick = { AppSettings.setSaveToCustomDownloadLocation(!saveToCustomLocation) },
             )
 
+            RowDivider()
+
             val locationTitle = stringResource(R.string.download_location)
             SettingsRow(
                 icon = Icons.Rounded.Folder,
@@ -117,10 +120,10 @@ fun DownloadsSection(
                 enabled = saveToCustomLocation,
                 onClick = { customFolderPicker.launch(null) },
             )
-        }
 
-        // Group 2: Offline Lyrics
-        SettingsGroup(header = stringResource(R.string.synced_lyrics)) {
+            // Offline Lyrics Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
+
             val offlineLyricsTitle = stringResource(R.string.download_lyrics_offline)
             SettingsRow(
                 icon = Icons.Rounded.Lyrics,
@@ -150,10 +153,10 @@ fun DownloadsSection(
                     }
                 },
             )
-        }
 
-        // Group 3: Download Quality & Network Preferences
-        SettingsGroup(header = stringResource(R.string.audio_quality)) {
+            // Audio Quality & Network Preferences Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.audio_quality))
+
             val downloadQualityTitle = stringResource(R.string.download_quality)
             SettingsRow(
                 icon = Icons.Rounded.Download,
@@ -161,6 +164,8 @@ fun DownloadsSection(
                 value = downloadQuality.localizedLabel(),
                 onClick = { pickingDownloadQuality = true },
             )
+
+            RowDivider()
 
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
             SettingsRow(

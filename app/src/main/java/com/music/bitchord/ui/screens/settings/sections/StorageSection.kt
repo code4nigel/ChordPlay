@@ -127,6 +127,8 @@ fun StorageSection(
     val unlimitedLabel = stringResource(R.string.song_cache_unlimited)
     val cacheLimitLabel = if (cacheUnlimited) unlimitedLabel else formatCacheSize(cacheLimitMb)
 
+    var searchQuery by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -136,9 +138,11 @@ fun StorageSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.storage),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
-        // Cache Management Group
+        // Single Unified Storage Settings Block
         SettingsGroup(header = stringResource(R.string.storage)) {
             val showCacheFolderTitle = stringResource(R.string.show_cache_folder)
             SettingsRow(
@@ -157,6 +161,8 @@ fun StorageSection(
                 },
                 onClick = { AppSettings.setShowCacheFolder(!showCacheFolder) },
             )
+
+            RowDivider()
 
             val songCacheLimitTitle = stringResource(R.string.song_cache_limit)
             SliderRow(
@@ -178,6 +184,8 @@ fun StorageSection(
                 steps = 19,
             )
 
+            RowDivider()
+
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
             SettingsRow(
                 icon = Icons.Rounded.DeleteSweep,
@@ -185,6 +193,8 @@ fun StorageSection(
                 subtitle = stringResource(R.string.clear_song_cache_subtitle),
                 onClick = { confirmClearSongCache = true },
             )
+
+            RowDivider()
 
             val clearImageCacheTitle = stringResource(R.string.clear_image_cache)
             SettingsRow(
@@ -198,10 +208,10 @@ fun StorageSection(
                     Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
                 },
             )
-        }
 
-        // Downloads Group
-        SettingsGroup(header = stringResource(R.string.downloads)) {
+            // Downloads Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.downloads))
+
             val downloadQualityTitle = stringResource(R.string.download_quality)
             SettingsRow(
                 icon = Icons.Rounded.Download,
@@ -209,6 +219,8 @@ fun StorageSection(
                 value = downloadQuality.localizedLabel(),
                 onClick = { pickingDownloadQuality = true },
             )
+
+            RowDivider()
 
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
             SettingsRow(
@@ -227,6 +239,8 @@ fun StorageSection(
                 onClick = { AppSettings.setWifiOnlyDownloads(!wifiOnlyDownloads) },
             )
 
+            RowDivider()
+
             val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)
             SettingsRow(
                 icon = Icons.Rounded.Folder,
@@ -244,10 +258,10 @@ fun StorageSection(
                 },
                 onClick = { AppSettings.setExportDownloads(!exportDownloads) },
             )
-        }
 
-        // Local Music Files Group
-        SettingsGroup(header = stringResource(R.string.local_music)) {
+            // Local Music Files Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.local_music))
+
             val localMusicFolderTitle = stringResource(R.string.local_music_folder)
             SettingsRow(
                 icon = Icons.Rounded.Folder,
@@ -258,6 +272,8 @@ fun StorageSection(
             )
 
             if (localMusicFolderUri.isNotBlank()) {
+                RowDivider()
+
                 val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
                 SettingsRow(
                     icon = Icons.Rounded.LibraryMusic,
@@ -266,6 +282,8 @@ fun StorageSection(
                     onClick = { AppSettings.setLocalMusicFolderUri("") },
                 )
             }
+
+            RowDivider()
 
             val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
             SettingsRow(
@@ -284,10 +302,10 @@ fun StorageSection(
                 },
                 onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
             )
-        }
 
-        // Backup and Data Restoration Group
-        SettingsGroup(header = stringResource(R.string.your_data)) {
+            // Backup and Data Restoration Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.your_data))
+
             val exportDataTitle = stringResource(R.string.export_data)
             SettingsRow(
                 icon = Icons.Rounded.FileUpload,
@@ -295,6 +313,8 @@ fun StorageSection(
                 subtitle = exportStatus ?: stringResource(R.string.export_data_subtitle),
                 onClick = { exportPicker.launch(Backup.suggestedName()) },
             )
+
+            RowDivider()
 
             val importDataTitle = stringResource(R.string.import_data)
             SettingsRow(

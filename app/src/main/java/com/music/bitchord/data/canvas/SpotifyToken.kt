@@ -59,21 +59,6 @@ internal object SpotifyToken {
     @Volatile private var cachedClientToken: String? = null
     @Volatile private var clientTokenExpiresAtMs = 0L
 
-    @Volatile private var currentHarvestWebView: WebView? = null
-    @Volatile var isLoginActive: Boolean = false
-
-    fun cancelHarvest() {
-        runCatching {
-            currentHarvestWebView?.let { wv ->
-                wv.post {
-                    wv.stopLoading()
-                    wv.destroy()
-                }
-            }
-            currentHarvestWebView = null
-        }
-    }
-
     private data class SessionInfo(val clientVersion: String, val deviceId: String)
     private data class HarvestedToken(val token: String, val expiresAt: Long, val clientId: String?)
 
@@ -82,7 +67,6 @@ internal object SpotifyToken {
     }
 
     fun invalidate() {
-        cancelHarvest()
         cachedAccessToken = null
         accessTokenExpiresAtMs = 0L
         cachedClientId = null
@@ -102,10 +86,6 @@ internal object SpotifyToken {
      * enough.
      */
     suspend fun accessToken(): String? {
-        if (isLoginActive) {
-            Log.d(TAG, "Spotify login is currently active; skipping harvest")
-            return null
-        }
         val cookie = AppSettings.spotifySpdcToken.value
         if (cookie.isBlank()) return null
 
@@ -152,7 +132,6 @@ internal object SpotifyToken {
      */
     @SuppressLint("SetJavaScriptEnabled")
     private suspend fun harvestViaWebView(context: Context, cookie: String): HarvestedToken? {
-        if (isLoginActive) return null
         val deferred = CompletableDeferred<HarvestedToken?>()
 
         val cookieManager = CookieManager.getInstance().apply {
@@ -170,7 +149,6 @@ internal object SpotifyToken {
         var webView: WebView? = null
         return try {
             webView = WebView(context).apply {
-                currentHarvestWebView = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.userAgentString = CANVAS_UA
@@ -202,9 +180,6 @@ internal object SpotifyToken {
                 webView?.removeJavascriptInterface(BRIDGE_NAME)
                 webView?.stopLoading()
                 webView?.destroy()
-            }
-            if (currentHarvestWebView === webView) {
-                currentHarvestWebView = null
             }
         }
     }

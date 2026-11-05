@@ -113,6 +113,8 @@ fun LyricsSection(
         }
     }
 
+    var searchQuery by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -122,13 +124,15 @@ fun LyricsSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.synced_lyrics),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
         // Pinned Live Preview
         LyricsLivePreview()
 
-        // Typography: Font Family Picker
-        SettingsGroup(header = stringResource(R.string.typography_and_fonts)) {
+        // Single Unified Big Block for all Lyrics settings
+        SettingsGroup(header = stringResource(R.string.synced_lyrics)) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -228,10 +232,10 @@ fun LyricsSection(
                     }
                 }
             }
-        }
 
-        // Scale, Weight, and Alignment Group
-        SettingsGroup(header = stringResource(R.string.size_and_alignment)) {
+            // Scale, Weight, and Alignment Divider
+            SettingsSectionDivider(title = stringResource(R.string.size_and_alignment))
+
             // Scale Slider
             Column(
                 modifier = Modifier
@@ -352,10 +356,10 @@ fun LyricsSection(
                     }
                 }
             }
-        }
 
-        // Lyrics Sync & Sources Group
-        SettingsGroup(header = stringResource(R.string.synced_lyrics)) {
+            // Lyrics Sync & Sources Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
+
             val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
             SettingsRow(
                 icon = Icons.AutoMirrored.Rounded.Notes,

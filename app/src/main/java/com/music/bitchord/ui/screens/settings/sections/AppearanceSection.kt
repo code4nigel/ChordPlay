@@ -159,6 +159,8 @@ fun AppearanceSection(
         showPerformanceConfirmation = true
     }
 
+    var searchQuery by remember { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -168,13 +170,15 @@ fun AppearanceSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.appearance),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
         // Pinned Live Preview
         AppearanceLivePreview()
 
-        // 1. Design System & Style Switcher Group
-        SettingsGroup(header = stringResource(R.string.design_style)) {
+        // Single Unified Big Block for all Appearance Settings matching Image 1
+        SettingsGroup(header = stringResource(R.string.appearance)) {
             val designStyleTitle = stringResource(R.string.design_style)
             SettingsRow(
                 icon = Icons.Rounded.Style,
@@ -201,10 +205,10 @@ fun AppearanceSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
 
-        // Player Interface Switcher (WavePlay vs ChordPlay OG)
-        SettingsGroup(header = stringResource(R.string.player_interface)) {
+            // Player Interface Switcher (WavePlay vs ChordPlay OG)
+            SettingsSectionDivider(title = stringResource(R.string.player_interface))
+
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
                 title = stringResource(R.string.player_interface),
@@ -230,11 +234,11 @@ fun AppearanceSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
 
-        // 2. Curated Atmospheric Color Palettes (When ChordPlay Modern is active)
-        if (designStyle == AppDesignStyle.CHORDPLAY) {
-            SettingsGroup(header = stringResource(R.string.color_palette)) {
+            // Curated Atmospheric Color Palettes (When ChordPlay Modern is active)
+            if (designStyle == AppDesignStyle.CHORDPLAY) {
+                SettingsSectionDivider(title = stringResource(R.string.color_palette))
+
                 SettingsRow(
                     icon = Icons.Rounded.Palette,
                     title = stringResource(R.string.color_palette),
@@ -245,10 +249,10 @@ fun AppearanceSection(
                     onSelectPalette = { AppSettings.setColorPalette(it) },
                     modifier = Modifier.padding(bottom = 14.dp),
                 )
-            }
 
-            // 2b. Custom Saves Subsection
-            SettingsGroup(header = stringResource(R.string.custom_saves)) {
+                // Custom Saves Subsection
+                SettingsSectionDivider(title = stringResource(R.string.custom_saves))
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -382,10 +386,10 @@ fun AppearanceSection(
                     }
                 }
             }
-        }
 
-        // 3. Theme Mode (Dark, Light, System)
-        SettingsGroup(header = stringResource(R.string.theme)) {
+            // Theme Mode (Dark, Light, System)
+            SettingsSectionDivider(title = stringResource(R.string.theme))
+
             val themeTitle = stringResource(R.string.theme)
             SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
             SegmentedControl(
@@ -410,9 +414,10 @@ fun AppearanceSection(
                 },
                 onClick = { AppSettings.setAmoledDarkMode(!amoledDarkMode) },
             )
-        }
 
-        SettingsGroup(header = stringResource(R.string.system_typography)) {
+            // System Typography
+            SettingsSectionDivider(title = stringResource(R.string.system_typography))
+
             SettingsRow(
                 icon = Icons.Rounded.Style,
                 title = appFontChoice.localizedLabel(),
@@ -424,10 +429,10 @@ fun AppearanceSection(
                 onSelect = { AppSettings.setAppFontChoice(AppFontChoice.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
             )
-        }
 
-        // 4. Glass & Animation Effects Group
-        SettingsGroup(header = stringResource(R.string.liquid_glass)) {
+            // Glass & Animation Effects
+            SettingsSectionDivider(title = stringResource(R.string.liquid_glass))
+
             val liquidGlassTitle = stringResource(R.string.liquid_glass)
             SettingsRow(
                 icon = Icons.Rounded.AutoAwesome,
@@ -486,10 +491,10 @@ fun AppearanceSection(
                 },
                 onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
             )
-        }
 
-        // 5. Swipe Gestures Group
-        SettingsGroup(header = stringResource(R.string.swipe_gestures)) {
+            // Swipe Gestures
+            SettingsSectionDivider(title = stringResource(R.string.swipe_gestures))
+
             SettingsRow(
                 icon = Icons.Rounded.SwipeRight,
                 title = stringResource(R.string.right_swipe_action),
@@ -502,10 +507,10 @@ fun AppearanceSection(
                 subtitle = songSwipeLeftAction.localizedLabel(),
                 onClick = { showLeftSwipePicker = true },
             )
-        }
 
-        // 5. Performance & Refresh Rates Group
-        SettingsGroup(header = stringResource(R.string.performance)) {
+            // Performance & Refresh Rates
+            SettingsSectionDivider(title = stringResource(R.string.performance))
+
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
             SettingsRow(
                 icon = Icons.Rounded.Speed,
@@ -552,10 +557,10 @@ fun AppearanceSection(
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
-        }
 
-        // 6. App Language Group
-        SettingsGroup(header = stringResource(R.string.language)) {
+            // App Language
+            SettingsSectionDivider(title = stringResource(R.string.language))
+
             val appLanguageTitle = stringResource(R.string.app_language)
             val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
                 ?: Locale.getDefault().toLanguageTag()

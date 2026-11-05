@@ -1110,18 +1110,7 @@ private fun HeroCard(
     Box(
         modifier = modifier
             .aspectRatio(HERO_CARD_RATIO)
-            .then(
-                if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
-                    Modifier.shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(20.dp),
-                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                        ambientColor = Color.Black.copy(alpha = 0.35f),
-                    )
-                } else {
-                    Modifier
-                },
-            )
+
             .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 18.dp))
             .thumbnailBorder(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 18.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -1366,18 +1355,7 @@ internal fun ShelfCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(if (isVideo) 16f / 9f else 1f)
-                        .then(
-                            if (!isVideo && AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) {
-                                Modifier.shadow(
-                                    elevation = 6.dp,
-                                    shape = cardShape,
-                                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                    ambientColor = Color.Black.copy(alpha = 0.3f),
-                                )
-                            } else {
-                                Modifier
-                            },
-                        )
+
                         .clip(cardShape)
                         .thumbnailBorder(cardShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),

@@ -25,6 +25,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -56,6 +58,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -130,6 +134,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
+import com.music.bitchord.auth.SpotifyLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
@@ -613,6 +618,7 @@ private fun BitChordApp(
     var showDiscord by remember { mutableStateOf(false) }
     var showSpotify by remember { mutableStateOf(false) }
     var showDiscordLogin by remember { mutableStateOf(false) }
+    var showSpotifyLogin by remember { mutableStateOf(false) }
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
@@ -2699,14 +2705,44 @@ private fun BitChordApp(
                     // card there. A card opened *from* the grid is a real page
                     // and keeps the fade, same as one opened from the row.
                     transitionSpec = {
-                        val tabSwap = initialState.startsWith(TAB_KEY) && targetState.startsWith(TAB_KEY)
-                        val libraryTabKey = "$TAB_KEY$TAB_LIBRARY"
-                        val libraryShowAllSwap = (initialState == "library_show_all" && targetState == libraryTabKey) ||
-                            (targetState == "library_show_all" && initialState == libraryTabKey)
-                        if (tabSwap || libraryShowAllSwap) {
-                            EnterTransition.None togetherWith ExitTransition.None
+                        if (reducePlayerMotion) {
+                            fadeIn(tween(140)) togetherWith fadeOut(tween(140))
                         } else {
-                            fadeIn(tween(180)) togetherWith fadeOut(tween(180))
+                            val tabSwap = initialState.startsWith(TAB_KEY) && targetState.startsWith(TAB_KEY)
+                            val libraryTabKey = "$TAB_KEY$TAB_LIBRARY"
+                            val libraryShowAllSwap = (initialState == "library_show_all" && targetState == libraryTabKey) ||
+                                (targetState == "library_show_all" && initialState == libraryTabKey)
+
+                            if (tabSwap) {
+                                val fromIdx = initialState.removePrefix(TAB_KEY).toIntOrNull() ?: 0
+                                val toIdx = targetState.removePrefix(TAB_KEY).toIntOrNull() ?: 0
+                                val forward = toIdx >= fromIdx
+                                val slideDuration = 240
+                                val fadeDuration = 180
+                                if (forward) {
+                                    (slideInHorizontally(tween(slideDuration, easing = FastOutSlowInEasing)) { width -> width / 4 } + fadeIn(tween(fadeDuration))) togetherWith
+                                        (slideOutHorizontally(tween(slideDuration, easing = FastOutSlowInEasing)) { width -> -width / 4 } + fadeOut(tween(fadeDuration)))
+                                } else {
+                                    (slideInHorizontally(tween(slideDuration, easing = FastOutSlowInEasing)) { width -> -width / 4 } + fadeIn(tween(fadeDuration))) togetherWith
+                                        (slideOutHorizontally(tween(slideDuration, easing = FastOutSlowInEasing)) { width -> width / 4 } + fadeOut(tween(fadeDuration)))
+                                }
+                            } else if (libraryShowAllSwap) {
+                                (slideInHorizontally(tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } + fadeIn(tween(180))) togetherWith
+                                    (slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } + fadeOut(tween(180)))
+                            } else {
+                                val isEnteringSubpage = initialState.startsWith(TAB_KEY) && !targetState.startsWith(TAB_KEY)
+                                val isReturningToTab = !initialState.startsWith(TAB_KEY) && targetState.startsWith(TAB_KEY)
+                                if (isEnteringSubpage) {
+                                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 4 } + fadeIn(tween(200))) togetherWith
+                                        (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 4 } + fadeOut(tween(180)))
+                                } else if (isReturningToTab) {
+                                    (slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> -width / 4 } + fadeIn(tween(200))) togetherWith
+                                        (slideOutHorizontally(tween(260, easing = FastOutSlowInEasing)) { width -> width / 4 } + fadeOut(tween(180)))
+                                } else {
+                                    (slideInHorizontally(tween(240, easing = FastOutSlowInEasing)) { width -> width / 5 } + fadeIn(tween(180))) togetherWith
+                                        (slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { width -> -width / 5 } + fadeOut(tween(180)))
+                                }
+                            }
                         }
                     },
                     modifier = Modifier
@@ -2831,6 +2867,8 @@ private fun BitChordApp(
                                     type = BrowseType.PLAYLIST,
                                 )
                             },
+                            onOpenLogin = { showSpotifyLogin = true },
+                            onOpenTokenSetup = { showSpotifyCanvasAuth = true },
                             contentPadding = listPadding,
                         )
                     } else if (key == "discord") {
@@ -5392,6 +5430,44 @@ private fun BitChordApp(
                         onTokenCaptured = { token ->
                             AppSettings.setDiscordToken(token)
                             showDiscordLogin = false
+                        },
+                    )
+                }
+            }
+        }
+
+        // ---- Spotify sign-in (full screen WebView) ----
+        // Out here with Discord's rather than on the Spotify page itself: see
+        // SpotifyLoginScreen for what the blurred content tree does to a WebView.
+        if (showSpotifyLogin) {
+            BackHandler { showSpotifyLogin = false }
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = { showSpotifyLogin = false }) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.close),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                        Text(
+                            stringResource(R.string.spotify_sign_in),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                    SpotifyLoginScreen(
+                        modifier = Modifier.navigationBarsPadding(),
+                        onConnected = { token ->
+                            AppSettings.setSpotifySpdcToken(token)
+                            showSpotifyLogin = false
                         },
                     )
                 }

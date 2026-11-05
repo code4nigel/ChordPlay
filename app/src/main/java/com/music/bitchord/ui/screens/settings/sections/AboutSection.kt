@@ -79,6 +79,7 @@ fun AboutSection(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
     val replayGenres by AppSettings.replayGenres.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
 
@@ -97,6 +98,8 @@ fun AboutSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.miscellaneous),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
         // Hero Card: ChordPlay Branding & Version
@@ -248,7 +251,7 @@ fun AboutSection(
             }
         }
 
-        // Replay and Insights Group
+        // Single Unified About Block
         SettingsGroup(header = stringResource(R.string.your_data)) {
             val replayTitle = stringResource(R.string.replay)
             SettingsRow(
@@ -257,6 +260,8 @@ fun AboutSection(
                 subtitle = stringResource(R.string.replay_subtitle),
                 onClick = onOpenReplay,
             )
+
+            RowDivider()
 
             val workOutGenresTitle = stringResource(R.string.work_out_genres)
             SettingsRow(
@@ -280,6 +285,8 @@ fun AboutSection(
                 onClick = { AppSettings.setReplayGenres(!replayGenres) },
             )
 
+            RowDivider()
+
             val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
             SettingsRow(
                 icon = Icons.Rounded.History,
@@ -297,10 +304,22 @@ fun AboutSection(
                 },
                 onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
             )
-        }
 
-        // Project Links Group
-        SettingsGroup(header = stringResource(R.string.links_and_community)) {
+            // Project Links Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.links_and_community))
+            SettingsRow(
+                icon = Icons.Rounded.OpenInNew,
+                title = stringResource(R.string.reddit_community),
+                subtitle = stringResource(R.string.reddit_community_subtitle),
+                onClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")))
+                    }
+                },
+            )
+
+            RowDivider()
+
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
                 title = stringResource(R.string.github_repository),
@@ -311,6 +330,8 @@ fun AboutSection(
                     }
                 },
             )
+
+            RowDivider()
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
@@ -323,6 +344,8 @@ fun AboutSection(
                 },
             )
 
+            RowDivider()
+
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,
                 title = stringResource(R.string.developer_profile),
@@ -333,6 +356,8 @@ fun AboutSection(
                     }
                 },
             )
+
+            RowDivider()
 
             SettingsRow(
                 icon = Icons.Rounded.OpenInNew,

@@ -22,6 +22,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -78,7 +81,6 @@ fun IntegrationsSection(
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -90,9 +92,9 @@ fun IntegrationsSection(
             onBack = onBack,
         )
 
-        // 1. YouTube Music Account & Profile Group
+        // Single Unified Integrations Block
         SettingsGroup(
-            header = stringResource(R.string.youtube_music_account),
+            header = stringResource(R.string.account_integrations),
             footer = if (signedIn) stringResource(R.string.account_profiles_help) else null,
             topSpacing = 0.dp,
         ) {
@@ -114,13 +116,9 @@ fun IntegrationsSection(
                 FullWidthDivider()
                 DestructiveRow(label = stringResource(R.string.sign_out), onClick = onSignOut)
             }
-        }
 
-        // 2. Spotify Integration Group
-        SettingsGroup(
-            header = stringResource(R.string.spotify),
-            footer = stringResource(R.string.spotify_connect_subtitle),
-        ) {
+            // Spotify Integration Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.spotify))
             SettingsRow(
                 iconPainter = painterResource(Res.drawable.spotify_logo),
                 title = stringResource(R.string.spotify),
@@ -139,13 +137,10 @@ fun IntegrationsSection(
                     },
                 )
             }
-        }
 
-        // 3. Discord Rich Presence Group
-        SettingsGroup(
-            header = stringResource(R.string.rich_presence),
-            footer = stringResource(R.string.rich_presence_footer),
-        ) {
+            // Discord Rich Presence Section Divider
+            SettingsSectionDivider(title = "Discord")
+
             SettingsRow(
                 icon = ImageVector.vectorResource(R.drawable.ic_discord),
                 title = "Discord",
@@ -157,10 +152,10 @@ fun IntegrationsSection(
                 },
                 onClick = onOpenDiscord,
             )
-        }
 
-        // 4. Social Listening: Listen Together Group
-        SettingsGroup(header = stringResource(R.string.listen_together)) {
+            // Social Listening: Listen Together Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.listen_together))
+
             val listenTogetherTitle = stringResource(R.string.listen_together)
             SettingsRow(
                 icon = Icons.Rounded.Groups,
@@ -171,14 +166,11 @@ fun IntegrationsSection(
                 badge = party.members.size.takeIf { party.inParty && it > 1 }?.toString(),
                 onClick = onListenTogether,
             )
-        }
 
-        // 5. Scrobbling Services Group
-        if (AppSettings.scrobblingAvailable) {
-            SettingsGroup(
-                header = stringResource(R.string.scrobbling),
-                footer = stringResource(R.string.scrobbling_footer),
-            ) {
+            // Scrobbling Services Section Divider
+            if (AppSettings.scrobblingAvailable) {
+                SettingsSectionDivider(title = stringResource(R.string.scrobbling))
+
                 // ListenBrainz Row
                 SettingsRow(
                     icon = Icons.Rounded.Cloud,

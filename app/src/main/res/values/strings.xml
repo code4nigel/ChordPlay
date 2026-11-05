@@ -123,6 +123,7 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
+    <string name="spotify_use_spdc_token">Use sp_dc token</string>
     <string name="spotify_disconnect">Disconnect</string>
     <string name="spotify_empty_playlists">No playlists on this account</string>
     <string name="spotify_empty_tracks">This playlist has no tracks</string>
@@ -1318,4 +1319,8 @@
     <string name="developer_profile">Developer Profile</string>
     <string name="bitchord_upstream_repo">BitChord Upstream Repository</string>
     <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Upstream project credit</string>
+    <string name="advanced_and_performance">Advanced &amp; Performance</string>
+    <string name="support_community">Support &amp; Community</string>
+    <string name="reddit_community">Reddit Community</string>
+    <string name="reddit_community_subtitle">r/ChordPlay • Join our discussion and requests</string>
 </resources>

@@ -76,6 +76,7 @@ fun AudioSection(
 
     var pickingQuality by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -86,9 +87,11 @@ fun AudioSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.audio_quality),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
-        // Streaming Quality & Addon Sources
+        // Single Unified Audio Settings Block matching Image 1
         SettingsGroup(header = stringResource(R.string.audio_quality)) {
             val sourceTitle = stringResource(R.string.source)
             SettingsRow(
@@ -97,6 +100,8 @@ fun AudioSection(
                 subtitle = stringResource(R.string.sources_subtitle),
                 onClick = onSources,
             )
+
+            RowDivider()
 
             val onWifiTitle = stringResource(R.string.on_wifi)
             SettingsRow(
@@ -107,6 +112,8 @@ fun AudioSection(
                 onClick = { pickingQuality = QualityTarget.WIFI },
             )
 
+            RowDivider()
+
             val onMobileDataTitle = stringResource(R.string.on_mobile_data)
             SettingsRow(
                 icon = Icons.Rounded.SignalCellularAlt,
@@ -115,6 +122,8 @@ fun AudioSection(
                 value = cellularQuality.localizedQualityLabel(),
                 onClick = { pickingQuality = QualityTarget.CELLULAR },
             )
+
+            RowDivider()
 
             val dolbyAtmosTitle = stringResource(R.string.dolby_atmos)
             SettingsRow(
@@ -138,10 +147,10 @@ fun AudioSection(
                 },
                 onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
             )
-        }
 
-        // Playback Processing & Blending
-        SettingsGroup(header = stringResource(R.string.playback)) {
+            // Playback Processing & Blending (Seamlessly integrated in the same block)
+            SettingsSectionDivider(title = stringResource(R.string.playback))
+
             val preferMusicOnlyTitle = stringResource(R.string.prefer_music_only)
             SettingsRow(
                 icon = Icons.Rounded.SmartDisplay,
@@ -160,6 +169,8 @@ fun AudioSection(
                 onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
             )
 
+            RowDivider()
+
             if (!smartFade) {
                 val crossfadeTitle = stringResource(R.string.crossfade)
                 SliderRow(
@@ -172,6 +183,7 @@ fun AudioSection(
                     valueRange = 0f..12f,
                     steps = 11,
                 )
+                RowDivider()
             }
 
             val automixTitle = stringResource(R.string.automix)
@@ -195,6 +207,8 @@ fun AudioSection(
                 onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
             )
 
+            RowDivider()
+
             val automixPerformanceTitle = stringResource(R.string.automix_performance)
             SettingsRow(
                 icon = Icons.Rounded.Tune,
@@ -203,6 +217,8 @@ fun AudioSection(
                 value = automixPerformance.localizedLabel(),
                 onClick = { pickingAutomixPerformance = true },
             )
+
+            RowDivider()
 
             val skipSilenceTitle = stringResource(R.string.skip_silence)
             SettingsRow(
@@ -226,6 +242,8 @@ fun AudioSection(
                 onClick = { AppSettings.setSkipSilence(!skipSilence) },
             )
 
+            RowDivider()
+
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
             SettingsRow(
                 icon = Icons.Rounded.SurroundSound,
@@ -248,6 +266,8 @@ fun AudioSection(
                 onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
             )
 
+            RowDivider()
+
             val equalizerTitle = stringResource(R.string.equalizer)
             SettingsRow(
                 icon = Icons.Rounded.Tune,
@@ -255,10 +275,10 @@ fun AudioSection(
                 subtitle = stringResource(R.string.equalizer_subtitle),
                 onClick = onEqualizer,
             )
-        }
 
-        // Hardware Output & Normalization Group
-        SettingsGroup(header = stringResource(R.string.output_precision)) {
+            // Hardware Output & Normalization (Seamlessly integrated in the same block)
+            SettingsSectionDivider(title = stringResource(R.string.output_precision))
+
             val outputPrecisionTitle = stringResource(R.string.output_precision)
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,

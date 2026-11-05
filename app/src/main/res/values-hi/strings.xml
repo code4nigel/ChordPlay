@@ -1481,4 +1481,8 @@
     <!-- Search Source Chips -->
     <string name="search_source_youtube">यूट्यूब</string>
     <string name="search_source_addons">ऐड-ऑन</string>
+    <string name="advanced_and_performance">उन्नत और प्रदर्शन</string>
+    <string name="support_community">समर्थन और समुदाय</string>
+    <string name="reddit_community">रेडिट समुदाय</string>
+    <string name="reddit_community_subtitle">r/ChordPlay • चर्चा और अनुरोधों में शामिल हों</string>
 </resources>

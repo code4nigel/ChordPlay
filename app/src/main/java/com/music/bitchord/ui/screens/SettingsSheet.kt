@@ -89,6 +89,7 @@ import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.settings.sections.AboutSection
+import com.music.bitchord.ui.screens.settings.sections.AdvancedPerformanceSection
 import com.music.bitchord.ui.screens.settings.sections.AppearanceSection
 import com.music.bitchord.ui.screens.settings.sections.AudioSection
 import com.music.bitchord.ui.screens.settings.sections.DownloadsSection
@@ -97,6 +98,8 @@ import com.music.bitchord.ui.screens.settings.sections.LyricsSection
 import com.music.bitchord.ui.screens.settings.sections.PlayerSection
 import com.music.bitchord.ui.screens.settings.sections.ShelvesSection
 import com.music.bitchord.ui.screens.settings.sections.StorageSection
+import com.music.bitchord.ui.screens.settings.sections.SupportSection
+import com.music.bitchord.ui.screens.settings.sections.YourDataSection
 import org.jetbrains.compose.resources.painterResource
 
 /**
@@ -208,6 +211,19 @@ fun SettingsScreen(
                 onBack = { currentSection = null },
                 contentPadding = contentPadding,
             )
+            SettingsSection.YOUR_DATA -> YourDataSection(
+                onOpenReplay = onOpenReplay,
+                onBack = { currentSection = null },
+                contentPadding = contentPadding,
+            )
+            SettingsSection.ADVANCED_PERFORMANCE -> AdvancedPerformanceSection(
+                onBack = { currentSection = null },
+                contentPadding = contentPadding,
+            )
+            SettingsSection.SUPPORT -> SupportSection(
+                onBack = { currentSection = null },
+                contentPadding = contentPadding,
+            )
             SettingsSection.INTEGRATIONS -> IntegrationsSection(
                 signedIn = signedIn,
                 account = account,
@@ -262,6 +278,9 @@ private fun SettingsHub(
                 SettingsSection.AUDIO,
                 SettingsSection.DOWNLOADS,
                 SettingsSection.STORAGE,
+                SettingsSection.YOUR_DATA,
+                SettingsSection.ADVANCED_PERFORMANCE,
+                SettingsSection.SUPPORT,
                 SettingsSection.ABOUT,
             )
         } else {
@@ -275,6 +294,9 @@ private fun SettingsHub(
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
+                    SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear"
+                    SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced performance 120hz refresh rate display smoothness reduce blur reduce animations automix cpu nerd stats diagnostics"
+                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
                     SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay"
                 }

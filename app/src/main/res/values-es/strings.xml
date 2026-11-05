@@ -1452,4 +1452,8 @@
 
     <!-- Search Source Chips -->
     <string name="search_source_addons">Complementos</string>
+    <string name="advanced_and_performance">Avanzado y rendimiento</string>
+    <string name="support_community">Soporte y comunidad</string>
+    <string name="reddit_community">Comunidad de Reddit</string>
+    <string name="reddit_community_subtitle">r/ChordPlay • Únete a nuestra discusión y solicitudes</string>
 </resources>

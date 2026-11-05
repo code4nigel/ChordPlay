@@ -30,6 +30,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +59,7 @@ fun ShelvesSection(
 ) {
     val homeShelfOrder by AppSettings.homeShelfOrder.collectAsStateWithLifecycle()
     val disabledHomeShelves by AppSettings.disabledHomeShelves.collectAsStateWithLifecycle()
+    var searchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -66,6 +70,8 @@ fun ShelvesSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.home_shelves),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
         ShelvesMiniPreview(

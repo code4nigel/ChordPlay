@@ -25,6 +25,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -80,8 +83,8 @@ fun PlayerSection(
         // Pinned Live Preview
         PlayerLivePreview()
 
-        // Player Layout & Experience Group
-        SettingsGroup(header = stringResource(R.string.player_experience)) {
+        // Single Unified Big Block for all Playback / Player settings
+        SettingsGroup(header = stringResource(R.string.playback)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
                 title = stringResource(R.string.player_interface),
@@ -121,10 +124,10 @@ fun PlayerSection(
                 },
                 onClick = { AppSettings.setEnableBreathingAura(!enableBreathingAura) },
             )
-        }
 
-        // Artwork & Video Visuals Group
-        SettingsGroup(header = stringResource(R.string.artwork_and_visuals)) {
+            // Artwork & Video Visuals Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.artwork_and_visuals))
+
             if (fullBleedArtworkAvailable(windowWidth)) {
                 val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
                 SettingsRow(
@@ -208,10 +211,10 @@ fun PlayerSection(
                     Chevron()
                 }
             }
-        }
 
-        // Controls & Behavior Group
-        SettingsGroup(header = stringResource(R.string.miscellaneous)) {
+            // Controls & Behavior Section Divider
+            SettingsSectionDivider(title = stringResource(R.string.miscellaneous))
+
             val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
             SettingsRow(
                 icon = Icons.Rounded.VolumeOff,
