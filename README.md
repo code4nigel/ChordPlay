@@ -24,7 +24,7 @@
 ## Overview
 
 > [!IMPORTANT]
-> **Lyrics Providers Notice**: If any lyrics provider has an issue with offline lyrics downloads, please message or email at [impemailsyuses@gmail.com](mailto:impemailsyuses@gmail.com).
+> **Lyrics Providers Notice**: If any lyrics provider has an issue with offline lyrics downloads, please message or email at [impemailsyuses@gmail.com](mailto:impemailsyuses@gmail.com).<br>
 > ChordPlay is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
 
 ChordPlay is a modern, high-performance music client designed for listeners who care about both audio quality and visual craft. Engineered with Jetpack Compose and Kotlin Multiplatform, ChordPlay combines the extensive streaming catalog of YouTube Music with a fluid, tactile interface inspired by modern glassmorphic design systems.
