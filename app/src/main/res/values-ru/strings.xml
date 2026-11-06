@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Сейчас играет</string>
@@ -328,6 +328,7 @@
     <string name="wifi_only_download_refusal">Загрузки ограничены сетью Wi-Fi. Отключите это в настройках, чтобы использовать мобильные данные.</string>
     <string name="pinned_playlist_limit">Можно закрепить не более %1$d плейлистов</string>
     <string name="downloaded_playlist">Загруженный плейлист</string>
+    <string name="downloaded_album">Загруженный альбом</string>
     <string name="library_sign_in_description">Войдите в свой аккаунт Google, чтобы видеть понравившиеся песни, плейлисты и историю YouTube Music.</string>
     <string name="downloads_progress">Загрузки · %1$d%%</string>
     <string name="downloads_finished">Загрузки · завершено</string>

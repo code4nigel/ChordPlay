@@ -81,14 +81,14 @@ internal fun DesktopPlaylistDialog(
     var creating by remember { mutableStateOf(song == null) }
     var accountContains by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
 
-    LaunchedEffect(song?.videoId, accountPlaylists) {
+    LaunchedEffect(song?.videoId) {
         val target = song ?: return@LaunchedEffect
         withContext(Dispatchers.IO) {
-            accountPlaylists.forEach { pl ->
-                if (pl.playlistId in accountContains) return@forEach
-                val songs = YtMusicRepository.browseSongs(pl.browseId).getOrNull()?.songs
-                if (songs?.any { it.videoId == target.videoId } == true) {
-                    accountContains = accountContains + pl.playlistId
+            val result = YtMusicRepository.getPlaylistsContainingSong(target.videoId)
+            val containing = result.getOrNull()
+            if (containing != null) {
+                withContext(Dispatchers.Main) {
+                    accountContains = containing + containing.map { it.removePrefix("VL") }
                 }
             }
         }
@@ -145,7 +145,7 @@ internal fun DesktopPlaylistDialog(
                     item(key = "heading:account") { DialogSectionHeading("On your account") }
                     items(account.size, key = { account[it].playlistId }) { index ->
                         val playlist = account[index]
-                        val inAccount = playlist.playlistId in accountContains
+                        val inAccount = playlist.playlistId in accountContains || playlist.playlistId.removePrefix("VL") in accountContains
                         DialogAction(
                             BitChordIcons.Queue,
                             playlist.title,

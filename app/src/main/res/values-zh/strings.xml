@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">正在播放</string>
@@ -315,6 +315,7 @@
     <string name="wifi_only_download_refusal">下载已限制为仅使用 Wi-Fi。请在设置中关闭此项以使用移动数据。</string>
     <string name="pinned_playlist_limit">最多只能固定 %1$d 个播放列表</string>
     <string name="downloaded_playlist">已下载的播放列表</string>
+    <string name="downloaded_album">已下载的专辑</string>
     <string name="library_sign_in_description">登录 Google 账号即可查看你喜欢的歌曲、播放列表和 YouTube Music 历史记录。</string>
     <string name="downloads_progress">下载 · %1$d%%</string>
     <string name="downloads_finished">下载 · 已完成</string>

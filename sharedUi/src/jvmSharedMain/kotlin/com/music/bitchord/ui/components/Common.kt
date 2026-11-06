@@ -339,27 +339,31 @@ fun SongRow(
     val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
     val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
 
-    val canSwipeRight = (currentOnSwipeRight != null || currentOnSwipeToQueue != null) && rightAction != SongSwipeAction.NONE
-    val canSwipeLeft = (currentOnSwipeLeft != null || currentOnSwipeToQueue != null) && leftAction != SongSwipeAction.NONE
+    val canSwipeRight = (currentOnSwipeRight ?: currentOnSwipeToQueue) != null && rightAction != SongSwipeAction.NONE
+    val canSwipeLeft = (currentOnSwipeLeft ?: (if (currentOnSwipeRight == null) currentOnSwipeToQueue else null)) != null && leftAction != SongSwipeAction.NONE
     val hasSwipe = canSwipeRight || canSwipeLeft
 
     val swipeState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value != SwipeToDismissBoxValue.Settled && hasSwipe) {
-                val offset = try { swipeStateHolder.value?.requireOffset() ?: 0f } catch (e: Exception) { 0f }
-                // Only trigger if physical drag reached 45% of width
-                if (abs(offset) >= boxWidth * 0.45f) {
-                    haptics.play(Haptic.Select)
-                    if (offset > 0f && canSwipeRight) {
-                        currentOnSwipeRight?.invoke() ?: currentOnSwipeToQueue?.invoke()
-                    } else if (offset < 0f && canSwipeLeft) {
-                        currentOnSwipeLeft?.invoke() ?: currentOnSwipeToQueue?.invoke()
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    if (canSwipeRight) {
+                        haptics.play(Haptic.Select)
+                        (currentOnSwipeRight ?: currentOnSwipeToQueue)?.invoke()
                     }
+                    false
                 }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    if (canSwipeLeft) {
+                        haptics.play(Haptic.Select)
+                        (currentOnSwipeLeft ?: currentOnSwipeToQueue)?.invoke()
+                    }
+                    false
+                }
+                SwipeToDismissBoxValue.Settled -> false
             }
-            false // never actually dismiss; snap back
         },
-        positionalThreshold = { distance -> distance * 0.5f },
+        positionalThreshold = { distance -> distance * 0.40f },
     )
     swipeStateHolder.value = swipeState
 
@@ -390,7 +394,7 @@ fun SongRow(
     // let go now and it queues.
     LaunchedEffect(swipeState, boxWidth) {
         if (boxWidth <= 0f) return@LaunchedEffect
-        val armAt = boxWidth * 0.45f
+        val armAt = boxWidth * 0.40f
         var armed = false
         snapshotFlow { try { swipeState.requireOffset() } catch (e: Exception) { 0f } }
             .collect { offset ->

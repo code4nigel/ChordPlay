@@ -107,19 +107,17 @@ fun libraryLinks(): List<LibraryLink> {
 @Composable
 fun libraryDeviceItems(downloadedReleases: List<SavedCollection>): List<ShelfItem> {
     val downloadedPlaylist = stringResource(R.string.downloaded_playlist)
+    val downloadedAlbum = stringResource(R.string.downloaded_album)
     return downloadedReleases.map { release ->
         ShelfItem(
             title = release.title,
             // The credit the release was downloaded with, because this is also
             // what the page it opens bills itself by — see `headerLines`, which
-            // reads the kind and the owner back out of it. Saying "Downloaded
-            // playlist" here instead would make that header read "Downloaded
-            // playlist" over "PLAYLIST • 12 SONGS", and the shelf this card is on
-            // already says where it lives.
-            subtitle = release.subtitle.ifBlank { if (release.playlist) downloadedPlaylist else "" },
+            // reads the kind and the owner back out of it.
+            subtitle = release.subtitle.ifBlank { if (release.playlist) downloadedPlaylist else downloadedAlbum },
             thumbnailUrl = release.thumbnailUrl,
             videoId = null,
-            browseId = Downloads.pageIdFor(release.id),
+            browseId = Downloads.pageIdFor(release),
         )
     }
 }

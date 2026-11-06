@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">מתנגן כעת</string>
@@ -318,6 +318,7 @@
     <string name="wifi_only_download_refusal">הורדות מוגבלות ל-Wi-Fi. כבה זאת בהגדרות כדי להשתמש בנתונים סלולריים.</string>
     <string name="pinned_playlist_limit">ניתן לנעוץ רק %1$d רשימות השמעה</string>
     <string name="downloaded_playlist">רשימת השמעה שהורדה</string>
+    <string name="downloaded_album">אלבום שהורד</string>
     <string name="library_sign_in_description">היכנס לחשבון הגוגל שלך כדי לראות את השירים שאהבת, רשימות ההשמעה והיסטוריית ה-YouTube Music.</string>
     <string name="downloads_progress">הורדות · %1$d%%</string>
     <string name="downloads_finished">הורדות · הסתיימו</string>

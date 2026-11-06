@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">กำลังเล่น</string>
@@ -337,6 +337,7 @@
     <string name="wifi_only_download_refusal">การดาวน์โหลดจำกัดไว้เฉพาะ Wi-Fi ปิดการตั้งค่านี้เพื่อใช้เน็ตมือถือ</string>
     <string name="pinned_playlist_limit">ปักหมุดได้สูงสุด %1$d เพลย์ลิสต์</string>
     <string name="downloaded_playlist">เพลย์ลิสต์ที่ดาวน์โหลดไว้</string>
+    <string name="downloaded_album">อัลบั้มที่ดาวน์โหลดไว้</string>
     <string name="library_sign_in_description">ลงชื่อเข้าใช้บัญชี Google เพื่อดูเพลงที่ถูกใจ เพลย์ลิสต์ และประวัติ YouTube Music ของคุณ</string>
     <string name="downloads_progress">การดาวน์โหลด · %1$d%%</string>
     <string name="downloads_finished">การดาวน์โหลด · เสร็จสิ้น</string>

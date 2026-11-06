@@ -512,14 +512,13 @@ class QueueCoordinatorTest {
         } as Player
 
         // Jump to a1 (index 3). The timeline is passed in because a MediaItem's
-        // tier can't be read back on the JVM; the promotion of a1 to CONTEXT is
-        // covered by the buildJumpQueue tests.
+        // tier can't be read back on the JVM.
         QueueCoordinator.jumpToQueueItem(player, targetIndex = 3, cachedTimeline = songs)
 
-        // Playlist should now be: [history0 (retained), a1 (now active), u1 (preserved)]
-        assertEquals(3, items.size)
-        assertEquals(1, activeIndex)
-        assertEquals(listOf("history0", "a1", "u1"), items.map { it.mediaId })
+        // Playlist remains intact, seeking directly to targetIndex
+        assertEquals(4, items.size)
+        assertEquals(3, activeIndex)
+        assertEquals(listOf("history0", "u1", "c1", "a1"), items.map { it.mediaId })
     }
 
     /** Tiers looked up by song, since MediaItem metadata extras don't survive on the JVM. */

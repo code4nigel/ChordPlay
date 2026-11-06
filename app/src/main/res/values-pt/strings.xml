@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Tocando agora</string>
@@ -319,6 +319,7 @@
     <string name="wifi_only_download_refusal">Os downloads são limitados ao Wi-Fi. Desligue isso nas Configurações para usar dados móveis.</string>
     <string name="pinned_playlist_limit">Apenas %1$d playlists podem ser fixadas</string>
     <string name="downloaded_playlist">Playlist baixada</string>
+    <string name="downloaded_album">Álbum baixado</string>
     <string name="library_sign_in_description">Faça login em sua conta do Google para ver suas músicas curtidas, playlists e histórico do YouTube Music.</string>
     <string name="downloads_progress">Downloads · %1$d%%</string>
     <string name="downloads_finished">Downloads · concluídos</string>

@@ -287,17 +287,59 @@ fun LibraryScreen(
                                     }
                                 }
                             }
-                            item(key = "sign_in_prompt") {
-                                MessageState(
-                                    message = stringResource(Res.string.library_sign_in_description),
-                                    actionLabel = stringResource(Res.string.sign_in),
-                                    onAction = onSignIn,
+                            val offlinePlaylists = deviceItems.filter {
+                                it.browseId?.startsWith("local:playlist") == true ||
+                                    it.subtitle.contains("playlist", ignoreCase = true) ||
+                                    it.title.contains("playlist", ignoreCase = true)
+                            }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+
+                            if (offlinePlaylists.isNotEmpty()) {
+                                renderLibraryItems(
+                                    items = offlinePlaylists,
+                                    viewMode = libraryViewMode,
+                                    pinnedPlaylists = pinnedPlaylists.toSet(),
+                                    onShelfItemClick = onShelfItemClick,
+                                    onShelfItemLongPress = onShelfItemLongPress,
                                 )
+                            } else {
+                                item(key = "sign_in_prompt") {
+                                    MessageState(
+                                        message = stringResource(Res.string.library_sign_in_description),
+                                        actionLabel = stringResource(Res.string.sign_in),
+                                        onAction = onSignIn,
+                                    )
+                                }
+                            }
+                        }
+                        LibraryFilter.ALBUMS -> {
+                            val offlineAlbums = deviceItems.filter {
+                                val id = it.browseId
+                                !id.isNullOrBlank() &&
+                                    (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
+                            }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
+
+                            if (offlineAlbums.isNotEmpty()) {
+                                renderLibraryItems(
+                                    items = offlineAlbums,
+                                    viewMode = libraryViewMode,
+                                    pinnedPlaylists = pinnedPlaylists.toSet(),
+                                    onShelfItemClick = onShelfItemClick,
+                                    onShelfItemLongPress = onShelfItemLongPress,
+                                )
+                            } else {
+                                item(key = "sign_in_prompt") {
+                                    MessageState(
+                                        message = stringResource(Res.string.library_sign_in_description),
+                                        actionLabel = stringResource(Res.string.sign_in),
+                                        onAction = onSignIn,
+                                    )
+                                }
                             }
                         }
                         else -> {
                             if (links.isNotEmpty() && selectedFilter == LibraryFilter.ALL) {
-                                val filteredLinks = links.map { it.item }
+                                val filteredLinks = (links.map { it.item } + deviceItems)
+                                    .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
                                 renderLibraryItems(
                                     items = filteredLinks,
@@ -306,13 +348,14 @@ fun LibraryScreen(
                                     onShelfItemClick = onShelfItemClick,
                                     onShelfItemLongPress = onShelfItemLongPress,
                                 )
-                            }
-                            item(key = "sign_in_prompt") {
-                                MessageState(
-                                    message = stringResource(Res.string.library_sign_in_description),
-                                    actionLabel = stringResource(Res.string.sign_in),
-                                    onAction = onSignIn,
-                                )
+                            } else {
+                                item(key = "sign_in_prompt") {
+                                    MessageState(
+                                        message = stringResource(Res.string.library_sign_in_description),
+                                        actionLabel = stringResource(Res.string.sign_in),
+                                        onAction = onSignIn,
+                                    )
+                                }
                             }
                         }
                     }
@@ -367,8 +410,7 @@ fun LibraryScreen(
                                 val offlineAlbums = deviceItems.filter {
                                     val id = it.browseId
                                     !id.isNullOrBlank() &&
-                                        !id.startsWith("local:playlist") &&
-                                        !it.subtitle.contains("playlist", ignoreCase = true)
+                                        (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
                                 }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
                                 if (offlineAlbums.isNotEmpty()) {
@@ -550,8 +592,7 @@ fun LibraryScreen(
                                 val localAndDownloadedAlbums = deviceItems.filter {
                                     val id = it.browseId
                                     !id.isNullOrBlank() &&
-                                        !id.startsWith("local:playlist") &&
-                                        !it.subtitle.contains("playlist", ignoreCase = true)
+                                        (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
                                 }
                                 val albumShelf = shelves.firstOrNull {
                                     it.title.equals("Albums", ignoreCase = true)

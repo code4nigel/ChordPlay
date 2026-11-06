@@ -872,7 +872,11 @@ private fun BitChordApp(
     // `local:playlist:` prefix; a release still reachable by its real id (an
     // album's own page, a search hit) is looked up directly under that instead.
     val downloadIdFor: (String?) -> String? = { id ->
-        id?.let { Downloads.recordIdOf(it) ?: it }?.takeIf { it in savedCollections }
+        id?.let { raw ->
+            val stripped = Downloads.recordIdOf(raw) ?: raw
+            val clean = stripped.removePrefix("VL")
+            savedCollections.keys.firstOrNull { it == stripped || it == raw || it.removePrefix("VL") == clean }
+        }
     }
     LaunchedEffect(savedDownloads, savedCollections, detail?.browseId) {
         val openPage = detail ?: return@LaunchedEffect
@@ -2807,6 +2811,8 @@ private fun BitChordApp(
                             },
                             onSongLongPress = openSongMenu,
                             onSongSwipe = onSongSwipe,
+                            onSongSwipeRight = onSongSwipeRight,
+                            onSongSwipeLeft = onSongSwipeLeft,
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
                         )
@@ -3008,6 +3014,12 @@ private fun BitChordApp(
                             onDeleteDownloads = { selected ->
                                 scope.launch {
                                     selected.forEach { song -> Downloads.delete(context, song.videoId) }
+                                    val remaining = Downloads.saved.value
+                                    savedCollections.values.forEach { collection ->
+                                        if (collection.videoIds.none { it in remaining }) {
+                                            Downloads.forgetCollection(collection.id)
+                                        }
+                                    }
                                 }
                             },
                             onUploadToWebDav =
@@ -3025,6 +3037,8 @@ private fun BitChordApp(
                             },
                             onSongLongPress = openSongMenu,
                             onSongSwipe = onSongSwipe,
+                            onSongSwipeRight = onSongSwipeRight,
+                            onSongSwipeLeft = onSongSwipeLeft,
                             onShuffle = { songs ->
                                 QueueShuffle.enableForNextQueue()
                                 playFrom(
@@ -3044,7 +3058,11 @@ private fun BitChordApp(
                                 // which is exactly the distinction `asked` draws in
                                 // `albumEntries`.
                                 val downloadId = downloadCollections.firstOrNull {
-                                    it.title == label && it.songs == grouped
+                                    it.title == label
+                                }?.id ?: downloadCollections.firstOrNull {
+                                    val collectionSongIds = it.songs.map { s -> s.videoId }.toSet()
+                                    val groupedIds = grouped.map { s -> s.videoId }.toSet()
+                                    collectionSongIds.isNotEmpty() && collectionSongIds == groupedIds
                                 }?.id
                                 openBrowseMenu(
                                     BrowseTarget(
@@ -4656,10 +4674,13 @@ private fun BitChordApp(
             }
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val playlistSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
             ModalBottomSheet(
                 onDismissRequest = dismiss,
                 sheetState = playlistSheetState,
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                containerColor = MaterialTheme.colorScheme.surface.copy(
+                    alpha = if (isLiquidGlassActive) 0.88f else 0.96f
+                ),
             ) {
                 PlaylistPickerSheet(
                     playlists = playlists,
@@ -4667,6 +4688,7 @@ private fun BitChordApp(
                     song = target,
                     startCreating = target == null,
                     pinnedPlaylists = pinnedPlaylists,
+                    onDismiss = dismiss,
                     onCommit = { toAdd, toRemove ->
                         target?.let { song ->
                             viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
@@ -4776,6 +4798,7 @@ private fun BitChordApp(
             val playlist = target.browseId
                 ?.takeIf { signedIn && ownedPlaylists[it] == true }
                 ?.let { id -> playlists.firstOrNull { it.browseId == id } }
+            val localPlaylist = target.browseId?.let { com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(it) }
             val remote = target.browseId?.startsWith("local:") == false
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val pinnableId = target.browseId?.takeIf { target.type == BrowseType.PLAYLIST }
@@ -4896,16 +4919,37 @@ private fun BitChordApp(
                         }
                     }
                 },
-                onDelete = playlist?.let { p ->
+                onDelete = (playlist?.let { p ->
                     {
                         browseActions = null
                         viewModel.deletePlaylist(p)
                     }
-                },
+                } ?: localPlaylist?.let { lp ->
+                    {
+                        browseActions = null
+                        com.music.bitchord.data.spotify.LocalPlaylistStore.deletePlaylist(lp.id)
+                        val currentOpen = detail?.browseId
+                        if (currentOpen == lp.browseId || currentOpen == lp.id) {
+                            viewModel.closeDetail()
+                        }
+                    }
+                }),
                 onDeleteDownload = target.downloadId?.let { id ->
                     {
                         browseActions = null
-                        scope.launch { Downloads.deleteCollection(context, id) }
+                        scope.launch {
+                            val success = Downloads.deleteCollection(context, id)
+                            if (success) {
+                                Toast.makeText(context, context.getString(R.string.delete_download), Toast.LENGTH_SHORT).show()
+                                val currentOpen = detail?.browseId
+                                if (currentOpen != null) {
+                                    val currentRecordId = Downloads.recordIdOf(currentOpen) ?: currentOpen
+                                    if (currentRecordId == id || currentRecordId.removePrefix("VL") == id.removePrefix("VL")) {
+                                        viewModel.closeDetail()
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
             )

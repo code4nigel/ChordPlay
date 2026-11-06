@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">再生中</string>
@@ -313,6 +313,7 @@
     <string name="wifi_only_download_refusal">ダウンロードはWi-Fiのみに制限されています。モバイルデータを使うには設定でオフにしてください。</string>
     <string name="pinned_playlist_limit">ピン留めできるプレイリストは%1$d件までです</string>
     <string name="downloaded_playlist">ダウンロード済みのプレイリスト</string>
+    <string name="downloaded_album">ダウンロード済みのアルバム</string>
     <string name="library_sign_in_description">Googleアカウントにログインすると、高評価した曲、プレイリスト、YouTube Musicの履歴が表示されます。</string>
     <string name="downloads_progress">ダウンロード · %1$d%%</string>
     <string name="downloads_finished">ダウンロード · 完了</string>

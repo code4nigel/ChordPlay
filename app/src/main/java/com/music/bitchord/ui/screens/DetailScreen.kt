@@ -47,7 +47,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bookmark
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.graphics.luminance
 import com.music.bitchord.data.model.LibraryState
@@ -581,7 +584,16 @@ fun DetailScreen(
             when (val state = page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
                 is UiState.Error -> item {
-                    if (page.type == BrowseType.PLAYLIST) {
+                    val isMix = page.browseId.startsWith("RD") || page.browseId.startsWith("VLRD") ||
+                        page.title.contains("Mix", ignoreCase = true) || page.subtitle.contains("Mix", ignoreCase = true) ||
+                        page.title.contains("Radio", ignoreCase = true) || page.subtitle.contains("Radio", ignoreCase = true)
+                    val isAlbum = page.type == BrowseType.ALBUM || page.browseId.startsWith("MPREb") ||
+                        page.browseId.startsWith("OLAK") || page.browseId.startsWith("VLOLAK")
+                    val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
+                    val canAddSongs = !isMix && !isAlbum && page.type == BrowseType.PLAYLIST &&
+                        (page.browseId.removePrefix("VL") in chordplayPlaylistIds || page.browseId in chordplayPlaylistIds || page.browseId.startsWith("local:"))
+
+                    if (canAddSongs) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -602,7 +614,7 @@ fun DetailScreen(
                                 ),
                                 shape = RoundedCornerShape(20.dp),
                             ) {
-                                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.add_songs_to_playlist))
                             }
@@ -905,12 +917,18 @@ private fun ReleaseHeader(
 
             // Action buttons — live inside the header so there is zero gap
             // between the cover zone and the first song row.
-            val isPlaylist = page.type == BrowseType.PLAYLIST && onAddSongs != null
-            if (songs.isNotEmpty() || isPlaylist) {
+            val isMix = page.browseId.startsWith("RD") || page.browseId.startsWith("VLRD") ||
+                page.title.contains("Mix", ignoreCase = true) || page.subtitle.contains("Mix", ignoreCase = true) ||
+                page.title.contains("Radio", ignoreCase = true) || page.subtitle.contains("Radio", ignoreCase = true)
+            val isAlbum = page.type == BrowseType.ALBUM || page.browseId.startsWith("MPREb") ||
+                page.browseId.startsWith("OLAK") || page.browseId.startsWith("VLOLAK")
+            val canAddSongs = !isMix && !isAlbum && page.type == BrowseType.PLAYLIST && onAddSongs != null &&
+                (isChordplayPlaylist || page.library == null || page.browseId.startsWith("local:"))
+            if (songs.isNotEmpty() || canAddSongs) {
                 // Only where YouTube said the release can be saved and the
                 // caller is willing to take the write — see [onToggleLibrary].
                 val library = page.library?.takeIf { onToggleLibrary != null }
-                val circles = listOfNotNull(library, onMore, onAddSongs.takeIf { isPlaylist }).size +
+                val circles = listOfNotNull(library, onMore, onAddSongs.takeIf { canAddSongs }).size +
                     (if (songs.isNotEmpty()) 2 else 0) // + Shuffle, Search
                 val circleSize = when {
                     circles >= 5 -> 42.dp
@@ -935,9 +953,7 @@ private fun ReleaseHeader(
                 ) {
                     if (library != null) {
                         CircleIconButton(
-                            // A tick, not a filled-in plus: the pair reads as
-                            // "not yet / done", which is what the state is.
-                            icon = if (library.saved) BitChordIcons.Check else BitChordIcons.Plus,
+                            icon = if (library.saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                             contentDescription = if (library.saved) {
                                 stringResource(R.string.remove_from_library)
                             } else {
@@ -949,9 +965,9 @@ private fun ReleaseHeader(
                             size = circleSize,
                         )
                     }
-                    if (isPlaylist) {
+                    if (canAddSongs) {
                         CircleIconButton(
-                            icon = BitChordIcons.Plus,
+                            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                             contentDescription = stringResource(R.string.add_songs_to_playlist),
                             palette = palette,
                             onClick = { onAddSongs?.invoke() },
@@ -1962,7 +1978,7 @@ private fun TopReleaseCard(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = if (saved) Icons.Rounded.Check else Icons.Rounded.Add,
+                    imageVector = if (saved) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder,
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
                     ),

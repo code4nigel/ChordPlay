@@ -1064,7 +1064,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 true
             },
-            onFailure = { false },
+            onFailure = {
+                PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
+                PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
+                PlaylistMembershipCache.add(cleanId, song.videoId)
+                false
+            },
         )
     }
 
@@ -1096,7 +1101,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 appendToOpenPlaylist(playlist.browseId, song, newSetVideoId)
                 AddOutcome.ADDED
             },
-            onFailure = { AddOutcome.FAILED },
+            onFailure = {
+                PlaylistMembershipCache.clearPendingAdd(cleanId, song.videoId)
+                PlaylistMembershipCache.clearPendingAdd(playlist.playlistId, song.videoId)
+                PlaylistMembershipCache.remove(cleanId, song.videoId)
+                PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+                AddOutcome.FAILED
+            },
         )
     }
 
@@ -2828,9 +2839,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
         fun browseTypeOf(browseId: String, fallback: BrowseType = BrowseType.OTHER): BrowseType = when {
             browseId.startsWith(Downloads.PLAYLIST_PREFIX) -> BrowseType.PLAYLIST
+            browseId.startsWith(Downloads.ALBUM_PREFIX) -> BrowseType.ALBUM
             browseId.startsWith("UC") -> BrowseType.ARTIST
             browseId.startsWith("MPREb") || browseId.startsWith("VLOLAK") || browseId.startsWith("OLAK") -> BrowseType.ALBUM
-            browseId.startsWith("VL") || browseId.startsWith("PL") -> BrowseType.PLAYLIST
+            browseId.startsWith("VL") || browseId.startsWith("PL") || browseId.startsWith("RD") || browseId.startsWith("VLRD") -> BrowseType.PLAYLIST
             else -> fallback
         }
     }
@@ -3043,7 +3055,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                 }
                             }
                             if (mergedSongs.isEmpty()) {
-                                if (hasPreseeded) {
+                                val isRadioMix = browseId.startsWith("RD") || browseId.startsWith("VLRD")
+                                val cleanId = browseId.removePrefix("VL")
+                                val radioVid = cleanId.removePrefix("RDAMVM").takeIf { cleanId.startsWith("RDAMVM") && it.length == 11 && !it.startsWith("RD") }
+                                val fallbackSongs = if (isRadioMix && radioVid != null) {
+                                    YtMusicRepository.radio(radioVid).getOrNull().orEmpty()
+                                } else emptyList()
+
+                                if (fallbackSongs.isNotEmpty()) {
+                                    UiState.Success(fallbackSongs.withArtwork(thumbnailUrl ?: artwork))
+                                } else if (hasPreseeded) {
                                     UiState.Success(preseeded)
                                 } else {
                                     UiState.Error(text(R.string.no_tracks_here))
@@ -3058,7 +3079,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         },
                         onFailure = {
-                            if (hasPreseeded) {
+                            val isRadioMix = browseId.startsWith("RD") || browseId.startsWith("VLRD")
+                            val cleanId = browseId.removePrefix("VL")
+                            val radioVid = cleanId.removePrefix("RDAMVM").takeIf { cleanId.startsWith("RDAMVM") && it.length == 11 && !it.startsWith("RD") }
+                            val fallbackSongs = if (isRadioMix && radioVid != null) {
+                                YtMusicRepository.radio(radioVid).getOrNull().orEmpty()
+                            } else emptyList()
+
+                            if (fallbackSongs.isNotEmpty()) {
+                                UiState.Success(fallbackSongs.withArtwork(thumbnailUrl ?: artwork))
+                            } else if (hasPreseeded) {
                                 UiState.Success(preseeded)
                             } else {
                                 UiState.Error(it.friendly())

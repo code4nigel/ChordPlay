@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Sedang diputar</string>
@@ -313,6 +313,7 @@
     <string name="wifi_only_download_refusal">Unduhan dibatasi hanya lewat Wi-Fi. Nonaktifkan itu di Pengaturan untuk menggunakan data seluler.</string>
     <string name="pinned_playlist_limit">Hanya %1$d playlist yang dapat disematkan</string>
     <string name="downloaded_playlist">Playlist yang diunduh</string>
+    <string name="downloaded_album">Album yang diunduh</string>
     <string name="library_sign_in_description">Masuk ke akun Google Anda untuk melihat lagu yang disukai, playlist, dan riwayat YouTube Music Anda.</string>
     <string name="downloads_progress">Unduhan · %1$d%%</string>
     <string name="downloads_finished">Unduhan · selesai</string>

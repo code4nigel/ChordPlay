@@ -408,12 +408,24 @@ object Downloads {
      * device — the "delete download" a whole album or playlist card offers,
      * where a single track only ever offers [delete].
      */
-    suspend fun deleteCollection(context: Context, id: String): Boolean {
-        val record = _collections.value[id] ?: return false
+    suspend fun deleteCollection(context: Context, id: String): Boolean = withContext(Dispatchers.IO) {
+        val clean = id.removePrefix("VL")
+        val record = _collections.value[id]
+            ?: _collections.value.values.firstOrNull { it.id == id || it.id.removePrefix("VL") == clean }
+            ?: return@withContext false
         var any = false
-        record.videoIds.forEach { videoId -> if (delete(context, videoId)) any = true }
-        forgetCollection(id)
-        return any
+        val toDeleteIds = record.videoIds.toSet()
+        val currentSaved = _saved.value
+        toDeleteIds.forEach { videoId ->
+            val uri = currentSaved[videoId]?.toUri()
+            if (uri != null && DownloadStore.delete(context, uri)) {
+                any = true
+            }
+        }
+        record(saved = { it - toDeleteIds }, meta = { it - toDeleteIds })
+        forgetCollection(record.id)
+        if (record.id != id) forgetCollection(id)
+        any
     }
 
     /**
@@ -435,13 +447,19 @@ object Downloads {
      * its own.
      */
     const val PLAYLIST_PREFIX = "local:playlist:"
+    const val ALBUM_PREFIX = "local:album:"
 
     /** The page id for the release recorded under [id]. */
     fun pageIdFor(id: String): String = PLAYLIST_PREFIX + id
 
+    fun pageIdFor(release: SavedCollection): String =
+        if (release.playlist) PLAYLIST_PREFIX + release.id else ALBUM_PREFIX + release.id
+
     /** The release [pageIdFor] built [browseId] from, or null if it didn't. */
-    fun recordIdOf(browseId: String): String? =
-        browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() && !it.startsWith("sp_local_") }
+    fun recordIdOf(browseId: String): String? {
+        val bare = browseId.removePrefix(PLAYLIST_PREFIX).removePrefix(ALBUM_PREFIX)
+        return bare.takeIf { bare != browseId && bare.isNotEmpty() && !bare.startsWith("sp_local_") }
+    }
 
     /**
      * The playlists and albums downloaded whole, in name order, without their

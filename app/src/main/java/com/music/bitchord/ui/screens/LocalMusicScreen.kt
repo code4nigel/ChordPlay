@@ -119,11 +119,12 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
 private const val LOCAL_TAB_SONGS = 0
-private const val LOCAL_TAB_ARTISTS = 1
+private const val LOCAL_TAB_PLAYLISTS = 1
 private const val LOCAL_TAB_ALBUMS = 2
+private const val LOCAL_TAB_ARTISTS = 3
 
 /**
- * Local Music folder view with three tabs: Songs (default), Artists, Albums.
+ * Local Music folder view with tabs: Songs, Playlists (Downloads only), Albums, Artists.
  *
  * Also the Downloads folder — the two are the same thing from here, a flat list
  * of tracks on this device, and they read as the same page because they are the
@@ -141,6 +142,8 @@ fun LocalMusicScreen(
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
+    onSongSwipeRight: ((Song) -> Unit)? = null,
+    onSongSwipeLeft: ((Song) -> Unit)? = null,
     onShuffle: (List<Song>) -> Unit,
     contentPadding: PaddingValues,
     /**
@@ -242,6 +245,18 @@ fun LocalMusicScreen(
     }
     BackHandler(enabled = inDrillDown && !selectingDownloads) { leaveDrillDown() }
 
+    androidx.compose.runtime.LaunchedEffect(songs) {
+        if (inDrillDown) {
+            val remainingIds = songs.mapTo(HashSet()) { it.videoId }
+            val surviving = drillDownSongs.filter { it.videoId in remainingIds }
+            if (surviving.isEmpty()) {
+                leaveDrillDown()
+            } else if (surviving.size != drillDownSongs.size) {
+                drillDownSongs = surviving
+            }
+        }
+    }
+
     // The tab row is fixed above the scrolling content, so its own top
     // padding has to clear the frosted top bar / status bar that the
     // LazyColumns beneath it would otherwise scroll under.
@@ -313,44 +328,65 @@ fun LocalMusicScreen(
         )
 
         // ── Tab row ──────────────────────────────────────────────────────────
+        val displayedTabs = remember(isDownloads) {
+            if (isDownloads) listOf(LOCAL_TAB_SONGS, LOCAL_TAB_PLAYLISTS, LOCAL_TAB_ALBUMS, LOCAL_TAB_ARTISTS)
+            else listOf(LOCAL_TAB_SONGS, LOCAL_TAB_ALBUMS, LOCAL_TAB_ARTISTS)
+        }
+        val tabIndexInRow = displayedTabs.indexOf(selectedTab).coerceAtLeast(0)
+
         TabRow(
-            selectedTabIndex = selectedTab,
+            selectedTabIndex = tabIndexInRow,
             containerColor = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.primary,
             indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                if (tabIndexInRow < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[tabIndexInRow]),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             },
         ) {
-            LocalTab(
-                icon = Icons.Rounded.MusicNote,
-                label = stringResource(R.string.songs),
-                selected = selectedTab == LOCAL_TAB_SONGS,
-                onClick = {
-                    selectedTab = LOCAL_TAB_SONGS
-                    leaveDrillDown()
-                },
-            )
-            LocalTab(
-                icon = Icons.Rounded.Person,
-                label = stringResource(R.string.artists),
-                selected = selectedTab == LOCAL_TAB_ARTISTS,
-                onClick = {
-                    selectedTab = LOCAL_TAB_ARTISTS
-                    leaveDrillDown()
-                },
-            )
-            LocalTab(
-                icon = Icons.Rounded.Album,
-                label = stringResource(R.string.albums),
-                selected = selectedTab == LOCAL_TAB_ALBUMS,
-                onClick = {
-                    selectedTab = LOCAL_TAB_ALBUMS
-                    leaveDrillDown()
-                },
-            )
+            displayedTabs.forEach { tab ->
+                when (tab) {
+                    LOCAL_TAB_SONGS -> LocalTab(
+                        icon = Icons.Rounded.MusicNote,
+                        label = stringResource(R.string.songs),
+                        selected = selectedTab == LOCAL_TAB_SONGS,
+                        onClick = {
+                            selectedTab = LOCAL_TAB_SONGS
+                            leaveDrillDown()
+                        },
+                    )
+                    LOCAL_TAB_PLAYLISTS -> LocalTab(
+                        icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                        label = stringResource(R.string.playlists),
+                        selected = selectedTab == LOCAL_TAB_PLAYLISTS,
+                        onClick = {
+                            selectedTab = LOCAL_TAB_PLAYLISTS
+                            leaveDrillDown()
+                        },
+                    )
+                    LOCAL_TAB_ALBUMS -> LocalTab(
+                        icon = Icons.Rounded.Album,
+                        label = stringResource(R.string.albums),
+                        selected = selectedTab == LOCAL_TAB_ALBUMS,
+                        onClick = {
+                            selectedTab = LOCAL_TAB_ALBUMS
+                            leaveDrillDown()
+                        },
+                    )
+                    LOCAL_TAB_ARTISTS -> LocalTab(
+                        icon = Icons.Rounded.Person,
+                        label = stringResource(R.string.artists),
+                        selected = selectedTab == LOCAL_TAB_ARTISTS,
+                        onClick = {
+                            selectedTab = LOCAL_TAB_ARTISTS
+                            leaveDrillDown()
+                        },
+                    )
+                }
+            }
         }
 
         // ── Content ──────────────────────────────────────────────────────────
@@ -404,6 +440,8 @@ fun LocalMusicScreen(
                         // carry the actions sheet itself or the page loses it.
                         onSongMore = onSongLongPress,
                         onSongSwipe = onSongSwipe,
+                        onSongSwipeRight = if (!selectingDownloads) onSongSwipeRight else null,
+                        onSongSwipeLeft = if (!selectingDownloads) onSongSwipeLeft else null,
                         onShuffle = onShuffle,
                         onMore = onCollectionLongPress?.let { more ->
                             { more(drillDownLabel ?: "", drillDownSongs) }
@@ -439,6 +477,51 @@ fun LocalMusicScreen(
                         // carry the actions sheet itself or the page loses it.
                         onSongMore = onSongLongPress,
                         onSongSwipe = onSongSwipe,
+                        onSongSwipeRight = if (!selectingDownloads) onSongSwipeRight else null,
+                        onSongSwipeLeft = if (!selectingDownloads) onSongSwipeLeft else null,
+                        contentPadding = bodyContentPadding,
+                    )
+                }
+
+                key == "tab:$LOCAL_TAB_PLAYLISTS" -> {
+                    val playlists = remember(collections, searchQuery) {
+                        collections.filter { it.playlist }.map { collection ->
+                            AlbumEntry(
+                                title = collection.title,
+                                artist = collection.subtitle.ifBlank {
+                                    collection.songs.firstOrNull()?.artist.orEmpty()
+                                },
+                                thumbnailUrl = collection.thumbnailUrl,
+                                playlist = true,
+                                songs = collection.songs,
+                                asked = true,
+                                key = "asked:${collection.id}",
+                            )
+                        }.filter {
+                            searchQuery.isBlank() ||
+                                it.title.contains(searchQuery, ignoreCase = true) ||
+                                it.artist.contains(searchQuery, ignoreCase = true)
+                        }.sortedBy { it.title.lowercase(Locale.ROOT) }
+                    }
+                    AlbumsTab(
+                        albums = playlists,
+                        viewType = viewType,
+                        selectedKeys = selectedAlbumKeys,
+                        onAlbumClick = { entry ->
+                            if (selectingDownloads) {
+                                toggleAlbumSelection(entry)
+                            } else {
+                                drillDownLabel = entry.title
+                                drillDownSongs = entry.songs
+                                drillDownArt = entry.thumbnailUrl
+                            }
+                        },
+                        onAlbumLongPress = { entry ->
+                            if (isDownloads) {
+                                selectedDownloadIds = selectedDownloadIds + entry.songs.map { it.videoId }
+                                selectedAlbumKeys = selectedAlbumKeys + entry.key
+                            } else onCollectionLongPress?.invoke(entry.title, entry.songs)
+                        },
                         contentPadding = bodyContentPadding,
                     )
                 }
@@ -466,7 +549,8 @@ fun LocalMusicScreen(
                 else -> {
                     // LOCAL_TAB_ALBUMS
                     val albums = remember(sortedSongs, collections, searchQuery) {
-                        albumEntries(sortedSongs, collections).filter {
+                        val albumCollections = if (isDownloads) collections.filter { !it.playlist } else collections
+                        albumEntries(sortedSongs, albumCollections).filter {
                             searchQuery.isBlank() ||
                                 it.title.contains(searchQuery, ignoreCase = true) ||
                                 it.artist.contains(searchQuery, ignoreCase = true)
@@ -513,6 +597,8 @@ private fun SongsTab(
     /** The row's ⋮, where holding it does something else — see [SongRow]. */
     onSongMore: ((Song) -> Unit)? = null,
     onSongSwipe: (Song) -> Unit,
+    onSongSwipeRight: ((Song) -> Unit)? = null,
+    onSongSwipeLeft: ((Song) -> Unit)? = null,
     contentPadding: PaddingValues,
 ) {
     if (viewType == LibraryViewType.GRID) {
@@ -573,6 +659,8 @@ private fun SongsTab(
                     onClick = { onSongClick(songs, index) },
                     onLongPress = { onSongLongPress(song) },
                     onMore = onSongMore?.let { more -> { more(song) } },
+                    onSwipeRight = onSongSwipeRight?.let { action -> { action(song) } },
+                    onSwipeLeft = onSongSwipeLeft?.let { action -> { action(song) } },
                     onSwipeToQueue = { onSongSwipe(song) },
                 )
                 if (index < songs.lastIndex) {
@@ -1365,6 +1453,8 @@ private fun DrillDownSongList(
     /** The row's ⋮, where holding it does something else — see [SongRow]. */
     onSongMore: ((Song) -> Unit)? = null,
     onSongSwipe: (Song) -> Unit,
+    onSongSwipeRight: ((Song) -> Unit)? = null,
+    onSongSwipeLeft: ((Song) -> Unit)? = null,
     onShuffle: (List<Song>) -> Unit,
     /** The ⋮ in the header, acting on the whole artist or album. */
     onMore: (() -> Unit)?,
@@ -1449,6 +1539,8 @@ private fun DrillDownSongList(
                     onClick = { onSongClick(songs, index) },
                     onLongPress = { onSongLongPress(song) },
                     onMore = onSongMore?.let { more -> { more(song) } },
+                    onSwipeRight = onSongSwipeRight?.let { action -> { action(song) } },
+                    onSwipeLeft = onSongSwipeLeft?.let { action -> { action(song) } },
                     onSwipeToQueue = { onSongSwipe(song) },
                 )
                 if (index < songs.lastIndex) {

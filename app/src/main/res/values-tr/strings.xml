@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Şu an çalıyor</string>
@@ -343,6 +343,7 @@
     <string name="wifi_only_download_refusal">İndirmeler yalnızca Wi-Fi ile sınırlıdır. Mobil veri kullanmak için Ayarlar\'dan bunu kapatın.</string>
     <string name="pinned_playlist_limit">Yalnızca %1$d çalma listesi sabitlenebilir</string>
     <string name="downloaded_playlist">İndirilen çalma listesi</string>
+    <string name="downloaded_album">İndirilen albüm</string>
     <string name="library_sign_in_description">Beğendiğin şarkıları, çalma listelerini ve YouTube Music geçmişini görmek için Google hesabınla giriş yap.</string>
     <string name="downloads_progress">İndirmeler · %1$d%%</string>
     <string name="downloads_finished">İndirmeler · tamamlandı</string>

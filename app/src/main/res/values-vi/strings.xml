@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Đang phát</string>
@@ -351,6 +351,7 @@
     <string name="wifi_only_download_refusal">Tải xuống đang bị giới hạn chỉ qua Wi-Fi. Hãy tắt tùy chọn đó trong Cài đặt để sử dụng dữ liệu di động.</string>
     <string name="pinned_playlist_limit">Chỉ có thể ghim tối đa %1$d danh sách phát</string>
     <string name="downloaded_playlist">Danh sách phát đã tải</string>
+    <string name="downloaded_album">Album đã tải</string>
     <string name="library_sign_in_description">Đăng nhập vào tài khoản Google của bạn để xem các bài hát đã thích, danh sách phát và lịch sử YouTube Music.</string>
     <string name="downloads_progress">Tải xuống · %1$d%%</string>
     <string name="downloads_finished">Tải xuống · hoàn tất</string>
