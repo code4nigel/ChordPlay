@@ -1198,16 +1198,6 @@ fun NowPlayingScreen(
     val collapseDone by remember { derivedStateOf { p() >= 1f } }
     val queueShowing by remember { derivedStateOf { queueSlide.floatValue > 0.01f } }
 
-    // Whether the sleeve has finished getting out of the way, and how far the
-    // panel that replaces it has faded up since.
-    //
-    // The lyric sheet and the queue list are the two most expensive things this
-    // screen can compose — measuring every line of a song, or building a lazy
-    // list with drag-reorder state per row — and both used to be composed on
-    // the frame the panel was asked for, which is the frame the 420ms collapse
-    // above starts on. That put the single heaviest composition of the whole
-    // screen directly on top of the one animation the eye is following, and it
-    // read as the open stuttering.
     //
     // Held back until [p] has actually arrived, the expensive frame lands while
     // nothing is moving, where a dropped frame costs nothing to look at, and
@@ -1364,10 +1354,6 @@ fun NowPlayingScreen(
     LaunchedEffect(spotifyCanvasPresentation, mixing) {
         if (spotifyCanvasPresentation && mixing) spotifyCanvasControlsOpen = true
     }
-    // Portrait clips always use the existing artwork mesh, even if the user
-    // selected the legacy backdrop for ordinary artwork.
-    val artMesh = if (legacyMesh && !canvasFirstPortrait) null else
-        key(song.videoId) { rememberArtworkMesh(remoteArt, canvasFrame, ART_PX) }
     // Whether the banner is the presentation at all: full-bleed is on, and there
     // is something to blow out. The collapse is deliberately *not* part of this:
     // the sleeve goes from banner to thumbnail as one movement, rather than the
@@ -1647,8 +1633,7 @@ fun NowPlayingScreen(
     val fullArtworkBlurImage = rememberFullArtworkBlurImage(
         imageUrl = remoteArt,
         artPx = ART_PX,
-        prepare = landscape || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
-            playerPrewarmStage >= 1,
+        prepare = true,
     )
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
@@ -2119,15 +2104,6 @@ fun NowPlayingScreen(
         // queue panels must not crossfade the blurred artwork over it.
         val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
             legacyMesh && !canvasFirstPortrait
-        val fullArtworkBackdropAlpha by animateFloatAsState(
-            targetValue = if (
-                !legacyMeshBackdrop &&
-                (tabletArtworkBackdrop || lyricsOpen || queueOpen) &&
-                (tabletArtworkBackdrop || fullArtworkBlurImage != null)
-            ) 1f else 0f,
-            animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-            label = "fullArtworkBackdropCrossfade",
-        )
         if (legacyMeshBackdrop) {
             // v1.5's backdrop, restored verbatim: no seam, because the blobs
             // are not anchored to anything on screen — they fill the player and
@@ -2140,23 +2116,18 @@ fun NowPlayingScreen(
                 palette = rememberArtworkColors(remoteArt, canvasFrame),
                 trackKey = song.videoId,
                 modifier = Modifier
-                    .graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha }
+                    .fillMaxSize()
                     .hazeSource(playerHaze),
             )
-        } else if (!tabletArtworkBackdrop && !spotifyCanvasPresentation) {
-            ArtworkMeshBackdrop(
-                mesh = artMesh,
-                seam = if (canvasFirstPortrait) renderedCanvasBottom else if (heroMode) heroHeight else 0.dp,
-                modifier = Modifier
-                    .graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha }
+        } else {
+            // Unified artwork blur backdrop shared seamlessly across Player, Lyrics,
+            // and Queue so there is zero transition jitter, background mismatch, or flash.
+            fullArtworkBlurContent(
+                Modifier
+                    .fillMaxSize()
                     .hazeSource(playerHaze),
             )
         }
-        fullArtworkBlurContent(
-            Modifier
-                .graphicsLayer { alpha = fullArtworkBackdropAlpha }
-                .hazeSource(playerHaze),
-        )
         if (isWavePlay && !lyricsOpen && !queueOpen && !spotifyCanvasPresentation) {
             SynesthesiaNocturneOverlay(
                 palette = synesthesiaPalette,
@@ -2280,10 +2251,10 @@ fun NowPlayingScreen(
             )
         }
 
-        // Spotify Canvas keeps its pixels sharp across the whole phone. Pure
-        // glass blur belongs only under the temporary lower control deck,
-        // above the video. When the deck slides away this layer leaves with
-        // it as well.
+        // Spotify Canvas keeps its pixels sharp across the whole phone without blur.
+        // A progressive dark gradient protects the lower control deck for legibility
+        // without blurring the video underneath. When the deck slides away, this scrim
+        // leaves with it.
         AnimatedVisibility(
             visible = spotifyCanvasPresentation && spotifyCanvasControlsOpen,
             modifier = Modifier
@@ -2293,80 +2264,16 @@ fun NowPlayingScreen(
             enter = fadeIn(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideIn(),
             exit = fadeOut(tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS)) + playerDeckSlideOut(),
         ) {
-            // Subscribe only while Spotify's glass layer exists. Static art and
-            // non-Spotify motion covers do not observe this new state at all.
-            val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(
-                        if (reduceDynamicBlur || !renderEffectBlurSupported) {
-                            // A real backdrop RenderEffect is unavailable on
-                            // older Android versions and intentionally skipped
-                            // when dynamic blur is reduced. Retain the deck's
-                            // contrast without paying for a fake blur path,
-                            // while keeping the same progressive top edge as
-                            // the live glass surface.
-                            Modifier.background(
-                                Brush.verticalGradient(
-                                    0.00f to Color.Transparent,
-                                    SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black.copy(alpha = 0.40f),
-                                    1.00f to Color.Black.copy(alpha = 0.40f),
-                                ),
-                            )
-                        } else {
-                            Modifier.optimizedHazeEffect(
-                                state = playerHaze,
-                                // Do not use HazeMaterials with Transparent:
-                                // that preset treats transparent RGB as black
-                                // and replaces its alpha with a dark 0.8 tint.
-                                style = HazeStyle(
-                                    backgroundColor = Color.Transparent,
-                                    tints = emptyList(),
-                                    // Canvas stays sharp above the deck; the
-                                    // lower glass needs stronger separation
-                                    // from a moving video than static artwork.
-                                    blurRadius = 48.dp,
-                                    noiseFactor = 0f,
-                                    fallbackTint = HazeTint(Color.Transparent),
-                                ),
-                            ) {
-                                // This is a continuously changing video, so a
-                                // full third-resolution backdrop is still more
-                                // detail than a 48dp blur can preserve. At 18%
-                                // this processes roughly 30% of the pixels used
-                                // by optimizedHazeEffect's normal 33% path.
-                                inputScale = HazeInputScale.Fixed(0.18f)
-                                canDrawArea = { true }
-                                mask = Brush.verticalGradient(
-                                    0.00f to Color.Transparent,
-                                    SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black,
-                                    1.00f to Color.Black,
-                                )
-                            }
-                        },
+                    .background(
+                        Brush.verticalGradient(
+                            0.00f to Color.Transparent,
+                            SPOTIFY_DECK_TOP_FADE_FRACTION to Color.Black.copy(alpha = 0.35f),
+                            1.00f to Color.Black.copy(alpha = 0.65f),
+                        ),
                     ),
-            )
-        }
-
-        // While the control deck is up, the whole Canvas sits under a flat 50%
-        // dim so the buttons and text read against any clip. It fades out as
-        // the deck collapses to the full-screen video, and back in with the
-        // deck, on the deck's own timing. Alpha is read in the draw phase, so
-        // the fade never recomposes the player. Drawn above the glass deck, not
-        // under it: the deck's blur samples the video layer itself, so a dim
-        // beneath it never reached the glass and the deck stayed bright.
-        val spotifyCanvasDim = animateFloatAsState(
-            targetValue = if (spotifyCanvasPresentation && spotifyCanvasControlsOpen) 0.5f else 0f,
-            animationSpec = tween(SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS),
-            label = "spotifyCanvasDim",
-        )
-        val spotifyCanvasDimShowing by remember { derivedStateOf { spotifyCanvasDim.value > 0f } }
-        if (spotifyCanvasPresentation || spotifyCanvasDimShowing) {
-            Box(
-                Modifier.matchParentSize()
-                    .graphicsLayer { alpha = spotifyCanvasDim.value }
-                    .background(Color.Black),
             )
         }
 

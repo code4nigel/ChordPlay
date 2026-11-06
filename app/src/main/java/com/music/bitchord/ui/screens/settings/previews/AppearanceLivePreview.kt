@@ -1,9 +1,15 @@
 package com.music.bitchord.ui.screens.settings.previews
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +24,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,15 +55,18 @@ import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
- * Authentic 1:1 live dashboard preview showing how theme mode, ChordPlay color palette,
- * glass effects, and blur interact on the actual home screen components.
+ * Authentic live preview faithfully mirroring ChordPlay's home components:
+ * Speed Dial tiles and floating MiniPlayer pill, accurately responding to
+ * design style (ChordPlay Modern vs Classic BitChord), palettes, and glass surfaces.
  */
 @Composable
 fun AppearanceLivePreview(
     modifier: Modifier = Modifier,
 ) {
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val amoledDarkMode by AppSettings.amoledDarkMode.collectAsStateWithLifecycle()
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
@@ -61,6 +74,8 @@ fun AppearanceLivePreview(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
+    val activeTitle by AppSettings.activeTrackTitle.collectAsStateWithLifecycle()
+    val activeArtist by AppSettings.activeTrackArtist.collectAsStateWithLifecycle()
     val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
     val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
     val activeCustomPalette = activeCustomPaletteId?.let { id ->
@@ -79,7 +94,7 @@ fun AppearanceLivePreview(
             Color(palette.primaryColorHex)
         }
     } else {
-        if (isLight) Color.Black else Color.White
+        if (isLight) Color(0xFF1E1E1E) else Color.White
     }
 
     val activeSecondary = if (activeCustomPalette != null) {
@@ -96,7 +111,7 @@ fun AppearanceLivePreview(
 
     val targetBg = when {
         !isLight && amoledDarkMode -> Color.Black
-        !isChordPlay -> if (isLight) MaterialTheme.colorScheme.surface else Color(0xFF0F1012)
+        !isChordPlay -> if (isLight) MaterialTheme.colorScheme.surface else Color(0xFF101114)
         activeCustomPalette != null -> {
             Color(activeCustomPalette.surfaceHex).copy(alpha = if (reduceDynamicBlur) 1f else 0.90f)
         }
@@ -129,33 +144,33 @@ fun AppearanceLivePreview(
         }
     }
 
-    val animatedBg by animateColorAsState(targetValue = targetBg, animationSpec = tween(300), label = "bg")
-    val animatedPrimary by animateColorAsState(targetValue = activePrimary, animationSpec = tween(300), label = "primary")
+    val animatedBg by animateColorAsState(targetValue = targetBg, animationSpec = tween(300), label = "appearanceBg")
+    val animatedPrimary by animateColorAsState(targetValue = activePrimary, animationSpec = tween(300), label = "appearancePrimary")
 
     val textColor = MaterialTheme.colorScheme.onSurface
     val subtextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     val borderColor = when {
-        !isChordPlay -> if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.30f) else Color(0xFF2C2C2E)
-        liquidGlass -> animatedPrimary.copy(alpha = 0.45f)
-        isLight -> MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
-        else -> animatedPrimary.copy(alpha = 0.25f)
+        !isChordPlay -> if (isLight) MaterialTheme.colorScheme.outline.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.10f)
+        liquidGlass -> animatedPrimary.copy(alpha = 0.35f)
+        isLight -> MaterialTheme.colorScheme.outline.copy(alpha = 0.20f)
+        else -> animatedPrimary.copy(alpha = 0.22f)
     }
 
-    val cardCornerRadius = if (isChordPlay) 24.dp else 16.dp
+    val cardCornerRadius = if (isChordPlay) 22.dp else 14.dp
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .shadow(12.dp, RoundedCornerShape(cardCornerRadius), spotColor = animatedPrimary.copy(alpha = 0.20f))
-            .clip(RoundedCornerShape(cardCornerRadius))
-            .background(animatedBg)
-            .border(1.dp, borderColor, RoundedCornerShape(cardCornerRadius))
-            .padding(16.dp),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Header Row: ChordPlay Logo + LIVE PREVIEW badge
+    // Collapsed State: Lightweight single-row pill (0 GPU / recomposition overhead)
+    if (!showLivePreviews) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                .clickable { AppSettings.setShowSettingsLivePreviews(true) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -166,126 +181,124 @@ fun AppearanceLivePreview(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_logo),
+                        imageVector = Icons.Rounded.VisibilityOff,
                         contentDescription = null,
-                        tint = animatedPrimary,
-                        modifier = Modifier.size(20.dp),
+                        tint = subtextColor,
+                        modifier = Modifier.size(16.dp),
                     )
                     Text(
-                        text = "ChordPlay",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = animatedPrimary,
-                        letterSpacing = 0.5.sp,
+                        text = stringResource(R.string.preview) + " • Tap to expand",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = subtextColor,
                     )
                 }
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = animatedPrimary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        return
+    }
 
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(animatedPrimary.copy(alpha = 0.16f))
-                        .border(1.dp, animatedPrimary.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+    // Expanded State: Elegant, refined preview card
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .shadow(
+                elevation = if (isChordPlay) 12.dp else 4.dp,
+                shape = RoundedCornerShape(cardCornerRadius),
+                spotColor = animatedPrimary.copy(alpha = if (isChordPlay) 0.18f else 0.05f),
+            )
+            .clip(RoundedCornerShape(cardCornerRadius))
+            .background(animatedBg)
+            .border(1.dp, borderColor, RoundedCornerShape(cardCornerRadius))
+            .padding(14.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header Row: Subtle status + Active Style summary + Collapse toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(animatedPrimary),
+                    )
                     Text(
-                        text = "LIVE PREVIEW",
+                        text = "PREVIEW",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
+                            letterSpacing = 1.sp,
                         ),
                         color = animatedPrimary,
+                    )
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = subtextColor.copy(alpha = 0.5f),
+                    )
+                    Text(
+                        text = if (isChordPlay) "ChordPlay Modern" else "Classic BitChord",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = subtextColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                IconButton(
+                    onClick = { AppSettings.setShowSettingsLivePreviews(false) },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.KeyboardArrowUp,
+                        contentDescription = "Collapse preview",
+                        tint = subtextColor,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Greeting line
-            Text(
-                text = "Back in the mix.",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Mini Category Filter Pills: All, Chill, Energy, Focus
+            // Speed Dial Row: 2 authentic tiles matching HomeSpeedDial.kt
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                val moods = listOf(
-                    "All" to true,
-                    "Chill" to false,
-                    "Energy" to false,
-                    "Focus" to false,
-                )
-                moods.forEach { (mood, isSelected) ->
-                    val pillBg = if (isSelected) {
-                        animatedPrimary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isLight) 0.8f else 0.45f)
-                    }
-                    val pillTextColor = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        subtextColor
-                    }
-                    val pillBorder = if (isSelected) {
-                        BorderStrokeModifier(animatedPrimary)
-                    } else {
-                        Modifier.border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(pillBg)
-                            .then(pillBorder)
-                            .padding(horizontal = 12.dp, vertical = 5.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = mood,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            ),
-                            color = pillTextColor,
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(14.dp))
-
-            // 2 Mini Speed Dial Cards (Legends Never Die & Starboy)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // Speed Dial Card 1
+                // Tile 1: Current track / favorite
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.8f else 0.5f))
-                        .border(1.dp, animatedPrimary.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                        .padding(8.dp),
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isLight) 0.75f else 0.45f))
+                        .border(1.dp, Color.White.copy(alpha = if (isChordPlay) 0.14f else 0.08f), RoundedCornerShape(12.dp)),
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.linearGradient(listOf(animatedPrimary, activeSecondary)),
-                                ),
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
+                                .background(Brush.linearGradient(listOf(animatedPrimary, activeSecondary))),
                             contentAlignment = Alignment.Center,
                         ) {
                             if (!activeArtworkUrl.isNullOrBlank()) {
@@ -299,14 +312,18 @@ fun AppearanceLivePreview(
                                 Icon(
                                     painter = painterResource(R.drawable.ic_logo),
                                     contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(20.dp),
+                                    tint = Color.White.copy(alpha = 0.9f),
+                                    modifier = Modifier.size(22.dp),
                                 )
                             }
                         }
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                        ) {
                             Text(
-                                text = "Legends Never Die",
+                                text = activeTitle ?: "Pal Pal",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 11.sp,
@@ -316,9 +333,9 @@ fun AppearanceLivePreview(
                                 color = textColor,
                             )
                             Text(
-                                text = "League of Legends",
+                                text = activeArtist ?: "Arijit Singh",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.sp,
+                                    fontSize = 9.5.sp,
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -328,38 +345,57 @@ fun AppearanceLivePreview(
                     }
                 }
 
-                // Speed Dial Card 2
+                // Tile 2: Mix / Station with micro badge
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isLight) 0.8f else 0.5f))
-                        .border(1.dp, animatedPrimary.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
-                        .padding(8.dp),
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (isLight) 0.75f else 0.45f))
+                        .border(1.dp, Color.White.copy(alpha = if (isChordPlay) 0.14f else 0.08f), RoundedCornerShape(12.dp)),
                 ) {
                     Row(
+                        modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    Brush.linearGradient(listOf(activeSecondary, animatedPrimary)),
-                                ),
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp))
+                                .background(Brush.linearGradient(listOf(activeSecondary, animatedPrimary))),
                             contentAlignment = Alignment.Center,
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(animatedPrimary.copy(alpha = 0.85f))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    .align(Alignment.TopStart),
+                            ) {
+                                Text(
+                                    text = "MIX",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 7.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    ),
+                                    color = Color.White,
+                                )
+                            }
                             Icon(
                                 imageVector = Icons.Rounded.PlayArrow,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.size(20.dp),
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(18.dp),
                             )
                         }
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                        ) {
                             Text(
-                                text = "Starboy",
+                                text = "Discover Mix",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 11.sp,
@@ -369,9 +405,9 @@ fun AppearanceLivePreview(
                                 color = textColor,
                             )
                             Text(
-                                text = "The Weeknd",
+                                text = "Personalized",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 9.sp,
+                                    fontSize = 9.5.sp,
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -382,32 +418,59 @@ fun AppearanceLivePreview(
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Mini Floating Player Pill with Real Playback Controls
+            // Floating MiniPlayer Pill faithfully matching MiniPlayer.kt
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(percent = 50))
                     .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (liquidGlass) 0.85f else 0.65f),
+                        if (isChordPlay) {
+                            MaterialTheme.colorScheme.surface.copy(alpha = if (liquidGlass) 0.88f else 0.70f)
+                        } else {
+                            if (isLight) Color.White.copy(alpha = 0.90f) else Color(0xFF1A1B20)
+                        },
                     )
                     .border(
                         1.dp,
-                        if (liquidGlass) animatedPrimary.copy(alpha = 0.40f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.20f),
-                        RoundedCornerShape(20.dp),
+                        if (isChordPlay) {
+                            animatedPrimary.copy(alpha = if (liquidGlass) 0.45f else 0.28f)
+                        } else {
+                            Color.White.copy(alpha = 0.12f)
+                        },
+                        RoundedCornerShape(percent = 50),
                     )
-                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                    .padding(horizontal = 8.dp),
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // Mini artwork
+                    // Home glyph matching bottom navigation
                     Box(
                         modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = BitChordIcons.Home,
+                            contentDescription = null,
+                            tint = textColor,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    // Artwork thumbnail
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(7.dp))
                             .background(Brush.linearGradient(listOf(animatedPrimary, activeSecondary))),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -420,7 +483,7 @@ fun AppearanceLivePreview(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
+                                painter = painterResource(R.drawable.ic_logo),
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp),
@@ -428,72 +491,42 @@ fun AppearanceLivePreview(
                         }
                     }
 
-                    Spacer(Modifier.width(10.dp))
-
-                    // Track & Artist
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Legends Never Die",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = textColor,
-                        )
-                        Text(
-                            text = "League of Legends",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = subtextColor,
-                        )
-                    }
-
-                    // Like Heart
-                    Icon(
-                        imageVector = Icons.Rounded.Favorite,
-                        contentDescription = null,
-                        tint = animatedPrimary,
-                        modifier = Modifier.size(18.dp),
-                    )
-
-                    Spacer(Modifier.width(10.dp))
-
-                    // Play Button Circle
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .shadow(4.dp, CircleShape, spotColor = animatedPrimary)
-                            .clip(CircleShape)
-                            .background(animatedPrimary),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-
                     Spacer(Modifier.width(8.dp))
 
-                    // Skip Next
+                    // Active track name
+                    Text(
+                        text = activeTitle ?: "Pal Pal",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.5.sp,
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = textColor,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    // Play icon
                     Icon(
-                        imageVector = Icons.Rounded.SkipNext,
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = if (isChordPlay) animatedPrimary else textColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+
+                    Spacer(Modifier.width(10.dp))
+
+                    // Search glyph matching GlassNavBar
+                    Icon(
+                        imageVector = BitChordIcons.TabSearch,
                         contentDescription = null,
                         tint = subtextColor,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(17.dp),
                     )
+
+                    Spacer(Modifier.width(4.dp))
                 }
             }
         }
     }
 }
-
-private fun BorderStrokeModifier(color: Color): Modifier =
-    Modifier.border(1.dp, color, RoundedCornerShape(16.dp))

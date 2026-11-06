@@ -432,6 +432,15 @@ object AppSettings {
     /** Currently playing track artwork URL for dynamic artwork theming. */
     val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
 
+    /** Currently playing track title for dynamic UI and preview cards. */
+    val activeTrackTitle = MutableStateFlow<String?>(null)
+
+    /** Currently playing track artist for dynamic UI and preview cards. */
+    val activeTrackArtist = MutableStateFlow<String?>(null)
+
+    /** Whether live preview cards are rendered in settings sub-pages (Appearance, Playback, Lyrics). */
+    val showSettingsLivePreviews = MutableStateFlow(true)
+
     /** Custom saved palettes frozen from dynamic artwork or manually preserved. */
     val customPalettes = MutableStateFlow<List<CustomPalette>>(emptyList())
 
@@ -461,6 +470,9 @@ object AppSettings {
 
     /** Preferred UI refresh rate while [highPerformanceMode] is enabled. */
     val performanceRefreshRate = MutableStateFlow(DEFAULT_PERFORMANCE_REFRESH_RATE)
+
+    /** UI display density scale factor (0.50f = 50% to 1.25f = 125%). 1.0f is native. */
+    val displayDensityScale = MutableStateFlow(DEFAULT_DISPLAY_DENSITY_SCALE)
 
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(false)
@@ -969,6 +981,8 @@ object AppSettings {
         performanceRefreshRate.value = normalizePerformanceRefreshRate(
             prefs.getInt(KEY_PERFORMANCE_REFRESH_RATE, DEFAULT_PERFORMANCE_REFRESH_RATE),
         )
+        displayDensityScale.value = prefs.getFloat(KEY_DISPLAY_DENSITY_SCALE, DEFAULT_DISPLAY_DENSITY_SCALE)
+            .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
@@ -1052,6 +1066,7 @@ object AppSettings {
         appDesignStyle.value = prefs.getString(KEY_APP_DESIGN_STYLE, null)
             ?.let { saved -> runCatching { AppDesignStyle.valueOf(saved) }.getOrNull() }
             ?: AppDesignStyle.CHORDPLAY
+        showSettingsLivePreviews.value = prefs.getBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, true)
         homeRecentsViewType.value = readLibraryViewType(KEY_HOME_RECENTS_VIEW_TYPE)
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
@@ -1380,6 +1395,13 @@ object AppSettings {
 
 
 
+    fun setShowSettingsLivePreviews(value: Boolean) {
+        showSettingsLivePreviews.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, value).apply()
+        }
+    }
+
     fun setAppDesignStyle(value: AppDesignStyle) {
         appDesignStyle.value = value
         if (this::prefs.isInitialized) {
@@ -1539,6 +1561,13 @@ object AppSettings {
         val normalized = normalizePerformanceRefreshRate(value)
         performanceRefreshRate.value = normalized
         prefs.edit().putInt(KEY_PERFORMANCE_REFRESH_RATE, normalized).apply()
+    }
+
+    fun setDisplayDensityScale(value: Float) {
+        val clamped = ((kotlin.math.round(value * 100f)) / 100f)
+            .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
+        displayDensityScale.value = clamped
+        prefs.edit().putFloat(KEY_DISPLAY_DENSITY_SCALE, clamped).apply()
     }
 
     fun setLyricsBlur(value: Boolean) {
@@ -2441,6 +2470,7 @@ object AppSettings {
     private const val KEY_EQ_BANDS = "equalizer_bands"
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_APP_DESIGN_STYLE = "app_design_style"
+    private const val KEY_SHOW_SETTINGS_LIVE_PREVIEWS = "show_settings_live_previews"
     private const val KEY_COLOR_PALETTE = "color_palette"
     private const val KEY_CUSTOM_PALETTES = "custom_palettes"
     private const val KEY_ACTIVE_CUSTOM_PALETTE_ID = "active_custom_palette_id"
@@ -2453,6 +2483,10 @@ object AppSettings {
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"
+    private const val KEY_DISPLAY_DENSITY_SCALE = "display_density_scale"
+    const val DEFAULT_DISPLAY_DENSITY_SCALE = 1.0f
+    const val MIN_DISPLAY_DENSITY_SCALE = 0.50f
+    const val MAX_DISPLAY_DENSITY_SCALE = 1.25f
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"

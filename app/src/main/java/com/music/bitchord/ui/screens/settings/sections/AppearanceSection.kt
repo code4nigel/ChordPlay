@@ -37,7 +37,9 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
@@ -88,6 +90,7 @@ import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
+import com.music.bitchord.ui.performance.displayDensityLabel
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.ui.screens.*
@@ -117,6 +120,7 @@ fun AppearanceSection(
     val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
     val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
     val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
+    val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var paletteToRename by remember { mutableStateOf<CustomPalette?>(null) }
@@ -430,6 +434,21 @@ fun AppearanceSection(
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
             )
 
+            // Display Density
+            SettingsSectionDivider(title = stringResource(R.string.display_density))
+
+            val displayDensityTitle = stringResource(R.string.display_density)
+            SliderRow(
+                icon = Icons.Rounded.GridView,
+                title = displayDensityTitle,
+                subtitle = stringResource(R.string.display_density_subtitle),
+                value = displayDensityLabel(displayDensityScale),
+                sliderValue = displayDensityScale,
+                onSliderValue = { AppSettings.setDisplayDensityScale(it) },
+                valueRange = AppSettings.MIN_DISPLAY_DENSITY_SCALE..AppSettings.MAX_DISPLAY_DENSITY_SCALE,
+                steps = 14,
+            )
+
             // Glass & Animation Effects
             SettingsSectionDivider(title = stringResource(R.string.liquid_glass))
 
@@ -490,6 +509,24 @@ fun AppearanceSection(
                     )
                 },
                 onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+            )
+
+            val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
+            SettingsRow(
+                icon = Icons.Rounded.Visibility,
+                title = stringResource(R.string.settings_live_previews),
+                subtitle = stringResource(R.string.settings_live_previews_desc),
+                trailing = {
+                    Switch(
+                        checked = showLivePreviews,
+                        onCheckedChange = AppSettings::setShowSettingsLivePreviews,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setShowSettingsLivePreviews(!showLivePreviews) },
             )
 
             // Swipe Gestures

@@ -1,5 +1,29 @@
 [
   {
+    "timestamp": "2026-11-06 20:41:07",
+    "versionCode": 55,
+    "versionName": "2.0.6",
+    "variant": "prodDebug",
+    "files": [
+      {
+        "FileName": "ChordPlay-v2.0.6-vc55-prodDebug-arm64-v8a.apk",
+        "SizeMB": 94.19
+      },
+      {
+        "FileName": "ChordPlay-v2.0.6-vc55-prodDebug-armeabi-v7a.apk",
+        "SizeMB": 85.59
+      },
+      {
+        "FileName": "ChordPlay-v2.0.6-vc55-prodDebug-universal.apk",
+        "SizeMB": 187.4
+      },
+      {
+        "FileName": "ChordPlay-v2.0.6-vc55-prodDebug-x86_64.apk",
+        "SizeMB": 100.11
+      }
+    ]
+  },
+  {
     "timestamp": "2026-11-06 14:28:16",
     "versionCode": 54,
     "versionName": "2.0.5",

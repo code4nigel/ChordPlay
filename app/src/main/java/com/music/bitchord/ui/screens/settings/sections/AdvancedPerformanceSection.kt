@@ -14,6 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BlurOff
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.Speed
@@ -41,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AutomixPerformanceMode
+import com.music.bitchord.ui.performance.displayDensityLabel
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.ui.screens.AutomixPerformanceSheet
@@ -49,6 +51,7 @@ import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
+import com.music.bitchord.ui.screens.SliderRow
 import com.music.bitchord.ui.screens.SettingsSectionDivider
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.localizedLabel
@@ -72,6 +75,7 @@ fun AdvancedPerformanceSection(
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+    val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
 
     val currentDisplay = LocalView.current.display
     val supportedRefreshRates = remember(currentDisplay) {
@@ -205,6 +209,20 @@ fun AdvancedPerformanceSection(
                     )
                 },
                 onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+            )
+
+            RowDivider()
+
+            val displayDensityTitle = stringResource(R.string.display_density)
+            SliderRow(
+                icon = Icons.Rounded.GridView,
+                title = displayDensityTitle,
+                subtitle = stringResource(R.string.display_density_subtitle),
+                value = displayDensityLabel(displayDensityScale),
+                sliderValue = displayDensityScale,
+                onSliderValue = { AppSettings.setDisplayDensityScale(it) },
+                valueRange = AppSettings.MIN_DISPLAY_DENSITY_SCALE..AppSettings.MAX_DISPLAY_DENSITY_SCALE,
+                steps = 14,
             )
 
             // Automix CPU Processing Section Divider

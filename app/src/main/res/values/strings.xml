@@ -610,6 +610,8 @@
     <string name="playlist_name">Playlist name</string>
     <string name="presence">Presence</string>
     <string name="preview">Preview</string>
+    <string name="settings_live_previews">Settings Live Previews</string>
+    <string name="settings_live_previews_desc">Show interactive live preview cards at the top of appearance, player, and lyrics settings</string>
     <string name="prioritize_syllable_lyrics">Prioritize syllable lyrics</string>
     <string name="prioritize_syllable_lyrics_subtitle">Keep searching past a line-synced match for word-by-word lyrics</string>
     <string name="quality_hourly">%1$s · %2$s</string>
@@ -1277,6 +1279,8 @@
     <string name="left_swipe_action">Left Swipe Action</string>
     <string name="pure_black_amoled">Pure Black (AMOLED)</string>
     <string name="pure_black_amoled_desc">Turn dark backgrounds pure black for OLED power savings</string>
+    <string name="display_density">Display density</string>
+    <string name="display_density_subtitle">Adjust UI element scale to view more content</string>
 
     <!-- Settings: Typography & Fonts (Lyrics) -->
     <string name="typography_and_fonts">Typography &amp; Fonts</string>

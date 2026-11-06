@@ -331,6 +331,7 @@ import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
+import com.music.bitchord.ui.performance.applyPerformanceRefreshRate
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -361,6 +362,19 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Lock to high refresh rate (e.g. 120Hz) immediately at startup so the window
+        // renders smoothly with zero display-mode switch stutter from the very first frame.
+        val activityDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay
+        }
+        window.applyPerformanceRefreshRate(
+            display = activityDisplay,
+            enabled = AppSettings.highPerformanceMode.value,
+            preferredRate = AppSettings.performanceRefreshRate.value,
+        )
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
         PlayerDeepLink.consume(intent)
@@ -373,9 +387,16 @@ class MainActivity : AppCompatActivity() {
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
+            val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
-                applyPerformanceMode(highPerformance, performanceRefreshRate, composeView)
+                val currentDisplay = composeView.display ?: activityDisplay
+                window.applyPerformanceRefreshRate(
+                    display = currentDisplay,
+                    enabled = highPerformance,
+                    preferredRate = performanceRefreshRate,
+                    targetView = composeView,
+                )
             }
             val darkTheme = when (theme) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -400,7 +421,15 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 val appBackdrop = rememberLayerBackdrop(onDraw = paintBackdrop)
+                val currentDensity = LocalDensity.current
+                val scaledDensity = remember(currentDensity, displayDensityScale) {
+                    Density(
+                        density = currentDensity.density * displayDensityScale,
+                        fontScale = currentDensity.fontScale,
+                    )
+                }
                 CompositionLocalProvider(
+                    LocalDensity provides scaledDensity,
                     LocalOverscrollFactory provides iosOverscrollFactory,
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
@@ -429,24 +458,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Requests a window refresh rate without forcing a display mode or
-     * resolution. Android may still lower it for temperature, battery state or
-     * hardware limits, which is why Settings describes this as a preference.
-     */
     private fun applyPerformanceMode(enabled: Boolean, refreshRate: Int, composeView: View) {
-        val supportedRefreshRate = composeView.display.resolvePerformanceRefreshRate(refreshRate)
-        window.attributes = window.attributes.apply {
-            preferredRefreshRate = if (enabled) supportedRefreshRate.toFloat() else 0f
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            window.setFrameRatePowerSavingsBalanced(!enabled)
-            composeView.requestedFrameRate = if (enabled) {
-                supportedRefreshRate.toFloat()
-            } else {
-                View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT
-            }
-        }
+        window.applyPerformanceRefreshRate(
+            display = composeView.display,
+            enabled = enabled,
+            preferredRate = refreshRate,
+            targetView = composeView,
+        )
     }
 
     /**
@@ -2226,6 +2244,8 @@ private fun BitChordApp(
             songActions = playerSong
         }
         AppSettings.activeTrackArtworkUrl.value = playerRemoteArt ?: playerSong?.thumbnailUrl
+        AppSettings.activeTrackTitle.value = playerSong?.title ?: player.song?.title
+        AppSettings.activeTrackArtist.value = playerSong?.artists?.joinToString { it.name } ?: player.song?.artists?.joinToString { it.name }
     }
 
     // The player's whole parameter list, kept apart from the sheet that

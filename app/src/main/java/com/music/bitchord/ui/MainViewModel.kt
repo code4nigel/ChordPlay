@@ -1625,11 +1625,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startTypeaheadMediaPipeline()
         startLibrarySearchPipeline()
         loadHome()
-        loadExplore()
-        if (_signedIn.value) {
-            loadLibrary()
-            loadAccount()
-            loadPlaylists()
+        // Defer secondary off-screen tabs slightly so startup composition and first frame render
+        // with 120Hz smoothness without CPU/network contention
+        viewModelScope.launch {
+            delay(500)
+            loadExplore()
+            if (_signedIn.value) {
+                loadLibrary()
+                loadAccount()
+                loadPlaylists()
+            }
         }
         viewModelScope.launch {
             // drop(1): the current value is just the count so far, not a play.

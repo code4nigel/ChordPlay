@@ -1,14 +1,8 @@
 package com.music.bitchord.ui.screens.settings.previews
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,185 +28,198 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.player.rememberLyricsFontFamily
 
 /**
- * Pinned live interactive lyrics card showing real-time feedback
- * as the user adjusts font family, scale, alignment, and syllable sync.
+ * Authentic live interactive lyrics card showing real-time feedback
+ * as the user adjusts font family, weight, scale, alignment, blur, and sync,
+ * without CPU-churning infinite transitions and with instant collapse toggle.
  */
 @Composable
 fun LyricsLivePreview(
     modifier: Modifier = Modifier,
 ) {
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     val customStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
+    val activeTitle by AppSettings.activeTrackTitle.collectAsStateWithLifecycle()
 
     val fontFamily = rememberLyricsFontFamily(customStyle)
     val scale = customStyle.sizeScale.scale
-    val baseFontSize = 18.sp * scale
-    val baseLineHeight = 26.sp * scale
+    val baseFontSize = 17.sp * scale
+    val baseLineHeight = 25.sp * scale
     val textAlign = if (customStyle.centerAligned) TextAlign.Center else TextAlign.Start
 
-    val infiniteTransition = rememberInfiniteTransition(label = "syllableGlow")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.85f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "pulseAlpha",
-    )
+    val activePrimary = MaterialTheme.colorScheme.primary
+    val subtextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val cardBackground = Brush.verticalGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.90f),
-            MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-        ),
-    )
+    // Collapsed State: Lightweight single-row pill (0 GPU / recomposition overhead)
+    if (!showLivePreviews) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f))
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
+                .clickable { AppSettings.setShowSettingsLivePreviews(true) }
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.VisibilityOff,
+                        contentDescription = null,
+                        tint = subtextColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.preview) + " • Tap to expand",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = subtextColor,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = activePrimary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        return
+    }
 
+    // Expanded State: Elegant, authentic lyrics presentation
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(cardBackground)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-            .padding(18.dp),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
+            .padding(14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = if (customStyle.centerAligned) Alignment.CenterHorizontally else Alignment.Start,
         ) {
-            // Header: Live Preview Pill + Song Info
+            // Header Row: Subtle status + Typography summary + Collapse toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(14.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Starlight Echoes • ChordPlay",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            .background(activePrimary),
                     )
-                }
-
-                // Live Preview Badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                ) {
                     Text(
-                        text = "LIVE PREVIEW",
+                        text = "PREVIEW",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
+                            letterSpacing = 1.sp,
                         ),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = activePrimary,
+                    )
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = subtextColor.copy(alpha = 0.5f),
+                    )
+                    Text(
+                        text = "${customStyle.customFontName ?: customStyle.fontChoice.label} • ${customStyle.sizeScale.label} • ${if (customStyle.centerAligned) "Center" else "Left"}",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = subtextColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                IconButton(
+                    onClick = { AppSettings.setShowSettingsLivePreviews(false) },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.KeyboardArrowUp,
+                        contentDescription = "Collapse preview",
+                        tint = subtextColor,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
 
-            // Line 1: Preceding line
+            // Line 1: Preceding line (dimmed according to lyricsBlur)
             Text(
                 text = "Hold on to what you love",
                 fontFamily = fontFamily,
-                fontSize = baseFontSize * 0.90f,
-                lineHeight = baseLineHeight * 0.90f,
+                fontSize = baseFontSize * 0.88f,
+                lineHeight = baseLineHeight * 0.88f,
                 fontWeight = FontWeight.Normal,
                 textAlign = textAlign,
-                color = if (lyricsBlur) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.55f),
+                color = Color.White.copy(alpha = if (lyricsBlur) 0.30f else 0.50f),
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // Line 2: Active singing line with Syllable Sync Glow
-            val activeColor = if (syncedLyrics) {
-                MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha)
-            } else {
-                Color.White
-            }
+            // Line 2: Active singing line with true typography and sync highlight
+            val activeLineColor = if (syncedLyrics) activePrimary else Color.White
             Text(
-                text = "Before the moment fades away...",
+                text = "Before the moment fades away",
                 fontFamily = fontFamily,
                 fontSize = baseFontSize,
                 lineHeight = baseLineHeight,
                 fontWeight = customStyle.weightChoice.weight,
                 textAlign = textAlign,
-                color = activeColor,
+                color = activeLineColor,
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
-            // Line 3: Following line
+            // Line 3: Upcoming line (dimmed according to lyricsBlur)
             Text(
-                text = "And the music takes you home.",
+                text = "And the music takes you home",
                 fontFamily = fontFamily,
-                fontSize = baseFontSize * 0.90f,
-                lineHeight = baseLineHeight * 0.90f,
+                fontSize = baseFontSize * 0.88f,
+                lineHeight = baseLineHeight * 0.88f,
                 fontWeight = FontWeight.Normal,
                 textAlign = textAlign,
-                color = if (lyricsBlur) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.50f),
+                color = Color.White.copy(alpha = if (lyricsBlur) 0.25f else 0.45f),
                 modifier = Modifier.fillMaxWidth(),
             )
-
-            Spacer(Modifier.height(16.dp))
-
-            // Footer summary of typography settings
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = "Font: ${customStyle.customFontName ?: customStyle.fontChoice.label}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.70f),
-                )
-                Text(
-                    text = "Scale: ${customStyle.sizeScale.label} • ${if (customStyle.centerAligned) "Center" else "Left"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.70f),
-                )
-            }
         }
     }
 }
