@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
@@ -68,6 +69,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.ui.components.lightweightLiquidGlass
 import java.util.Locale
 
 
@@ -151,11 +153,11 @@ internal fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
     },
 )
 
-/** Standard sub-page top bar matching modern BitChord / Auris aesthetic shown in Image 1. */
+/** Standard sub-page top bar matching modern BitChord / Auris aesthetic. */
 @Composable
 internal fun SettingsSubPageHeader(
     title: String,
-    onBack: () -> Unit,
+    onBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     searchQuery: String = "",
     onSearchQueryChange: ((String) -> Unit)? = null,
@@ -163,28 +165,9 @@ internal fun SettingsSubPageHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
     ) {
-        // 1. Circular back button matching Image 1
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = stringResource(R.string.cancel),
-                tint = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // 2. Large Bold Page Title
+        // Large Bold Page Title
         Text(
             text = title,
             style = MaterialTheme.typography.displaySmall,
@@ -194,15 +177,17 @@ internal fun SettingsSubPageHeader(
             overflow = TextOverflow.Ellipsis,
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // 3. Search settings box matching Image 1
+        // Pill-shaped Search Box matching Settings Hub
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .lightweightLiquidGlass(
+                    CircleShape,
+                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                )
+                .padding(horizontal = 16.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -253,6 +238,32 @@ internal fun SettingsSubPageHeader(
                 )
             }
         }
+    }
+}
+
+/** Check if query matches any of the given keywords, case-insensitively. */
+internal fun matchesSearch(query: String, vararg keywords: String?): Boolean {
+    val q = query.trim()
+    if (q.isEmpty()) return true
+    return keywords.any { it != null && it.contains(q, ignoreCase = true) }
+}
+
+@Composable
+internal fun SettingsSearchEmpty(
+    query: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 40.dp, horizontal = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.settings_search_empty, query),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -622,7 +633,7 @@ internal fun SearchableSettingsGroup(
 internal fun SettingsGroup(
     header: String? = null,
     footer: String? = null,
-    topSpacing: Dp = 26.dp,
+    topSpacing: Dp = 14.dp,
     content: @Composable () -> Unit,
 ) {
     if (header != null) {

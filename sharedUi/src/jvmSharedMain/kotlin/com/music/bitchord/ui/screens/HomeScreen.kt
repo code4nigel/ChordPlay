@@ -381,7 +381,7 @@ fun HomeScreen(
                             onItemLongPress = onItemLongPress,
                             currentSong = currentSong,
                             isPlaying = isPlaying,
-                            firstIsHero = leadHero && !recentlyPlayedLoading && designStyle == AppDesignStyle.CLASSIC_BITCHORD && beforeSpeedDialShelves.isEmpty(),
+                            firstIsHero = false,
                             recentsViewType = recentsViewType,
                             onRecentsViewTypeToggle = {
                                 AppUi.host.setHomeRecentsViewType(

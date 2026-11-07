@@ -86,6 +86,7 @@ fun LyricsSection(
     onTranslationLanguage: () -> Unit,
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -113,7 +114,7 @@ fun LyricsSection(
         }
     }
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -128,310 +129,406 @@ fun LyricsSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        // Pinned Live Preview
-        LyricsLivePreview()
+        val showFontFamily = matchesSearch(
+            searchQuery,
+            stringResource(R.string.font_family),
+            stringResource(R.string.font_family_subtitle),
+            customStyle.fontChoice.localizedLabel(),
+            customStyle.customFontName,
+            stringResource(R.string.custom_font_file),
+            "font", "ttf", "custom font",
+        )
+        val showSizeScale = matchesSearch(
+            searchQuery,
+            stringResource(R.string.size_scale),
+            stringResource(R.string.size_and_alignment),
+            customStyle.sizeScale.localizedLabel(),
+            "size", "scale", "font size",
+        )
+        val showFontWeight = matchesSearch(
+            searchQuery,
+            stringResource(R.string.font_weight),
+            customStyle.weightChoice.localizedLabel(),
+            "weight", "bold", "medium", "regular", "black",
+        )
+        val showAlignment = matchesSearch(
+            searchQuery,
+            stringResource(R.string.text_alignment),
+            stringResource(R.string.align_left),
+            stringResource(R.string.align_center),
+            "alignment", "align", "left", "center",
+        )
+        val showSyncedLyrics = matchesSearch(
+            searchQuery,
+            stringResource(R.string.synced_lyrics),
+            stringResource(R.string.synced_lyrics_subtitle),
+            "sync", "karaoke", "timing",
+        )
+        val showLyricsBlur = matchesSearch(
+            searchQuery,
+            stringResource(R.string.blur_unfocused_lyrics),
+            stringResource(R.string.blur_unfocused_lyrics_subtitle),
+            "blur", "focus",
+        )
+        val showLyricsSources = matchesSearch(
+            searchQuery,
+            stringResource(R.string.lyrics_sources),
+            "lrclib", "kugou", "genius", "source", "provider",
+        )
+        val showTranslationLanguage = matchesSearch(
+            searchQuery,
+            stringResource(R.string.translation_language),
+            stringResource(R.string.translation_language_subtitle),
+            "translate", "language",
+        )
+        val showFullscreenLyrics = matchesSearch(
+            searchQuery,
+            stringResource(R.string.fullscreen_artwork_lyrics),
+            fullscreenArtworkLyricsStyle.label,
+            "fullscreen", "canvas lyrics", "artwork lyrics",
+        )
 
-        // Single Unified Big Block for all Lyrics settings
-        SettingsGroup(header = stringResource(R.string.synced_lyrics)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ROW_INSET, vertical = 12.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.font_family),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.font_family_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        val hasFontSection = showFontFamily
+        val hasTypographySection = showSizeScale || showFontWeight || showAlignment
+        val hasSyncSection = showSyncedLyrics || ((showLyricsBlur || showLyricsSources || showTranslationLanguage || showFullscreenLyrics) && syncedLyrics)
+        val anyLyricsMatch = hasFontSection || hasTypographySection || hasSyncSection
 
-                Spacer(Modifier.height(12.dp))
+        // Pinned Live Preview (hidden during search)
+        if (searchQuery.isBlank()) {
+            LyricsLivePreview()
+        }
 
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    LyricsFontChoice.entries.filter { it != LyricsFontChoice.CUSTOM }.forEach { font ->
-                        val isSelected = customStyle.fontChoice == font
-                        val chipFontFamily = rememberLyricsFontFamily(customStyle.copy(fontChoice = font))
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surface,
-                                )
-                                .border(
-                                    1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else Color.White.copy(alpha = 0.12f),
-                                    RoundedCornerShape(10.dp),
-                                )
-                                .clickable { LyricsStyleManager.updateFont(font) }
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = font.localizedLabel(),
-                                fontFamily = chipFontFamily,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onBackground,
-                            )
-                        }
-                    }
-
-                    // Custom Font File Chip
-                    val isCustom = customStyle.fontChoice == LyricsFontChoice.CUSTOM
-                    Box(
+        if (searchQuery.isNotBlank() && !anyLyricsMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Big Block for all Lyrics settings
+            SettingsGroup(header = null) {
+                if (showFontFamily) {
+                    Column(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (isCustom) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.surface,
-                            )
-                            .border(
-                                1.dp,
-                                if (isCustom) MaterialTheme.colorScheme.primary
-                                else Color.White.copy(alpha = 0.12f),
-                                RoundedCornerShape(10.dp),
-                            )
-                            .clickable {
-                                if (customStyle.customFontPath != null) {
-                                    LyricsStyleManager.updateFont(LyricsFontChoice.CUSTOM)
-                                } else {
-                                    fontFileLauncher.launch(arrayOf("font/*", "application/octet-stream", "*/*"))
+                            .fillMaxWidth()
+                            .padding(horizontal = ROW_INSET, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.font_family),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.font_family_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            LyricsFontChoice.entries.filter { it != LyricsFontChoice.CUSTOM }.forEach { font ->
+                                val isSelected = customStyle.fontChoice == font
+                                val chipFontFamily = rememberLyricsFontFamily(customStyle.copy(fontChoice = font))
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.surface,
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) MaterialTheme.colorScheme.primary
+                                            else Color.White.copy(alpha = 0.12f),
+                                            RoundedCornerShape(10.dp),
+                                        )
+                                        .clickable { LyricsStyleManager.updateFont(font) }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = font.localizedLabel(),
+                                        fontFamily = chipFontFamily,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onBackground,
+                                    )
                                 }
                             }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = if (isCustom) Icons.Rounded.Check else Icons.Rounded.Add,
-                                contentDescription = null,
-                                tint = if (isCustom) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.size(16.dp),
+
+                            // Custom Font File Chip
+                            val isCustom = customStyle.fontChoice == LyricsFontChoice.CUSTOM
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isCustom) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surface,
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isCustom) MaterialTheme.colorScheme.primary
+                                        else Color.White.copy(alpha = 0.12f),
+                                        RoundedCornerShape(10.dp),
+                                    )
+                                    .clickable {
+                                        if (customStyle.customFontPath != null) {
+                                            LyricsStyleManager.updateFont(LyricsFontChoice.CUSTOM)
+                                        } else {
+                                            fontFileLauncher.launch(arrayOf("font/*", "application/octet-stream", "*/*"))
+                                        }
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isCustom) Icons.Rounded.Check else Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = if (isCustom) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = customStyle.customFontName ?: stringResource(R.string.custom_font_file),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isCustom) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isCustom) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Scale, Weight, and Alignment Section
+                if (hasTypographySection) {
+                    if (hasFontSection) {
+                        SettingsSectionDivider(title = stringResource(R.string.size_and_alignment))
+                    }
+
+                    if (showSizeScale) {
+                        // Scale Slider
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = ROW_INSET, vertical = 12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.size_scale),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Text(
+                                    text = customStyle.sizeScale.localizedLabel(),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            val scaleIndex = LyricsSizeScale.entries.indexOf(customStyle.sizeScale).coerceAtLeast(0)
+                            Slider(
+                                value = scaleIndex.toFloat(),
+                                onValueChange = {
+                                    LyricsStyleManager.updateScale(LyricsSizeScale.entries[it.roundToInt()])
+                                },
+                                valueRange = 0f..(LyricsSizeScale.entries.size - 1).toFloat(),
+                                steps = LyricsSizeScale.entries.size - 2,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.outline,
+                                ),
                             )
-                            Spacer(Modifier.width(6.dp))
+                        }
+                    }
+
+                    if (showFontWeight) {
+                        // Weight selector
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = ROW_INSET, vertical = 8.dp),
+                        ) {
                             Text(
-                                text = customStyle.customFontName ?: stringResource(R.string.custom_font_file),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isCustom) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isCustom) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                text = stringResource(R.string.font_weight),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            SegmentedControl(
+                                options = LyricsWeightChoice.entries.map { it.localizedLabel() },
+                                selectedIndex = LyricsWeightChoice.entries.indexOf(customStyle.weightChoice).coerceAtLeast(0),
+                                onSelect = { LyricsStyleManager.updateWeight(LyricsWeightChoice.entries[it]) },
+                            )
+                        }
+                    }
+
+                    if (showAlignment) {
+                        // Alignment toggle
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = ROW_INSET, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.text_alignment),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.outline)
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (!customStyle.centerAligned) MaterialTheme.colorScheme.primary
+                                            else Color.Transparent,
+                                        )
+                                        .clickable { LyricsStyleManager.updateCenterAligned(false) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FormatAlignLeft,
+                                        contentDescription = stringResource(R.string.align_left),
+                                        tint = if (!customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(
+                                            if (customStyle.centerAligned) MaterialTheme.colorScheme.primary
+                                            else Color.Transparent,
+                                        )
+                                        .clickable { LyricsStyleManager.updateCenterAligned(true) }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FormatAlignCenter,
+                                        contentDescription = stringResource(R.string.align_center),
+                                        tint = if (customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Lyrics Sync & Sources Section
+                if (hasSyncSection) {
+                    if (hasFontSection || hasTypographySection) {
+                        SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
+                    }
+
+                    if (showSyncedLyrics) {
+                        val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
+                        SettingsRow(
+                            icon = Icons.AutoMirrored.Rounded.Notes,
+                            title = syncedLyricsTitle,
+                            subtitle = stringResource(R.string.synced_lyrics_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = syncedLyrics,
+                                    onCheckedChange = AppSettings::setSyncedLyrics,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
+                        )
+                    }
+
+                    if (syncedLyrics) {
+                        if (showLyricsBlur) {
+                            val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
+                            SettingsRow(
+                                icon = Icons.Rounded.BlurOn,
+                                title = lyricsBlurTitle,
+                                subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
+                                trailing = {
+                                    Switch(
+                                        checked = lyricsBlur,
+                                        onCheckedChange = AppSettings::setLyricsBlur,
+                                        colors = SwitchDefaults.colors(
+                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                        ),
+                                    )
+                                },
+                                onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
+                            )
+                        }
+
+                        if (showLyricsSources) {
+                            val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)
+                            SettingsRow(
+                                icon = Icons.Rounded.Language,
+                                title = lyricsSourcesTitle,
+                                subtitle = lyricsSources
+                                    .sortedBy { it.ordinal }
+                                    .joinToString(", ") { it.label }
+                                    .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
+                                trailing = { Chevron() },
+                                onClick = onLyricsSources,
+                            )
+                        }
+
+                        if (showTranslationLanguage) {
+                            val translationLanguageTitle = stringResource(R.string.translation_language)
+                            SettingsRow(
+                                icon = Icons.Rounded.Translate,
+                                title = translationLanguageTitle,
+                                subtitle = if (translationLanguage.isBlank()) {
+                                    stringResource(R.string.translation_language_subtitle)
+                                } else {
+                                    translationLanguageName(
+                                        translationLanguage,
+                                        AppCompatDelegate.getApplicationLocales().get(0) ?: Locale.getDefault(),
+                                    )
+                                },
+                                trailing = { Chevron() },
+                                onClick = onTranslationLanguage,
+                            )
+                        }
+
+                        if (showFullscreenLyrics) {
+                            SettingsRow(
+                                icon = Icons.Rounded.Fullscreen,
+                                title = stringResource(R.string.fullscreen_artwork_lyrics),
+                                subtitle = fullscreenArtworkLyricsStyle.label,
+                                trailing = { Chevron() },
+                                onClick = { showFullscreenLyricsDialog = true },
                             )
                         }
                     }
                 }
-            }
-
-            // Scale, Weight, and Alignment Divider
-            SettingsSectionDivider(title = stringResource(R.string.size_and_alignment))
-
-            // Scale Slider
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ROW_INSET, vertical = 12.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.size_scale),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = customStyle.sizeScale.localizedLabel(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                val scaleIndex = LyricsSizeScale.entries.indexOf(customStyle.sizeScale).coerceAtLeast(0)
-                Slider(
-                    value = scaleIndex.toFloat(),
-                    onValueChange = {
-                        LyricsStyleManager.updateScale(LyricsSizeScale.entries[it.roundToInt()])
-                    },
-                    valueRange = 0f..(LyricsSizeScale.entries.size - 1).toFloat(),
-                    steps = LyricsSizeScale.entries.size - 2,
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = MaterialTheme.colorScheme.outline,
-                    ),
-                )
-            }
-
-            // Weight selector
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ROW_INSET, vertical = 8.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.font_weight),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Spacer(Modifier.height(8.dp))
-                SegmentedControl(
-                    options = LyricsWeightChoice.entries.map { it.localizedLabel() },
-                    selectedIndex = LyricsWeightChoice.entries.indexOf(customStyle.weightChoice).coerceAtLeast(0),
-                    onSelect = { LyricsStyleManager.updateWeight(LyricsWeightChoice.entries[it]) },
-                )
-            }
-
-            // Alignment toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ROW_INSET, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.text_alignment),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.outline)
-                        .padding(3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (!customStyle.centerAligned) MaterialTheme.colorScheme.primary
-                                else Color.Transparent,
-                            )
-                            .clickable { LyricsStyleManager.updateCenterAligned(false) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.FormatAlignLeft,
-                            contentDescription = stringResource(R.string.align_left),
-                            tint = if (!customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (customStyle.centerAligned) MaterialTheme.colorScheme.primary
-                                else Color.Transparent,
-                            )
-                            .clickable { LyricsStyleManager.updateCenterAligned(true) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.FormatAlignCenter,
-                            contentDescription = stringResource(R.string.align_center),
-                            tint = if (customStyle.centerAligned) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-            }
-
-            // Lyrics Sync & Sources Section Divider
-            SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
-
-            val syncedLyricsTitle = stringResource(R.string.synced_lyrics)
-            SettingsRow(
-                icon = Icons.AutoMirrored.Rounded.Notes,
-                title = syncedLyricsTitle,
-                subtitle = stringResource(R.string.synced_lyrics_subtitle),
-                trailing = {
-                    Switch(
-                        checked = syncedLyrics,
-                        onCheckedChange = AppSettings::setSyncedLyrics,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
-            )
-
-            if (syncedLyrics) {
-                val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
-                SettingsRow(
-                    icon = Icons.Rounded.BlurOn,
-                    title = lyricsBlurTitle,
-                    subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = lyricsBlur,
-                            onCheckedChange = AppSettings::setLyricsBlur,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
-                )
-
-                val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)
-                SettingsRow(
-                    icon = Icons.Rounded.Language,
-                    title = lyricsSourcesTitle,
-                    subtitle = lyricsSources
-                        .sortedBy { it.ordinal }
-                        .joinToString(", ") { it.label }
-                        .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
-                    trailing = { Chevron() },
-                    onClick = onLyricsSources,
-                )
-
-                val translationLanguageTitle = stringResource(R.string.translation_language)
-                SettingsRow(
-                    icon = Icons.Rounded.Translate,
-                    title = translationLanguageTitle,
-                    subtitle = if (translationLanguage.isBlank()) {
-                        stringResource(R.string.translation_language_subtitle)
-                    } else {
-                        translationLanguageName(
-                            translationLanguage,
-                            AppCompatDelegate.getApplicationLocales().get(0) ?: Locale.getDefault(),
-                        )
-                    },
-                    trailing = { Chevron() },
-                    onClick = onTranslationLanguage,
-                )
-
-                SettingsRow(
-                    icon = Icons.Rounded.Fullscreen,
-                    title = stringResource(R.string.fullscreen_artwork_lyrics),
-                    subtitle = fullscreenArtworkLyricsStyle.label,
-                    trailing = { Chevron() },
-                    onClick = { showFullscreenLyricsDialog = true },
-                )
             }
         }
 

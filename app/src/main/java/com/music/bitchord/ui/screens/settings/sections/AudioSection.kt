@@ -53,6 +53,7 @@ fun AudioSection(
     onEqualizer: () -> Unit,
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
@@ -76,7 +77,7 @@ fun AudioSection(
 
     var pickingQuality by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -91,247 +92,371 @@ fun AudioSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        // Single Unified Audio Settings Block matching Image 1
-        SettingsGroup(header = stringResource(R.string.audio_quality)) {
-            val sourceTitle = stringResource(R.string.source)
-            SettingsRow(
-                icon = Icons.Rounded.Extension,
-                title = sourceTitle,
-                subtitle = stringResource(R.string.sources_subtitle),
-                onClick = onSources,
-            )
+        val showSources = matchesSearch(
+            searchQuery,
+            stringResource(R.string.source),
+            stringResource(R.string.sources_subtitle),
+            "source", "where audio comes from", "youtube", "jiosaavn", "local", "webdav", "smb",
+        )
+        val showWifi = matchesSearch(
+            searchQuery,
+            stringResource(R.string.on_wifi),
+            stringResource(R.string.wifi),
+            "wi-fi", "wifi", "quality", "streaming", "lossless", "high", "medium", "low",
+        )
+        val showCellular = matchesSearch(
+            searchQuery,
+            stringResource(R.string.on_mobile_data),
+            stringResource(R.string.mobile_data),
+            "cellular", "mobile data", "data", "quality", "streaming", "lossless", "high", "medium", "low",
+        )
+        val showDolby = matchesSearch(
+            searchQuery,
+            stringResource(R.string.dolby_atmos),
+            stringResource(R.string.dolby_atmos_subtitle),
+            "surround", "atmos", "spatial", "immersive",
+        )
+        val showPreferMusicOnly = matchesSearch(
+            searchQuery,
+            stringResource(R.string.prefer_music_only),
+            stringResource(R.string.prefer_music_only_subtitle),
+            "video", "music video", "catalogue",
+        )
+        val showCrossfade = (!smartFade) && matchesSearch(
+            searchQuery,
+            stringResource(R.string.crossfade),
+            stringResource(R.string.crossfade_subtitle),
+            "fade", "transition", "overlap",
+        )
+        val showAutomix = matchesSearch(
+            searchQuery,
+            stringResource(R.string.automix),
+            stringResource(R.string.automix_enabled_subtitle),
+            stringResource(R.string.automix_disabled_subtitle),
+            "smart fade", "automix", "seamless",
+        )
+        val showAutomixPerf = matchesSearch(
+            searchQuery,
+            stringResource(R.string.automix_performance),
+            stringResource(R.string.automix_performance_subtitle),
+            automixPerformance.localizedLabel(),
+            "automix performance", "mode", "efficient", "balanced",
+        )
+        val showSkipSilence = matchesSearch(
+            searchQuery,
+            stringResource(R.string.skip_silence),
+            stringResource(R.string.skip_silence_subtitle),
+            "silence", "gapless", "skip",
+        )
+        val showSpatialAudio = matchesSearch(
+            searchQuery,
+            stringResource(R.string.spatial_audio),
+            stringResource(R.string.spatial_audio_subtitle),
+            "spatial", "surround", "3d",
+        )
+        val showEqualizer = matchesSearch(
+            searchQuery,
+            stringResource(R.string.equalizer),
+            stringResource(R.string.equalizer_subtitle),
+            "eq", "bass", "treble", "sound", "system equalizer",
+        )
+        val showOutputPrecision = matchesSearch(
+            searchQuery,
+            stringResource(R.string.output_precision),
+            stringResource(R.string.prefer_usb_dac),
+            "output", "precision", "usb", "dac", "bit perfect", "pcm", "float",
+        )
+        val showLoudness = matchesSearch(
+            searchQuery,
+            stringResource(R.string.loudness_normalization),
+            stringResource(R.string.loudness_normalization_subtitle),
+            "loudness", "normalization", "volume",
+        )
 
-            RowDivider()
+        val anyAudioMatch = showSources || showWifi || showCellular || showDolby ||
+            showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf ||
+            showSkipSilence || showSpatialAudio || showEqualizer || showOutputPrecision || showLoudness
 
-            val onWifiTitle = stringResource(R.string.on_wifi)
-            SettingsRow(
-                icon = Icons.Rounded.Wifi,
-                title = onWifiTitle,
-                badge = stringResource(R.string.in_use).takeIf { metered == false },
-                value = wifiQuality.localizedQualityLabel(),
-                onClick = { pickingQuality = QualityTarget.WIFI },
-            )
+        if (searchQuery.isNotBlank() && !anyAudioMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Audio Settings Block (duplicate small header removed)
+            SettingsGroup(header = null, topSpacing = 14.dp) {
+                if (showSources) {
+                    val sourceTitle = stringResource(R.string.source)
+                    SettingsRow(
+                        icon = Icons.Rounded.Extension,
+                        title = sourceTitle,
+                        subtitle = stringResource(R.string.sources_subtitle),
+                        onClick = onSources,
+                    )
+                }
 
-            RowDivider()
+                if (showWifi) {
+                    if (showSources) RowDivider()
 
-            val onMobileDataTitle = stringResource(R.string.on_mobile_data)
-            SettingsRow(
-                icon = Icons.Rounded.SignalCellularAlt,
-                title = onMobileDataTitle,
-                badge = stringResource(R.string.in_use).takeIf { metered == true },
-                value = cellularQuality.localizedQualityLabel(),
-                onClick = { pickingQuality = QualityTarget.CELLULAR },
-            )
+                    val onWifiTitle = stringResource(R.string.on_wifi)
+                    SettingsRow(
+                        icon = Icons.Rounded.Wifi,
+                        title = onWifiTitle,
+                        badge = stringResource(R.string.in_use).takeIf { metered == false },
+                        value = wifiQuality.localizedQualityLabel(),
+                        onClick = { pickingQuality = QualityTarget.WIFI },
+                    )
+                }
 
-            RowDivider()
+                if (showCellular) {
+                    if (showSources || showWifi) RowDivider()
 
-            val dolbyAtmosTitle = stringResource(R.string.dolby_atmos)
-            SettingsRow(
-                iconPainter = painterResource(R.drawable.ic_dolby_atmos),
-                title = dolbyAtmosTitle,
-                subtitle = stringResource(
-                    if (dolbyAtmosSupported) R.string.dolby_atmos_subtitle
-                    else R.string.dolby_atmos_unavailable,
-                ),
-                enabled = dolbyAtmosSupported,
-                trailing = {
-                    Switch(
-                        checked = dolbyAtmos && dolbyAtmosSupported,
-                        onCheckedChange = AppSettings::setDolbyAtmos,
+                    val onMobileDataTitle = stringResource(R.string.on_mobile_data)
+                    SettingsRow(
+                        icon = Icons.Rounded.SignalCellularAlt,
+                        title = onMobileDataTitle,
+                        badge = stringResource(R.string.in_use).takeIf { metered == true },
+                        value = cellularQuality.localizedQualityLabel(),
+                        onClick = { pickingQuality = QualityTarget.CELLULAR },
+                    )
+                }
+
+                if (showDolby) {
+                    if (showSources || showWifi || showCellular) RowDivider()
+
+                    val dolbyAtmosTitle = stringResource(R.string.dolby_atmos)
+                    SettingsRow(
+                        iconPainter = painterResource(R.drawable.ic_dolby_atmos),
+                        title = dolbyAtmosTitle,
+                        subtitle = stringResource(
+                            if (dolbyAtmosSupported) R.string.dolby_atmos_subtitle
+                            else R.string.dolby_atmos_unavailable,
+                        ),
                         enabled = dolbyAtmosSupported,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+                        trailing = {
+                            Switch(
+                                checked = dolbyAtmos && dolbyAtmosSupported,
+                                onCheckedChange = AppSettings::setDolbyAtmos,
+                                enabled = dolbyAtmosSupported,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
                     )
-                },
-                onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
-            )
+                }
 
-            // Playback Processing & Blending (Seamlessly integrated in the same block)
-            SettingsSectionDivider(title = stringResource(R.string.playback))
+                // Playback Processing & Blending (Seamlessly integrated in the same block)
+                if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                    if (showSources || showWifi || showCellular || showDolby) {
+                        SettingsSectionDivider(title = stringResource(R.string.playback))
+                    }
 
-            val preferMusicOnlyTitle = stringResource(R.string.prefer_music_only)
-            SettingsRow(
-                icon = Icons.Rounded.SmartDisplay,
-                title = preferMusicOnlyTitle,
-                subtitle = stringResource(R.string.prefer_music_only_subtitle),
-                trailing = {
-                    Switch(
-                        checked = preferMusicOnly,
-                        onCheckedChange = AppSettings::setPreferMusicOnly,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
-            )
+                    if (showPreferMusicOnly) {
+                        val preferMusicOnlyTitle = stringResource(R.string.prefer_music_only)
+                        SettingsRow(
+                            icon = Icons.Rounded.SmartDisplay,
+                            title = preferMusicOnlyTitle,
+                            subtitle = stringResource(R.string.prefer_music_only_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = preferMusicOnly,
+                                    onCheckedChange = AppSettings::setPreferMusicOnly,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
+                        )
+                    }
 
-            RowDivider()
+                    if (showCrossfade) {
+                        if (showPreferMusicOnly) RowDivider()
 
-            if (!smartFade) {
-                val crossfadeTitle = stringResource(R.string.crossfade)
-                SliderRow(
-                    icon = Icons.Rounded.Waves,
-                    title = crossfadeTitle,
-                    subtitle = stringResource(R.string.crossfade_subtitle),
-                    value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
-                    sliderValue = crossfade.toFloat(),
-                    onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
-                    valueRange = 0f..12f,
-                    steps = 11,
-                )
-                RowDivider()
+                        val crossfadeTitle = stringResource(R.string.crossfade)
+                        SliderRow(
+                            icon = Icons.Rounded.Waves,
+                            title = crossfadeTitle,
+                            subtitle = stringResource(R.string.crossfade_subtitle),
+                            value = if (crossfade == 0) stringResource(R.string.off) else "${crossfade}s",
+                            sliderValue = crossfade.toFloat(),
+                            onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
+                            valueRange = 0f..12f,
+                            steps = 11,
+                        )
+                    }
+
+                    if (showAutomix) {
+                        if (showPreferMusicOnly || showCrossfade) RowDivider()
+
+                        val automixTitle = stringResource(R.string.automix)
+                        SettingsRow(
+                            icon = Icons.Rounded.AutoAwesome,
+                            title = automixTitle,
+                            subtitle = stringResource(
+                                if (smartFade) R.string.automix_enabled_subtitle
+                                else R.string.automix_disabled_subtitle,
+                            ),
+                            trailing = {
+                                Switch(
+                                    checked = smartFade,
+                                    onCheckedChange = AppSettings::setSmartFadeEnabled,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+                        )
+                    }
+
+                    if (showAutomixPerf) {
+                        if (showPreferMusicOnly || showCrossfade || showAutomix) RowDivider()
+
+                        val automixPerformanceTitle = stringResource(R.string.automix_performance)
+                        SettingsRow(
+                            icon = Icons.Rounded.Tune,
+                            title = automixPerformanceTitle,
+                            subtitle = stringResource(R.string.automix_performance_subtitle),
+                            value = automixPerformance.localizedLabel(),
+                            onClick = { pickingAutomixPerformance = true },
+                        )
+                    }
+
+                    if (showSkipSilence) {
+                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf) RowDivider()
+
+                        val skipSilenceTitle = stringResource(R.string.skip_silence)
+                        SettingsRow(
+                            icon = Icons.AutoMirrored.Rounded.VolumeOff,
+                            title = skipSilenceTitle,
+                            subtitle = if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
+                                stringResource(R.string.skip_silence_float_subtitle)
+                            } else {
+                                stringResource(R.string.skip_silence_subtitle)
+                            },
+                            trailing = {
+                                Switch(
+                                    checked = skipSilence,
+                                    onCheckedChange = AppSettings::setSkipSilence,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSkipSilence(!skipSilence) },
+                        )
+                    }
+
+                    if (showSpatialAudio) {
+                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence) RowDivider()
+
+                        val spatialAudioTitle = stringResource(R.string.spatial_audio)
+                        SettingsRow(
+                            icon = Icons.Rounded.SurroundSound,
+                            title = spatialAudioTitle,
+                            subtitle = if (playingDolbyAtmos) {
+                                stringResource(R.string.spatial_audio_atmos_subtitle)
+                            } else {
+                                stringResource(R.string.spatial_audio_subtitle)
+                            },
+                            trailing = {
+                                Switch(
+                                    checked = spatialAudio,
+                                    onCheckedChange = AppSettings::setSpatialAudio,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
+                        )
+                    }
+
+                    if (showEqualizer) {
+                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio) RowDivider()
+
+                        val equalizerTitle = stringResource(R.string.equalizer)
+                        SettingsRow(
+                            icon = Icons.Rounded.Tune,
+                            title = equalizerTitle,
+                            subtitle = stringResource(R.string.equalizer_subtitle),
+                            onClick = onEqualizer,
+                        )
+                    }
+                }
+
+                // Hardware Output & Normalization (Seamlessly integrated in the same block)
+                if (showOutputPrecision || showLoudness) {
+                    if (showSources || showWifi || showCellular || showDolby || showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                        SettingsSectionDivider(title = stringResource(R.string.output_precision))
+                    }
+
+                    if (showOutputPrecision) {
+                        val outputPrecisionTitle = stringResource(R.string.output_precision)
+                        SettingsRow(
+                            icon = Icons.Rounded.GraphicEq,
+                            title = outputPrecisionTitle,
+                            subtitle = buildString {
+                                append(outputStatus.sink)
+                                append(" · ")
+                                append(outputStatus.deviceName)
+                                (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
+                                    ?.let { append(" · ${it / 1000.0} kHz") }
+                                append(" · ")
+                                append(AudioOutputStatus.encodingLabel(outputStatus))
+                            },
+                        )
+                        SegmentedControl(
+                            options = OutputPcmMode.entries.map(OutputPcmMode::label),
+                            selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
+                            onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
+                            modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+                        )
+
+                        val preferUsbDacTitle = stringResource(R.string.prefer_usb_dac)
+                        SettingsSubRow(
+                            title = preferUsbDacTitle,
+                            checked = preferUsbDac,
+                            onCheckedChange = AppSettings::setPreferUsbDac,
+                            badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                        )
+                    }
+
+                    if (showLoudness) {
+                        if (showOutputPrecision) RowDivider()
+
+                        val loudnessTitle = stringResource(R.string.loudness_normalization)
+                        SettingsRow(
+                            icon = Icons.Rounded.VolumeUp,
+                            title = loudnessTitle,
+                            subtitle = stringResource(R.string.loudness_normalization_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = loudnessNormalization,
+                                    onCheckedChange = AppSettings::setLoudnessNormalization,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
+                        )
+
+                        val loudnessSpeakerTitle = stringResource(R.string.loudness_off_on_speaker)
+                        SettingsSubRow(
+                            title = loudnessSpeakerTitle,
+                            checked = loudnessOffOnSpeaker,
+                            onCheckedChange = AppSettings::setLoudnessOffOnSpeaker,
+                        )
+                    }
+                }
             }
-
-            val automixTitle = stringResource(R.string.automix)
-            SettingsRow(
-                icon = Icons.Rounded.AutoAwesome,
-                title = automixTitle,
-                subtitle = stringResource(
-                    if (smartFade) R.string.automix_enabled_subtitle
-                    else R.string.automix_disabled_subtitle,
-                ),
-                trailing = {
-                    Switch(
-                        checked = smartFade,
-                        onCheckedChange = AppSettings::setSmartFadeEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
-            )
-
-            RowDivider()
-
-            val automixPerformanceTitle = stringResource(R.string.automix_performance)
-            SettingsRow(
-                icon = Icons.Rounded.Tune,
-                title = automixPerformanceTitle,
-                subtitle = stringResource(R.string.automix_performance_subtitle),
-                value = automixPerformance.localizedLabel(),
-                onClick = { pickingAutomixPerformance = true },
-            )
-
-            RowDivider()
-
-            val skipSilenceTitle = stringResource(R.string.skip_silence)
-            SettingsRow(
-                icon = Icons.AutoMirrored.Rounded.VolumeOff,
-                title = skipSilenceTitle,
-                subtitle = if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
-                    stringResource(R.string.skip_silence_float_subtitle)
-                } else {
-                    stringResource(R.string.skip_silence_subtitle)
-                },
-                trailing = {
-                    Switch(
-                        checked = skipSilence,
-                        onCheckedChange = AppSettings::setSkipSilence,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSkipSilence(!skipSilence) },
-            )
-
-            RowDivider()
-
-            val spatialAudioTitle = stringResource(R.string.spatial_audio)
-            SettingsRow(
-                icon = Icons.Rounded.SurroundSound,
-                title = spatialAudioTitle,
-                subtitle = if (playingDolbyAtmos) {
-                    stringResource(R.string.spatial_audio_atmos_subtitle)
-                } else {
-                    stringResource(R.string.spatial_audio_subtitle)
-                },
-                trailing = {
-                    Switch(
-                        checked = spatialAudio,
-                        onCheckedChange = AppSettings::setSpatialAudio,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
-            )
-
-            RowDivider()
-
-            val equalizerTitle = stringResource(R.string.equalizer)
-            SettingsRow(
-                icon = Icons.Rounded.Tune,
-                title = equalizerTitle,
-                subtitle = stringResource(R.string.equalizer_subtitle),
-                onClick = onEqualizer,
-            )
-
-            // Hardware Output & Normalization (Seamlessly integrated in the same block)
-            SettingsSectionDivider(title = stringResource(R.string.output_precision))
-
-            val outputPrecisionTitle = stringResource(R.string.output_precision)
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = outputPrecisionTitle,
-                subtitle = buildString {
-                    append(outputStatus.sink)
-                    append(" · ")
-                    append(outputStatus.deviceName)
-                    (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
-                        ?.let { append(" · ${it / 1000.0} kHz") }
-                    append(" · ")
-                    append(AudioOutputStatus.encodingLabel(outputStatus))
-                },
-            )
-            SegmentedControl(
-                options = OutputPcmMode.entries.map(OutputPcmMode::label),
-                selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
-                onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
-                modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
-            )
-
-            val preferUsbDacTitle = stringResource(R.string.prefer_usb_dac)
-            SettingsSubRow(
-                title = preferUsbDacTitle,
-                checked = preferUsbDac,
-                onCheckedChange = AppSettings::setPreferUsbDac,
-                badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
-            )
-
-            val loudnessTitle = stringResource(R.string.loudness_normalization)
-            SettingsRow(
-                icon = Icons.Rounded.VolumeUp,
-                title = loudnessTitle,
-                subtitle = stringResource(R.string.loudness_normalization_subtitle),
-                trailing = {
-                    Switch(
-                        checked = loudnessNormalization,
-                        onCheckedChange = AppSettings::setLoudnessNormalization,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
-            )
-
-            val loudnessSpeakerTitle = stringResource(R.string.loudness_off_on_speaker)
-            SettingsSubRow(
-                title = loudnessSpeakerTitle,
-                checked = loudnessOffOnSpeaker,
-                onCheckedChange = AppSettings::setLoudnessOffOnSpeaker,
-            )
         }
     }
 

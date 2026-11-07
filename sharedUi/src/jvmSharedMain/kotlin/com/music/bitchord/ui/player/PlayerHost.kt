@@ -181,6 +181,7 @@ interface PlayerSettingsSource {
     fun setLyricsOffsetMs(value: Int)
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
     fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) {}
+    fun setAnimatedCanvas(value: Boolean) {}
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

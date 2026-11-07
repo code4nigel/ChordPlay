@@ -122,32 +122,49 @@ object LyricsStyleManager {
     private val _style = MutableStateFlow(LyricsCustomStyle())
     val style: StateFlow<LyricsCustomStyle> = _style.asStateFlow()
 
+    private var persister: ((LyricsCustomStyle) -> Unit)? = null
+
+    fun setInitialStyle(initial: LyricsCustomStyle) {
+        _style.value = initial
+    }
+
+    fun setPersister(onSave: (LyricsCustomStyle) -> Unit) {
+        persister = onSave
+    }
+
+    private fun updateAndPersist(newStyle: LyricsCustomStyle) {
+        _style.value = newStyle
+        persister?.invoke(newStyle)
+    }
+
     fun updateFont(choice: LyricsFontChoice) {
-        _style.value = _style.value.copy(fontChoice = choice)
+        updateAndPersist(_style.value.copy(fontChoice = choice))
     }
 
     fun setCustomFont(name: String, path: String) {
-        _style.value = _style.value.copy(
-            fontChoice = LyricsFontChoice.CUSTOM,
-            customFontName = name,
-            customFontPath = path,
+        updateAndPersist(
+            _style.value.copy(
+                fontChoice = LyricsFontChoice.CUSTOM,
+                customFontName = name,
+                customFontPath = path,
+            ),
         )
     }
 
     fun updateScale(scale: LyricsSizeScale) {
-        _style.value = _style.value.copy(sizeScale = scale)
+        updateAndPersist(_style.value.copy(sizeScale = scale))
     }
 
     fun updateWeight(weight: LyricsWeightChoice) {
-        _style.value = _style.value.copy(weightChoice = weight)
+        updateAndPersist(_style.value.copy(weightChoice = weight))
     }
 
     fun updateCenterAligned(center: Boolean) {
-        _style.value = _style.value.copy(centerAligned = center)
+        updateAndPersist(_style.value.copy(centerAligned = center))
     }
 
     fun reset() {
-        _style.value = LyricsCustomStyle()
+        updateAndPersist(LyricsCustomStyle())
     }
 }
 

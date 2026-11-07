@@ -34,10 +34,9 @@ enum class LastPlayerScreen {
     QUEUE,
 }
 
-/** Global design style aesthetic: ChordPlay Modern vs original BitChord monochrome. */
+/** Global design style aesthetic: ChordPlay Modern is the unified design system. */
 enum class AppDesignStyle(val label: String, val detail: String) {
     CHORDPLAY("ChordPlay Modern", "Atmospheric glowing glass, vibrant palettes, tactile controls, and dynamic discovery"),
-    CLASSIC_BITCHORD("Classic BitChord", "Original Apple Music-inspired monochrome dark UI, standard player, and default shelves"),
 }
 
 /** Player screen visual layout and audio stage presentation. */
@@ -47,10 +46,9 @@ enum class PlayerLayoutMode(val label: String, val detail: String) {
     CLASSIC_CLEAN("Classic BitChord", "Original Apple Music-style player layout"),
 }
 
-/** Player interface style: WavePlay vs ChordPlay OG. */
+/** Player interface style: WavePlay is the unified player interface. */
 enum class PlayerInterfaceStyle(val label: String, val detail: String) {
     WAVEPLAY("WavePlay", "Synesthesia ribbons, dynamic waveform seekbar, and 5-button glowing orb deck"),
-    CHORDPLAY_OG("ChordPlay OG", "Original classic transport deck, seekbar, and volume slider"),
 }
 
 /** Visual presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */

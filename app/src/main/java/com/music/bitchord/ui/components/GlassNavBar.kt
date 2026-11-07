@@ -325,7 +325,6 @@ private fun GlassNowPlaying(
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
-    val isClassic = designStyle == AppDesignStyle.CLASSIC_BITCHORD
 
     val pathMeasure = remember { PathMeasure() }
     val fullBorderPath = remember { Path() }
@@ -372,7 +371,7 @@ private fun GlassNowPlaying(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
-                enableSwipeToSkip = !isClassic,
+                enableSwipeToSkip = true,
                 onHorizontalDrag = { offset ->
                     scope.launch { horizontalDragOffset.snapTo(offset) }
                 },
@@ -395,7 +394,7 @@ private fun GlassNowPlaying(
             .then(modifier)
             .drawWithContent {
                 drawContent()
-                if (!isClassic && durationMs > 0L) {
+                if (durationMs > 0L) {
                     val currentMs = playbackPosition?.positionMs ?: 0L
                     val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     if (progress > 0.0005f) {

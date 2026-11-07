@@ -15,6 +15,11 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.ui.player.LyricsCustomStyle
+import com.music.bitchord.ui.player.LyricsFontChoice
+import com.music.bitchord.ui.player.LyricsSizeScale
+import com.music.bitchord.ui.player.LyricsStyleManager
+import com.music.bitchord.ui.player.LyricsWeightChoice
 import com.music.bitchord.data.model.ShelfItem
 import org.json.JSONArray
 import org.json.JSONObject
@@ -548,13 +553,13 @@ object AppSettings {
      * That is the shape of the reported 8GB day: still art costs nothing
      * here and stays up regardless of this setting.
      */
-    val canvasOverCellular = MutableStateFlow(false)
+    val canvasOverCellular = MutableStateFlow(true)
 
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
-    val spotifyCanvasAutoHide = MutableStateFlow(true)
+    val spotifyCanvasAutoHide = MutableStateFlow(false)
 
     /** Tries Spotify before Apple Music and the other animated-art providers. */
-    val prioritizeSpotifyCanvas = MutableStateFlow(false)
+    val prioritizeSpotifyCanvas = MutableStateFlow(true)
 
     /**
      * Blows the player's cover art out to a full-bleed banner running off the
@@ -592,7 +597,7 @@ object AppSettings {
     val playerInterfaceStyle = MutableStateFlow(PlayerInterfaceStyle.WAVEPLAY)
 
     /** Presentation style for one-line lyrics in fullscreen Canvas / artwork mode. */
-    val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+    val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.PLAYER_STRIP)
 
     /** Configurable swipe gesture action when swiping right on a track row. */
     val songSwipeRightAction = MutableStateFlow(SongSwipeAction.PLAY_NEXT)
@@ -1002,9 +1007,9 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
-        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
-        spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
-        prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
+        canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
+        spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, false)
+        prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, true)
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
 
@@ -1015,8 +1020,8 @@ object AppSettings {
             PlayerLayoutMode.valueOf(prefs.getString(KEY_PLAYER_LAYOUT_MODE, null) ?: PlayerLayoutMode.MODERN_AMBIENT.name)
         }.getOrDefault(PlayerLayoutMode.MODERN_AMBIENT)
         fullscreenArtworkLyricsStyle.value = runCatching {
-            FullscreenArtworkLyricsStyle.valueOf(prefs.getString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, null) ?: FullscreenArtworkLyricsStyle.FLOATING_CAPSULE.name)
-        }.getOrDefault(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+            FullscreenArtworkLyricsStyle.valueOf(prefs.getString(KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE, null) ?: FullscreenArtworkLyricsStyle.PLAYER_STRIP.name)
+        }.getOrDefault(FullscreenArtworkLyricsStyle.PLAYER_STRIP)
         songSwipeRightAction.value = runCatching {
             SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_RIGHT_ACTION, null) ?: SongSwipeAction.PLAY_NEXT.name)
         }.getOrDefault(SongSwipeAction.PLAY_NEXT)
@@ -1024,6 +1029,32 @@ object AppSettings {
             SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_LEFT_ACTION, null) ?: SongSwipeAction.ADD_TO_QUEUE.name)
         }.getOrDefault(SongSwipeAction.ADD_TO_QUEUE)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
+
+        val savedLyricsStyle = LyricsCustomStyle(
+            fontChoice = runCatching {
+                LyricsFontChoice.valueOf(prefs.getString(KEY_LYRICS_FONT_CHOICE, null) ?: "")
+            }.getOrDefault(LyricsFontChoice.DEFAULT),
+            sizeScale = runCatching {
+                LyricsSizeScale.valueOf(prefs.getString(KEY_LYRICS_SIZE_SCALE, null) ?: "")
+            }.getOrDefault(LyricsSizeScale.STANDARD),
+            weightChoice = runCatching {
+                LyricsWeightChoice.valueOf(prefs.getString(KEY_LYRICS_WEIGHT_CHOICE, null) ?: "")
+            }.getOrDefault(LyricsWeightChoice.HEAVY),
+            centerAligned = prefs.getBoolean(KEY_LYRICS_CENTER_ALIGNED, false),
+            customFontName = prefs.getString(KEY_LYRICS_CUSTOM_FONT_NAME, null),
+            customFontPath = prefs.getString(KEY_LYRICS_CUSTOM_FONT_PATH, null),
+        )
+        LyricsStyleManager.setInitialStyle(savedLyricsStyle)
+        LyricsStyleManager.setPersister { style ->
+            prefs.edit()
+                .putString(KEY_LYRICS_FONT_CHOICE, style.fontChoice.name)
+                .putString(KEY_LYRICS_SIZE_SCALE, style.sizeScale.name)
+                .putString(KEY_LYRICS_WEIGHT_CHOICE, style.weightChoice.name)
+                .putBoolean(KEY_LYRICS_CENTER_ALIGNED, style.centerAligned)
+                .putString(KEY_LYRICS_CUSTOM_FONT_NAME, style.customFontName)
+                .putString(KEY_LYRICS_CUSTOM_FONT_PATH, style.customFontPath)
+                .apply()
+        }
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
                 prefs.getString(KEY_LAST_PLAYER_SCREEN, null) ?: LastPlayerScreen.MAIN.name,
@@ -2509,6 +2540,12 @@ object AppSettings {
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
     private const val KEY_PLAYER_INTERFACE_STYLE = "player_interface_style"
     private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
+    private const val KEY_LYRICS_FONT_CHOICE = "lyrics_font_choice"
+    private const val KEY_LYRICS_SIZE_SCALE = "lyrics_size_scale"
+    private const val KEY_LYRICS_WEIGHT_CHOICE = "lyrics_weight_choice"
+    private const val KEY_LYRICS_CENTER_ALIGNED = "lyrics_center_aligned"
+    private const val KEY_LYRICS_CUSTOM_FONT_NAME = "lyrics_custom_font_name"
+    private const val KEY_LYRICS_CUSTOM_FONT_PATH = "lyrics_custom_font_path"
     private const val KEY_SONG_SWIPE_RIGHT_ACTION = "song_swipe_right_action"
     private const val KEY_SONG_SWIPE_LEFT_ACTION = "song_swipe_left_action"
     private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"

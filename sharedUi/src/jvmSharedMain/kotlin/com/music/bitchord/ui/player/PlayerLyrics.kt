@@ -685,7 +685,7 @@ private const val SAME_CLOCK_NANOS = 250_000_000L
  * note rather than a drop shadow sitting under the line.
  */
 @Composable
-private fun SweptLyricLine(
+internal fun SweptLyricLine(
     line: LyricLine,
     clock: MutableLongState,
     style: TextStyle,

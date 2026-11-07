@@ -1,8 +1,8 @@
 package com.music.bitchord.ui.screens.settings
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Download
@@ -34,5 +34,5 @@ enum class SettingsSection(
     ADVANCED_PERFORMANCE(R.string.advanced_and_performance, Icons.Rounded.Tune),
     SUPPORT(R.string.support_community, Icons.Rounded.Favorite),
     INTEGRATIONS(R.string.account_integrations, Icons.Rounded.Person),
-    ABOUT(R.string.miscellaneous, Icons.Rounded.AutoAwesome);
+    ABOUT(R.string.miscellaneous, Icons.AutoMirrored.Rounded.HelpOutline);
 }

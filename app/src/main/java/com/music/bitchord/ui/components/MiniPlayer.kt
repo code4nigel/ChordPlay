@@ -395,7 +395,6 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
-    val isClassic = designStyle == AppDesignStyle.CLASSIC_BITCHORD
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val view = LocalView.current
@@ -437,7 +436,7 @@ fun MiniPlayer(
                 },
                 locked = controlsLocked,
                 onBlocked = onBlockedControl,
-                enableSwipeToSkip = !isClassic,
+                enableSwipeToSkip = true,
                 onHorizontalDrag = { offset ->
                     scope.launch { horizontalDragOffset.snapTo(offset) }
                 },
@@ -464,10 +463,10 @@ fun MiniPlayer(
                     )
                 },
             )
-            .border(0.5.dp, Color.White.copy(alpha = if (isClassic) 0.10f else 0.08f), shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), shape)
             .drawWithContent {
                 drawContent()
-                if (!isClassic && durationMs > 0L) {
+                if (durationMs > 0L) {
                     val currentMs = playbackPosition?.positionMs ?: 0L
                     val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     if (progress > 0.0005f) {

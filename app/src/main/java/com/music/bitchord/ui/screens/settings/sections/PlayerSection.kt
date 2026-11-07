@@ -53,21 +53,22 @@ fun PlayerSection(
     onSpotifyCanvasAuth: () -> Unit,
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
-    val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
-    val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -78,257 +79,339 @@ fun PlayerSection(
         SettingsSubPageHeader(
             title = stringResource(R.string.playback),
             onBack = onBack,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
         )
 
-        // Pinned Live Preview
-        PlayerLivePreview()
+        val showPlayerLayout = matchesSearch(
+            searchQuery,
+            stringResource(R.string.player_layout),
+            playerLayoutMode.localizedDetail(),
+            "layout", "compact", "normal",
+        )
+        val showBreathingAura = matchesSearch(
+            searchQuery,
+            stringResource(R.string.breathing_artwork_aura),
+            stringResource(R.string.breathing_artwork_aura_desc),
+            "aura", "breathing", "glow",
+        )
+        val showFullScreenCoverArt = fullBleedArtworkAvailable(windowWidth) && matchesSearch(
+            searchQuery,
+            stringResource(R.string.full_screen_cover_art),
+            stringResource(R.string.full_screen_cover_art_subtitle),
+            "full bleed", "full screen", "artwork",
+        )
+        val showLegacyMeshGradient = matchesSearch(
+            searchQuery,
+            stringResource(R.string.legacy_mesh_gradient),
+            stringResource(R.string.legacy_mesh_gradient_subtitle),
+            "mesh", "gradient", "backdrop",
+        )
+        val showAnimatedCoverArt = matchesSearch(
+            searchQuery,
+            stringResource(R.string.animated_cover_art),
+            stringResource(R.string.animated_cover_art_subtitle),
+            stringResource(R.string.animated_cover_cellular),
+            stringResource(R.string.integrate_spotify_canvas),
+            "canvas", "spotify", "video", "loop", "cellular",
+        )
+        val showHideSongStatus = matchesSearch(
+            searchQuery,
+            stringResource(R.string.hide_song_status),
+            stringResource(R.string.hide_song_status_subtitle),
+            "song status", "playing from", "played by",
+        )
+        val showPlayNextOnSwipe = matchesSearch(
+            searchQuery,
+            stringResource(R.string.play_next_on_swipe),
+            stringResource(R.string.swipe_plays_next),
+            stringResource(R.string.swipe_adds_to_queue),
+            "swipe", "queue", "next",
+        )
+        val showStopMusicOnClose = matchesSearch(
+            searchQuery,
+            stringResource(R.string.stop_music_on_close),
+            stringResource(R.string.stop_music_on_close_subtitle),
+            "stop", "recents", "close", "task",
+        )
+        val showSmartAlignment = matchesSearch(
+            searchQuery,
+            stringResource(R.string.smart_version_alignment),
+            stringResource(R.string.smart_version_alignment_subtitle),
+            "smart", "audio", "alignment", "waveform",
+        )
+        val showNerdStats = matchesSearch(
+            searchQuery,
+            stringResource(R.string.show_nerd_stats),
+            stringResource(R.string.show_nerd_stats_subtitle),
+            "nerd", "stats", "codec", "bitrate",
+        )
 
-        // Single Unified Big Block for all Playback / Player settings
-        SettingsGroup(header = stringResource(R.string.playback)) {
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = stringResource(R.string.player_interface),
-                subtitle = playerInterfaceStyle.localizedDetail(),
-            )
-            SegmentedControl(
-                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.localizedLabel() },
-                selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
-                onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-            )
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = stringResource(R.string.player_layout),
-                subtitle = playerLayoutMode.localizedDetail(),
-            )
-            SegmentedControl(
-                options = PlayerLayoutMode.entries.map { it.localizedLabel() },
-                selectedIndex = PlayerLayoutMode.entries.indexOf(playerLayoutMode),
-                onSelect = { AppSettings.setPlayerLayoutMode(PlayerLayoutMode.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-            )
+        val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
+            showFullScreenCoverArt || showLegacyMeshGradient || showAnimatedCoverArt ||
+            showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose ||
+            showSmartAlignment || showNerdStats
 
-            SettingsRow(
-                icon = Icons.Rounded.Animation,
-                title = stringResource(R.string.breathing_artwork_aura),
-                subtitle = stringResource(R.string.breathing_artwork_aura_desc),
-                trailing = {
-                    Switch(
-                        checked = enableBreathingAura,
-                        onCheckedChange = AppSettings::setEnableBreathingAura,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setEnableBreathingAura(!enableBreathingAura) },
-            )
-
-            // Artwork & Video Visuals Section Divider
-            SettingsSectionDivider(title = stringResource(R.string.artwork_and_visuals))
-
-            if (fullBleedArtworkAvailable(windowWidth)) {
-                val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
-                SettingsRow(
-                    icon = Icons.Rounded.Fullscreen,
-                    title = fullScreenCoverArtTitle,
-                    subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = fullBleedArtwork,
-                            onCheckedChange = AppSettings::setFullBleedArtwork,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
-                )
-            }
-
-            val legacyMeshGradientTitle = stringResource(R.string.legacy_mesh_gradient)
-            SettingsRow(
-                icon = Icons.Rounded.Gradient,
-                title = legacyMeshGradientTitle,
-                subtitle = stringResource(R.string.legacy_mesh_gradient_subtitle),
-                trailing = {
-                    Switch(
-                        checked = legacyMeshGradient,
-                        onCheckedChange = AppSettings::setLegacyMeshGradient,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setLegacyMeshGradient(!legacyMeshGradient) },
-            )
-
-            val animatedCoverArtTitle = stringResource(R.string.animated_cover_art)
-            SettingsRow(
-                icon = Icons.Rounded.Animation,
-                title = animatedCoverArtTitle,
-                subtitle = stringResource(R.string.animated_cover_art_subtitle),
-                trailing = {
-                    Switch(
-                        checked = animatedCanvas,
-                        onCheckedChange = AppSettings::setAnimatedCanvas,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
-            )
-
-            if (animatedCanvas) {
-                val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
-                SettingsSubRow(
-                    title = coverCellularTitle,
-                    checked = canvasOverCellular,
-                    onCheckedChange = AppSettings::setCanvasOverCellular,
-                )
-
-                val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onSpotifyCanvasAuth)
-                        .padding(start = ROW_INSET, end = ROW_INSET, top = 4.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = spotifyCanvasTitle,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Chevron()
-                }
-            }
-
-            // Controls & Behavior Section Divider
-            SettingsSectionDivider(title = stringResource(R.string.miscellaneous))
-
-            val hideVolumeBarTitle = stringResource(R.string.hide_volume_bar)
-            SettingsRow(
-                icon = Icons.Rounded.VolumeOff,
-                title = hideVolumeBarTitle,
-                subtitle = stringResource(R.string.hide_volume_bar_subtitle),
-                trailing = {
-                    Switch(
-                        checked = hideVolumeBar,
-                        onCheckedChange = AppSettings::setHideVolumeBar,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
-            )
-
-            val hideSongStatusTitle = stringResource(R.string.hide_song_status)
-            SettingsRow(
-                icon = Icons.Rounded.VisibilityOff,
-                title = hideSongStatusTitle,
-                subtitle = stringResource(R.string.hide_song_status_subtitle),
-                trailing = {
-                    Switch(
-                        checked = hideSongStatus,
-                        onCheckedChange = AppSettings::setHideSongStatus,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
-            )
-
-            val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
-            SettingsRow(
-                icon = Icons.Rounded.PlaylistPlay,
-                title = playNextOnSwipeTitle,
-                subtitle = if (swipeToPlayNext) {
-                    stringResource(R.string.swipe_plays_next)
-                } else {
-                    stringResource(R.string.swipe_adds_to_queue)
-                },
-                trailing = {
-                    Switch(
-                        checked = swipeToPlayNext,
-                        onCheckedChange = AppSettings::setSwipeToPlayNext,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
-            )
-
-            val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)
-            SettingsRow(
-                icon = Icons.Rounded.MusicOff,
-                title = stopMusicOnCloseTitle,
-                subtitle = stringResource(R.string.stop_music_on_close_subtitle),
-                trailing = {
-                    Switch(
-                        checked = stopOnTaskRemoved,
-                        onCheckedChange = AppSettings::setStopOnTaskRemoved,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
-            )
+        // Pinned Live Preview (hidden during active search)
+        if (searchQuery.isBlank()) {
+            PlayerLivePreview()
         }
 
-        // Advanced & Stats Group
-        SettingsGroup(header = stringResource(R.string.advanced_options)) {
-            val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = smartAlignmentTitle,
-                subtitle = stringResource(R.string.smart_version_alignment_subtitle),
-                trailing = {
-                    Switch(
-                        checked = smartVersionAlignment,
-                        onCheckedChange = AppSettings::setSmartVersionAlignment,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+        if (searchQuery.isNotBlank() && !anyPlayerMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Playback Settings Block
+            SettingsGroup(header = null) {
+                if (showPlayerLayout) {
+                    SettingsRow(
+                        icon = Icons.Rounded.GraphicEq,
+                        title = stringResource(R.string.player_layout),
+                        subtitle = playerLayoutMode.localizedDetail(),
                     )
-                },
-                onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
-            )
+                    SegmentedControl(
+                        options = PlayerLayoutMode.entries.map { it.localizedLabel() },
+                        selectedIndex = PlayerLayoutMode.entries.indexOf(playerLayoutMode),
+                        onSelect = { AppSettings.setPlayerLayoutMode(PlayerLayoutMode.entries[it]) },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
 
-            val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
-            SettingsRow(
-                icon = Icons.Rounded.BarChart,
-                title = showNerdStatsTitle,
-                subtitle = stringResource(R.string.show_nerd_stats_subtitle),
-                trailing = {
-                    Switch(
-                        checked = nerdStats,
-                        onCheckedChange = AppSettings::setShowNerdStats,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+                if (showBreathingAura) {
+                    SettingsRow(
+                        icon = Icons.Rounded.Animation,
+                        title = stringResource(R.string.breathing_artwork_aura),
+                        subtitle = stringResource(R.string.breathing_artwork_aura_desc),
+                        trailing = {
+                            Switch(
+                                checked = enableBreathingAura,
+                                onCheckedChange = AppSettings::setEnableBreathingAura,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setEnableBreathingAura(!enableBreathingAura) },
                     )
-                },
-                onClick = { AppSettings.setShowNerdStats(!nerdStats) },
-            )
+                }
+
+                // Artwork & Video Visuals Section Divider
+                val hasTopVisuals = showPlayerLayout || showBreathingAura
+                val hasArtworkVisuals = showFullScreenCoverArt || showLegacyMeshGradient || showAnimatedCoverArt
+                if (hasArtworkVisuals) {
+                    if (hasTopVisuals) {
+                        SettingsSectionDivider(title = stringResource(R.string.artwork_and_visuals))
+                    }
+
+                    if (showFullScreenCoverArt) {
+                        val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
+                        SettingsRow(
+                            icon = Icons.Rounded.Fullscreen,
+                            title = fullScreenCoverArtTitle,
+                            subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = fullBleedArtwork,
+                                    onCheckedChange = AppSettings::setFullBleedArtwork,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                        )
+                    }
+
+                    if (showLegacyMeshGradient) {
+                        val legacyMeshGradientTitle = stringResource(R.string.legacy_mesh_gradient)
+                        SettingsRow(
+                            icon = Icons.Rounded.Gradient,
+                            title = legacyMeshGradientTitle,
+                            subtitle = stringResource(R.string.legacy_mesh_gradient_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = legacyMeshGradient,
+                                    onCheckedChange = AppSettings::setLegacyMeshGradient,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setLegacyMeshGradient(!legacyMeshGradient) },
+                        )
+                    }
+
+                    if (showAnimatedCoverArt) {
+                        val animatedCoverArtTitle = stringResource(R.string.animated_cover_art)
+                        SettingsRow(
+                            icon = Icons.Rounded.Animation,
+                            title = animatedCoverArtTitle,
+                            subtitle = stringResource(R.string.animated_cover_art_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = animatedCanvas,
+                                    onCheckedChange = AppSettings::setAnimatedCanvas,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
+                        )
+
+                        if (animatedCanvas) {
+                            val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
+                            SettingsSubRow(
+                                title = coverCellularTitle,
+                                checked = canvasOverCellular,
+                                onCheckedChange = AppSettings::setCanvasOverCellular,
+                            )
+
+                            val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = onSpotifyCanvasAuth)
+                                    .padding(start = ROW_INSET, end = ROW_INSET, top = 4.dp, bottom = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = spotifyCanvasTitle,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Chevron()
+                            }
+                        }
+                    }
+                }
+
+                // Preferences Section Divider
+                val hasPreferences = showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose
+                if (hasPreferences) {
+                    if (hasTopVisuals || hasArtworkVisuals) {
+                        SettingsSectionDivider(title = stringResource(R.string.preferences_header))
+                    }
+
+                    if (showHideSongStatus) {
+                        val hideSongStatusTitle = stringResource(R.string.hide_song_status)
+                        SettingsRow(
+                            icon = Icons.Rounded.VisibilityOff,
+                            title = hideSongStatusTitle,
+                            subtitle = stringResource(R.string.hide_song_status_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = hideSongStatus,
+                                    onCheckedChange = AppSettings::setHideSongStatus,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
+                        )
+                    }
+
+                    if (showPlayNextOnSwipe) {
+                        val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
+                        SettingsRow(
+                            icon = Icons.Rounded.PlaylistPlay,
+                            title = playNextOnSwipeTitle,
+                            subtitle = if (swipeToPlayNext) {
+                                stringResource(R.string.swipe_plays_next)
+                            } else {
+                                stringResource(R.string.swipe_adds_to_queue)
+                            },
+                            trailing = {
+                                Switch(
+                                    checked = swipeToPlayNext,
+                                    onCheckedChange = AppSettings::setSwipeToPlayNext,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
+                        )
+                    }
+
+                    if (showStopMusicOnClose) {
+                        val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)
+                        SettingsRow(
+                            icon = Icons.Rounded.MusicOff,
+                            title = stopMusicOnCloseTitle,
+                            subtitle = stringResource(R.string.stop_music_on_close_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = stopOnTaskRemoved,
+                                    onCheckedChange = AppSettings::setStopOnTaskRemoved,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
+                        )
+                    }
+                }
+
+                // Advanced & Stats Section Divider
+                val hasAdvanced = showSmartAlignment || showNerdStats
+                if (hasAdvanced) {
+                    if (hasTopVisuals || hasArtworkVisuals || hasPreferences) {
+                        SettingsSectionDivider(title = stringResource(R.string.advanced_options))
+                    }
+
+                    if (showSmartAlignment) {
+                        val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
+                        SettingsRow(
+                            icon = Icons.Rounded.GraphicEq,
+                            title = smartAlignmentTitle,
+                            subtitle = stringResource(R.string.smart_version_alignment_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = smartVersionAlignment,
+                                    onCheckedChange = AppSettings::setSmartVersionAlignment,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
+                        )
+                    }
+
+                    if (showNerdStats) {
+                        val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
+                        SettingsRow(
+                            icon = Icons.Rounded.BarChart,
+                            title = showNerdStatsTitle,
+                            subtitle = stringResource(R.string.show_nerd_stats_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = nerdStats,
+                                    onCheckedChange = AppSettings::setShowNerdStats,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setShowNerdStats(!nerdStats) },
+                        )
+                    }
+                }
+            }
         }
     }
 }

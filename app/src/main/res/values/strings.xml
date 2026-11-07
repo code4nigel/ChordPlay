@@ -1163,6 +1163,8 @@
     <string name="glass_refraction_desc">Backdrop-sampled refraction &amp; blur</string>
     <string name="preferences_header">PREFERENCES</string>
     <string name="results_header">RESULTS</string>
+    <string name="categories_header">CATEGORIES</string>
+    <string name="settings_header">SETTINGS</string>
 
     <!-- Downloads Section -->
     <string name="save_to_custom_download_location">Save download to custom location</string>

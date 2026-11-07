@@ -213,7 +213,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val smartMixInProgress = MutableStateFlow(false)
     override val smartMixBlend = MutableStateFlow<MixBlend?>(null)
     override val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
-    override val spotifyCanvasAutoHide = MutableStateFlow(true)
+    override val spotifyCanvasAutoHide = MutableStateFlow(false)
     override val syncedLyrics = MutableStateFlow(true)
     override val translationLanguage = MutableStateFlow("")
     override val versionAlignmentInProgress = MutableStateFlow(false)
@@ -235,6 +235,11 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     override fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle) {
         fullscreenArtworkLyricsStyle.value = value
+    }
+
+    override fun setAnimatedCanvas(value: Boolean) {
+        animatedCanvas.value = value
+        persistence.saveBoolean("animated_canvas", value)
     }
 
     private const val KEY_LAST_SCREEN = "last_player_screen"

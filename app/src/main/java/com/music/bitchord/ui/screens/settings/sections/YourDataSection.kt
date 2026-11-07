@@ -37,9 +37,11 @@ import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
+import com.music.bitchord.ui.screens.SettingsSearchEmpty
 import com.music.bitchord.ui.screens.SettingsSectionDivider
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.countOfMonths
+import com.music.bitchord.ui.screens.matchesSearch
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +53,7 @@ fun YourDataSection(
     onOpenReplay: () -> Unit,
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -59,7 +62,7 @@ fun YourDataSection(
     val replayGenres by AppSettings.replayGenres.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
@@ -109,84 +112,139 @@ fun YourDataSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        // Single Unified Block for all user data settings
-        SettingsGroup(
-            header = stringResource(R.string.your_data),
-            footer = stringResource(R.string.export_data_subtitle),
-        ) {
-            // Replay & Insights
-            val replayTitle = stringResource(R.string.replay)
-            SettingsRow(
-                icon = Icons.Rounded.BarChart,
-                title = replayTitle,
-                subtitle = stringResource(R.string.replay_subtitle),
-                onClick = onOpenReplay,
-            )
+        val showReplay = matchesSearch(
+            searchQuery,
+            stringResource(R.string.replay),
+            stringResource(R.string.replay_subtitle),
+            "replay", "stats", "insights", "recap", "year",
+        )
+        val showWorkOutGenres = matchesSearch(
+            searchQuery,
+            stringResource(R.string.work_out_genres),
+            stringResource(R.string.replay_genres_enabled_subtitle),
+            stringResource(R.string.replay_genres_disabled_subtitle),
+            "genres", "replay", "analytics",
+        )
+        val showDontRepeatSongs = matchesSearch(
+            searchQuery,
+            stringResource(R.string.dont_repeat_songs),
+            stringResource(R.string.dont_repeat_songs_subtitle),
+            "history", "repeat", "suggestions",
+        )
+        val showExport = matchesSearch(
+            searchQuery,
+            stringResource(R.string.export_data),
+            stringResource(R.string.export_data_subtitle),
+            "backup", "export", "json",
+        )
+        val showImport = matchesSearch(
+            searchQuery,
+            stringResource(R.string.import_data),
+            stringResource(R.string.import_data_subtitle),
+            "backup", "import", "restore", "json",
+        )
 
-            RowDivider()
+        val hasReplaySection = showReplay || showWorkOutGenres || showDontRepeatSongs
+        val hasBackupSection = showExport || showImport
+        val anyYourDataMatch = hasReplaySection || hasBackupSection
 
-            val workOutGenresTitle = stringResource(R.string.work_out_genres)
-            SettingsRow(
-                icon = Icons.Rounded.LocalOffer,
-                title = workOutGenresTitle,
-                subtitle = if (replayGenres) {
-                    stringResource(R.string.replay_genres_enabled_subtitle)
-                } else {
-                    stringResource(R.string.replay_genres_disabled_subtitle)
-                },
-                trailing = {
-                    Switch(
-                        checked = replayGenres,
-                        onCheckedChange = AppSettings::setReplayGenres,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+        if (searchQuery.isNotBlank() && !anyYourDataMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Block for all user data settings
+            SettingsGroup(
+                header = stringResource(R.string.your_data),
+                footer = stringResource(R.string.export_data_subtitle),
+            ) {
+                var replayPreceding = false
+                if (showReplay) {
+                    val replayTitle = stringResource(R.string.replay)
+                    SettingsRow(
+                        icon = Icons.Rounded.BarChart,
+                        title = replayTitle,
+                        subtitle = stringResource(R.string.replay_subtitle),
+                        onClick = onOpenReplay,
                     )
-                },
-                onClick = { AppSettings.setReplayGenres(!replayGenres) },
-            )
+                    replayPreceding = true
+                }
 
-            RowDivider()
-
-            val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
-            SettingsRow(
-                icon = Icons.Rounded.History,
-                title = dontRepeatSongsTitle,
-                subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
-                trailing = {
-                    Switch(
-                        checked = dontRepeatSuggestions,
-                        onCheckedChange = AppSettings::setDontRepeatSuggestions,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+                if (showWorkOutGenres) {
+                    if (replayPreceding) RowDivider()
+                    val workOutGenresTitle = stringResource(R.string.work_out_genres)
+                    SettingsRow(
+                        icon = Icons.Rounded.LocalOffer,
+                        title = workOutGenresTitle,
+                        subtitle = if (replayGenres) {
+                            stringResource(R.string.replay_genres_enabled_subtitle)
+                        } else {
+                            stringResource(R.string.replay_genres_disabled_subtitle)
+                        },
+                        trailing = {
+                            Switch(
+                                checked = replayGenres,
+                                onCheckedChange = AppSettings::setReplayGenres,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setReplayGenres(!replayGenres) },
                     )
-                },
-                onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
-            )
+                    replayPreceding = true
+                }
 
-            // Backup & Restore
-            SettingsSectionDivider(title = "Backup & Restore")
+                if (showDontRepeatSongs) {
+                    if (replayPreceding) RowDivider()
+                    val dontRepeatSongsTitle = stringResource(R.string.dont_repeat_songs)
+                    SettingsRow(
+                        icon = Icons.Rounded.History,
+                        title = dontRepeatSongsTitle,
+                        subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = dontRepeatSuggestions,
+                                onCheckedChange = AppSettings::setDontRepeatSuggestions,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
+                    )
+                }
 
-            val exportTitle = stringResource(R.string.export_data)
-            SettingsRow(
-                icon = Icons.Rounded.FileUpload,
-                title = exportTitle,
-                subtitle = exportStatus ?: stringResource(R.string.export_data_subtitle),
-                onClick = { exportPicker.launch("chordplay-backup.json") },
-            )
+                // Backup & Restore
+                if (hasBackupSection) {
+                    if (hasReplaySection) {
+                        SettingsSectionDivider(title = "Backup & Restore")
+                    }
 
-            RowDivider()
+                    var backupPreceding = false
+                    if (showExport) {
+                        val exportTitle = stringResource(R.string.export_data)
+                        SettingsRow(
+                            icon = Icons.Rounded.FileUpload,
+                            title = exportTitle,
+                            subtitle = exportStatus ?: stringResource(R.string.export_data_subtitle),
+                            onClick = { exportPicker.launch("chordplay-backup.json") },
+                        )
+                        backupPreceding = true
+                    }
 
-            val importTitle = stringResource(R.string.import_data)
-            SettingsRow(
-                icon = Icons.Rounded.FileDownload,
-                title = importTitle,
-                subtitle = importStatus ?: stringResource(R.string.import_data_subtitle),
-                onClick = { confirmImport = true },
-            )
+                    if (showImport) {
+                        if (backupPreceding) RowDivider()
+                        val importTitle = stringResource(R.string.import_data)
+                        SettingsRow(
+                            icon = Icons.Rounded.FileDownload,
+                            title = importTitle,
+                            subtitle = importStatus ?: stringResource(R.string.import_data_subtitle),
+                            onClick = { confirmImport = true },
+                        )
+                    }
+                }
+            }
         }
     }
 

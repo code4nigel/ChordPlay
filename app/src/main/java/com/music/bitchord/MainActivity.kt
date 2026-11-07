@@ -182,6 +182,7 @@ import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
 import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.data.sources.TrackMatcher
@@ -593,6 +594,7 @@ private fun BitChordApp(
     // SettingsSheet mounted underneath and back navigation restores scroll.
     // null = no sub-screen overlay; non-null = that key is rendered as overlay.
     var settingsSubScreen by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentSettingsSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
     var showAccountScrobbling by rememberSaveable { mutableStateOf(false) }
     var showSources by rememberSaveable { mutableStateOf(false) }
     var showListenTogether by rememberSaveable { mutableStateOf(false) }
@@ -841,6 +843,7 @@ private fun BitChordApp(
     LaunchedEffect(detail?.browseId) { detailActiveShelf = null }
     LaunchedEffect(showSettings) {
         if (!showSettings) {
+            currentSettingsSection = null
             showAccountScrobbling = false
             val inSpotify = showSpotify || detail != null || detail?.browseId?.startsWith(SPOTIFY_PAGE_PREFIX) == true
             if (!inSpotify) {
@@ -2646,7 +2649,10 @@ private fun BitChordApp(
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showSpotify && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer && !showReplay) {
+        BackHandler(enabled = showSettings && currentSettingsSection != null) {
+            currentSettingsSection = null
+        }
+        BackHandler(enabled = showSettings && currentSettingsSection == null && !showSpotify && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer && !showReplay) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
@@ -2999,6 +3005,8 @@ private fun BitChordApp(
                             onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                             onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
+                            currentSection = currentSettingsSection,
+                            onSectionChange = { currentSettingsSection = it },
                         )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
@@ -3755,7 +3763,14 @@ private fun BitChordApp(
                         showListenTogether -> ({ showListenTogether = false })
                         showEqualizer -> ({ showEqualizer = false })
                         settingsSubScreen != null -> ({ settingsSubScreen = null })
-                        showSettings -> ({ showSettings = false })
+                        showSettings -> ({
+                            if (currentSettingsSection != null) {
+                                currentSettingsSection = null
+                            } else {
+                                showSettings = false
+                                if (detail == null && !showReplay) selectedTab = TAB_HOME
+                            }
+                        })
                         showReplay -> ({ showReplay = false })
                         detailActiveShelf != null -> ({ detailActiveShelf = null })
                         detail != null -> ({ viewModel.closeDetail(); Unit })

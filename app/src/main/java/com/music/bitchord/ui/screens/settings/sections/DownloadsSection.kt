@@ -44,6 +44,7 @@ import com.music.bitchord.ui.screens.*
 fun DownloadsSection(
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -75,7 +76,7 @@ fun DownloadsSection(
         AppSettings.customDownloadLocationDisplay()
     }
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -90,99 +91,133 @@ fun DownloadsSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        // Single Unified Downloads Block
-        SettingsGroup(header = stringResource(R.string.downloads)) {
-            val saveCustomTitle = stringResource(R.string.save_to_custom_download_location)
-            SettingsRow(
-                icon = Icons.Rounded.FolderSpecial,
-                title = saveCustomTitle,
-                subtitle = stringResource(R.string.save_to_custom_download_location_subtitle),
-                trailing = {
-                    Switch(
-                        checked = saveToCustomLocation,
-                        onCheckedChange = AppSettings::setSaveToCustomDownloadLocation,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+        val saveCustomTitle = stringResource(R.string.save_to_custom_download_location)
+        val saveCustomSubtitle = stringResource(R.string.save_to_custom_download_location_subtitle)
+        val showSaveCustom = matchesSearch(searchQuery, saveCustomTitle, saveCustomSubtitle, "custom", "location", "folder", "save")
+
+        val locationTitle = stringResource(R.string.download_location)
+        val showLocation = saveToCustomLocation && matchesSearch(searchQuery, locationTitle, customLocationDisplay, "location", "folder", "path", "sd card")
+
+        val offlineLyricsTitle = stringResource(R.string.download_lyrics_offline)
+        val offlineLyricsSubtitle = stringResource(R.string.download_lyrics_offline_subtitle)
+        val showOfflineLyrics = matchesSearch(searchQuery, offlineLyricsTitle, offlineLyricsSubtitle, "offline", "lyrics", "synced")
+
+        val downloadQualityTitle = stringResource(R.string.download_quality)
+        val showDownloadQuality = matchesSearch(searchQuery, downloadQualityTitle, downloadQuality.localizedLabel(), "quality", "audio", "lossless", "download")
+
+        val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
+        val showWifiOnly = matchesSearch(searchQuery, downloadWifiOnlyTitle, "wifi", "cellular", "data", "mobile data")
+
+        val hasStorageGroup = showSaveCustom || showLocation
+        val hasLyricsGroup = showOfflineLyrics
+        val hasQualityGroup = showDownloadQuality || showWifiOnly
+        val anyDownloadMatch = hasStorageGroup || hasLyricsGroup || hasQualityGroup
+
+        if (searchQuery.isNotBlank() && !anyDownloadMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Downloads Block
+            SettingsGroup(header = null) {
+                if (showSaveCustom) {
+                    SettingsRow(
+                        icon = Icons.Rounded.FolderSpecial,
+                        title = saveCustomTitle,
+                        subtitle = saveCustomSubtitle,
+                        trailing = {
+                            Switch(
+                                checked = saveToCustomLocation,
+                                onCheckedChange = AppSettings::setSaveToCustomDownloadLocation,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setSaveToCustomDownloadLocation(!saveToCustomLocation) },
                     )
-                },
-                onClick = { AppSettings.setSaveToCustomDownloadLocation(!saveToCustomLocation) },
-            )
+                }
 
-            RowDivider()
+                if (showLocation) {
+                    if (showSaveCustom) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Folder,
+                        title = locationTitle,
+                        subtitle = customLocationDisplay,
+                        enabled = saveToCustomLocation,
+                        onClick = { customFolderPicker.launch(null) },
+                    )
+                }
 
-            val locationTitle = stringResource(R.string.download_location)
-            SettingsRow(
-                icon = Icons.Rounded.Folder,
-                title = locationTitle,
-                subtitle = customLocationDisplay,
-                enabled = saveToCustomLocation,
-                onClick = { customFolderPicker.launch(null) },
-            )
-
-            // Offline Lyrics Section Divider
-            SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
-
-            val offlineLyricsTitle = stringResource(R.string.download_lyrics_offline)
-            SettingsRow(
-                icon = Icons.Rounded.Lyrics,
-                title = offlineLyricsTitle,
-                subtitle = stringResource(R.string.download_lyrics_offline_subtitle),
-                trailing = {
-                    Switch(
-                        checked = downloadLyricsOffline,
-                        onCheckedChange = { enabled ->
-                            if (enabled) {
+                // Offline Lyrics Section Divider
+                if (hasLyricsGroup) {
+                    if (hasStorageGroup) {
+                        SettingsSectionDivider(title = stringResource(R.string.synced_lyrics))
+                    }
+                    SettingsRow(
+                        icon = Icons.Rounded.Lyrics,
+                        title = offlineLyricsTitle,
+                        subtitle = offlineLyricsSubtitle,
+                        trailing = {
+                            Switch(
+                                checked = downloadLyricsOffline,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        showLyricsDisclaimerDialog = true
+                                    } else {
+                                        AppSettings.setDownloadLyricsOffline(false)
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = {
+                            if (!downloadLyricsOffline) {
                                 showLyricsDisclaimerDialog = true
                             } else {
                                 AppSettings.setDownloadLyricsOffline(false)
                             }
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
-                },
-                onClick = {
-                    if (!downloadLyricsOffline) {
-                        showLyricsDisclaimerDialog = true
-                    } else {
-                        AppSettings.setDownloadLyricsOffline(false)
+                }
+
+                // Audio Quality & Network Preferences Section Divider
+                if (hasQualityGroup) {
+                    if (hasStorageGroup || hasLyricsGroup) {
+                        SettingsSectionDivider(title = stringResource(R.string.audio_quality))
                     }
-                },
-            )
 
-            // Audio Quality & Network Preferences Section Divider
-            SettingsSectionDivider(title = stringResource(R.string.audio_quality))
+                    if (showDownloadQuality) {
+                        SettingsRow(
+                            icon = Icons.Rounded.Download,
+                            title = downloadQualityTitle,
+                            value = downloadQuality.localizedLabel(),
+                            onClick = { pickingDownloadQuality = true },
+                        )
+                    }
 
-            val downloadQualityTitle = stringResource(R.string.download_quality)
-            SettingsRow(
-                icon = Icons.Rounded.Download,
-                title = downloadQualityTitle,
-                value = downloadQuality.localizedLabel(),
-                onClick = { pickingDownloadQuality = true },
-            )
-
-            RowDivider()
-
-            val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
-            SettingsRow(
-                icon = Icons.Rounded.Wifi,
-                title = downloadWifiOnlyTitle,
-                trailing = {
-                    Switch(
-                        checked = wifiOnlyDownloads,
-                        onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setWifiOnlyDownloads(!wifiOnlyDownloads) },
-            )
+                    if (showWifiOnly) {
+                        if (showDownloadQuality) RowDivider()
+                        SettingsRow(
+                            icon = Icons.Rounded.Wifi,
+                            title = downloadWifiOnlyTitle,
+                            trailing = {
+                                Switch(
+                                    checked = wifiOnlyDownloads,
+                                    onCheckedChange = AppSettings::setWifiOnlyDownloads,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setWifiOnlyDownloads(!wifiOnlyDownloads) },
+                        )
+                    }
+                }
+            }
         }
     }
 

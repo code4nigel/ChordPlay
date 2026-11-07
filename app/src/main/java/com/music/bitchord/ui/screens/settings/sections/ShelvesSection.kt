@@ -47,7 +47,9 @@ import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.ui.screens.SettingsGroup
+import com.music.bitchord.ui.screens.SettingsSearchEmpty
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
+import com.music.bitchord.ui.screens.matchesSearch
 import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.localizedSubtitle
 
@@ -55,11 +57,12 @@ import com.music.bitchord.ui.screens.settings.localizedSubtitle
 fun ShelvesSection(
     onBack: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val homeShelfOrder by AppSettings.homeShelfOrder.collectAsStateWithLifecycle()
     val disabledHomeShelves by AppSettings.disabledHomeShelves.collectAsStateWithLifecycle()
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -74,16 +77,26 @@ fun ShelvesSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        ShelvesMiniPreview(
-            order = homeShelfOrder,
-            disabled = disabledHomeShelves,
-        )
+        val filteredShelves = homeShelfOrder.filter { key ->
+            matchesSearch(searchQuery, key.localizedLabel(), key.localizedSubtitle(), key.name)
+        }
 
-        SettingsGroup(header = stringResource(R.string.arrange_home_shelves)) {
-            homeShelfOrder.forEachIndexed { index, key ->
-                val isEnabled = key !in disabledHomeShelves
-                val canMoveUp = index > 0
-                val canMoveDown = index < homeShelfOrder.lastIndex
+        if (searchQuery.isBlank()) {
+            ShelvesMiniPreview(
+                order = homeShelfOrder,
+                disabled = disabledHomeShelves,
+            )
+        }
+
+        if (searchQuery.isNotBlank() && filteredShelves.isEmpty()) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            SettingsGroup(header = stringResource(R.string.arrange_home_shelves)) {
+                filteredShelves.forEach { key ->
+                    val index = homeShelfOrder.indexOf(key)
+                    val isEnabled = key !in disabledHomeShelves
+                    val canMoveUp = index > 0
+                    val canMoveDown = index in 0 until homeShelfOrder.lastIndex
 
                 Row(
                     modifier = Modifier
@@ -149,24 +162,27 @@ fun ShelvesSection(
                 }
             }
         }
+    }
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            OutlinedButton(
-                onClick = { AppSettings.resetHomeShelves() },
-                shape = RoundedCornerShape(12.dp),
+        if (searchQuery.isBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.RestartAlt,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.reset_to_default))
+                OutlinedButton(
+                    onClick = { AppSettings.resetHomeShelves() },
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.reset_to_default))
+                }
             }
         }
     }

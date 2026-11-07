@@ -50,25 +50,21 @@ fun HomeShelfKey.localizedSubtitle(): String = when (this) {
 @Composable
 fun AppDesignStyle.localizedLabel(): String = when (this) {
     AppDesignStyle.CHORDPLAY -> stringResource(R.string.design_style_chordplay)
-    AppDesignStyle.CLASSIC_BITCHORD -> stringResource(R.string.design_style_classic)
 }
 
 @Composable
 fun AppDesignStyle.localizedDetail(): String = when (this) {
     AppDesignStyle.CHORDPLAY -> stringResource(R.string.design_style_chordplay_desc)
-    AppDesignStyle.CLASSIC_BITCHORD -> stringResource(R.string.design_style_classic_desc)
 }
 
 @Composable
 fun PlayerInterfaceStyle.localizedLabel(): String = when (this) {
     PlayerInterfaceStyle.WAVEPLAY -> stringResource(R.string.player_interface_waveplay)
-    PlayerInterfaceStyle.CHORDPLAY_OG -> stringResource(R.string.player_interface_og)
 }
 
 @Composable
 fun PlayerInterfaceStyle.localizedDetail(): String = when (this) {
     PlayerInterfaceStyle.WAVEPLAY -> stringResource(R.string.player_interface_waveplay_desc)
-    PlayerInterfaceStyle.CHORDPLAY_OG -> stringResource(R.string.player_interface_og_desc)
 }
 
 @Composable

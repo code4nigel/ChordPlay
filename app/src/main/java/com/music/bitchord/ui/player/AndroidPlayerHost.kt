@@ -90,6 +90,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
         override fun setFullscreenArtworkLyricsStyle(value: com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle) =
             AppSettings.setFullscreenArtworkLyricsStyle(value)
+        override fun setAnimatedCanvas(value: Boolean) = AppSettings.setAnimatedCanvas(value)
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)

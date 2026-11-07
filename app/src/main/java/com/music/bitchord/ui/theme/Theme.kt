@@ -145,14 +145,8 @@ fun BitChordTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val palette by AppSettings.colorPalette.collectAsStateWithLifecycle()
-
-    if (designStyle == AppDesignStyle.CLASSIC_BITCHORD) {
-        BitChordClassicTheme(darkTheme = darkTheme, content = content)
-    } else {
-        ChordPlayTheme(darkTheme = darkTheme, palette = palette, content = content)
-    }
+    ChordPlayTheme(darkTheme = darkTheme, palette = palette, content = content)
 }
 
 /**

@@ -106,6 +106,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.stringArrayResource
+import org.jetbrains.compose.resources.painterResource
+import androidx.compose.ui.graphics.StrokeCap
+import com.music.bitchord.sharedui.resources.spotify_logo
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -826,6 +829,7 @@ fun NowPlayingScreen(
     // CanvasRepository, which is also where the "is this actually the right
     // track" check lives.
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
+    val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
     val canvas = rememberCanvasArtwork(song)
     var canvasAspect by remember(canvas) { mutableFloatStateOf(0f) }
@@ -850,8 +854,8 @@ fun NowPlayingScreen(
     // Captured while the deck is fully laid out. SlidingPlayerDeck collapses
     // that deck's measured height, which makes the weighted region grow;
     // retaining both measurements keeps the credits' destination stationary.
-    var spotifyCanvasDeckHeight by remember(canvas?.url) { mutableStateOf(0.dp) }
-    var spotifyCanvasExpandedTopHeight by remember(canvas?.url) { mutableStateOf(0.dp) }
+    var spotifyCanvasDeckHeight by remember { mutableStateOf(0.dp) }
+    var spotifyCanvasExpandedTopHeight by remember { mutableStateOf(0.dp) }
     // How much of the still artwork the clip is covering, reported by the clip
     // itself. Read from a draw scope rather than in composition: it moves every
     // frame of the fade, and the still art it governs is an AsyncImage whose
@@ -1322,20 +1326,17 @@ fun NowPlayingScreen(
     // listener can keep the deck open indefinitely from Spotify integration.
     // Pausing or interacting with a continuous control suspends the countdown;
     // it starts fresh once playback/interaction resumes.
+    val canvasAutoHideBlocked = !isPlaying || scrub.scrubbing || volume.dragging ||
+        lyricsOpen || queueOpen || effectiveLyricsOffsetOpen || showLyricsStyleSheet ||
+        showAudioPipeline || showCast || showAudioOutput || showLyricsProviders || mixing
     LaunchedEffect(
         spotifyCanvasPresentation,
         spotifyCanvasControlsOpen,
         spotifyCanvasAutoHide,
-        isPlaying,
-        scrub.scrubbing,
-        volume.dragging,
-        lyricsOpen,
-        queueOpen,
-        mixing,
+        canvasAutoHideBlocked,
     ) {
         if (!spotifyCanvasPresentation || !spotifyCanvasControlsOpen ||
-            !spotifyCanvasAutoHide || !isPlaying || scrub.scrubbing || volume.dragging ||
-            lyricsOpen || queueOpen || mixing
+            !spotifyCanvasAutoHide || canvasAutoHideBlocked
         ) return@LaunchedEffect
         delay(SPOTIFY_CANVAS_CONTROLS_IDLE_MS)
         spotifyCanvasControlsOpen = false
@@ -1548,68 +1549,34 @@ fun NowPlayingScreen(
     // whichever layout is on screen — they are overlays over the player, not
     // part of either shape of it.
     val playerOverlays: @Composable () -> Unit = {
-        if (showAudioOutput) {
-            AudioOutputSheet(
-                hazeState = playerHaze,
-                accountName = accountName,
-                onDismiss = { showAudioOutput = false },
-                onOpenPipeline = { showAudioPipeline = true },
-                onOpenCast = { showCast = true },
-            )
-        }
-        if (showLyricsProviders) {
-            LyricsProviderSheet(
-                hazeState = playerHaze,
-                currentSource = lyricsSource,
-                states = lyricsProviderStates,
-                onSelect = onSelectLyricsProvider,
-                onDismiss = { showLyricsProviders = false },
-            )
-        }
-        if (showLyricsStyleSheet) {
-            LyricsStyleSheet(
-                hazeState = playerHaze,
-                onDismiss = { showLyricsStyleSheet = false },
-                accentColor = synesthesiaPalette.colors.firstOrNull(),
-            )
-        }
-        if (showAudioPipeline) {
-            AudioPipelineDialog(
-                hazeState = playerHaze,
-                isPlaying = isPlaying,
-                onDismiss = { showAudioPipeline = false },
-                accentColor = synesthesiaPalette.colors.firstOrNull(),
-            )
-        }
-        if (showCast) {
-            PlayerPlatform.host.CastDialog(
-                hazeState = playerHaze,
-                onDismiss = { showCast = false },
-            )
-        }
-        if (showListenTogetherMembers) {
-            ListenTogetherMembersSheet(
-                hazeState = playerHaze,
-                onDismiss = { showListenTogetherMembers = false },
-                onManage = {
-                    showListenTogetherMembers = false
-                    onListenTogether()
-                },
-            )
-        }
-        if (effectiveLyricsOffsetOpen) {
-            LyricsOffsetSheet(
-                hazeState = playerHaze,
-                onDismiss = dismissLyricsOffset,
-            )
-        }
-        lyricsShare?.let { request ->
-            PlayerPlatform.host.LyricsShareSheet(
-                hazeState = playerHaze,
-                request = request,
-                onDismiss = { lyricsShare = null },
-            )
-        }
+        PlayerOverlays(
+            playerHaze = playerHaze,
+            accountName = accountName,
+            accentColor = synesthesiaPalette.colors.firstOrNull(),
+            isPlaying = isPlaying,
+            showAudioOutput = showAudioOutput,
+            onDismissAudioOutput = { showAudioOutput = false },
+            onOpenPipeline = { showAudioPipeline = true },
+            onOpenCast = { showCast = true },
+            showLyricsProviders = showLyricsProviders,
+            onDismissLyricsProviders = { showLyricsProviders = false },
+            lyricsSource = lyricsSource,
+            lyricsProviderStates = lyricsProviderStates,
+            onSelectLyricsProvider = onSelectLyricsProvider,
+            showLyricsStyleSheet = showLyricsStyleSheet,
+            onDismissLyricsStyleSheet = { showLyricsStyleSheet = false },
+            showAudioPipeline = showAudioPipeline,
+            onDismissAudioPipeline = { showAudioPipeline = false },
+            showCast = showCast,
+            onDismissCast = { showCast = false },
+            showListenTogetherMembers = showListenTogetherMembers,
+            onDismissListenTogetherMembers = { showListenTogetherMembers = false },
+            onListenTogether = onListenTogether,
+            effectiveLyricsOffsetOpen = effectiveLyricsOffsetOpen,
+            dismissLyricsOffset = dismissLyricsOffset,
+            lyricsShare = lyricsShare,
+            onDismissLyricsShare = { lyricsShare = null },
+        )
     }
 
     // A landscape window — a tablet, or a phone on its side — takes an entirely
@@ -2301,123 +2268,27 @@ fun NowPlayingScreen(
             // both, and the handle, the caption and the scrim all belong on
             // top of the artwork. The scrim reaches up past the strip's own
             // top to the screen's, the band it always covered.
-            Box(
-                modifier = Modifier
-                    .zIndex(1f)
-                    .fillMaxWidth()
-                    .height(topStrip)
-                    .drawBehind {
-                        // Translated rather than offset: the gradient is laid
-                        // out from the canvas origin, not from the rect's.
-                        val above = statusBarTop.toPx()
-                        translate(top = -above) {
-                            drawRect(
-                                brush = topScrimBrush,
-                                size = Size(size.width, size.height + above),
-                            )
-                        }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                // While the origin caption is present the handle belongs at
-                // the top of the strip. As lyrics or the queue replace the
-                // album-cover player, it glides into the now-empty strip's
-                // vertical centre alongside the caption's fade.
-                if (!isWavePlay) {
-                    Box(
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .offset {
-                                IntOffset(
-                                    x = 0,
-                                    y = lerp(
-                                        6.dp,
-                                        (topStrip - 5.dp).coerceAtLeast(0.dp) / 2,
-                                        p(),
-                                    ).roundToPx(),
-                                )
-                            }
-                            .width(38.dp)
-                            .height(5.dp)
-                            .graphicsLayer { alpha = spotifyChromeAlpha }
-                            .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.70f)),
-                    )
-                }
-                // [p] is the shared album-to-panel transition. Keeping this in
-                // composition until its final frame gives the caption a real
-                // fade on both entry and exit, but removes its click target
-                // entirely once lyrics or the queue owns the player.
-                if (isWavePlay) {
-                    WhileShown({ !collapseAlmostDone }) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(horizontal = 16.dp, vertical = 2.dp)
-                                .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = onOpenPlaybackSource,
-                                    ),
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = topBarGlyphTint,
-                                    modifier = Modifier.size(28.dp),
-                                )
-                            }
-                            PlaybackOriginCaption(
-                                text = playbackOriginText(song, playedBy),
-                                onClick = openPlaybackOrigin,
-                                textAlign = TextAlign.Center,
-                                contentPadding = PaddingValues(start = 8.dp, end = 8.dp),
-                                textColor = topBarGlyphTint,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = { onShareSong?.invoke() ?: onOpenMenu() },
-                                    ),
-                                contentAlignment = Alignment.CenterEnd,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Share,
-                                    contentDescription = stringResource(Res.string.share),
-                                    tint = topBarGlyphTint,
-                                    modifier = Modifier.size(22.dp),
-                                )
-                            }
-                        }
-                    }
-                } else if (!hideSongStatus) {
-                    WhileShown({ !collapseAlmostDone }) {
-                        PlaybackOriginCaption(
-                            text = playbackOriginText(song, playedBy),
-                            onClick = openPlaybackOrigin,
-                            textAlign = TextAlign.Center,
-                            contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 1.dp),
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },
-                        )
-                    }
-                }
-            }
+            NowPlayingTopBar(
+                topStrip = topStrip,
+                statusBarTop = statusBarTop,
+                topScrimBrush = topScrimBrush,
+                isWavePlay = isWavePlay,
+                spotifyChromeAlpha = spotifyChromeAlpha,
+                p = p,
+                collapseAlmostDone = collapseAlmostDone,
+                onOpenPlaybackSource = onOpenPlaybackSource,
+                topBarGlyphTint = topBarGlyphTint,
+                hideSongStatus = hideSongStatus,
+                song = song,
+                playedBy = playedBy,
+                openPlaybackOrigin = openPlaybackOrigin,
+                animatedCanvas = animatedCanvas,
+                isTopBright = isTopBright,
+                onToggleAnimatedCanvas = {
+                    haptics.play(Haptic.Select)
+                    PlayerSettings.setAnimatedCanvas(!animatedCanvas)
+                },
+            )
 
             Column(
                 modifier = Modifier
@@ -2663,27 +2534,34 @@ fun NowPlayingScreen(
                 // When player strip lyrics is enabled, lift the title and lyrics comfortably
                 // above the navigation bar / gesture bar so they never collide.
                 val lyricsBottomLift = if (fullscreenLyricsStyle == FullscreenArtworkLyricsStyle.PLAYER_STRIP && syncedLyricsEnabled) {
-                    36.dp + maxOf(navBarBottom, 22.dp)
+                    56.dp + maxOf(navBarBottom, 20.dp)
                 } else {
                     maxOf(navBarBottom, 12.dp)
                 }
                 val spotifyTitleRange = if (spotifyCanvasPresentation) {
-                    val expandedTopHeight = spotifyCanvasExpandedTopHeight
-                        .takeIf { it > 0.dp }
-                        ?: maxHeight
+                    val targetFullHeight = if (spotifyCanvasDeckHeight > 0.dp && spotifyCanvasExpandedTopHeight > 0.dp) {
+                        maxOf(maxHeight, spotifyCanvasExpandedTopHeight + spotifyCanvasDeckHeight)
+                    } else {
+                        maxHeight
+                    }
                     val collapsedTitleTop = (
-                        expandedTopHeight + spotifyCanvasDeckHeight - HEADER_HEIGHT - lyricsBottomLift
+                        targetFullHeight - HEADER_HEIGHT - lyricsBottomLift
                     ).coerceAtLeast(0.dp)
                     collapsedTitleTop
                 } else {
                     null
                 }
-                fun currentTitleTop(): Dp = spotifyTitleRange?.let { collapsedTitleTop ->
-                    // Read in the placement lambda below. This invalidates only
-                    // placement, not composition or measurement, and keeps the
-                    // credits on the deck's exact reveal frame.
-                    lerp(collapsedTitleTop, regularTitleTop(), playerDeckReveal.value)
-                } ?: regularTitleTop()
+                fun currentTitleTop(): Dp {
+                    if (spotifyCanvasPresentation && playerDeckReveal.value <= 0.001f) {
+                        return (maxHeight - HEADER_HEIGHT - lyricsBottomLift).coerceAtLeast(0.dp)
+                    }
+                    return spotifyTitleRange?.let { collapsedTitleTop ->
+                        // Read in the placement lambda below. This invalidates only
+                        // placement, not composition or measurement, and keeps the
+                        // credits on the deck's exact reveal frame.
+                        lerp(collapsedTitleTop, regularTitleTop(), playerDeckReveal.value)
+                    } ?: regularTitleTop()
+                }
                 fun titleStart(): Dp = lerp(0.dp, THUMB_SIZE + 12.dp, p())
 
                 // How far down the *screen* the sleeve's bottom edge sits, which
@@ -3508,23 +3386,11 @@ fun NowPlayingScreen(
                         label = "translateFade",
                     )
                     if (translateFade > 0.01f && !lyricPicker.picking) {
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
                                 .graphicsLayer { alpha = translateFade },
-                        ) {
-                            RomanizationToggleButton(
-                                state = lyricsTranslation.romanizationState,
-                                showingRomanization = lyricsTranslation.showingRomanization,
-                                enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                onClick = lyricsTranslation.toggleRomanization,
-                            )
-                        }
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .graphicsLayer { alpha = translateFade },
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             LyricsStyleToggleButton(
@@ -3534,10 +3400,14 @@ fun NowPlayingScreen(
                             TranslationToggleButton(
                                 state = lyricsTranslation.translationState,
                                 showingTranslation = lyricsTranslation.showingTranslation,
-                                // Not tappable on the way out: a disc at 20%
-                                // opacity is on its way to gone, not a target.
                                 enabled = translateShown && !lyrics.isNullOrEmpty(),
                                 onClick = lyricsTranslation.toggleTranslation,
+                            )
+                            RomanizationToggleButton(
+                                state = lyricsTranslation.romanizationState,
+                                showingRomanization = lyricsTranslation.showingRomanization,
+                                enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                onClick = lyricsTranslation.toggleRomanization,
                             )
                         }
                     }
@@ -4049,10 +3919,10 @@ private fun CanvasLyricStrip(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(top = 8.dp, start = titleStart, end = 20.dp),
+            .padding(top = 6.dp, start = titleStart, end = 20.dp),
     ) {
         AnimatedContent(
-            targetState = Triple(index, activeText, isInstrumental),
+            targetState = Triple(index, current, isInstrumental),
             transitionSpec = {
                 (fadeIn(tween(320, easing = FastOutSlowInEasing)) +
                     slideInVertically(tween(320, easing = FastOutSlowInEasing)) { (it * 0.4f).toInt() })
@@ -4063,22 +3933,308 @@ private fun CanvasLyricStrip(
             },
             modifier = Modifier.weight(1f, fill = false),
             label = "CanvasLyricStripTransition",
-        ) { (_, text, isInst) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        ) { (_, lineItem, isInst) ->
+            Row(verticalAlignment = Alignment.Top) {
                 if (isInst) {
-                    Icon(BitChordIcons.MusicNote, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                    Icon(
+                        imageVector = BitChordIcons.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .size(15.dp),
+                    )
                     Spacer(Modifier.width(6.dp))
                 }
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                val swept = lineItem?.takeIf { !isInst && it.isWordSynced }
+                if (swept != null) {
+                    SweptLyricLine(
+                        line = swept,
+                        clock = clock,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        ),
+                        dimAlpha = 0.55f,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        rise = false,
+                    )
+                } else {
+                    Text(
+                        text = if (isInst) activeText else (lineItem?.text ?: activeText),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isInst) Color.White.copy(alpha = 0.75f) else Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingTopBar(
+    topStrip: Dp,
+    statusBarTop: Dp,
+    topScrimBrush: Brush,
+    isWavePlay: Boolean,
+    spotifyChromeAlpha: Float,
+    p: () -> Float,
+    collapseAlmostDone: Boolean,
+    onOpenPlaybackSource: () -> Unit,
+    topBarGlyphTint: Color,
+    hideSongStatus: Boolean,
+    song: Song,
+    playedBy: String?,
+    openPlaybackOrigin: () -> Unit,
+    animatedCanvas: Boolean,
+    isTopBright: Boolean,
+    onToggleAnimatedCanvas: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .zIndex(1f)
+            .fillMaxWidth()
+            .height(topStrip)
+            .drawBehind {
+                val above = statusBarTop.toPx()
+                translate(top = -above) {
+                    drawRect(
+                        brush = topScrimBrush,
+                        size = Size(size.width, size.height + above),
+                    )
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!isWavePlay) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset {
+                        IntOffset(
+                            x = 0,
+                            y = lerp(
+                                6.dp,
+                                (topStrip - 5.dp).coerceAtLeast(0.dp) / 2,
+                                p(),
+                            ).roundToPx(),
+                        )
+                    }
+                    .width(38.dp)
+                    .height(5.dp)
+                    .graphicsLayer { alpha = spotifyChromeAlpha }
+                    .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.70f)),
+            )
+        }
+        if (isWavePlay) {
+            WhileShown({ !collapseAlmostDone }) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 16.dp, vertical = 2.dp)
+                        .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onOpenPlaybackSource,
+                            ),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = topBarGlyphTint,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                    if (!hideSongStatus) {
+                        PlaybackOriginCaption(
+                            text = playbackOriginText(song, playedBy),
+                            onClick = openPlaybackOrigin,
+                            textAlign = TextAlign.Center,
+                            contentPadding = PaddingValues(start = 8.dp, end = 8.dp),
+                            textColor = topBarGlyphTint,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                    SpotifyCanvasToggleButton(
+                        animatedCanvas = animatedCanvas,
+                        isTopBright = isTopBright,
+                        topBarGlyphTint = topBarGlyphTint,
+                        onToggle = onToggleAnimatedCanvas,
+                    )
+                }
+            }
+        } else if (!hideSongStatus) {
+            WhileShown({ !collapseAlmostDone }) {
+                PlaybackOriginCaption(
+                    text = playbackOriginText(song, playedBy),
+                    onClick = openPlaybackOrigin,
+                    textAlign = TextAlign.Center,
+                    contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = 1.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer { alpha = (1f - p()) * spotifyChromeAlpha },
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SpotifyCanvasToggleButton(
+    animatedCanvas: Boolean,
+    isTopBright: Boolean,
+    topBarGlyphTint: Color,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(36.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onToggle,
+            ),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        val activeTint = if (isTopBright) Color(0xFF15883E) else Color(0xFF1DB954)
+        val iconTint = if (animatedCanvas) activeTint else topBarGlyphTint.copy(alpha = 0.38f)
+        Icon(
+            painter = painterResource(Res.drawable.spotify_logo),
+            contentDescription = if (animatedCanvas) "Turn off Spotify Canvas" else "Turn on Spotify Canvas",
+            tint = iconTint,
+            modifier = Modifier
+                .size(22.dp)
+                .then(
+                    if (!animatedCanvas) {
+                        Modifier.drawWithContent {
+                            drawContent()
+                            val pad = 2.dp.toPx()
+                            val strokeWidth = 2.dp.toPx()
+                            drawLine(
+                                color = iconTint,
+                                start = Offset(size.width - pad, pad),
+                                end = Offset(pad, size.height - pad),
+                                strokeWidth = strokeWidth,
+                                cap = StrokeCap.Round,
+                            )
+                        }
+                    } else {
+                        Modifier
+                    }
+                ),
+        )
+    }
+}
+
+@Composable
+private fun PlayerOverlays(
+    playerHaze: HazeState,
+    accountName: String?,
+    accentColor: Color?,
+    isPlaying: Boolean,
+    showAudioOutput: Boolean,
+    onDismissAudioOutput: () -> Unit,
+    onOpenPipeline: () -> Unit,
+    onOpenCast: () -> Unit,
+    showLyricsProviders: Boolean,
+    onDismissLyricsProviders: () -> Unit,
+    lyricsSource: LyricsSource?,
+    lyricsProviderStates: Map<LyricsSource, LyricsProviderState>,
+    onSelectLyricsProvider: (LyricsSource) -> Unit,
+    showLyricsStyleSheet: Boolean,
+    onDismissLyricsStyleSheet: () -> Unit,
+    showAudioPipeline: Boolean,
+    onDismissAudioPipeline: () -> Unit,
+    showCast: Boolean,
+    onDismissCast: () -> Unit,
+    showListenTogetherMembers: Boolean,
+    onDismissListenTogetherMembers: () -> Unit,
+    onListenTogether: () -> Unit,
+    effectiveLyricsOffsetOpen: Boolean,
+    dismissLyricsOffset: () -> Unit,
+    lyricsShare: LyricsShareRequest?,
+    onDismissLyricsShare: () -> Unit,
+) {
+    if (showAudioOutput) {
+        AudioOutputSheet(
+            hazeState = playerHaze,
+            accountName = accountName,
+            onDismiss = onDismissAudioOutput,
+            onOpenPipeline = onOpenPipeline,
+            onOpenCast = onOpenCast,
+        )
+    }
+    if (showLyricsProviders) {
+        LyricsProviderSheet(
+            hazeState = playerHaze,
+            currentSource = lyricsSource,
+            states = lyricsProviderStates,
+            onSelect = onSelectLyricsProvider,
+            onDismiss = onDismissLyricsProviders,
+        )
+    }
+    if (showLyricsStyleSheet) {
+        LyricsStyleSheet(
+            hazeState = playerHaze,
+            onDismiss = onDismissLyricsStyleSheet,
+            accentColor = accentColor,
+        )
+    }
+    if (showAudioPipeline) {
+        AudioPipelineDialog(
+            hazeState = playerHaze,
+            isPlaying = isPlaying,
+            onDismiss = onDismissAudioPipeline,
+            accentColor = accentColor,
+        )
+    }
+    if (showCast) {
+        PlayerPlatform.host.CastDialog(
+            hazeState = playerHaze,
+            onDismiss = onDismissCast,
+        )
+    }
+    if (showListenTogetherMembers) {
+        ListenTogetherMembersSheet(
+            hazeState = playerHaze,
+            onDismiss = onDismissListenTogetherMembers,
+            onManage = {
+                onDismissListenTogetherMembers()
+                onListenTogether()
+            },
+        )
+    }
+    if (effectiveLyricsOffsetOpen) {
+        LyricsOffsetSheet(
+            hazeState = playerHaze,
+            onDismiss = dismissLyricsOffset,
+        )
+    }
+    lyricsShare?.let { request ->
+        PlayerPlatform.host.LyricsShareSheet(
+            hazeState = playerHaze,
+            request = request,
+            onDismiss = onDismissLyricsShare,
+        )
     }
 }
 

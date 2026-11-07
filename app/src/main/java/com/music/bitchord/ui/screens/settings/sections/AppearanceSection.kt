@@ -7,6 +7,11 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,7 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Check
@@ -55,6 +60,8 @@ import com.music.bitchord.data.settings.CustomPalette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -107,6 +114,7 @@ fun AppearanceSection(
     onBack: () -> Unit,
     onAppLanguage: () -> Unit,
     contentPadding: PaddingValues,
+    initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -131,6 +139,7 @@ fun AppearanceSection(
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+    val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
 
     val songSwipeRightAction by AppSettings.songSwipeRightAction.collectAsStateWithLifecycle()
@@ -163,7 +172,7 @@ fun AppearanceSection(
         showPerformanceConfirmation = true
     }
 
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     Column(
         modifier = modifier
@@ -178,70 +187,99 @@ fun AppearanceSection(
             onSearchQueryChange = { searchQuery = it },
         )
 
-        // Pinned Live Preview
-        AppearanceLivePreview()
+        // Matching flags for filtering within Appearance settings
+        val showColorPalette = matchesSearch(
+            searchQuery,
+            stringResource(R.string.color_palette),
+            stringResource(R.string.color_palette_subtitle),
+            stringResource(R.string.custom_saves),
+            stringResource(R.string.saved_presets),
+            "amber", "ruby", "amethyst", "jade", "sapphire", "emerald",
+        )
+        val showTheme = matchesSearch(
+            searchQuery,
+            stringResource(R.string.theme),
+            stringResource(R.string.pure_black_amoled),
+            stringResource(R.string.pure_black_amoled_desc),
+            "dark", "light", "oled", "black", "system",
+        )
+        val showTypography = matchesSearch(
+            searchQuery,
+            stringResource(R.string.system_typography),
+            appFontChoice.localizedLabel(),
+            appFontChoice.localizedDetail(),
+            "font", "slab", "modern", "default",
+        )
+        val showDisplayScale = matchesSearch(
+            searchQuery,
+            stringResource(R.string.display_density),
+            stringResource(R.string.display_density_subtitle),
+            "scale", "density", "compact", "comfortable",
+        )
+        val showLiquidGlass = matchesSearch(
+            searchQuery,
+            stringResource(R.string.liquid_glass),
+            stringResource(R.string.liquid_glass_subtitle),
+            stringResource(R.string.glass_intensity),
+            "liquid", "glass", "intensity", "blur", "refraction", "water",
+        )
+        val showReduceDynamicBlur = matchesSearch(
+            searchQuery,
+            stringResource(R.string.reduce_dynamic_blur),
+            stringResource(R.string.reduce_dynamic_blur_subtitle),
+            "blur", "performance",
+        )
+        val showReduceAnimation = matchesSearch(
+            searchQuery,
+            stringResource(R.string.reduce_animation),
+            stringResource(R.string.reduce_animation_subtitle),
+            "motion", "animations", "performance",
+        )
+        val showLivePreviewsSetting = matchesSearch(
+            searchQuery,
+            stringResource(R.string.settings_live_previews),
+            stringResource(R.string.settings_live_previews_desc),
+            "preview",
+        )
+        val showSwipeGestures = matchesSearch(
+            searchQuery,
+            stringResource(R.string.swipe_gestures),
+            stringResource(R.string.right_swipe_action),
+            stringResource(R.string.left_swipe_action),
+            "swipe", "gestures", "action",
+        )
+        val showHighPerformance = matchesSearch(
+            searchQuery,
+            stringResource(R.string.performance),
+            stringResource(R.string.high_performance_mode),
+            stringResource(R.string.high_performance_subtitle),
+            stringResource(R.string.refresh_rate),
+            "120hz", "90hz", "60hz", "hz", "smoothness", "battery",
+        )
+        val showLanguage = matchesSearch(
+            searchQuery,
+            stringResource(R.string.language),
+            stringResource(R.string.app_language),
+            "translate", "english", "locale",
+        )
 
-        // Single Unified Big Block for all Appearance Settings matching Image 1
-        SettingsGroup(header = stringResource(R.string.appearance)) {
-            val designStyleTitle = stringResource(R.string.design_style)
-            SettingsRow(
-                icon = Icons.Rounded.Style,
-                title = designStyleTitle,
-                subtitle = stringResource(R.string.design_style_subtitle),
-            )
-            SegmentedControl(
-                options = AppDesignStyle.entries.map { it.localizedLabel() },
-                selectedIndex = AppDesignStyle.entries.indexOf(designStyle),
-                onSelect = { AppSettings.setAppDesignStyle(AppDesignStyle.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(12.dp),
-            ) {
-                Text(
-                    text = designStyle.localizedDetail(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        val anyAppearanceMatch = showColorPalette ||
+            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
+            showReduceDynamicBlur || showReduceAnimation || showLivePreviewsSetting ||
+            showSwipeGestures || showHighPerformance || showLanguage
 
-            // Player Interface Switcher (WavePlay vs ChordPlay OG)
-            SettingsSectionDivider(title = stringResource(R.string.player_interface))
+        // Pinned Live Preview (hidden during active search)
+        if (searchQuery.isBlank()) {
+            AppearanceLivePreview()
+        }
 
-            SettingsRow(
-                icon = Icons.Rounded.GraphicEq,
-                title = stringResource(R.string.player_interface),
-                subtitle = stringResource(R.string.player_interface_desc),
-            )
-            SegmentedControl(
-                options = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.map { it.localizedLabel() },
-                selectedIndex = com.music.bitchord.data.settings.PlayerInterfaceStyle.entries.indexOf(playerInterfaceStyle),
-                onSelect = { AppSettings.setPlayerInterfaceStyle(com.music.bitchord.data.settings.PlayerInterfaceStyle.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 12.dp),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(12.dp),
-            ) {
-                Text(
-                    text = playerInterfaceStyle.localizedDetail(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // Curated Atmospheric Color Palettes (When ChordPlay Modern is active)
-            if (designStyle == AppDesignStyle.CHORDPLAY) {
-                SettingsSectionDivider(title = stringResource(R.string.color_palette))
+        if (searchQuery.isNotBlank() && !anyAppearanceMatch) {
+            SettingsSearchEmpty(query = searchQuery)
+        } else {
+            // Single Unified Big Block for all Appearance Settings (duplicate small header removed)
+            SettingsGroup(header = null, topSpacing = 14.dp) {
+                // Curated Atmospheric Color Palettes
+                if (showColorPalette) {
 
                 SettingsRow(
                     icon = Icons.Rounded.Palette,
@@ -392,222 +430,285 @@ fun AppearanceSection(
             }
 
             // Theme Mode (Dark, Light, System)
-            SettingsSectionDivider(title = stringResource(R.string.theme))
+            if (showTheme) {
+                if (showColorPalette) SettingsSectionDivider(title = stringResource(R.string.theme))
 
-            val themeTitle = stringResource(R.string.theme)
-            SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
-            SegmentedControl(
-                options = ThemeMode.entries.map { it.localizedLabel() },
-                selectedIndex = ThemeMode.entries.indexOf(theme),
-                onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-            )
-            SettingsRow(
-                icon = Icons.Rounded.Brightness4,
-                title = stringResource(R.string.pure_black_amoled),
-                subtitle = stringResource(R.string.pure_black_amoled_desc),
-                trailing = {
-                    Switch(
-                        checked = amoledDarkMode,
-                        onCheckedChange = AppSettings::setAmoledDarkMode,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setAmoledDarkMode(!amoledDarkMode) },
-            )
+                val themeTitle = stringResource(R.string.theme)
+                SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
+                SegmentedControl(
+                    options = ThemeMode.entries.map { it.localizedLabel() },
+                    selectedIndex = ThemeMode.entries.indexOf(theme),
+                    onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
+                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+                SettingsRow(
+                    icon = Icons.Rounded.Brightness4,
+                    title = stringResource(R.string.pure_black_amoled),
+                    subtitle = stringResource(R.string.pure_black_amoled_desc),
+                    trailing = {
+                        Switch(
+                            checked = amoledDarkMode,
+                            onCheckedChange = AppSettings::setAmoledDarkMode,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setAmoledDarkMode(!amoledDarkMode) },
+                )
+            }
 
             // System Typography
-            SettingsSectionDivider(title = stringResource(R.string.system_typography))
+            if (showTypography) {
+                if (showColorPalette || showTheme) SettingsSectionDivider(title = stringResource(R.string.system_typography))
 
-            SettingsRow(
-                icon = Icons.Rounded.Style,
-                title = appFontChoice.localizedLabel(),
-                subtitle = appFontChoice.localizedDetail(),
-            )
-            SegmentedControl(
-                options = AppFontChoice.entries.map { it.localizedLabel() },
-                selectedIndex = AppFontChoice.entries.indexOf(appFontChoice),
-                onSelect = { AppSettings.setAppFontChoice(AppFontChoice.entries[it]) },
-                modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-            )
-
-            // Display Density
-            SettingsSectionDivider(title = stringResource(R.string.display_density))
-
-            val displayDensityTitle = stringResource(R.string.display_density)
-            SliderRow(
-                icon = Icons.Rounded.GridView,
-                title = displayDensityTitle,
-                subtitle = stringResource(R.string.display_density_subtitle),
-                value = displayDensityLabel(displayDensityScale),
-                sliderValue = displayDensityScale,
-                onSliderValue = { AppSettings.setDisplayDensityScale(it) },
-                valueRange = AppSettings.MIN_DISPLAY_DENSITY_SCALE..AppSettings.MAX_DISPLAY_DENSITY_SCALE,
-                steps = 14,
-            )
-
-            // Glass & Animation Effects
-            SettingsSectionDivider(title = stringResource(R.string.liquid_glass))
-
-            val liquidGlassTitle = stringResource(R.string.liquid_glass)
-            SettingsRow(
-                icon = Icons.Rounded.AutoAwesome,
-                title = liquidGlassTitle,
-                subtitle = stringResource(
-                    if (liquidGlassSupported) R.string.liquid_glass_subtitle
-                    else R.string.liquid_glass_unavailable,
-                ),
-                enabled = liquidGlassSupported,
-                trailing = {
-                    Switch(
-                        checked = liquidGlass,
-                        onCheckedChange = AppSettings::setLiquidGlass,
-                        enabled = liquidGlassSupported,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
-            )
-
-            val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
-            SettingsRow(
-                icon = Icons.Rounded.BlurOff,
-                title = reduceDynamicBlurTitle,
-                subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
-                trailing = {
-                    Switch(
-                        checked = reduceDynamicBlur,
-                        onCheckedChange = AppSettings::setReduceDynamicBlur,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
-            )
-
-            val reduceAnimationTitle = stringResource(R.string.reduce_animation)
-            SettingsRow(
-                icon = Icons.Rounded.MotionPhotosOff,
-                title = reduceAnimationTitle,
-                subtitle = stringResource(R.string.reduce_animation_subtitle),
-                trailing = {
-                    Switch(
-                        checked = reduceAnimation,
-                        onCheckedChange = AppSettings::setReduceAnimation,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
-            )
-
-            val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
-            SettingsRow(
-                icon = Icons.Rounded.Visibility,
-                title = stringResource(R.string.settings_live_previews),
-                subtitle = stringResource(R.string.settings_live_previews_desc),
-                trailing = {
-                    Switch(
-                        checked = showLivePreviews,
-                        onCheckedChange = AppSettings::setShowSettingsLivePreviews,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setShowSettingsLivePreviews(!showLivePreviews) },
-            )
-
-            // Swipe Gestures
-            SettingsSectionDivider(title = stringResource(R.string.swipe_gestures))
-
-            SettingsRow(
-                icon = Icons.Rounded.SwipeRight,
-                title = stringResource(R.string.right_swipe_action),
-                subtitle = songSwipeRightAction.localizedLabel(),
-                onClick = { showRightSwipePicker = true },
-            )
-            SettingsRow(
-                icon = Icons.Rounded.SwipeLeft,
-                title = stringResource(R.string.left_swipe_action),
-                subtitle = songSwipeLeftAction.localizedLabel(),
-                onClick = { showLeftSwipePicker = true },
-            )
-
-            // Performance & Refresh Rates
-            SettingsSectionDivider(title = stringResource(R.string.performance))
-
-            val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
-            SettingsRow(
-                icon = Icons.Rounded.Speed,
-                title = highPerformanceModeTitle,
-                subtitle = if (highPerformanceMode) {
-                    stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate ?: 120)
-                } else {
-                    stringResource(R.string.high_performance_subtitle)
-                },
-                trailing = {
-                    Switch(
-                        checked = highPerformanceMode,
-                        onCheckedChange = { enable ->
-                            if (enable) showPerformanceWarning = true
-                            else AppSettings.setHighPerformanceMode(false)
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = {
-                    if (!highPerformanceMode) showPerformanceWarning = true
-                    else AppSettings.setHighPerformanceMode(false)
-                },
-            )
-
-            if (highPerformanceMode && supportedRefreshRates.isNotEmpty()) {
-                val refreshRateTitle = stringResource(R.string.refresh_rate)
-                val labels = supportedRefreshRates.map { rate ->
-                    if (rate == null) stringResource(R.string.system)
-                    else "${rate.toInt()} Hz"
-                }
-                val selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate).coerceAtLeast(0)
                 SettingsRow(
-                    icon = Icons.Rounded.Speed,
-                    title = refreshRateTitle,
+                    icon = Icons.Rounded.Style,
+                    title = appFontChoice.localizedLabel(),
+                    subtitle = appFontChoice.localizedDetail(),
                 )
                 SegmentedControl(
-                    options = labels,
-                    selectedIndex = selectedIndex,
-                    onSelect = { AppSettings.setPerformanceRefreshRate(supportedRefreshRates[it]) },
+                    options = AppFontChoice.entries.map { it.localizedLabel() },
+                    selectedIndex = AppFontChoice.entries.indexOf(appFontChoice),
+                    onSelect = { AppSettings.setAppFontChoice(AppFontChoice.entries[it]) },
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
 
-            // App Language
-            SettingsSectionDivider(title = stringResource(R.string.language))
+            // Display Density
+            if (showDisplayScale) {
+                if (showColorPalette || showTheme || showTypography) SettingsSectionDivider(title = stringResource(R.string.display_density))
 
-            val appLanguageTitle = stringResource(R.string.app_language)
-            val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
-                ?: Locale.getDefault().toLanguageTag()
-            SettingsRow(
-                icon = Icons.Rounded.Language,
-                title = appLanguageTitle,
-                subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
-                onClick = onAppLanguage,
-            )
+                val displayDensityTitle = stringResource(R.string.display_density)
+                SliderRow(
+                    icon = Icons.Rounded.GridView,
+                    title = displayDensityTitle,
+                    subtitle = stringResource(R.string.display_density_subtitle),
+                    value = displayDensityLabel(displayDensityScale),
+                    sliderValue = displayDensityScale,
+                    onSliderValue = { AppSettings.setDisplayDensityScale(it) },
+                    valueRange = AppSettings.MIN_DISPLAY_DENSITY_SCALE..AppSettings.MAX_DISPLAY_DENSITY_SCALE,
+                    steps = 14,
+                )
+            }
+
+            // Glass & Animation Effects
+            if (showLiquidGlass) {
+                if (showColorPalette || showTheme || showTypography || showDisplayScale) {
+                    SettingsSectionDivider(title = stringResource(R.string.liquid_glass))
+                }
+
+                val liquidGlassTitle = stringResource(R.string.liquid_glass)
+                SettingsRow(
+                    icon = Icons.Rounded.WaterDrop,
+                    title = liquidGlassTitle,
+                    subtitle = stringResource(
+                        if (liquidGlassSupported) R.string.liquid_glass_subtitle
+                        else R.string.liquid_glass_unavailable,
+                    ),
+                    enabled = liquidGlassSupported,
+                    trailing = {
+                        Switch(
+                            checked = liquidGlass,
+                            onCheckedChange = AppSettings::setLiquidGlass,
+                            enabled = liquidGlassSupported,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
+                )
+
+                AnimatedVisibility(
+                    visible = liquidGlass && liquidGlassSupported,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = TEXT_INSET, end = ROW_INSET, top = 4.dp, bottom = 12.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.glass_intensity),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = "${(liquidGlassIntensity * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Slider(
+                            value = liquidGlassIntensity,
+                            onValueChange = AppSettings::setLiquidGlassIntensity,
+                            valueRange = 0.1f..1f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                            ),
+                        )
+                    }
+                }
+            }
+
+            if (showReduceDynamicBlur) {
+                val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
+                SettingsRow(
+                    icon = Icons.Rounded.BlurOff,
+                    title = reduceDynamicBlurTitle,
+                    subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = reduceDynamicBlur,
+                            onCheckedChange = AppSettings::setReduceDynamicBlur,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
+                )
+            }
+
+            if (showReduceAnimation) {
+                val reduceAnimationTitle = stringResource(R.string.reduce_animation)
+                SettingsRow(
+                    icon = Icons.Rounded.MotionPhotosOff,
+                    title = reduceAnimationTitle,
+                    subtitle = stringResource(R.string.reduce_animation_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = reduceAnimation,
+                            onCheckedChange = AppSettings::setReduceAnimation,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+                )
+            }
+
+            if (showLivePreviewsSetting) {
+                val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
+                SettingsRow(
+                    icon = Icons.Rounded.Visibility,
+                    title = stringResource(R.string.settings_live_previews),
+                    subtitle = stringResource(R.string.settings_live_previews_desc),
+                    trailing = {
+                        Switch(
+                            checked = showLivePreviews,
+                            onCheckedChange = AppSettings::setShowSettingsLivePreviews,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setShowSettingsLivePreviews(!showLivePreviews) },
+                )
+            }
+
+            // Swipe Gestures
+            if (showSwipeGestures) {
+                SettingsSectionDivider(title = stringResource(R.string.swipe_gestures))
+
+                SettingsRow(
+                    icon = Icons.Rounded.SwipeRight,
+                    title = stringResource(R.string.right_swipe_action),
+                    subtitle = songSwipeRightAction.localizedLabel(),
+                    onClick = { showRightSwipePicker = true },
+                )
+                SettingsRow(
+                    icon = Icons.Rounded.SwipeLeft,
+                    title = stringResource(R.string.left_swipe_action),
+                    subtitle = songSwipeLeftAction.localizedLabel(),
+                    onClick = { showLeftSwipePicker = true },
+                )
+            }
+
+            // Performance & Refresh Rates
+            if (showHighPerformance) {
+                SettingsSectionDivider(title = stringResource(R.string.performance))
+
+                val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
+                SettingsRow(
+                    icon = Icons.Rounded.Speed,
+                    title = highPerformanceModeTitle,
+                    subtitle = if (highPerformanceMode) {
+                        stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate ?: 120)
+                    } else {
+                        stringResource(R.string.high_performance_subtitle)
+                    },
+                    trailing = {
+                        Switch(
+                            checked = highPerformanceMode,
+                            onCheckedChange = { enable ->
+                                if (enable) showPerformanceWarning = true
+                                else AppSettings.setHighPerformanceMode(false)
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = {
+                        if (!highPerformanceMode) showPerformanceWarning = true
+                        else AppSettings.setHighPerformanceMode(false)
+                    },
+                )
+
+                if (highPerformanceMode && supportedRefreshRates.isNotEmpty()) {
+                    val refreshRateTitle = stringResource(R.string.refresh_rate)
+                    val labels = supportedRefreshRates.map { rate ->
+                        if (rate == null) stringResource(R.string.system)
+                        else "${rate.toInt()} Hz"
+                    }
+                    val selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate).coerceAtLeast(0)
+                    SettingsRow(
+                        icon = Icons.Rounded.Speed,
+                        title = refreshRateTitle,
+                    )
+                    SegmentedControl(
+                        options = labels,
+                        selectedIndex = selectedIndex,
+                        onSelect = { AppSettings.setPerformanceRefreshRate(supportedRefreshRates[it]) },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
+            }
+
+            // App Language
+            if (showLanguage) {
+                SettingsSectionDivider(title = stringResource(R.string.language))
+
+                val appLanguageTitle = stringResource(R.string.app_language)
+                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
+                    ?: Locale.getDefault().toLanguageTag()
+                SettingsRow(
+                    icon = Icons.Rounded.Language,
+                    title = appLanguageTitle,
+                    subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
+                    onClick = onAppLanguage,
+                )
+            }
         }
+    }
     }
 
     if (showPerformanceWarning) {
