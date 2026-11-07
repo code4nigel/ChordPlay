@@ -1,3 +1,27 @@
+# ChordPlay v2.0.7 — Ultimate Performance, 120Hz Smoothness & Cold Launch Fix
+
+Welcome to ChordPlay v2.0.7! This release resolves the startup latency and frame drops, unlocking sustained 120 FPS smoothness on Android 15/16 flagships and fluid performance on budget and legacy Android devices:
+
+### Highlights of v2.0.7:
+- **Zero-Stutter 120Hz & Cold Launch Fix (Android 15/16 & Flagships)**:
+  - Fixed the cold launch hang and display stalling by disabling Compose's continuous adaptive refresh rate thread polling (`isAdaptiveRefreshRateEnabled = false`).
+  - Refactored high-performance display rate locking to cleanly request 120Hz/high FPS via WindowManager without forcing hardware display mode resets (`preferredDisplayModeId`).
+- **Instant Asynchronous Startup**:
+  - Removed blocking main-thread synchronization during `Application.onCreate()`, allowing encrypted storage, Keystore, and stream hook initialization to run concurrently in the background.
+  - Core UI renders immediately on cold start without frozen blank screens.
+- **Home Feed Memoization & Zero Main-Thread Stall**:
+  - Memoized home shelf customization ordering (`orderedShelves`, `beforeSpeedDialShelves`, `afterSpeedDialShelves`) so custom shelf orders are 100% preserved while eliminating redundant string operations and sorting during scroll.
+  - Added O(1) concurrent memoization for shelf categorization.
+  - Deferred secondary bottom shelves (remixes, videos, and supplements) by 400ms so core Quick Picks and living hero items load and draw instantly on the first frame.
+- **Official Production Release (R8 Compiler Optimizations)**:
+  - Transitioned builds to signed `prodRelease` with full R8 code optimization, dead-code removal, and bytecode devirtualization.
+  - Dramatic reduction in CPU overhead and memory footprint across all Android versions.
+- **Typography & Image Loading Optimizations**:
+  - Cached theme typography instances, eliminating repeated text style allocations on every theme recomposition.
+  - Enabled hardware bitmap allocation in Coil image loaders for zero-copy GPU texture rendering.
+
+---
+
 # ChordPlay v2.0.3 — Massive UI Overhaul, Offline Lyrics, Shelves Reordering & "Your Space" Release
 
 Welcome to ChordPlay v2.0.3! This release introduces a comprehensive visual and functional overhaul across the app, including offline synced lyrics, complete home shelf customization, an elevated Settings experience, "Your Space" speed dial enhancements, and robust offline playback:

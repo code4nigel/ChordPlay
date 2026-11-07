@@ -227,6 +227,35 @@ fun HomeScreen(
         } else emptyList()
     }
 
+    val showSpeedDial = speedDialItems.isNotEmpty() && HomeShelfKey.SPEED_DIAL !in disabledHomeShelves
+    val speedDialIndex = homeShelfOrder.indexOf(HomeShelfKey.SPEED_DIAL)
+
+    val orderedShelves = remember(state, designStyle, selectedMood, disabledHomeShelves, homeShelfOrder) {
+        if (state !is UiState.Success) emptyList()
+        else {
+            val base = if (designStyle == AppDesignStyle.CHORDPLAY) selectedMood.filterShelves(state.data) else state.data
+            base
+                .filter { it.toShelfKey() !in disabledHomeShelves }
+                .sortedBy { shelf ->
+                    val idx = homeShelfOrder.indexOf(shelf.toShelfKey())
+                    if (idx == -1) 999 else idx
+                }
+        }
+    }
+
+    val beforeSpeedDialShelves = remember(orderedShelves, speedDialIndex, showSpeedDial, homeShelfOrder) {
+        if (speedDialIndex == -1 || !showSpeedDial) emptyList()
+        else orderedShelves.filter {
+            val idx = homeShelfOrder.indexOf(it.toShelfKey())
+            idx in 0 until speedDialIndex
+        }
+    }
+
+    val afterSpeedDialShelves = remember(orderedShelves, beforeSpeedDialShelves, speedDialIndex, showSpeedDial) {
+        if (speedDialIndex == -1 || !showSpeedDial) orderedShelves
+        else orderedShelves.filterNot { it in beforeSpeedDialShelves }
+    }
+
     PullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -292,27 +321,6 @@ fun HomeScreen(
                     // The loading skeleton already owns the hero slot. Until
                     // Recently Played lands, every real shelf must retain its
                     // compact-card layout instead of briefly becoming a hero.
-                    val showSpeedDial = speedDialItems.isNotEmpty() && HomeShelfKey.SPEED_DIAL !in disabledHomeShelves
-                    val speedDialIndex = homeShelfOrder.indexOf(HomeShelfKey.SPEED_DIAL)
-
-                    val orderedShelves = run {
-                        val base = if (designStyle == AppDesignStyle.CHORDPLAY) selectedMood.filterShelves(state.data) else state.data
-                        base
-                            .filter { it.toShelfKey() !in disabledHomeShelves }
-                            .sortedBy { shelf ->
-                                val idx = homeShelfOrder.indexOf(shelf.toShelfKey())
-                                if (idx == -1) 999 else idx
-                            }
-                    }
-
-                    val beforeSpeedDialShelves = if (speedDialIndex == -1 || !showSpeedDial) emptyList()
-                    else orderedShelves.filter {
-                        val idx = homeShelfOrder.indexOf(it.toShelfKey())
-                        idx in 0 until speedDialIndex
-                    }
-
-                    val afterSpeedDialShelves = if (speedDialIndex == -1 || !showSpeedDial) orderedShelves
-                    else orderedShelves.filterNot { it in beforeSpeedDialShelves }
 
                     if (beforeSpeedDialShelves.isNotEmpty()) {
                         itemsIndexedShelves(
@@ -1422,9 +1430,11 @@ internal fun ShelfCard(
     }
 }
 
-private fun HomeShelf.toShelfKey(): HomeShelfKey {
+private val shelfKeyCache = java.util.concurrent.ConcurrentHashMap<String, HomeShelfKey>()
+
+private fun HomeShelf.toShelfKey(): HomeShelfKey = shelfKeyCache.getOrPut(title) {
     val t = title.lowercase()
-    return when {
+    when {
         t.contains("quick pick") || t.equals(RECENTS_TITLE, ignoreCase = true) -> HomeShelfKey.QUICK_PICKS
         t.contains("top pick") -> HomeShelfKey.TOP_PICKS
         t.contains("similar to") || t.contains("similar") || t.contains("tương tự") -> HomeShelfKey.SIMILAR_TO

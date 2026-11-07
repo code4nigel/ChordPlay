@@ -11,6 +11,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -521,12 +522,16 @@ fun ChordPlayTheme(
         extendedColors
     }
 
+    val typography = remember(appFontChoice) {
+        chordPlayTypography(fontFamilyFor(appFontChoice))
+    }
+
     CompositionLocalProvider(
         LocalChordPlayExtendedColors provides effectiveExtendedColors,
     ) {
         MaterialTheme(
             colorScheme = effectiveColorScheme,
-            typography = chordPlayTypography(fontFamilyFor(appFontChoice)),
+            typography = typography,
             content = content,
         )
     }

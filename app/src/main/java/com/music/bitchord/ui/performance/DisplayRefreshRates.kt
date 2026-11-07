@@ -58,13 +58,6 @@ fun Window.applyPerformanceRefreshRate(
     val layoutParams = attributes
     if (!enabled) {
         // Fall back to standard 60Hz / power savings mode
-        val modes = display?.supportedModes
-        val mode60 = modes?.firstOrNull { abs(it.refreshRate - 60f) < 1f }
-            ?: modes?.minByOrNull { abs(it.refreshRate - 60f) }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            layoutParams.preferredDisplayModeId = mode60?.modeId ?: 0
-        }
         @Suppress("DEPRECATION")
         layoutParams.preferredRefreshRate = 60f
 
@@ -83,13 +76,6 @@ fun Window.applyPerformanceRefreshRate(
         // High performance mode: unlock and lock to target refresh rate (e.g. 120Hz)
         val resolvedRate = display.resolvePerformanceRefreshRate(preferredRate)
         val rateFloat = resolvedRate.toFloat()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val targetMode = display.findModeForRefreshRate(resolvedRate)
-            if (targetMode != null) {
-                layoutParams.preferredDisplayModeId = targetMode.modeId
-            }
-        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {

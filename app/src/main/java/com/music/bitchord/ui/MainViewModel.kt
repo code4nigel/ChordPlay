@@ -1892,24 +1892,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
                     }
             }
+            // Defer secondary shelves slightly (400ms) so core home and quick picks load
+            // instantly and render the first frame without CPU or network contention.
             launch {
-                YtMusicRepository.homeRemixesShelf().onSuccess { shelf ->
-                    if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
-                }
-            }
-            launch {
-                YtMusicRepository.homeMusicVideosShelf().onSuccess { shelf ->
-                    if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
-                }
-            }
-            YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
+                delay(400)
+                if (!isCurrentHomeLoad(identity, generation)) return@launch
                 launch {
-                    try {
-                        YtMusicRepository.homeSupplement(browseId).onSuccess { shelves ->
-                            if (isCurrentHomeLoad(identity, generation)) publishHomeShelves(shelves)
+                    YtMusicRepository.homeRemixesShelf().onSuccess { shelf ->
+                        if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
+                    }
+                }
+                launch {
+                    YtMusicRepository.homeMusicVideosShelf().onSuccess { shelf ->
+                        if (isCurrentHomeLoad(identity, generation)) shelf?.let { publishHomeShelves(listOf(it)) }
+                    }
+                }
+                YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
+                    launch {
+                        try {
+                            YtMusicRepository.homeSupplement(browseId).onSuccess { shelves ->
+                                if (isCurrentHomeLoad(identity, generation)) publishHomeShelves(shelves)
+                            }
+                        } finally {
+                            homeShelfRequestSettled(identity, generation)
                         }
-                    } finally {
-                        homeShelfRequestSettled(identity, generation)
                     }
                 }
             }

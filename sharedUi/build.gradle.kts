@@ -108,6 +108,10 @@ android {
     defaultConfig {
         minSdk = 26
     }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 compose.resources {

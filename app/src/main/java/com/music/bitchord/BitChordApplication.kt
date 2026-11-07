@@ -2,6 +2,8 @@ package com.music.bitchord
 
 import android.app.Application
 import androidx.annotation.OptIn
+import androidx.compose.ui.ComposeUiFlags
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.media3.common.util.UnstableApi
 import coil3.ImageLoader
 import coil3.PlatformContext
@@ -9,6 +11,7 @@ import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
+import coil3.request.allowHardware
 import coil3.request.crossfade
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.DebugLog
@@ -60,7 +63,18 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                     else -> android.util.Log.e(tag, message, error)
                 }
             }
+        } else {
+            // R8 strips android.util.Log from a release build (proguard-rules.pro);
+            // this stops Media3 composing the lines it would have handed it.
+            androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF)
+            java.util.logging.LogManager.getLogManager().reset()
+            java.util.logging.Logger.getLogger("").level = java.util.logging.Level.OFF
         }
+        // Compose re-votes the window's frame rate from dispatchDraw on every
+        // frame (API 35+), building stack traces on the main thread per frame.
+        // The app manages its refresh rate cleanly via window attributes.
+        @kotlin.OptIn(ExperimentalComposeUiApi::class)
+        ComposeUiFlags.isAdaptiveRefreshRateEnabled = false
         // The Spotify library and import live in the shared module; the tokens are the WebView's.
         SpotifyLibrary.auth = SpotifyLibrary.Auth {
             SpotifyToken.accessToken()?.let { SpotifyLibrary.Tokens(it, SpotifyToken.clientToken()) }
@@ -161,7 +175,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         initLastfm()
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
-        backgroundInit.join()
+        // Background initialization runs asynchronously and does not stall cold startup on the main thread.
     }
 
     /**
@@ -199,6 +213,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // Covers arriving with a hard cut read as the list flickering as
             // it scrolls; a short fade reads as them developing.
             .crossfade(200)
+            .allowHardware(true)
             .build()
 
     private fun initLastfm() {
