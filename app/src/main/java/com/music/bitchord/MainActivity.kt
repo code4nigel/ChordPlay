@@ -279,6 +279,8 @@ import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
 import com.music.bitchord.ui.components.ServerEditorHost
 import com.music.bitchord.ui.components.UpdateAvailableDialog
+import com.music.bitchord.ui.components.DiwaliCelebrationDialog
+import com.music.bitchord.ui.utils.FestivalTheme
 import com.music.bitchord.ui.components.WebDavConflictAlert
 import com.music.bitchord.ui.components.FieldConfig
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -737,6 +739,31 @@ private fun BitChordApp(
     var showUpdateDialog by remember { mutableStateOf(false) }
     val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
 
+    // Diwali celebration popup state: shown once on the first launch of the festival
+    val diwaliPopupAlreadyShown by AppSettings.diwaliPopupShown.collectAsStateWithLifecycle()
+    var diwaliDialogDismissedThisSession by rememberSaveable { mutableStateOf(false) }
+    var showDiwaliDialog by remember { mutableStateOf(false) }
+
+    val dismissDiwaliDialog: () -> Unit = {
+        showDiwaliDialog = false
+        diwaliDialogDismissedThisSession = true
+        AppSettings.markDiwaliPopupShown()
+    }
+
+    val diwaliTriggerCount by FestivalTheme.requestDiwaliPopup.collectAsStateWithLifecycle()
+
+    LaunchedEffect(diwaliPopupAlreadyShown, diwaliDialogDismissedThisSession) {
+        if (FestivalTheme.isDiwaliActive() && !diwaliPopupAlreadyShown && !diwaliDialogDismissedThisSession) {
+            showDiwaliDialog = true
+        }
+    }
+
+    LaunchedEffect(diwaliTriggerCount) {
+        if (diwaliTriggerCount > 0) {
+            showDiwaliDialog = true
+        }
+    }
+
     /**
      * The single gate both surfaces read, so the icon can't announce the update
      * a beat before the popup does — they're one piece of news, and staggering
@@ -744,8 +771,8 @@ private fun BitChordApp(
      */
     val updateNotice = updateAvailable
 
-    LaunchedEffect(updateNotice) {
-        if (updateNotice != null && !updateDialogShown) {
+    LaunchedEffect(updateNotice, showDiwaliDialog) {
+        if (updateNotice != null && !updateDialogShown && !showDiwaliDialog) {
             updateDialogShown = true
             showUpdateDialog = true
         }
@@ -2666,6 +2693,7 @@ private fun BitChordApp(
         ) {
             selectedTab = TAB_HOME
         }
+        BackHandler(enabled = showDiwaliDialog) { dismissDiwaliDialog() }
         BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
         BackHandler(enabled = showListenBrainzLogin) { showListenBrainzLogin = false }
         BackHandler(enabled = showLastfmLogin) { showLastfmLogin = false }
@@ -5153,6 +5181,13 @@ private fun BitChordApp(
                     )
                 }
             }
+        }
+
+        // ---- Diwali Celebration (once per launch of the festival) ----
+        if (showDiwaliDialog) {
+            DiwaliCelebrationDialog(
+                onDismiss = dismissDiwaliDialog,
+            )
         }
 
         // ---- Update available (once per launch) ----

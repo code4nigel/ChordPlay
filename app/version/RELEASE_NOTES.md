@@ -1,3 +1,21 @@
+# ChordPlay v2.0.9 — Performance Polish, UI Fluidity & Dynamic Experience
+
+Welcome to ChordPlay v2.0.9! This release focuses on overall user experience refinements, interface polish, and stability enhancements across all supported devices:
+
+### Highlights of v2.0.9:
+- **UI Fluidity & Living Header Touch Controls**:
+  - Interactive touch enhancements across the Home header and branding surfaces with responsive tactile feedback.
+  - Smoothed out micro-interaction animations across top navigation and living audio stages.
+- **Dynamic Configuration & Seasonal Theming Engine**:
+  - Added support for dynamic seasonal updates and remote configuration parsing to deliver timely visual enhancements seamlessly.
+  - Enhanced theme state persistence across app cold launches and device rotations.
+- **Engine Stability & Memory Optimizations**:
+  - Fine-tuned background coroutine dispatchers for remote data queries and metadata caching.
+  - Further reduced memory allocation footprint during deep navigation transitions.
+  - General bug fixes and internal performance tweaks for all Android architectures.
+
+---
+
 # ChordPlay v2.0.7 — Ultimate Performance, 120Hz Smoothness & Cold Launch Fix
 
 Welcome to ChordPlay v2.0.7! This release resolves the startup latency and frame drops, unlocking sustained 120 FPS smoothness on Android 15/16 flagships and fluid performance on budget and legacy Android devices:

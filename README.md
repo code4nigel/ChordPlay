@@ -42,16 +42,28 @@ ChordPlay is built upon the open-source foundation of [BitChord](https://github.
 <div align="center">
   <table>
     <tr>
-      <td align="center" width="25%"><b>Home (Crimson)</b></td>
-      <td align="center" width="25%"><b>Home (Dynamic)</b></td>
-      <td align="center" width="25%"><b>Now Playing</b></td>
-      <td align="center" width="25%"><b>Canvas & Lyrics</b></td>
+      <td align="center" width="25%"><b>Living Home</b></td>
+      <td align="center" width="25%"><b>Modern Ambient</b></td>
+      <td align="center" width="25%"><b>Vinyl Turntable</b></td>
+      <td align="center" width="25%"><b>Synced Lyrics</b></td>
     </tr>
     <tr>
-      <td valign="top"><img src="Images/UI/chordplay_homescreen1.jpg" width="220" alt="Home Screen (Crimson Aura)" /></td>
-      <td valign="top"><img src="Images/UI/chordplay_homescreen2.jpg" width="220" alt="Home Screen (Dynamic Artwork)" /></td>
-      <td valign="top"><img src="Images/UI/chordplay_player.jpg" width="220" alt="Now Playing Stage" /></td>
-      <td valign="top"><img src="Images/UI/chordplay_player2.jpg" width="220" alt="Canvas and Synced Lyrics" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/chordplay_homescreen1.jpg" width="220" alt="Living Home Screen" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_1.jpg" width="220" alt="Modern Ambient Stage" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_2.jpg" width="220" alt="Vinyl Turntable Stage" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_Lyrics_ui.jpg" width="220" alt="Synced Lyrics View" /></td>
+    </tr>
+    <tr>
+      <td align="center" width="25%"><b>Living Player</b></td>
+      <td align="center" width="25%"><b>Album View</b></td>
+      <td align="center" width="25%"><b>Dynamic Feed</b></td>
+      <td align="center" width="25%"><b>Customization</b></td>
+    </tr>
+    <tr>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_3.jpg" width="220" alt="Living Player Stage" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_album.jpg" width="220" alt="Album View" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/chordplay_homescreen2.jpg" width="220" alt="Dynamic Artwork Feed" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_settings.jpg" width="220" alt="Settings & Customization" /></td>
     </tr>
   </table>
 </div>

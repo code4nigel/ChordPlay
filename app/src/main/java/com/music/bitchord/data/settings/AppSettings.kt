@@ -234,6 +234,9 @@ object AppSettings {
 
     private lateinit var prefs: SharedPreferences
 
+    /** Tracks whether the one-time Diwali celebration popup has been dismissed. */
+    val diwaliPopupShown = MutableStateFlow(false)
+
     /** Only for the Discord, WebDAV and SMB secrets — everything else on here is plain prefs. */
     private lateinit var authStore: AuthStore
 
@@ -1178,6 +1181,15 @@ object AppSettings {
         discordButton2Text.value = prefs.getString(KEY_DISCORD_BUTTON_2_TEXT, "").orEmpty()
         discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
         discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
+        diwaliPopupShown.value = prefs.getBoolean(KEY_DIWALI_POPUP_SHOWN_2026, false)
+    }
+
+    /**
+     * Marks the one-time Diwali celebration popup as shown and dismissed.
+     */
+    fun markDiwaliPopupShown() {
+        diwaliPopupShown.value = true
+        prefs.edit().putBoolean(KEY_DIWALI_POPUP_SHOWN_2026, true).apply()
     }
 
     /**
@@ -2612,6 +2624,7 @@ object AppSettings {
     private const val KEY_DISCORD_BUTTON_2_VISIBLE = "discord_button_2_visible"
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
+    private const val KEY_DIWALI_POPUP_SHOWN_2026 = "diwali_popup_shown_2026"
 }
 
 

@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.contextClick
+import com.music.bitchord.ui.components.AnimatedDiya
+import com.music.bitchord.ui.utils.FestivalTheme
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.painterResource
@@ -729,12 +731,22 @@ private fun ChordPlayHomeHeader(
         }
     }
 
+    val isDiwali = remember { FestivalTheme.isDiwaliActive() }
+
     Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            modifier = Modifier.padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    FestivalTheme.triggerDiwaliPopup()
+                },
         ) {
+            if (isDiwali) {
+                AnimatedDiya(size = 22.dp)
+            }
             Icon(
                 painter = painterResource(Res.drawable.ic_logo),
                 contentDescription = null,
@@ -749,6 +761,9 @@ private fun ChordPlayHomeHeader(
                 ),
                 color = MaterialTheme.colorScheme.primary,
             )
+            if (isDiwali) {
+                AnimatedDiya(size = 22.dp)
+            }
         }
         Box(
             modifier = Modifier.clickable {
