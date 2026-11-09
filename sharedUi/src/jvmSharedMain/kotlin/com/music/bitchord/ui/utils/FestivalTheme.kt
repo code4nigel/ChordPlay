@@ -1,36 +1,61 @@
 package com.music.bitchord.ui.utils
 
-import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Utility determining active festival windows and seasonal themes.
+ * Reactive state and configuration for seasonal festival themes and animations.
  */
 object FestivalTheme {
 
     /**
-     * Optional manual override for testing / remote config.
-     * When null, evaluates against system calendar date.
+     * Reactive StateFlow reflecting whether the seasonal festival theme is active.
+     * Initialized from local disk storage at cold start, then updated live via remote config.
      */
-    @Volatile
-    var forceDiwaliActive: Boolean? = null
+    val isFestivalActive = MutableStateFlow(false)
 
     /**
-     * Triggers manual re-opening of the Diwali popup (e.g. when tapping the ChordPlay header).
+     * Backwards-compatible alias for Diwali checks.
      */
-    val requestDiwaliPopup = MutableStateFlow(0)
+    val isDiwaliActive = isFestivalActive
+
+    /**
+     * Theme type identifier (e.g. "diwali", "christmas", "new_year", "generic").
+     */
+    val festivalThemeType = MutableStateFlow("diwali")
+
+    /**
+     * Optional remote decoration image/animation URL (e.g. Santa hat, snowman, campfire)
+     * displayed over or flanking the ChordPlay header logo.
+     */
+    val festivalLogoDecorationUrl = MutableStateFlow<String?>(null)
+
+    /**
+     * Request counter to trigger re-opening the celebration dialog.
+     */
+    val requestFestivalPopup = MutableStateFlow(0)
+    val requestDiwaliPopup = requestFestivalPopup
+
+    fun triggerFestivalPopup() {
+        if (isFestivalActive.value) {
+            requestFestivalPopup.value += 1
+        }
+    }
 
     fun triggerDiwaliPopup() {
-        requestDiwaliPopup.value += 1
+        triggerFestivalPopup()
     }
 
     /**
-     * Checks if today falls within the Diwali celebration period (November 8–10, 2026).
-     * Automatically returns false and turns off after the festival passes.
+     * Updates reactive theme state from local disk cache or remote config payload.
      */
-    fun isDiwaliActive(today: LocalDate = LocalDate.now()): Boolean {
-        forceDiwaliActive?.let { return it }
-        return (today.year == 2026 && today.monthValue == 11 && today.dayOfMonth in 8..10)
+    fun updateFromSettings(
+        active: Boolean,
+        themeType: String = "diwali",
+        logoDecorationUrl: String? = null,
+    ) {
+        isFestivalActive.value = active
+        festivalThemeType.value = themeType
+        festivalLogoDecorationUrl.value = logoDecorationUrl
     }
 }
-

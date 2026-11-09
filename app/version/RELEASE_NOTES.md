@@ -1,3 +1,23 @@
+# ChordPlay v2.1.0 — Global Localization, Dynamic Seasonal Engine & Rich Update Experience
+
+Welcome to ChordPlay v2.1.0! This release brings complete 18-language localization across all screens, a reactive remote festival and seasonal theming engine, and an enhanced update notice experience:
+
+### Highlights of v2.1.0:
+- **Comprehensive 18-Language Localization**:
+  - Full UI and metadata translation coverage across all 18 supported languages for both Android native and Compose Multiplatform shared layers.
+  - Dynamic in-app locale detection updates shelf headers, search filters, and settings on the fly.
+  - Integrated translation verification suite ensuring 100% string coverage across all locales.
+- **Dynamic Seasonal Theming & Remote Config**:
+  - Upgraded seasonal event architecture to dynamically adapt to holidays and festivals via remote configuration.
+  - Reactive theme state updates immediately without requiring an application restart.
+- **Rich Update Notice & Markdown Changelog**:
+  - Redesigned the update dialog with expanded layout, markdown styling, and support for visual banners and feature previews.
+- **Localized Home Recommendations & Shelf Matching**:
+  - Intelligent shelf categorization and duration/view count parsing adapted to all 18 languages.
+  - Streamlined `HomeShelfKey` mapping for recommendation feeds and Quick Picks.
+
+---
+
 # ChordPlay v2.0.9 — Performance Polish, UI Fluidity & Dynamic Experience
 
 Welcome to ChordPlay v2.0.9! This release focuses on overall user experience refinements, interface polish, and stability enhancements across all supported devices:

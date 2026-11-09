@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Teraz gra</string>
@@ -1524,4 +1524,15 @@
     <string name="support_community">Wsparcie i społeczność</string>
     <string name="reddit_community">Społeczność Reddit</string>
     <string name="reddit_community_subtitle">r/ChordPlay • Dołącz do naszych dyskusji i próśb</string>
+    <string name="search_source_youtube">YouTube</string>
+    <string name="search_addons_none">Brak włączonych wtyczek. Dodaj w Ustawienia → Źródła.</string>
+    <string name="spotify_use_spdc_token">Użyj tokenu sp_dc</string>
+    <string name="settings_live_previews">Podgląd na żywo w ustawieniach</string>
+    <string name="settings_live_previews_desc">Pokazuj interaktywne karty podglądu na żywo na górze ekranów wyglądu, odtwarzacza i tekstu piosenki</string>
+    <string name="lyrics_original_title">Szukaj tekstu z oryginalnym tytułem</string>
+    <string name="lyrics_original_title_desc">Przywróć oryginalny tytuł YouTube przed wyszukaniem tekstu, aby przetłumaczone tytuły nadal mogły zostać odnalezione</string>
+    <string name="categories_header">KATEGORIE</string>
+    <string name="settings_header">USTAWIENIA</string>
+    <string name="display_density">Zagęszczenie ekranu</string>
+    <string name="display_density_subtitle">Dostosuj skalę elementów interfejsu, aby zobaczyć więcej treści</string>
 </resources>

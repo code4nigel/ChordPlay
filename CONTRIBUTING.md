@@ -61,6 +61,27 @@ Run a specific test:
 - Contributors should run relevant tests, must not introduce new failures, and should document known pre-existing failures when applicable.
 - Keep diffs focused and minimal. Avoid unnecessary third-party dependencies.
 
+## Localization and Translations
+ChordPlay officially supports 18 languages across both the Android application and Compose Multiplatform shared UI modules.
+
+When adding new settings, renaming UI labels, or introducing new screens:
+1. Always add the English base key to `app/src/main/res/values/strings.xml` or `sharedUi/src/commonMain/composeResources/values/strings.xml`.
+2. Run the translation synchronization tool to check coverage:
+   ```bash
+   python tools/sync_translations.py --check
+   ```
+3. Export and import missing translations:
+   ```bash
+   python tools/sync_translations.py --export-missing missing.json
+   # ... add translations to missing.json ...
+   python tools/sync_translations.py --import-translations missing.json
+   ```
+4. Verify by running the localization unit test gate:
+   ```bash
+   ./gradlew testDevDebugUnitTest --tests "com.music.bitchord.LocaleStringsTest"
+   ```
+Pull requests introducing new keys that are missing from any of the 18 locales will fail automated tests. For full architecture and guidelines, refer to [docs/LOCALIZATION.md](docs/LOCALIZATION.md).
+
 ## Audio Changes and Telemetry
 For audio changes: application telemetry must not be presented as proof of physical hardware behavior unless that hardware behavior was actually verified.
 

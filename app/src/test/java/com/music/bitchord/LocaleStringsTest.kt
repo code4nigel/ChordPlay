@@ -31,6 +31,11 @@ class LocaleStringsTest(private val tag: String) {
             }
         }
 
+        private val sharedResDir: File by lazy {
+            val projectRoot = File(".").canonicalFile
+            File(projectRoot, "sharedUi/src/commonMain/composeResources")
+        }
+
         private fun parse(file: File): Document =
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file)
 
@@ -52,6 +57,11 @@ class LocaleStringsTest(private val tag: String) {
         private val baseKeys: Set<String> by lazy {
             translatableKeys(parse(File(resDir, "values/strings.xml")))
         }
+
+        private val sharedBaseKeys: Set<String> by lazy {
+            val f = File(sharedResDir, "values/strings.xml")
+            if (f.exists()) translatableKeys(parse(f)) else emptySet()
+        }
     }
 
     @Test
@@ -69,5 +79,22 @@ class LocaleStringsTest(private val tag: String) {
             "$folder/strings.xml is missing ${missingKeys.size} keys from values/strings.xml: $missingKeys",
             missingKeys.isEmpty(),
         )
+    }
+
+    @Test
+    fun sharedUiStrings_containsAllBaseKeys() {
+        val folder = when (tag) {
+            "zh-CN" -> "values-zh"
+            "zh-TW" -> "values-zh-rTW"
+            else -> "values-$tag"
+        }
+        val localeFile = File(sharedResDir, "$folder/strings.xml")
+        if (sharedBaseKeys.isNotEmpty() && localeFile.exists()) {
+            val missingKeys = sharedBaseKeys - translatableKeys(parse(localeFile))
+            assertTrue(
+                "sharedUi $folder/strings.xml is missing ${missingKeys.size} keys from sharedUi values/strings.xml: $missingKeys",
+                missingKeys.isEmpty(),
+            )
+        }
     }
 }

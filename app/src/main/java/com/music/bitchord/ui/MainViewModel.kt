@@ -26,6 +26,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
@@ -1692,6 +1693,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private var homeStale = false
 
+    private var lastLocaleTag: String = Innertube.currentLocaleTag
+
+    /**
+     * Checks whether the active application locale has changed since the last fetch.
+     * When changed, clears the session scope and re-fetches Home and Explore feeds
+     * so localized content from YouTube Music reflects the new language.
+     */
+    fun checkLocaleChange() {
+        val currentTag = Innertube.currentLocaleTag
+        if (currentTag != lastLocaleTag) {
+            lastLocaleTag = currentTag
+            HomeShelfKey.clearCache()
+            viewModelScope.launch {
+                Innertube.refreshSessionScope()
+                refresh(Feed.HOME)
+                loadExplore()
+            }
+        }
+    }
+
     /** Call when the home tab becomes visible. */
     fun onHomeShown() {
         if (!homeStale) return
@@ -1951,10 +1972,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val added = shelves.withoutRepeatsOf(existing)
             .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
         if (added.isNotEmpty()) {
-            val quickPicksIdx = existing.indexOfFirst { it.title.equals("Quick picks", ignoreCase = true) }
-            val updated = if (quickPicksIdx != -1 && added.any { it.title.equals("Top Picks for You", ignoreCase = true) }) {
-                val topPicks = added.first { it.title.equals("Top Picks for You", ignoreCase = true) }
-                val remaining = added.filterNot { it.title.equals("Top Picks for You", ignoreCase = true) }
+            val quickPicksIdx = existing.indexOfFirst {
+                HomeShelfKey.fromTitle(it.title) == HomeShelfKey.QUICK_PICKS || it.title.equals("Quick picks", ignoreCase = true)
+            }
+            val updated = if (quickPicksIdx != -1 && added.any {
+                HomeShelfKey.fromTitle(it.title) == HomeShelfKey.TOP_PICKS || it.title.equals("Top Picks for You", ignoreCase = true)
+            }) {
+                val topPicks = added.first {
+                    HomeShelfKey.fromTitle(it.title) == HomeShelfKey.TOP_PICKS || it.title.equals("Top Picks for You", ignoreCase = true)
+                }
+                val remaining = added.filterNot {
+                    HomeShelfKey.fromTitle(it.title) == HomeShelfKey.TOP_PICKS || it.title.equals("Top Picks for You", ignoreCase = true)
+                }
                 val list = existing.toMutableList()
                 list.add(quickPicksIdx + 1, topPicks)
                 list.addAll(remaining)

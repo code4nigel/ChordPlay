@@ -244,4 +244,10 @@
     <string name="shelf_new_albums_singles">नए एल्बम और एकल</string>
     <string name="shelf_top_songs">शीर्ष गीत</string>
     <string name="shelf_top_picks_desc">कलाकार स्टेशन, मिक्स और स्पॉटलाइट कार्ड</string>
+    <string name="add_to_playlist">प्लेलिस्ट में जोड़ें</string>
+    <string name="search_source_addons">ऐड-ऑन</string>
+    <string name="search_addons_hint">अपने ऐड-ऑन खोजें</string>
+    <string name="search_addons_empty">एक साथ सभी सक्षम ऐड-ऑन में खोजें। गाने सीधे ऐड-ऑन से चलते हैं।</string>
+    <string name="search_addons_no_results">किसी भी ऐड-ऑन में “%1” नहीं मिला।</string>
+    <string name="search_addons_none">कोई ऐड-ऑन सक्षम नहीं है। सेटिंग्स → स्रोत में जाकर जोड़ें।</string>
 </resources>

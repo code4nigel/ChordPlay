@@ -244,4 +244,10 @@
     <string name="shelf_new_albums_singles">Nowe albumy i single</string>
     <string name="shelf_top_songs">Najpopularniejsze utwory</string>
     <string name="shelf_top_picks_desc">Stacje wykonawców, miksy i wyróżnione karty</string>
+    <string name="add_to_playlist">Dodaj do playlisty</string>
+    <string name="search_source_addons">Wtyczki</string>
+    <string name="search_addons_hint">Szukaj w swoich wtyczkach</string>
+    <string name="search_addons_empty">Przeszukuj wszystkie włączone wtyczki naraz. Utwory odtwarzają się bezpośrednio z wtyczki.</string>
+    <string name="search_addons_no_results">Żadna wtyczka nie ma „%1”.</string>
+    <string name="search_addons_none">Brak włączonych wtyczek. Dodaj w Ustawienia → Źródła.</string>
 </resources>

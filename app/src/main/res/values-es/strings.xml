@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="playback_channel_name">Reproduciendo</string>
@@ -1457,4 +1457,15 @@
     <string name="support_community">Soporte y comunidad</string>
     <string name="reddit_community">Comunidad de Reddit</string>
     <string name="reddit_community_subtitle">r/ChordPlay • Únete a nuestra discusión y solicitudes</string>
+    <string name="search_source_youtube">YouTube</string>
+    <string name="search_addons_none">No hay complementos habilitados. Añade uno en Ajustes → Fuentes.</string>
+    <string name="spotify_use_spdc_token">Usar token sp_dc</string>
+    <string name="settings_live_previews">Vista previa en directo en ajustes</string>
+    <string name="settings_live_previews_desc">Mostrar tarjetas interactivas de vista previa en directo en la parte superior de los ajustes de apariencia, reproductor y letras</string>
+    <string name="lyrics_original_title">Buscar letra con título original</string>
+    <string name="lyrics_original_title_desc">Restaurar el título original de YouTube antes de buscar la letra, para que aún se puedan encontrar títulos traducidos</string>
+    <string name="categories_header">CATEGORÍAS</string>
+    <string name="settings_header">AJUSTES</string>
+    <string name="display_density">Densidad de pantalla</string>
+    <string name="display_density_subtitle">Ajusta la escala de los elementos de la interfaz para ver más contenido</string>
 </resources>

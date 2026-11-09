@@ -504,6 +504,16 @@ private fun BitChordApp(
     appBackdrop: LayerBackdrop,
     viewModel: MainViewModel = viewModel(),
 ) {
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.checkLocaleChange()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val hazeState = remember { HazeState() }
@@ -750,17 +760,24 @@ private fun BitChordApp(
         AppSettings.markDiwaliPopupShown()
     }
 
-    val diwaliTriggerCount by FestivalTheme.requestDiwaliPopup.collectAsStateWithLifecycle()
+    val isFestivalActive by FestivalTheme.isFestivalActive.collectAsStateWithLifecycle()
+    val diwaliTriggerCount by FestivalTheme.requestFestivalPopup.collectAsStateWithLifecycle()
 
-    LaunchedEffect(diwaliPopupAlreadyShown, diwaliDialogDismissedThisSession) {
-        if (FestivalTheme.isDiwaliActive() && !diwaliPopupAlreadyShown && !diwaliDialogDismissedThisSession) {
+    LaunchedEffect(diwaliPopupAlreadyShown, isFestivalActive, diwaliDialogDismissedThisSession) {
+        if (isFestivalActive && !diwaliPopupAlreadyShown && !diwaliDialogDismissedThisSession) {
             showDiwaliDialog = true
         }
     }
 
     LaunchedEffect(diwaliTriggerCount) {
-        if (diwaliTriggerCount > 0) {
+        if (diwaliTriggerCount > 0 && isFestivalActive) {
             showDiwaliDialog = true
+        }
+    }
+
+    LaunchedEffect(isFestivalActive) {
+        if (!isFestivalActive && showDiwaliDialog) {
+            showDiwaliDialog = false
         }
     }
 

@@ -435,7 +435,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     shelves.forEachIndexed { index, shelf ->
         item(key = shelf.title + index) {
             val openItem: (ShelfItem) -> Unit = { item -> onItemClick(item, shelf.title) }
-            if (shelf.title.equals(RECENTS_TITLE, ignoreCase = true) || shelf.title.equals("Quick picks", ignoreCase = true)) {
+            val shelfKey = shelf.toShelfKey()
+            if (shelfKey == HomeShelfKey.QUICK_PICKS || shelf.title.equals(RECENTS_TITLE, ignoreCase = true)) {
                 RecentShelf(
                     shelf = shelf,
                     onItemClick = openItem,
@@ -731,7 +732,8 @@ private fun ChordPlayHomeHeader(
         }
     }
 
-    val isDiwali = remember { FestivalTheme.isDiwaliActive() }
+    val isFestivalActive by FestivalTheme.isFestivalActive.collectAsStateWithLifecycle()
+    val festivalThemeType by FestivalTheme.festivalThemeType.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
         Row(
@@ -739,12 +741,19 @@ private fun ChordPlayHomeHeader(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .padding(bottom = 8.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable {
-                    FestivalTheme.triggerDiwaliPopup()
-                },
+                .then(
+                    if (isFestivalActive) {
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                FestivalTheme.triggerFestivalPopup()
+                            }
+                    } else {
+                        Modifier
+                    }
+                ),
         ) {
-            if (isDiwali) {
+            if (isFestivalActive && festivalThemeType == "diwali") {
                 AnimatedDiya(size = 22.dp)
             }
             Icon(
@@ -761,7 +770,7 @@ private fun ChordPlayHomeHeader(
                 ),
                 color = MaterialTheme.colorScheme.primary,
             )
-            if (isDiwali) {
+            if (isFestivalActive && festivalThemeType == "diwali") {
                 AnimatedDiya(size = 22.dp)
             }
         }
@@ -867,176 +876,425 @@ internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() 
 @Composable
 internal fun localizeShelfTitle(title: String): String {
     val trimmed = title.trim()
+    val lower = trimmed.lowercase(Locale.ROOT)
+
+    // Check "Similar to" across all 18 languages
+    val similarPrefixes = listOf(
+        "similar to", "tương tự như", "tương tự", "ähnlich wie", "aehnlich wie",
+        "similaire à", "similaire a", "similar a", "simile a", "podobne do",
+        "похоже на", "похожие на", "semelhante a", "mirip dengan", "คล้ายกับ",
+        "בדומה ל-", "בדומה ל", "דומה ל-", "דומה ל", "şuna benzer:", "şuna benzer", "benzer:",
+    )
+    for (prefix in similarPrefixes) {
+        if (lower.startsWith(prefix)) {
+            val rest = trimmed.substring(prefix.length).trim().removePrefix(":").removePrefix("-").trim()
+            if (rest.isNotEmpty()) return stringResource(Res.string.shelf_similar_to, rest)
+        }
+    }
+    val similarSuffixes = listOf(
+        "に似ている曲", "に似ている", " के समान", " से मिलते-जुलते", " से मिलते जुलते", " benzeri",
+    )
+    for (suffix in similarSuffixes) {
+        if (lower.endsWith(suffix.lowercase(Locale.ROOT))) {
+            val rest = trimmed.substring(0, trimmed.length - suffix.length).trim()
+            if (rest.isNotEmpty()) return stringResource(Res.string.shelf_similar_to, rest)
+        }
+    }
+    if (trimmed.startsWith("与") || trimmed.startsWith("與")) {
+        val candidate = trimmed.removePrefix("与").removePrefix("與")
+            .removeSuffix("类似").removeSuffix("類似").removeSuffix("相似").trim()
+        if (candidate.isNotEmpty()) {
+            return stringResource(Res.string.shelf_similar_to, candidate)
+        }
+    }
+
     return when {
         trimmed.equals("Recents", ignoreCase = true) ||
             trimmed.equals("Recently played", ignoreCase = true) ||
             trimmed.equals("Gần đây", ignoreCase = true) ||
-            trimmed.equals("最近", ignoreCase = true) ->
+            trimmed.equals("最近", ignoreCase = true) ||
+            trimmed.equals("Recientes", ignoreCase = true) ||
+            trimmed.equals("Récents", ignoreCase = true) ||
+            trimmed.equals("Zuletzt gehört", ignoreCase = true) ||
+            trimmed.equals("Ostatnio odtwarzane", ignoreCase = true) ||
+            trimmed.equals("Baru saja diputar", ignoreCase = true) ||
+            trimmed.equals("हाल ही में बजाया गया", ignoreCase = true) ||
+            trimmed.equals("Недавно воспроизведенные", ignoreCase = true) ||
+            trimmed.equals("最近播放", ignoreCase = true) ||
+            trimmed.equals("הושמעו לאחרונה", ignoreCase = true) ||
+            trimmed.equals("Son çalınanlar", ignoreCase = true) ||
+            trimmed.equals("เล่นล่าสุด", ignoreCase = true) ->
             stringResource(Res.string.shelf_recents)
-        trimmed.equals("Playlists", ignoreCase = true) ||
-            trimmed.equals("Danh sách phát", ignoreCase = true) ||
-            trimmed.equals("再生リスト", ignoreCase = true) ->
-            stringResource(Res.string.playlists)
-        trimmed.equals("Albums", ignoreCase = true) ||
-            trimmed.equals("Album", ignoreCase = true) ||
-            trimmed.equals("アルバム", ignoreCase = true) ->
-            stringResource(Res.string.albums)
-        trimmed.equals("Artists", ignoreCase = true) ||
-            trimmed.equals("Nghệ sĩ", ignoreCase = true) ||
-            trimmed.equals("アーティスト", ignoreCase = true) ->
-            stringResource(Res.string.artists)
-        trimmed.equals("Subscriptions", ignoreCase = true) ||
-            trimmed.equals("Đã đăng ký", ignoreCase = true) ||
-            trimmed.equals("登録チャンネル", ignoreCase = true) ->
-            stringResource(Res.string.subscriptions)
-        trimmed.equals("Trending community playlists", ignoreCase = true) ||
-            trimmed.equals("Danh sách phát cộng đồng thịnh hành", ignoreCase = true) ||
-            trimmed.equals("Danh sách phát thịnh hành trong cộng đồng người dùng", ignoreCase = true) ||
-            trimmed.equals("急上昇のコミュニティ再生リスト", ignoreCase = true) ->
-            stringResource(Res.string.shelf_trending_community_playlists)
-        trimmed.equals("Featured playlists for you", ignoreCase = true) ||
-            trimmed.equals("Danh sách phát đề xuất cho bạn", ignoreCase = true) ||
-            trimmed.equals("Danh sách phát nổi bật dành cho bạn", ignoreCase = true) ||
-            trimmed.equals("おすすめの再生リスト", ignoreCase = true) ->
-            stringResource(Res.string.shelf_featured_playlists_for_you)
-        trimmed.equals("Quick picks", ignoreCase = true) ||
-            trimmed.equals("Lựa chọn nhanh", ignoreCase = true) ||
-            trimmed.equals("Chọn nhanh đài phát", ignoreCase = true) ||
-            trimmed.equals("クイック ミックス", ignoreCase = true) ->
+
+        lower.contains("quick pick") || lower.contains("quick_pick") ||
+            lower.contains("schnelle auswahl") || lower.contains("sélection rapide") || lower.contains("selection rapide") ||
+            lower.contains("szybki wybór") || lower.contains("szybki wybor") ||
+            lower.contains("selección rápida") || lower.contains("seleccion rapida") ||
+            lower.contains("escolhas rápidas") || lower.contains("escolhas rapidas") ||
+            lower.contains("pilihan instan") || lower.contains("pilihan cepat") ||
+            lower.contains("क्विक पिक्स") || lower.contains("त्वरित चयन") ||
+            lower.contains("クイック ミックス") || lower.contains("クイックミックス") || lower.contains("クイックピック") ||
+            lower.contains("быстрый выбор") || lower.contains("快速选择") || lower.contains("快速選擇") ||
+            lower.contains("בחירות מהירות") || lower.contains("בחירה מהירה") ||
+            lower.contains("scelte rapide") || lower.contains("scelta rapida") ||
+            lower.contains("hızlı seçimler") || lower.contains("hizli secimler") ||
+            lower.contains("เลือกด่วน") || lower.contains("ตัวเลือกด่วน") ||
+            lower.contains("lựa chọn nhanh") || lower.contains("chọn nhanh đài phát") ->
             stringResource(Res.string.shelf_quick_picks)
-        trimmed.equals("Listen again", ignoreCase = true) ||
-            trimmed.equals("Nghe lại", ignoreCase = true) ||
-            trimmed.equals("もう一度聴く", ignoreCase = true) ->
-            stringResource(Res.string.shelf_listen_again)
-        trimmed.equals("Mixed for you", ignoreCase = true) ||
-            trimmed.equals("Dành riêng cho bạn", ignoreCase = true) ||
-            trimmed.equals("ミックス", ignoreCase = true) ->
-            stringResource(Res.string.shelf_mixed_for_you)
-        trimmed.startsWith("Similar to", ignoreCase = true) -> {
-            val rest = trimmed.substring(10).trim()
-            stringResource(Res.string.shelf_similar_to, rest)
-        }
-        trimmed.startsWith("Tương tự như", ignoreCase = true) -> {
-            val rest = trimmed.substring(12).trim()
-            stringResource(Res.string.shelf_similar_to, rest)
-        }
-        trimmed.equals("Forgotten favorites", ignoreCase = true) ||
-            trimmed.equals("Giai điệu quen thuộc", ignoreCase = true) ||
-            trimmed.equals("よく聴いたお気に入りの曲", ignoreCase = true) ->
+
+        lower.contains("top pick") || lower.contains("top-auswahl") || lower.contains("top auswahl") ||
+            lower.contains("meilleures sélections") || lower.contains("meilleure selection") ||
+            lower.contains("najlepszy wybór") || lower.contains("najlepszy wybor") ||
+            lower.contains("principais escolhas") || lower.contains("pilihan teratas") ||
+            lower.contains("टॉप पिक्स") || lower.contains("главный выбор") || lower.contains("лучший выбор") ||
+            lower.contains("为你精选") || lower.contains("為你精選") || lower.contains("特别推荐") || lower.contains("特別推薦") ||
+            lower.contains("בחירות המובילות") || lower.contains("scelte migliori") || lower.contains("en iyi seçimler") ||
+            lower.contains("ตัวเลือกยอดนิยม") || lower.contains("lựa chọn hàng đầu") ->
+            stringResource(Res.string.shelf_top_picks_for_you)
+
+        lower.contains("forgotten favorite") || lower.contains("forgotten favourite") ||
+            lower.contains("giai điệu quen thuộc") || lower.contains("よく聴いたお気に入りの曲") ||
+            lower.contains("favoritos olvidados") || lower.contains("favoris oubliés") ||
+            lower.contains("vergangene favoriten") || lower.contains("zapomniane ulubione") ||
+            lower.contains("favoritos esquecidos") || lower.contains("भूले-बिसरे पसंदीदा") ||
+            lower.contains("забытые шедевры") || lower.contains("曾经常听的歌曲") || lower.contains("曾經常聽的好歌") ||
+            lower.contains("מועדפים שנשכחו") || lower.contains("preferiti dimenticati") ||
+            lower.contains("unutulan favoriler") || lower.contains("เพลงโปรดที่ลืมไปแล้ว") ->
             stringResource(Res.string.shelf_forgotten_favorites)
-        trimmed.equals("Recommended music videos", ignoreCase = true) ||
-            trimmed.equals("Video âm nhạc đề xuất", ignoreCase = true) ||
-            trimmed.equals("おすすめのミュージック ビデオ", ignoreCase = true) ->
-            stringResource(Res.string.shelf_recommended_music_videos)
-        trimmed.equals("From your library", ignoreCase = true) ||
-            trimmed.equals("Từ thư viện của bạn", ignoreCase = true) ||
-            trimmed.equals("ライブラリから", ignoreCase = true) ->
-            stringResource(Res.string.shelf_from_your_library)
-        trimmed.equals("Charts", ignoreCase = true) ||
-            trimmed.equals("Bảng xếp hạng", ignoreCase = true) ||
-            trimmed.equals("チャート", ignoreCase = true) ->
-            stringResource(Res.string.shelf_charts)
-        trimmed.equals("New releases", ignoreCase = true) ||
-            trimmed.equals("Bản phát hành mới", ignoreCase = true) ||
-            trimmed.equals("最新リリース", ignoreCase = true) ->
-            stringResource(Res.string.shelf_new_releases)
-        trimmed.equals("Top music videos", ignoreCase = true) ||
-            trimmed.equals("Video âm nhạc hàng đầu", ignoreCase = true) ||
-            trimmed.equals("人気のミュージック ビデオ", ignoreCase = true) ->
-            stringResource(Res.string.shelf_top_music_videos)
-        trimmed.equals("For you", ignoreCase = true) ||
-            trimmed.equals("Dành cho bạn", ignoreCase = true) ||
-            trimmed.equals("あなたへのおすすめ", ignoreCase = true) ->
+
+        lower.contains("listen again") || lower.contains("play again") ||
+            lower.contains("nochmal anhören") || lower.contains("nochmal anhoeren") ||
+            lower.contains("écouter à nouveau") || lower.contains("ecouter a nouveau") ||
+            lower.contains("volver a escuchar") || lower.contains("posłuchaj jeszcze raz") || lower.contains("posluchaj jeszcze raz") ||
+            lower.contains("ouvir novamente") || lower.contains("dengarkan lagi") || lower.contains("फिर से सुनें") ||
+            lower.contains("もう一度聴く") || lower.contains("слушать снова") ||
+            lower.contains("重新收听") || lower.contains("再次收聽") || lower.contains("再次聆聽") ||
+            lower.contains("האזנה חוזרת") || lower.contains("ascolta di nuovo") || lower.contains("tekrar dinle") ||
+            lower.contains("ฟังอีกครั้ง") || lower.contains("nghe lại") ->
+            stringResource(Res.string.shelf_listen_again)
+
+        (lower.contains("trending") || lower.contains("popul") || lower.contains("thịnh hành") || lower.contains("急上昇") || lower.contains("en alta") || lower.contains("тренд") || lower.contains("热门") || lower.contains("熱門") || lower.contains("มาแรง")) &&
+            (lower.contains("community") || lower.contains("cộng đồng") || lower.contains("コミュニティ") || lower.contains("comunidad") || lower.contains("communauté") || lower.contains("communaute") || lower.contains("społeczności") || lower.contains("comunidade") || lower.contains("komunitas") || lower.contains("समुदाय") || lower.contains("сообществ") || lower.contains("社群") || lower.contains("社区") || lower.contains("קהילה") || lower.contains("topluluk") || lower.contains("ชุมชน")) ->
+            stringResource(Res.string.shelf_trending_community_playlists)
+
+        lower.contains("featured playlist") || lower.contains("listas destacadas") || lower.contains("playlist destacadas") ||
+            lower.contains("playlists à la une") || lower.contains("empfohlene playlists") ||
+            lower.contains("polecane playlisty") || lower.contains("playlists em destaque") ||
+            lower.contains("playlist unggulan") || lower.contains("विशेष प्लेलिस्ट") ||
+            lower.contains("注目の再生リスト") || lower.contains("рекомендуемые плейлисты") ||
+            lower.contains("精选播放列表") || lower.contains("精選播放清單") ||
+            lower.contains("פלייליסטים נבחרים") || lower.contains("playlist in primo piano") ||
+            lower.contains("เพลย์ลิสต์แนะนำ") || lower.contains("danh sách phát nổi bật") || lower.contains("danh sách phát đề xuất") ->
+            stringResource(Res.string.shelf_featured_playlists_for_you)
+
+        lower.contains("mixed for you") || lower.contains("mixes para ti") || lower.contains("mix pour vous") ||
+            lower.contains("für dich gemixt") || lower.contains("fuer dich gemixt") || lower.contains("miks dla ciebie") ||
+            lower.contains("músicas para você") || lower.contains("dibuat khusus untuk anda") ||
+            lower.contains("आपके लिए मिक्स") || lower.contains("специально для вас") ||
+            lower.contains("量身打造") || lower.contains("为你打造") || lower.contains("為你打造") ||
+            lower.contains("מיקסים בשבילך") || lower.contains("mix per te") || lower.contains("sizin için karışık") ||
+            lower.contains("มิกซ์สำหรับคุณ") || lower.contains("dành riêng cho bạn") ->
+            stringResource(Res.string.shelf_mixed_for_you)
+
+        trimmed.equals("For you", ignoreCase = true) || trimmed.equals("Dành cho bạn", ignoreCase = true) ||
+            trimmed.equals("あなたへのおすすめ", ignoreCase = true) || trimmed.equals("Para ti", ignoreCase = true) ||
+            trimmed.equals("Pour vous", ignoreCase = true) || trimmed.equals("Für dich", ignoreCase = true) ||
+            trimmed.equals("Dla Ciebie", ignoreCase = true) || trimmed.equals("Para você", ignoreCase = true) ||
+            trimmed.equals("Untuk Anda", ignoreCase = true) || trimmed.equals("आपके लिए", ignoreCase = true) ||
+            trimmed.equals("Для вас", ignoreCase = true) || trimmed.equals("为你推荐", ignoreCase = true) ||
+            trimmed.equals("為你推薦", ignoreCase = true) || trimmed.equals("בשבילך", ignoreCase = true) ||
+            trimmed.equals("Per te", ignoreCase = true) || trimmed.equals("Sizin için", ignoreCase = true) ||
+            trimmed.equals("สำหรับคุณ", ignoreCase = true) ->
             stringResource(Res.string.shelf_for_you)
-        trimmed.equals("Hits today", ignoreCase = true) ||
-            trimmed.equals("Today's Hits", ignoreCase = true) ||
-            trimmed.equals("Bản hit hôm nay", ignoreCase = true) ||
-            trimmed.equals("今日のヒット曲", ignoreCase = true) ->
-            stringResource(Res.string.shelf_hits_today)
-        trimmed.equals("Artists on the rise", ignoreCase = true) ||
-            trimmed.equals("Nghệ sĩ đang lên", ignoreCase = true) ->
-            stringResource(Res.string.shelf_artists_on_the_rise)
-        trimmed.equals("Concerts", ignoreCase = true) ||
-            trimmed.equals("Buổi hòa nhạc", ignoreCase = true) ||
-            trimmed.equals("コンサート", ignoreCase = true) ->
-            stringResource(Res.string.shelf_concerts)
-        trimmed.startsWith("Shorts", ignoreCase = true) ||
+
+        lower.contains("remixes & edits") || lower.contains("remixes and edits") ||
+            lower.contains("remixes & edições") || lower.contains("remiksy i edycje") ||
+            lower.contains("रीमिक्स और एडिट") || lower.contains("remixes et versions") ||
+            lower.contains("remixes y ediciones") || lower.contains("重混与编辑") || lower.contains("重混與編輯") ||
+            lower.contains("bản phối lại & bản chỉnh sửa") ||
+            trimmed.equals("Remixes", ignoreCase = true) || trimmed.equals("Remix", ignoreCase = true) ||
+            trimmed.equals("Remiksy", ignoreCase = true) || trimmed.equals("रीमिक्स", ignoreCase = true) ||
+            trimmed.equals("リミックス", ignoreCase = true) || trimmed.equals("Ремиксы", ignoreCase = true) ||
+            trimmed.equals("混音", ignoreCase = true) || trimmed.equals("重混", ignoreCase = true) ->
+            stringResource(Res.string.shelf_remixes_edits)
+
+        lower.contains("covers and remixes") || lower.contains("covers & remixes") ||
+            lower.contains("カバーとリミックス") || lower.contains("versiones y remixes") ||
+            lower.contains("reprises et remixes") || lower.contains("covery i remiksy") ||
+            lower.contains("каверы и ремиксы") || lower.contains("翻唱和重混") || lower.contains("翻唱與重混") ->
+            stringResource(Res.string.shelf_covers_remixes)
+
+        lower.contains("music videos for you") || lower.contains("vídeos musicales para ti") ||
+            lower.contains("clips musicaux pour vous") || lower.contains("musikvideos für dich") ||
+            lower.contains("teledyski dla ciebie") || lower.contains("videoclipes para você") ||
+            lower.contains("आपके लिए संगीत वीडियो") || lower.contains("музыкальные клипы для вас") ||
+            lower.contains("为您精选音乐短片") || lower.contains("為您精選音樂影片") ->
+            stringResource(Res.string.shelf_music_videos_for_you)
+
+        lower.contains("recommended music video") || lower.contains("video âm nhạc đề xuất") ||
+            lower.contains("おすすめのミュージック ビデオ") || lower.contains("vídeos musicales recomendados") ||
+            lower.contains("clips musicaux recommandés") || lower.contains("empfohlene musikvideos") ||
+            lower.contains("polecane teledyski") || lower.contains("videoclipes recomendados") ||
+            lower.contains("video musik rekomendasi") || lower.contains("सुझाए गए संगीत वीडियो") ||
+            lower.contains("рекомендованные музыкальные клипы") || lower.contains("推荐音乐短片") ||
+            lower.contains("推薦音樂影片") || lower.contains("קליפים מומלצים") ||
+            lower.contains("video musicali consigliati") || lower.contains("önerilen müzik klipleri") ||
+            lower.contains("มิวสิกวิดีโอแนะนำ") ->
+            stringResource(Res.string.shelf_recommended_music_videos)
+
+        lower.contains("top music video") || lower.contains("video âm nhạc hàng đầu") ||
+            lower.contains("人気のミュージック ビデオ") || lower.contains("vídeos musicales populares") ||
+            lower.contains("meilleurs clips musicaux") || lower.contains("top-musikvideos") ||
+            lower.contains("najlepsze teledyski") || lower.contains("principais videoclipes") ||
+            lower.contains("शीर्ष संगीत वीडियो") || lower.contains("лучшие музыкальные клипы") ||
+            lower.contains("热门音乐短片") || lower.contains("熱門音樂影片") ||
+            lower.contains("i migliori video musicali") || lower.contains("มิวสิกวิดีโอยอดนิยม") ->
+            stringResource(Res.string.shelf_top_music_videos)
+
+        lower.contains("new music video") || lower.contains("nouveaux clips") ||
+            lower.contains("neue musikvideos") || lower.contains("nowe teledyski") ||
+            lower.contains("novos videoclipes") || lower.contains("नए संगीत वीडियो") ||
+            lower.contains("новые музыкальные клипы") || lower.contains("最新音乐短片") ||
+            lower.contains("最新音樂影片") || lower.contains("nuovi video musicali") ||
+            lower.contains("มิวสิกวิดีโอใหม่") ->
+            stringResource(Res.string.shelf_new_music_videos)
+
+        lower.contains("music video") || lower.contains("video âm nhạc") ||
+            lower.contains("ミュージック ビデオ") || lower.contains("vídeos musicales") ||
+            lower.contains("videos musicales") || lower.contains("clips musicaux") ||
+            lower.contains("musikvideos") || lower.contains("teledyski") ||
+            lower.contains("videoclipes") || lower.contains("संगीत वीडियो") ||
+            lower.contains("музыкальные клипы") || lower.contains("音乐短片") || lower.contains("音樂影片") ||
+            lower.contains("video musicali") || lower.contains("müzik klipleri") || lower.contains("มิวสิกวิดีโอ") ->
+            stringResource(Res.string.shelf_music_videos)
+
+        lower.startsWith("shorts") || lower.startsWith("short") ||
             trimmed.equals("Krótkie filmy", ignoreCase = true) ||
             trimmed.equals("Shorts nổi bật", ignoreCase = true) ||
             trimmed.equals("ショート", ignoreCase = true) ->
             stringResource(Res.string.shelf_shorts)
-        trimmed.equals("Trending", ignoreCase = true) ||
-            trimmed.equals("Thịnh hành", ignoreCase = true) ||
-            trimmed.equals("急上昇", ignoreCase = true) ->
+
+        lower.contains("youtube chart") || lower.contains("bảng xếp hạng youtube") ||
+            lower.contains("youtube チャート") || lower.contains("listas de youtube") ||
+            lower.contains("classements youtube") || lower.contains("youtube-charts") ||
+            lower.contains("listy youtube") || lower.contains("paradas do youtube") ||
+            lower.contains("यूट्यूब चार्ट") || lower.contains("чарты youtube") ||
+            lower.contains("youtube 排行榜") || lower.contains("youtube 發燒影片") ||
+            lower.contains("classifiche di youtube") || lower.contains("ชาร์ต youtube") ->
+            stringResource(Res.string.shelf_youtube_charts)
+
+        lower.contains("hits today") || lower.contains("today's hits") ||
+            lower.contains("bản hit hôm nay") || lower.contains("今日のヒット曲") ||
+            lower.contains("éxitos de hoy") || lower.contains("hits d'aujourd'hui") ||
+            lower.contains("hits von heute") || lower.contains("hity na dziś") ||
+            lower.contains("sucessos de hoje") || lower.contains("आज के हिट") ||
+            lower.contains("хиты сегодня") || lower.contains("今日热门") || lower.contains("今日熱門") ||
+            lower.contains("le hit di oggi") || lower.contains("günün hitleri") || lower.contains("เพลงฮิตวันนี้") ->
+            stringResource(Res.string.shelf_hits_today)
+
+        trimmed.equals("Trending", ignoreCase = true) || trimmed.equals("Thịnh hành", ignoreCase = true) ||
+            trimmed.equals("急上昇", ignoreCase = true) || trimmed.equals("Tendencias", ignoreCase = true) ||
+            trimmed.equals("Tendances", ignoreCase = true) || trimmed.equals("Trends", ignoreCase = true) ||
+            trimmed.equals("Na czasie", ignoreCase = true) || trimmed.equals("Em alta", ignoreCase = true) ||
+            trimmed.equals("Sedang tren", ignoreCase = true) || trimmed.equals("ट्रेंडिंग", ignoreCase = true) ||
+            trimmed.equals("В тренде", ignoreCase = true) || trimmed.equals("热门", ignoreCase = true) ||
+            trimmed.equals("發燒", ignoreCase = true) || trimmed.equals("חם ברשת", ignoreCase = true) ||
+            trimmed.equals("Di tendenza", ignoreCase = true) || trimmed.equals("Trendler", ignoreCase = true) ||
+            trimmed.equals("มาแรง", ignoreCase = true) ->
             stringResource(Res.string.shelf_trending)
-        trimmed.equals("Top Picks for You", ignoreCase = true) ||
-            trimmed.equals("Top picks for you", ignoreCase = true) ||
-            trimmed.equals("Top picks", ignoreCase = true) ->
-            stringResource(Res.string.shelf_top_picks_for_you)
-        trimmed.equals("Remixes & Edits", ignoreCase = true) ||
-            trimmed.equals("Remixes & edits", ignoreCase = true) ||
-            trimmed.equals("Remixes and edits", ignoreCase = true) ||
-            trimmed.equals("Remixes and edit", ignoreCase = true) ||
-            trimmed.equals("Remixes", ignoreCase = true) ->
-            stringResource(Res.string.shelf_remixes_edits)
-        trimmed.equals("Covers and remixes", ignoreCase = true) ||
-            trimmed.equals("Covers & remixes", ignoreCase = true) ->
-            stringResource(Res.string.shelf_covers_remixes)
-        trimmed.equals("Music Videos for You", ignoreCase = true) ||
-            trimmed.equals("Music videos for you", ignoreCase = true) ->
-            stringResource(Res.string.shelf_music_videos_for_you)
-        trimmed.equals("Music videos", ignoreCase = true) ||
-            trimmed.equals("Music Videos", ignoreCase = true) ->
-            stringResource(Res.string.shelf_music_videos)
-        trimmed.equals("New music videos", ignoreCase = true) ||
-            trimmed.equals("New Music Videos", ignoreCase = true) ->
-            stringResource(Res.string.shelf_new_music_videos)
-        trimmed.equals("Albums and singles", ignoreCase = true) ||
-            trimmed.equals("Albums & singles", ignoreCase = true) ->
-            stringResource(Res.string.shelf_albums_singles)
-        trimmed.equals("New albums and singles and top songs", ignoreCase = true) ||
-            trimmed.equals("New albums & singles & top songs", ignoreCase = true) ->
+
+        trimmed.equals("Charts", ignoreCase = true) || trimmed.equals("Chart", ignoreCase = true) ||
+            trimmed.equals("Bảng xếp hạng", ignoreCase = true) || trimmed.equals("チャート", ignoreCase = true) ||
+            trimmed.equals("Listas de éxitos", ignoreCase = true) || trimmed.equals("Classements", ignoreCase = true) ||
+            trimmed.equals("Listy przebojów", ignoreCase = true) || trimmed.equals("Paradas", ignoreCase = true) ||
+            trimmed.equals("Tangga lagu", ignoreCase = true) || trimmed.equals("चार्ट", ignoreCase = true) ||
+            trimmed.equals("Чарты", ignoreCase = true) || trimmed.equals("排行榜", ignoreCase = true) ||
+            trimmed.equals("熱門榜", ignoreCase = true) || trimmed.equals("מצעדים", ignoreCase = true) ||
+            trimmed.equals("Classifiche", ignoreCase = true) || trimmed.equals("Listeler", ignoreCase = true) ||
+            trimmed.equals("ชาร์ต", ignoreCase = true) ->
+            stringResource(Res.string.shelf_charts)
+
+        lower.contains("new albums and singles and top songs") || lower.contains("new albums & singles & top songs") ->
             stringResource(Res.string.shelf_new_albums_singles_top_songs)
-        trimmed.equals("New albums and singles", ignoreCase = true) ||
-            trimmed.equals("New albums & singles", ignoreCase = true) ->
+
+        lower.contains("new albums and singles") || lower.contains("new albums & singles") ||
+            lower.contains("nouveaux albums et singles") || lower.contains("neue alben und singles") ||
+            lower.contains("nowe albumy i single") || lower.contains("novos álbuns e singles") ||
+            lower.contains("नए एल्बम और सिंगल") || lower.contains("новые альбомы и синглы") ||
+            lower.contains("新专辑与单曲") || lower.contains("新專輯與單曲") || lower.contains("אלבומים וסינגלים חדשים") ||
+            lower.contains("nuovi album e singoli") || lower.contains("yeni albümler ve tekliler") ->
             stringResource(Res.string.shelf_new_albums_singles)
-        trimmed.equals("Top songs", ignoreCase = true) ->
+
+        lower.contains("albums and singles") || lower.contains("albums & singles") ->
+            stringResource(Res.string.shelf_albums_singles)
+
+        trimmed.equals("Top songs", ignoreCase = true) || trimmed.equals("Top Songs", ignoreCase = true) ||
+            trimmed.equals("Top-Titel", ignoreCase = true) || trimmed.equals("Meilleurs titres", ignoreCase = true) ||
+            trimmed.equals("Najlepsze utwory", ignoreCase = true) || trimmed.equals("Principais faixas", ignoreCase = true) ||
+            trimmed.equals("शीर्ष गीत", ignoreCase = true) || trimmed.equals("Лучшие треки", ignoreCase = true) ||
+            trimmed.equals("热门歌曲", ignoreCase = true) || trimmed.equals("熱門歌曲", ignoreCase = true) ->
             stringResource(Res.string.shelf_top_songs)
+
+        lower.contains("new release") || lower.contains("novedades") || lower.contains("nouveautés") ||
+            lower.contains("nouveautes") || lower.contains("neuerscheinungen") || lower.contains("nowe wydania") ||
+            lower.contains("lançamentos") || lower.contains("lancamentos") || lower.contains("rilis baru") ||
+            lower.contains("नई रिलीज़") || lower.contains("नई रिलीज") || lower.contains("最新リリース") ||
+            lower.contains("новинки") || lower.contains("新作品") || lower.contains("最新發行") || lower.contains("最新发行") ||
+            lower.contains("מהדורות חדשות") || lower.contains("nuove uscite") || lower.contains("yeni çıkanlar") ||
+            lower.contains("เพลงออกใหม่") || lower.contains("bản phát hành mới") ->
+            stringResource(Res.string.shelf_new_releases)
+
+        lower.contains("artists on the rise") || lower.contains("nghệ sĩ đang lên") ||
+            lower.contains("artistas en auge") || lower.contains("artistes émergents") ||
+            lower.contains("aufstrebende künstler") || lower.contains("wschodzący artyści") ||
+            lower.contains("उभरते कलाकार") || lower.contains("набирающие популярность исполнители") ||
+            lower.contains("新星艺人") || lower.contains("新星藝人") || lower.contains("artisti emergenti") ||
+            lower.contains("ศิลปินมาแรง") ->
+            stringResource(Res.string.shelf_artists_on_the_rise)
+
+        lower.contains("from your library") || lower.contains("từ thư viện của bạn") ||
+            lower.contains("ライブラリから") || lower.contains("de tu biblioteca") ||
+            lower.contains("de votre bibliothèque") || lower.contains("aus deiner mediathek") ||
+            lower.contains("z twojej biblioteki") || lower.contains("da sua biblioteca") ||
+            lower.contains("आपकी लाइब्रेरी से") || lower.contains("из вашей библиотеки") ||
+            lower.contains("来自媒体库") || lower.contains("來自音樂庫") ||
+            lower.contains("dalla tua raccolta") || lower.contains("kitaplığınızdan") ->
+            stringResource(Res.string.shelf_from_your_library)
+
+        trimmed.equals("Concerts", ignoreCase = true) || trimmed.equals("Buổi hòa nhạc", ignoreCase = true) ||
+            trimmed.equals("コンサート", ignoreCase = true) || trimmed.equals("Conciertos", ignoreCase = true) ||
+            trimmed.equals("Konzerte", ignoreCase = true) || trimmed.equals("Koncerty", ignoreCase = true) ||
+            trimmed.equals("Shows", ignoreCase = true) || trimmed.equals("Konser", ignoreCase = true) ||
+            trimmed.equals("कंसर्ट", ignoreCase = true) || trimmed.equals("Концерты", ignoreCase = true) ||
+            trimmed.equals("演唱会", ignoreCase = true) || trimmed.equals("演唱會", ignoreCase = true) ||
+            trimmed.equals("הופעות", ignoreCase = true) || trimmed.equals("Concerti", ignoreCase = true) ||
+            trimmed.equals("คอนเสิร์ต", ignoreCase = true) ->
+            stringResource(Res.string.shelf_concerts)
+
+        trimmed.equals("Playlists", ignoreCase = true) || trimmed.equals("Danh sách phát", ignoreCase = true) ||
+            trimmed.equals("再生リスト", ignoreCase = true) || trimmed.equals("Listas de reproducción", ignoreCase = true) ||
+            trimmed.equals("Listes de lecture", ignoreCase = true) || trimmed.equals("Playlisten", ignoreCase = true) ||
+            trimmed.equals("Playlisty", ignoreCase = true) || trimmed.equals("प्लेलिस्ट", ignoreCase = true) ||
+            trimmed.equals("Плейлисты", ignoreCase = true) || trimmed.equals("播放列表", ignoreCase = true) ||
+            trimmed.equals("播放清單", ignoreCase = true) ->
+            stringResource(Res.string.playlists)
+
+        trimmed.equals("Albums", ignoreCase = true) || trimmed.equals("Album", ignoreCase = true) ||
+            trimmed.equals("アルバム", ignoreCase = true) || trimmed.equals("Álbumes", ignoreCase = true) ||
+            trimmed.equals("Alben", ignoreCase = true) || trimmed.equals("Albumy", ignoreCase = true) ||
+            trimmed.equals("एल्बम", ignoreCase = true) || trimmed.equals("Альбомы", ignoreCase = true) ||
+            trimmed.equals("专辑", ignoreCase = true) || trimmed.equals("專輯", ignoreCase = true) ->
+            stringResource(Res.string.albums)
+
+        trimmed.equals("Artists", ignoreCase = true) || trimmed.equals("Nghệ sĩ", ignoreCase = true) ||
+            trimmed.equals("アーティスト", ignoreCase = true) || trimmed.equals("Artistas", ignoreCase = true) ||
+            trimmed.equals("Artistes", ignoreCase = true) || trimmed.equals("Künstler", ignoreCase = true) ||
+            trimmed.equals("Artyści", ignoreCase = true) || trimmed.equals("कलाकार", ignoreCase = true) ||
+            trimmed.equals("Исполнители", ignoreCase = true) || trimmed.equals("艺人", ignoreCase = true) ||
+            trimmed.equals("演出者", ignoreCase = true) ->
+            stringResource(Res.string.artists)
+
+        trimmed.equals("Subscriptions", ignoreCase = true) || trimmed.equals("Đã đăng ký", ignoreCase = true) ||
+            trimmed.equals("登録チャンネル", ignoreCase = true) || trimmed.equals("Suscripciones", ignoreCase = true) ||
+            trimmed.equals("Abonnements", ignoreCase = true) || trimmed.equals("Abos", ignoreCase = true) ||
+            trimmed.equals("Subskrypcje", ignoreCase = true) || trimmed.equals("सदस्यताएं", ignoreCase = true) ||
+            trimmed.equals("Подписки", ignoreCase = true) || trimmed.equals("订阅", ignoreCase = true) ||
+            trimmed.equals("訂閱內容", ignoreCase = true) ->
+            stringResource(Res.string.subscriptions)
+
         else -> title
     }
 }
+
 @Composable
 internal fun localizeShelfSubtitle(subtitle: String): String {
     val trimmed = subtitle.trim()
+    val lower = trimmed.lowercase(Locale.ROOT)
     return when {
-        trimmed.contains("start a radio", ignoreCase = true) ->
+        lower.contains("start a radio") || lower.contains("bắt đầu đài phát") ||
+            lower.contains("iniciar una radio") || lower.contains("lancer une radio") ||
+            lower.contains("radio starten") || lower.contains("rozpocznij radio") ||
+            lower.contains("iniciar uma rádio") || lower.contains("mulai radio") ||
+            lower.contains("रेडियो शुरू करें") || lower.contains("включить радиостанцию") ||
+            lower.contains("电台") || lower.contains("電台") || lower.contains("רדיו") ||
+            lower.contains("avvia una radio") || lower.contains("radyo başlat") ||
+            lower.contains("เริ่มวิทยุ") || lower.contains("ラジオを開始") ->
             stringResource(Res.string.shelf_start_radio_desc)
-        trimmed.contains("fresh drops", ignoreCase = true) ||
-            trimmed.contains("Stations, mixes", ignoreCase = true) ->
+
+        lower.contains("fresh drops") || lower.contains("stations, mixes") ||
+            lower.contains("bản phát hành mới và tuyển tập") || lower.contains("estaciones, mezclas") ||
+            lower.contains("stations, mix") || lower.contains("sender, mixes") ||
+            lower.contains("stacje, miksy") || lower.contains("estações, mixes") ||
+            lower.contains("stasiun, campuran") || lower.contains("स्टेशन, मिक्स") ||
+            lower.contains("радиостанции, миксы") || lower.contains("电台、合辑") ||
+            lower.contains("電台、合輯") || lower.contains("stazioni, mix") ||
+            lower.contains("istasyonlar, karışıklar") || lower.contains("สถานี, มิกซ์") ||
+            lower.contains("ステーション、ミックス") ->
             stringResource(Res.string.shelf_stations_mixes_desc)
-        trimmed.contains("Artist stations", ignoreCase = true) ||
-            trimmed.contains("spotlight cards", ignoreCase = true) ->
+
+        lower.contains("artist stations") || lower.contains("spotlight cards") ||
+            lower.contains("thẻ tiêu điểm") || lower.contains("tarjetas destacadas") ||
+            lower.contains("cartes à la une") || lower.contains("spotlight-karten") ||
+            lower.contains("karty polecanych") || lower.contains("cartões de destaque") ||
+            lower.contains("kartu sorotan") || lower.contains("स्पॉटलाइट कार्ड") ||
+            lower.contains("карточки с акцентом") || lower.contains("焦点卡片") ||
+            lower.contains("焦點卡片") || lower.contains("schede in primo piano") ||
+            lower.contains("öne çıkan kartlar") || lower.contains("การ์ดไฮไลต์") ||
+            lower.contains("スポットライト カード") ->
             stringResource(Res.string.shelf_top_picks_desc)
-        trimmed.contains("club mixes", ignoreCase = true) ||
-            trimmed.contains("VIPs & reimagined", ignoreCase = true) ||
-            trimmed.contains("VIP edits", ignoreCase = true) ->
+
+        lower.contains("club mixes") || lower.contains("vips & reimagined") || lower.contains("vip edits") ||
+            lower.contains("bản phối câu lạc bộ") || lower.contains("mezclas de club") ||
+            lower.contains("mix club") || lower.contains("club-mixes") ||
+            lower.contains("klubowe miksy") || lower.contains("mixes de balada") ||
+            lower.contains("campuran klub") || lower.contains("क्लब मिक्स") ||
+            lower.contains("клубные миксы") || lower.contains("俱乐部混音") ||
+            lower.contains("夜店混音") || lower.contains("mix da club") ||
+            lower.contains("kulüp miksleri") || lower.contains("คลับมิกซ์") ||
+            lower.contains("クラブ ミックス") ->
             stringResource(Res.string.shelf_club_mixes_desc)
-        trimmed.contains("16:9 widescreen", ignoreCase = true) ||
-            trimmed.contains("widescreen official videos", ignoreCase = true) ->
+
+        lower.contains("16:9 widescreen") || lower.contains("widescreen official videos") ||
+            lower.contains("màn hình rộng 16:9") || lower.contains("pantalla ancha 16:9") ||
+            lower.contains("écran large 16:9") || lower.contains("16:9-breitbild") ||
+            lower.contains("panoramiczne 16:9") || lower.contains("widescreen 16:9") ||
+            lower.contains("layar lebar 16:9") || lower.contains("16:9 वाइडस्क्रीन") ||
+            lower.contains("широкоформатные 16:9") || lower.contains("16:9 宽屏") ||
+            lower.contains("16:9 寬螢幕") || lower.contains("widescreen 16:9") ||
+            lower.contains("16:9 geniş ekran") || lower.contains("จอกว้าง 16:9") ||
+            lower.contains("16:9 ワイドスクリーン") ->
             stringResource(Res.string.shelf_widescreen_videos_desc)
-        trimmed.equals("TOP TUNES RIGHT NOW", ignoreCase = true) ||
-            trimmed.equals("Top tunes right now", ignoreCase = true) ||
-            trimmed.equals("Giai điệu hàng đầu hiện nay", ignoreCase = true) ||
-            trimmed.equals("注目の曲", ignoreCase = true) ->
+
+        lower.contains("top tunes right now") || lower.contains("giai điệu hàng đầu hiện nay") ||
+            lower.contains("canciones destacadas ahora") || lower.contains("meilleurs titres en ce moment") ||
+            lower.contains("top-titel im trend") || lower.contains("najlepsze utwory teraz") ||
+            lower.contains("as melhores do momento") || lower.contains("lagu terpopuler saat ini") ||
+            lower.contains("अभी के शीर्ष गीत") || lower.contains("главные треки прямо сейчас") ||
+            lower.contains("当前热门曲目") || lower.contains("熱門歌曲") ||
+            lower.contains("i brani più ascoltati del momento") || lower.contains("şu anda en popüler parçalar") ||
+            lower.contains("เพลงฮิตติดหูในขณะนี้") || lower.contains("注目の曲") ->
             stringResource(Res.string.shelf_top_tunes_right_now)
-        trimmed.equals("From the community", ignoreCase = true) ||
-            trimmed.equals("Từ cộng đồng", ignoreCase = true) ||
-            trimmed.equals("コミュニティより", ignoreCase = true) ->
+
+        lower.contains("from the community") || lower.contains("từ cộng đồng") ||
+            lower.contains("de la comunidad") || lower.contains("de la communauté") || lower.contains("de la communaute") ||
+            lower.contains("aus der community") || lower.contains("ze społeczności") || lower.contains("ze spolecznosci") ||
+            lower.contains("da comunidade") || lower.contains("dari komunitas") ||
+            lower.contains("समुदाय से") || lower.contains("от сообщества") ||
+            lower.contains("来自社区") || lower.contains("來自社群") || lower.contains("מהקהילה") ||
+            lower.contains("dalla community") || lower.contains("topluluktan") ||
+            lower.contains("จากชุมชน") || lower.contains("コミュニティより") ->
             stringResource(Res.string.shelf_from_the_community)
-        trimmed.equals("YouTube Charts", ignoreCase = true) ||
-            trimmed.equals("Bảng xếp hạng YouTube", ignoreCase = true) ||
-            trimmed.equals("YouTube チャート", ignoreCase = true) ->
+
+        lower.contains("youtube chart") || lower.contains("bảng xếp hạng youtube") ||
+            lower.contains("listas de youtube") || lower.contains("classements youtube") ||
+            lower.contains("youtube-charts") || lower.contains("listy youtube") ||
+            lower.contains("paradas do youtube") || lower.contains("tangga lagu youtube") ||
+            lower.contains("यूट्यूब चार्ट") || lower.contains("чарты youtube") ||
+            lower.contains("youtube 排行榜") || lower.contains("youtube 發燒影片") ||
+            lower.contains("classifiche di youtube") || lower.contains("youtube listeleri") ||
+            lower.contains("ชาร์ต youtube") || lower.contains("youtube チャート") ->
             stringResource(Res.string.shelf_youtube_charts)
+
         else -> subtitle
     }
 }
@@ -1055,28 +1313,74 @@ internal fun localizeCardSubtitle(subtitle: String): String {
         val lower = trimmed.lowercase(Locale.ROOT)
         when {
             trimmed.equals("Song", ignoreCase = true) || trimmed.equals("Titre", ignoreCase = true) ||
-                trimmed.equals("Bài hát", ignoreCase = true) || trimmed.equals("曲", ignoreCase = true) -> songLabel
+                trimmed.equals("Bài hát", ignoreCase = true) || trimmed.equals("曲", ignoreCase = true) ||
+                trimmed.equals("Canción", ignoreCase = true) || trimmed.equals("Cancion", ignoreCase = true) ||
+                trimmed.equals("Lied", ignoreCase = true) || trimmed.equals("Utwór", ignoreCase = true) ||
+                trimmed.equals("Utwor", ignoreCase = true) || trimmed.equals("Música", ignoreCase = true) ||
+                trimmed.equals("Musica", ignoreCase = true) || trimmed.equals("Lagu", ignoreCase = true) ||
+                trimmed.equals("गीत", ignoreCase = true) || trimmed.equals("Песня", ignoreCase = true) ||
+                trimmed.equals("歌曲", ignoreCase = true) || trimmed.equals("שיר", ignoreCase = true) ||
+                trimmed.equals("Brano", ignoreCase = true) || trimmed.equals("Şarkı", ignoreCase = true) ||
+                trimmed.equals("Sarki", ignoreCase = true) || trimmed.equals("เพลง", ignoreCase = true) -> songLabel
+
             trimmed.equals("Single", ignoreCase = true) || trimmed.equals("Đĩa đơn", ignoreCase = true) ||
-                trimmed.equals("シングル", ignoreCase = true) -> singleLabel
+                trimmed.equals("シングル", ignoreCase = true) || trimmed.equals("Sencillo", ignoreCase = true) ||
+                trimmed.equals("Singiel", ignoreCase = true) || trimmed.equals("Singel", ignoreCase = true) ||
+                trimmed.equals("सिंगल", ignoreCase = true) || trimmed.equals("Сингл", ignoreCase = true) ||
+                trimmed.equals("单曲", ignoreCase = true) || trimmed.equals("單曲", ignoreCase = true) ||
+                trimmed.equals("סינגל", ignoreCase = true) || trimmed.equals("Tekli", ignoreCase = true) ||
+                trimmed.equals("ซิงเกิล", ignoreCase = true) -> singleLabel
+
             trimmed.equals("Chart", ignoreCase = true) || trimmed.equals("Bảng xếp hạng", ignoreCase = true) ||
-                trimmed.equals("チャート", ignoreCase = true) -> chartLabel
+                trimmed.equals("チャート", ignoreCase = true) || trimmed.equals("Lista de éxitos", ignoreCase = true) ||
+                trimmed.equals("Classement", ignoreCase = true) || trimmed.equals("Charts", ignoreCase = true) ||
+                trimmed.equals("Lista przebojów", ignoreCase = true) || trimmed.equals("Parada", ignoreCase = true) ||
+                trimmed.equals("Tangga lagu", ignoreCase = true) || trimmed.equals("चार्ट", ignoreCase = true) ||
+                trimmed.equals("Чарт", ignoreCase = true) || trimmed.equals("排行榜", ignoreCase = true) ||
+                trimmed.equals("熱門榜", ignoreCase = true) || trimmed.equals("מצעד", ignoreCase = true) ||
+                trimmed.equals("Classifica", ignoreCase = true) || trimmed.equals("Liste", ignoreCase = true) ||
+                trimmed.equals("ชาร์ต", ignoreCase = true) -> chartLabel
+
             trimmed.equals("Playlist", ignoreCase = true) || trimmed.equals("Danh sách phát", ignoreCase = true) ||
-                trimmed.equals("再生リスト", ignoreCase = true) -> playlistLabel
-            lower.endsWith(" views") || lower.endsWith(" view") || lower.endsWith(" lượt xem") ||
-                lower.endsWith(" 回視聴") || lower.endsWith("回視聴") -> {
-                val count = trimmed.substringBeforeLast(' ', "").trim()
+                trimmed.equals("再生リスト", ignoreCase = true) || trimmed.equals("Lista de reproducción", ignoreCase = true) ||
+                trimmed.equals("Liste de lecture", ignoreCase = true) || trimmed.equals("Playlista", ignoreCase = true) ||
+                trimmed.equals("Daftar putar", ignoreCase = true) || trimmed.equals("प्लेलिस्ट", ignoreCase = true) ||
+                trimmed.equals("Плейлист", ignoreCase = true) || trimmed.equals("播放列表", ignoreCase = true) ||
+                trimmed.equals("播放清單", ignoreCase = true) || trimmed.equals("רשימת השמעה", ignoreCase = true) ||
+                trimmed.equals("Oynatma listesi", ignoreCase = true) || trimmed.equals("เพลย์ลิสต์", ignoreCase = true) -> playlistLabel
+
+            lower.contains("view") || lower.contains("lượt xem") || lower.contains("回視聴") ||
+                lower.contains("vistas") || lower.contains("vues") || lower.contains("aufrufe") ||
+                lower.contains("wyświetleń") || lower.contains("wyswietlen") || lower.contains("visualizações") ||
+                lower.contains("visualizacoes") || lower.contains("ditonton") || lower.contains("देखा गया") ||
+                lower.contains("просмотр") || lower.contains("次观看") || lower.contains("次觀看") ||
+                lower.contains("צפיות") || lower.contains("visualizzazioni") || lower.contains("görüntüleme") ||
+                lower.contains("goruntuleme") || lower.contains("ครั้ง") -> {
+                val count = trimmed.takeWhile { it.isDigit() || it == '.' || it == ',' || it == ' ' || it in "KkMmBb" }.trim()
                 if (count.any { it.isDigit() }) stringResource(Res.string.card_views_format, count) else part
             }
-            lower.endsWith(" plays") || lower.endsWith(" play") || lower.endsWith(" lượt phát") ||
-                lower.endsWith(" 回再生") || lower.endsWith("回再生") -> {
-                val count = trimmed.substringBeforeLast(' ', "").trim()
+
+            lower.contains("play") || lower.contains("lượt phát") || lower.contains("回再生") ||
+                lower.contains("reproducciones") || lower.contains("écoutes") || lower.contains("ecoutes") ||
+                lower.contains("wiedergaben") || lower.contains("odtworzeń") || lower.contains("odtworzen") ||
+                lower.contains("reproduções") || lower.contains("reproducoes") || lower.contains("diputar") ||
+                lower.contains("बजाया गया") || lower.contains("прослушиван") || lower.contains("次播放") ||
+                lower.contains("השמעות") || lower.contains("riproduzioni") || lower.contains("oynatma") -> {
+                val count = trimmed.takeWhile { it.isDigit() || it == '.' || it == ',' || it == ' ' || it in "KkMmBb" }.trim()
                 if (count.any { it.isDigit() }) stringResource(Res.string.card_plays_format, count) else part
             }
-            lower.endsWith(" songs") || lower.endsWith(" song") || lower.endsWith(" bài hát") ||
-                lower.endsWith(" 曲") || lower.endsWith("曲") -> {
-                val count = trimmed.substringBeforeLast(' ', "").trim()
+
+            lower.contains("song") || lower.contains("bài hát") || lower.contains("曲") ||
+                lower.contains("canciones") || lower.contains("titres") || lower.contains("titel") ||
+                lower.contains("utworów") || lower.contains("utworow") || lower.contains("músicas") ||
+                lower.contains("musicas") || lower.contains("lagu") || lower.contains("गाने") ||
+                lower.contains("трек") || lower.contains("首歌曲") || lower.contains("שירים") ||
+                lower.contains("brani") || lower.contains("şarkı") || lower.contains("sarki") ||
+                lower.contains("เพลง") -> {
+                val count = trimmed.takeWhile { it.isDigit() || it == '.' || it == ',' || it == ' ' || it in "KkMmBb" }.trim()
                 if (count.any { it.isDigit() }) stringResource(Res.string.card_songs_format, count) else part
             }
+
             else -> part
         }
     }
@@ -1196,7 +1500,9 @@ internal fun Shelf(
     currentSong: Song? = null,
     isPlaying: Boolean = false,
 ) {
-    val isVideoShelf = shelf.title.contains("video", ignoreCase = true) || shelf.items.any { it.isVideo }
+    val isVideoShelf = shelf.toShelfKey() == HomeShelfKey.MUSIC_VIDEOS ||
+        shelf.title.contains("video", ignoreCase = true) ||
+        shelf.items.any { it.isVideo }
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(shelf.title, shelf.subtitle)
         ShelfRow(
@@ -1445,22 +1751,8 @@ internal fun ShelfCard(
     }
 }
 
-private val shelfKeyCache = java.util.concurrent.ConcurrentHashMap<String, HomeShelfKey>()
-
-private fun HomeShelf.toShelfKey(): HomeShelfKey = shelfKeyCache.getOrPut(title) {
-    val t = title.lowercase()
-    when {
-        t.contains("quick pick") || t.equals(RECENTS_TITLE, ignoreCase = true) -> HomeShelfKey.QUICK_PICKS
-        t.contains("top pick") -> HomeShelfKey.TOP_PICKS
-        t.contains("similar to") || t.contains("similar") || t.contains("tương tự") -> HomeShelfKey.SIMILAR_TO
-        t.contains("community") || t.contains("cộng đồng") || t.contains("コミュニティ") -> HomeShelfKey.COMMUNITY_PLAYLISTS
-        t.contains("featured playlist") -> HomeShelfKey.FEATURED_PLAYLISTS
-        t.contains("chart") || t.contains("trending") || t.contains("bảng xếp hạng") || t.contains("thịnh hành") || t.contains("hits today") || t.contains("today's hits") -> HomeShelfKey.CHARTS
-        t.contains("remix") -> HomeShelfKey.REMIXES
-        t.contains("video") -> HomeShelfKey.MUSIC_VIDEOS
-        t.contains("mixed for you") || t.contains("my mix") || t.contains("mixes") -> HomeShelfKey.MIXED_FOR_YOU
-        t.contains("listen again") || t.contains("favorite") || t.contains("rotation") || t.contains("nghe lại") || t.contains("quen thuộc") -> HomeShelfKey.LISTEN_AGAIN
-        t.contains("new release") || t.contains("bản phát hành mới") || t.contains("mới") -> HomeShelfKey.NEW_RELEASES
-        else -> HomeShelfKey.OTHER
-    }
+fun clearShelfKeyCache() {
+    HomeShelfKey.clearCache()
 }
+
+internal fun HomeShelf.toShelfKey(): HomeShelfKey = HomeShelfKey.fromTitle(title)

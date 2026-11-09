@@ -244,4 +244,10 @@
     <string name="shelf_new_albums_singles">Nuevos álbumes y sencillos</string>
     <string name="shelf_top_songs">Mejores canciones</string>
     <string name="shelf_top_picks_desc">Estaciones de artistas, mezclas y tarjetas destacadas</string>
+    <string name="add_to_playlist">Añadir a lista de reproducción</string>
+    <string name="search_source_addons">Complementos</string>
+    <string name="search_addons_hint">Buscar en tus complementos</string>
+    <string name="search_addons_empty">Busca en todos los complementos habilitados a la vez. Las pistas se reproducen directamente desde el complemento.</string>
+    <string name="search_addons_no_results">Ningún complemento tiene “%1”.</string>
+    <string name="search_addons_none">No hay complementos habilitados. Añade uno en Ajustes → Fuentes.</string>
 </resources>

@@ -168,7 +168,8 @@ object YtMusicRepository {
 
         // 1. Direct "Quick picks" or "Mix" or "Recommendations" shelf
         val qpShelf = shelves.firstOrNull {
-            it.title.contains("quick", ignoreCase = true) ||
+            com.music.bitchord.data.settings.HomeShelfKey.fromTitle(it.title) == com.music.bitchord.data.settings.HomeShelfKey.QUICK_PICKS ||
+                it.title.contains("quick", ignoreCase = true) ||
                 it.title.contains("pick", ignoreCase = true) ||
                 it.title.contains("mix", ignoreCase = true) ||
                 it.title.contains("recommend", ignoreCase = true)
@@ -188,7 +189,8 @@ object YtMusicRepository {
         // 2. All shelves on Home (excluding shelves mentioning recent/history, and skipping top shelf if multiple exist)
         val candidateShelves = if (shelves.size > 1) {
             shelves.drop(1).filterNot {
-                it.title.contains("recent", ignoreCase = true) ||
+                com.music.bitchord.data.settings.HomeShelfKey.fromTitle(it.title) == com.music.bitchord.data.settings.HomeShelfKey.LISTEN_AGAIN ||
+                    it.title.contains("recent", ignoreCase = true) ||
                     it.title.contains("history", ignoreCase = true) ||
                     it.title.contains("listen again", ignoreCase = true)
             }

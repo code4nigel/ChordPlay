@@ -237,6 +237,13 @@ object AppSettings {
     /** Tracks whether the one-time Diwali celebration popup has been dismissed. */
     val diwaliPopupShown = MutableStateFlow(false)
 
+    /** Persistent seasonal festival states cached on disk. */
+    val festivalActive = MutableStateFlow(false)
+    val festivalId = MutableStateFlow("diwali_2026")
+    val festivalThemeType = MutableStateFlow("diwali")
+    val festivalLogoDecorationUrl = MutableStateFlow<String?>(null)
+    val festivalQuote = MutableStateFlow("")
+
     /** Only for the Discord, WebDAV and SMB secrets — everything else on here is plain prefs. */
     private lateinit var authStore: AuthStore
 
@@ -1182,6 +1189,48 @@ object AppSettings {
         discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
         discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
         diwaliPopupShown.value = prefs.getBoolean(KEY_DIWALI_POPUP_SHOWN_2026, false)
+
+        festivalActive.value = prefs.getBoolean(KEY_FESTIVAL_ACTIVE, false)
+        festivalId.value = prefs.getString(KEY_FESTIVAL_ID, "diwali_2026").orEmpty()
+        festivalThemeType.value = prefs.getString(KEY_FESTIVAL_THEME_TYPE, "diwali").orEmpty()
+        festivalLogoDecorationUrl.value = prefs.getString(KEY_FESTIVAL_LOGO_DECORATION_URL, null)
+        festivalQuote.value = prefs.getString(KEY_FESTIVAL_QUOTE, "").orEmpty()
+
+        com.music.bitchord.ui.utils.FestivalTheme.updateFromSettings(
+            active = festivalActive.value,
+            themeType = festivalThemeType.value,
+            logoDecorationUrl = festivalLogoDecorationUrl.value,
+        )
+    }
+
+    /**
+     * Updates persistent festival configuration on disk and synchronizes in-memory UI state.
+     */
+    fun setFestivalConfig(
+        active: Boolean,
+        id: String,
+        themeType: String,
+        logoDecorationUrl: String?,
+        quote: String,
+    ) {
+        festivalActive.value = active
+        festivalId.value = id
+        festivalThemeType.value = themeType
+        festivalLogoDecorationUrl.value = logoDecorationUrl
+        festivalQuote.value = quote
+        prefs.edit()
+            .putBoolean(KEY_FESTIVAL_ACTIVE, active)
+            .putString(KEY_FESTIVAL_ID, id)
+            .putString(KEY_FESTIVAL_THEME_TYPE, themeType)
+            .putString(KEY_FESTIVAL_LOGO_DECORATION_URL, logoDecorationUrl)
+            .putString(KEY_FESTIVAL_QUOTE, quote)
+            .apply()
+
+        com.music.bitchord.ui.utils.FestivalTheme.updateFromSettings(
+            active = active,
+            themeType = themeType,
+            logoDecorationUrl = logoDecorationUrl,
+        )
     }
 
     /**
@@ -2625,6 +2674,11 @@ object AppSettings {
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
     private const val KEY_DIWALI_POPUP_SHOWN_2026 = "diwali_popup_shown_2026"
+    private const val KEY_FESTIVAL_ACTIVE = "festival_active"
+    private const val KEY_FESTIVAL_ID = "festival_id"
+    private const val KEY_FESTIVAL_THEME_TYPE = "festival_theme_type"
+    private const val KEY_FESTIVAL_LOGO_DECORATION_URL = "festival_logo_decoration_url"
+    private const val KEY_FESTIVAL_QUOTE = "festival_quote"
 }
 
 
