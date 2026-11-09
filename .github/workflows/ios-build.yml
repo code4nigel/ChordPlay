@@ -59,9 +59,8 @@ jobs:
       - name: Assemble iOS App Bundle & Package IPA
         continue-on-error: true
         run: |
-          mkdir -p build/ios/ChordPlay.app/Frameworks
+          mkdir -p build/ios/ChordPlay.app
           cp iosApp/iosApp/Info.plist build/ios/ChordPlay.app/Info.plist
-          cp -R sharedUi/build/bin/iosArm64/releaseFramework/ChordPlaySharedUi.framework build/ios/ChordPlay.app/Frameworks/
 
           echo "Compiling Swift entry point..."
           xcrun -sdk iphoneos swiftc \
@@ -70,8 +69,7 @@ jobs:
             -F sharedUi/build/bin/iosArm64/releaseFramework \
             -framework ChordPlaySharedUi \
             iosApp/iosApp/iOSApp.swift iosApp/iosApp/ContentView.swift \
-            -o build/ios/ChordPlay.app/ChordPlay \
-            -Xlinker -rpath -Xlinker @executable_path/Frameworks
+            -o build/ios/ChordPlay.app/ChordPlay
           chmod +x build/ios/ChordPlay.app/ChordPlay
 
           echo "Packaging unsigned IPA..."
