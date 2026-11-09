@@ -1707,7 +1707,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             HomeShelfKey.clearCache()
             viewModelScope.launch {
                 Innertube.refreshSessionScope()
-                refresh(Feed.HOME)
+                loadHome()
                 loadExplore()
             }
         }
@@ -1998,6 +1998,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Refreshes the core feed without blanking the current Play page first. */
     private suspend fun refreshHome(identity: String?) = coroutineScope {
         val quickPicks = async { YtMusicRepository.homeQuickPicksShelf() }
+        val remixes = async { YtMusicRepository.homeRemixesShelf().getOrNull() }
+        val videos = async { YtMusicRepository.homeMusicVideosShelf().getOrNull() }
+        val supplements = async {
+            YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.flatMap { browseId ->
+                YtMusicRepository.homeSupplement(browseId).getOrDefault(emptyList())
+            }
+        }
         YtMusicRepository.home().onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
             homeContinuation = feed.continuation
@@ -2012,7 +2019,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     items = topPicksItems,
                 )
             } else null
-            val baseShelves = if (synthesizedTopPicks != null) listOf(synthesizedTopPicks) + feed.shelves else feed.shelves
+            val baseShelves = (listOfNotNull(synthesizedTopPicks) + feed.shelves + listOfNotNull(remixes.await(), videos.await()) + supplements.await())
             val shelves = baseShelves.withoutRepeatsOf(emptyList())
                 .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
             if (shelves.isNotEmpty()) _home.value = UiState.Success(shelves)

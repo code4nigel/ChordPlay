@@ -80,6 +80,7 @@ enum class HomeShelfKey(val id: String, val label: String, val subtitle: String)
                     t.contains("hızlı seçimler") || t.contains("hizli secimler") ||
                     t.contains("เลือกด่วน") || t.contains("ตัวเลือกด่วน") ||
                     t.contains("lựa chọn nhanh") || t.contains("chọn nhanh đài phát") || t.contains("lua chon nhanh") ||
+                    t.contains("猜你喜欢") || t.contains("歌曲快選") ||
                     t.contains("recents") || t.contains("recently played") || t.contains("gần đây") || t.contains("最近") -> QUICK_PICKS
 
                 // SIMILAR_TO
@@ -97,7 +98,7 @@ enum class HomeShelfKey(val id: String, val label: String, val subtitle: String)
                     t.contains("コミュニティ") || t.contains("comunidad") || t.contains("communauté") || t.contains("communaute") ||
                     t.contains("społeczności") || t.contains("spolecznosci") || t.contains("comunidade") ||
                     t.contains("komunitas") || t.contains("समुदाय") || t.contains("сообществ") ||
-                    t.contains("社群") || t.contains("社区") || t.contains("קהילה") ||
+                    t.contains("社群") || t.contains("社区") || t.contains("人气社区") || t.contains("人氣社群") || t.contains("קהילה") ||
                     t.contains("topluluk") || t.contains("ชุมชน") -> COMMUNITY_PLAYLISTS
 
                 // MUSIC_VIDEOS / SHORTS

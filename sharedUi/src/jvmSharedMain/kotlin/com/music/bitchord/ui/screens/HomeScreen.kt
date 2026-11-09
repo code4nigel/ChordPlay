@@ -935,6 +935,7 @@ internal fun localizeShelfTitle(title: String): String {
             lower.contains("क्विक पिक्स") || lower.contains("त्वरित चयन") ||
             lower.contains("クイック ミックス") || lower.contains("クイックミックス") || lower.contains("クイックピック") ||
             lower.contains("быстрый выбор") || lower.contains("快速选择") || lower.contains("快速選擇") ||
+            lower.contains("猜你喜欢") || lower.contains("歌曲快選") ||
             lower.contains("בחירות מהירות") || lower.contains("בחירה מהירה") ||
             lower.contains("scelte rapide") || lower.contains("scelta rapida") ||
             lower.contains("hızlı seçimler") || lower.contains("hizli secimler") ||
@@ -973,7 +974,7 @@ internal fun localizeShelfTitle(title: String): String {
             lower.contains("ฟังอีกครั้ง") || lower.contains("nghe lại") ->
             stringResource(Res.string.shelf_listen_again)
 
-        (lower.contains("trending") || lower.contains("popul") || lower.contains("thịnh hành") || lower.contains("急上昇") || lower.contains("en alta") || lower.contains("тренд") || lower.contains("热门") || lower.contains("熱門") || lower.contains("มาแรง")) &&
+        (lower.contains("trending") || lower.contains("popul") || lower.contains("thịnh hành") || lower.contains("急上昇") || lower.contains("en alta") || lower.contains("тренд") || lower.contains("热门") || lower.contains("熱門") || lower.contains("人气") || lower.contains("人氣") || lower.contains("มาแรง")) &&
             (lower.contains("community") || lower.contains("cộng đồng") || lower.contains("コミュニティ") || lower.contains("comunidad") || lower.contains("communauté") || lower.contains("communaute") || lower.contains("społeczności") || lower.contains("comunidade") || lower.contains("komunitas") || lower.contains("समुदाय") || lower.contains("сообществ") || lower.contains("社群") || lower.contains("社区") || lower.contains("קהילה") || lower.contains("topluluk") || lower.contains("ชุมชน")) ->
             stringResource(Res.string.shelf_trending_community_playlists)
 

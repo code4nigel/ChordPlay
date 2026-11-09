@@ -56,11 +56,17 @@ object LocaleTags {
         }
     }
 
-    /** Geo for Innertube context gl + InnerTubeX locale. */
+    /** Geo for Innertube context gl + InnerTubeX locale.
+     *
+     * Note: YouTube Music is not launched in Mainland China ("CN"); sending gl="CN"
+     * causes Google's Innertube API to return HTTP 400 INVALID_ARGUMENT.
+     * We map ZH_HANS to "SG" (Singapore), which officially uses Simplified Chinese
+     * and has full YouTube Music licensing and catalogue support.
+     */
     fun ytGl(appTag: String): String {
         return when (normalizeAppTag(appTag)) {
             ZH_HANT -> "TW"
-            ZH_HANS -> "CN"
+            ZH_HANS -> "SG"
             else -> "US"
         }
     }
