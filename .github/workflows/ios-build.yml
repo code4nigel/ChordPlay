@@ -61,6 +61,7 @@ jobs:
         run: |
           mkdir -p build/ios/ChordPlay.app
           cp iosApp/iosApp/Info.plist build/ios/ChordPlay.app/Info.plist
+          cp iosApp/iosApp/AppIcon.png build/ios/ChordPlay.app/AppIcon.png
 
           echo "Compiling Swift entry point..."
           xcrun -sdk iphoneos swiftc \

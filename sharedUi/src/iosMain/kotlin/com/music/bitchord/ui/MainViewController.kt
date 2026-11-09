@@ -12,17 +12,17 @@ import androidx.compose.ui.window.ComposeUIViewController
 import platform.UIKit.UIViewController
 
 fun MainViewController(): UIViewController = ComposeUIViewController {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "ChordPlay for iOS",
-            color = Color.White,
-            style = MaterialTheme.typography.headlineMedium,
-        )
+    MaterialTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "ChordPlay for iOS",
+                color = Color.White,
+            )
+        }
     }
 }
-
