@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 
-REPO = "chordplay-music/ChordPlay"
+REPO = "code4nigel/ChordPlay"
 PUBLIC_IPA = "ChordPlay.ipa"
 
 
@@ -77,3 +77,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

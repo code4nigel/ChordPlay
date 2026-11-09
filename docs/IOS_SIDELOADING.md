@@ -14,7 +14,7 @@ ChordPlay for iOS targets **iOS 16.0 or later**. Because ChordPlay is open-sourc
    - Tap **Sources** tab, then tap **+** in the top right.
    - Enter the permanent ChordPlay source URL:
      ```text
-     https://github.com/chordplay-music/ChordPlay/releases/download/ios/altstore-source.json
+     https://github.com/code4nigel/ChordPlay/releases/download/ios/altstore-source.json
      ```
 3. **Install & Update**:
    - Tap **FREE / INSTALL** next to ChordPlay.
@@ -28,7 +28,7 @@ ChordPlay for iOS targets **iOS 16.0 or later**. Because ChordPlay is open-sourc
 1. Install SideStore by following the [SideStore installation guide](https://docs.sidestore.io/docs/installation/prerequisites).
 2. Go to **Sources**, tap **+**, and add:
    ```text
-   https://github.com/chordplay-music/ChordPlay/releases/download/ios/altstore-source.json
+   https://github.com/code4nigel/ChordPlay/releases/download/ios/altstore-source.json
    ```
 3. Tap **Install**. SideStore handles background auto-refreshes directly over Wi-Fi without needing a PC plugged in!
 
@@ -38,7 +38,7 @@ ChordPlay for iOS targets **iOS 16.0 or later**. Because ChordPlay is open-sourc
 
 1. Download [Sideloadly for Windows](https://sideloadly.io/).
 2. Connect your iPhone via USB and trust your computer.
-3. Download the latest `ChordPlay-unsigned.ipa` from [ChordPlay GitHub Releases](https://github.com/chordplay-music/ChordPlay/releases/tag/ios).
+3. Download the latest `ChordPlay-unsigned.ipa` from [ChordPlay GitHub Releases](https://github.com/code4nigel/ChordPlay/releases/tag/ios).
 4. Drag `ChordPlay-unsigned.ipa` into Sideloadly.
 5. Enter your Apple ID and click **Start**.
 6. On your iPhone, go to **Settings → General → VPN & Device Management**, tap your developer certificate, and tap **Trust**.
@@ -50,3 +50,4 @@ ChordPlay for iOS targets **iOS 16.0 or later**. Because ChordPlay is open-sourc
 ## Background Playback & Signing Expiry Note
 - **Background Audio**: ChordPlay includes native `audio` background capabilities, so your music continues seamlessly when the screen locks or when switching between apps.
 - **7-Day Refresh**: Free Apple accounts require apps to be re-signed once every 7 days. AltStore and SideStore handle this automatically in the background as long as their refresh service is active.
+
