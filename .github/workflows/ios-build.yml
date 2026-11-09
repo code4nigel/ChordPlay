@@ -42,7 +42,9 @@ jobs:
 
       - name: Compile Release Framework for iPhone
         run: |
-          ./gradlew :sharedUi:linkReleaseFrameworkIosArm64 --stacktrace
+          ./gradlew :sharedUi:linkReleaseFrameworkIosArm64 --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx8192m -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" \
+            -Pkotlin.native.jvmArgs="-Xmx8192m -XX:MaxMetaspaceSize=1g"
 
       - name: Verify Framework Output
         run: |

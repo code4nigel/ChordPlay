@@ -59,6 +59,9 @@ kotlin {
             baseName = "ChordPlaySharedUi"
             isStatic = true
             export(project(":shared"))
+            freeCompilerArgs += listOf(
+                "-Xdisable-phases=DevirtualizationAnalysis"
+            )
         }
     }
 
