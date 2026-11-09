@@ -1,6 +1,9 @@
 name: Build iOS IPA & AltStore Feed
 
 on:
+  push:
+    branches:
+      - feature/ios-port
   workflow_dispatch:
     inputs:
       version:
@@ -59,3 +62,4 @@ jobs:
         with:
           name: ChordPlaySharedUi-framework
           path: sharedUi/build/bin/iosArm64/releaseFramework/
+
