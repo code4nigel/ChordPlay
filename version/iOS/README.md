@@ -11,3 +11,4 @@ This directory contains versioned iOS IPA builds, metadata, and AltStore/SideSto
 - **Bundle Identifier**: `com.dev.chordplay`
 - **Target Audience**: Developer testing, Xcode simulator builds, and rapid iterations.
 - **Purpose**: Can be installed side-by-side with production builds on testing devices without overwriting the production music library.
+

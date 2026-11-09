@@ -45,3 +45,4 @@ ChordPlay/
 2. **Audio Playback**: Uses Apple's native `AVPlayer` / `AVQueuePlayer` from `AVFoundation`, exposed through ChordPlay's `PlayerHost` interface.
 3. **Lock Screen Controls**: Integrated with `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter`.
 4. **Distribution**: Built as an unsigned `.ipa` on GitHub Actions and distributed via **AltStore / SideStore** and direct sideloading.
+
