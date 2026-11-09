@@ -20,7 +20,7 @@ import com.music.bitchord.ui.graphics.ColorUtils
 import com.music.bitchord.ui.graphics.forPixelAccess
 import com.music.bitchord.ui.graphics.paletteSwatches
 import com.music.bitchord.ui.graphics.toImageBitmap
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
@@ -103,7 +103,7 @@ fun rememberArtworkPalette(
     keyColors: ArtworkKeyColors? = null,
 ): ArtworkPalette {
     val scheme = MaterialTheme.colorScheme
-    val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
+    val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsState()
     // Always asked, so the composable call is unconditional; handed nothing to
     // read when the colours are already in hand.
     val decoded = rememberArtworkSeed(if (keyColors == null) imageUrl else null, artPx)
@@ -207,9 +207,21 @@ private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
  * from composition and from the resumption of [rememberArtworkPalette]'s
  * effect, both on the main thread, so it needs no locking of its own.
  */
-private val seedCache = object : LinkedHashMap<String, Seed>(0, 0.75f, true) {
-    override fun removeEldestEntry(eldest: Map.Entry<String, Seed>) = size > SEED_CACHE_ENTRIES
+private class SeedLruCache(private val maxSize: Int) {
+    private val map = mutableMapOf<String, Seed>()
+
+    fun get(key: String): Seed? = map[key]
+
+    operator fun set(key: String, value: Seed) {
+        if (map.size >= maxSize && !map.containsKey(key)) {
+            val oldest = map.keys.firstOrNull()
+            if (oldest != null) map.remove(oldest)
+        }
+        map[key] = value
+    }
 }
+
+private val seedCache = SeedLruCache(SEED_CACHE_ENTRIES)
 
 /** Deep enough to cover a session's browsing without holding a screenful of colours. */
 private const val SEED_CACHE_ENTRIES = 128

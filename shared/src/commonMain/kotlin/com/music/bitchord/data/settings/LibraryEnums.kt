@@ -56,7 +56,7 @@ enum class HomeShelfKey(val id: String, val label: String, val subtitle: String)
     companion object {
         val DEFAULT_ORDER: List<HomeShelfKey> = entries.toList()
 
-        private val cache = java.util.concurrent.ConcurrentHashMap<String, HomeShelfKey>()
+        private val cache = mutableMapOf<String, HomeShelfKey>()
 
         fun clearCache() {
             cache.clear()

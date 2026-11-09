@@ -1,11 +1,14 @@
 package com.music.bitchord.playback
 
+import kotlin.time.TimeSource
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+
+private val playbackNanosStart = TimeSource.Monotonic.markNow()
 
 /**
  * The playhead, deliberately kept out of [PlayerState].
@@ -66,7 +69,7 @@ class PlaybackPosition {
      * — the desktop's audio thread — so it carries the moment it was true and
      * not the moment it arrived.
      */
-    fun report(positionMs: Long, sampledAtNanos: Long = System.nanoTime()) {
+    fun report(positionMs: Long, sampledAtNanos: Long = playbackNanosStart.elapsedNow().inWholeNanoseconds) {
         this.positionMs = positionMs
         this.sampledAtNanos = sampledAtNanos
     }
