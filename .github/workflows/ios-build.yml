@@ -18,10 +18,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: ios-build-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-ios:
     name: Build iPhone IPA
@@ -63,3 +59,34 @@ jobs:
           name: ChordPlaySharedUi-framework
           path: sharedUi/build/bin/iosArm64/releaseFramework/
 
+      - name: Assemble iOS App Bundle & Package IPA
+        continue-on-error: true
+        run: |
+          mkdir -p build/ios/ChordPlay.app/Frameworks
+          cp iosApp/iosApp/Info.plist build/ios/ChordPlay.app/Info.plist
+          cp -R sharedUi/build/bin/iosArm64/releaseFramework/ChordPlaySharedUi.framework build/ios/ChordPlay.app/Frameworks/
+
+          echo "Compiling Swift entry point..."
+          xcrun -sdk iphoneos swiftc \
+            -target arm64-apple-ios16.0 \
+            -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
+            -F sharedUi/build/bin/iosArm64/releaseFramework \
+            -framework ChordPlaySharedUi \
+            iosApp/iosApp/iOSApp.swift iosApp/iosApp/ContentView.swift \
+            -o build/ios/ChordPlay.app/ChordPlay \
+            -Xlinker -rpath -Xlinker @executable_path/Frameworks
+          chmod +x build/ios/ChordPlay.app/ChordPlay
+
+          echo "Packaging unsigned IPA..."
+          python3 tools/ios_package.py build/ios/ChordPlay.app build/ios/ChordPlay-unsigned.ipa
+          ls -la build/ios/
+
+      - name: Upload iOS IPA Artifacts
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChordPlay-iOS-IPA
+          path: |
+            build/ios/ChordPlay-unsigned.ipa
+            build/ios/ChordPlay-unsigned.ipa.sha256
+            build/ios/ChordPlay-unsigned.ipa.json
