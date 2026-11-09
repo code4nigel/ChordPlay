@@ -42,12 +42,12 @@ jobs:
 
       - name: Build shared iOS Frameworks
         run: |
-          ./gradlew :shared:compileIosMainKotlinMetadata
-          ./gradlew :sharedUi:compileIosMainKotlinMetadata
+          ./gradlew :shared:compileIosMainKotlinMetadata --stacktrace
+          ./gradlew :sharedUi:compileIosMainKotlinMetadata --stacktrace
 
       - name: Compile Release Framework for iPhone
         run: |
-          ./gradlew :sharedUi:linkReleaseFrameworkIosArm64
+          ./gradlew :sharedUi:linkReleaseFrameworkIosArm64 --stacktrace
 
       - name: Verify Framework Output
         run: |

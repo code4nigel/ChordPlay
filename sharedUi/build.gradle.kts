@@ -100,6 +100,11 @@ kotlin {
         jvmMain.dependencies {
             api("org.jetbrains.compose.ui:ui-desktop:$CMP_DESKTOP")
         }
+        val iosMain by getting {
+            dependencies {
+                api("org.jetbrains.compose.ui:ui-uikit:$cmp")
+            }
+        }
         jvmTest.dependencies {
             implementation(kotlin("test"))
             implementation("junit:junit:4.13.2")
