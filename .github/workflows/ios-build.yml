@@ -40,11 +40,6 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build shared iOS Frameworks
-        run: |
-          ./gradlew :shared:compileIosMainKotlinMetadata --stacktrace
-          ./gradlew :sharedUi:compileIosMainKotlinMetadata --stacktrace
-
       - name: Compile Release Framework for iPhone
         run: |
           ./gradlew :sharedUi:linkReleaseFrameworkIosArm64 --stacktrace
