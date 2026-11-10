@@ -9,6 +9,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import org.jetbrains.compose.resources.painterResource
+import kotlin.math.absoluteValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,7 +129,7 @@ internal fun LandscapePlayerLayout(
     /** The sleeve/artwork container. Given full-bleed bounds. */
     artwork: @Composable (Modifier) -> Unit,
     actions: @Composable () -> Unit = {},
-    bottomLeftActions: @Composable () -> Unit = {},
+    artworkActions: @Composable () -> Unit = {},
     topBar: @Composable () -> Unit = {},
     mainPane: @Composable (compact: Boolean) -> Unit,
     lyricsPane: @Composable () -> Unit,
@@ -147,6 +156,15 @@ internal fun LandscapePlayerLayout(
                     .align(Alignment.CenterStart),
             ) {
                 artwork(Modifier.fillMaxSize())
+
+                // Frosted action capsule at bottom-right of album art area
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 16.dp, bottom = 20.dp),
+                ) {
+                    artworkActions()
+                }
             }
 
             // 2. Right Deck Area: Player Deck & Far-Right Floating Side Rail
@@ -262,23 +280,11 @@ internal fun LandscapePlayerLayout(
                     onSelectPane = onSelectPane,
                     onOpenPipeline = onOpenPipeline,
                     palette = palette,
+                    compact = compact,
                 )
             }
 
-            // 4. Bottom-Left Floating Actions: Heart (Like), Add to Playlist, More Menu
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Start + WindowInsetsSides.Bottom,
-                        ),
-                    ),
-            ) {
-                bottomLeftActions()
-            }
-
-            // 5. Top Bar: Left Minimize Button, Center Empty, Right Spotify Canvas Toggle
+            // 4. Top Bar: Left Minimize Button
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -296,7 +302,8 @@ internal fun LandscapePlayerLayout(
 }
 
 /**
- * Far-Right Floating Frosted Glass Rail for fast 1-tap pane switching and audio pipeline access.
+ * Far-Right Floating Frosted Glass Rail with adaptive multi-stop gradient (no outer or inner borders)
+ * and elastic Apple-style squash-and-stretch spring selection indicator.
  */
 @Composable
 internal fun LandscapeSideRail(
@@ -304,37 +311,96 @@ internal fun LandscapeSideRail(
     onSelectPane: (PlayerPane) -> Unit,
     onOpenPipeline: (() -> Unit)?,
     palette: MeshPalette,
+    compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val accentColor = palette.colors.firstOrNull() ?: MaterialTheme.colorScheme.primary
+    // 1. Adaptive Song Palette Colors
+    val c1 = palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
+    val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
+    val c3 = palette.colors.getOrNull(2) ?: Color.Black
+
+    val animC1 by animateColorAsState(targetValue = c1, animationSpec = tween(650), label = "railC1")
+    val animC2 by animateColorAsState(targetValue = c2, animationSpec = tween(650), label = "railC2")
+    val animC3 by animateColorAsState(targetValue = c3, animationSpec = tween(650), label = "railC3")
+
+    val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
+        Brush.verticalGradient(
+            0.0f to animC1.copy(alpha = 0.40f),
+            0.48f to animC2.copy(alpha = 0.22f),
+            1.0f to animC3.copy(alpha = 0.45f),
+        )
+    }
+    val dockGlassSheen = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.08f),
+                Color.White.copy(alpha = 0.02f),
+                Color.Black.copy(alpha = 0.16f),
+            ),
+        )
+    }
+
+    // 2. Elastic Jelly Indicator Physics
+    val selectedIndex = when (currentPane) {
+        PlayerPane.Main -> 0
+        PlayerPane.Lyrics -> 1
+        PlayerPane.Queue -> 2
+    }
+
+    val itemSize = if (compact) 38.dp else 42.dp
+    val itemSpacing = if (compact) 8.dp else 12.dp
+    val targetOffset = (itemSize + itemSpacing) * selectedIndex
+
+    val animatedOffset by animateDpAsState(
+        targetValue = targetOffset,
+        animationSpec = spring(
+            dampingRatio = 0.62f, // Bouncy elastic Apple-like spring
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "elasticIndicatorY",
+    )
+
+    // Dynamic squash and stretch: stretches along velocity axis in flight, squashes upon landing
+    val deltaY = (targetOffset - animatedOffset).value
+    val stretch = (deltaY.absoluteValue * 0.38f).coerceAtMost(16f)
+    val indicatorHeight = itemSize + stretch.dp
+    val indicatorWidth = (itemSize.value - stretch * 0.25f).coerceAtLeast(32f).dp
 
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = 0.22f),
-                        Color.White.copy(alpha = 0.06f),
+            .background(dockAdaptiveGradient)
+            .background(dockGlassSheen)
+            .padding(vertical = if (compact) 8.dp else 10.dp, horizontal = 6.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        // Elastic selection pill indicator gliding behind the 3 pane icons
+        Box(
+            modifier = Modifier
+                .offset(y = animatedOffset - (stretch * 0.5f).dp)
+                .size(width = indicatorWidth, height = indicatorHeight)
+                .clip(CircleShape)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.32f),
+                            Color.White.copy(alpha = 0.16f),
+                        ),
                     ),
                 ),
-                shape = CircleShape,
-            )
-            .padding(vertical = 12.dp, horizontal = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
+        )
+
         Column(
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(itemSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 1. Now Playing / Player Deck
+            // 1. Now Playing
             SideRailItem(
                 icon = Icons.Rounded.Album,
                 selected = currentPane == PlayerPane.Main,
                 contentDescription = "Now Playing",
-                accentColor = accentColor,
+                itemSize = itemSize,
                 onClick = { onSelectPane(PlayerPane.Main) },
             )
 
@@ -343,7 +409,7 @@ internal fun LandscapeSideRail(
                 icon = Icons.Rounded.FormatQuote,
                 selected = currentPane == PlayerPane.Lyrics,
                 contentDescription = "Lyrics",
-                accentColor = accentColor,
+                itemSize = itemSize,
                 onClick = { onSelectPane(PlayerPane.Lyrics) },
             )
 
@@ -352,17 +418,24 @@ internal fun LandscapeSideRail(
                 icon = Icons.AutoMirrored.Rounded.QueueMusic,
                 selected = currentPane == PlayerPane.Queue,
                 contentDescription = "Queue",
-                accentColor = accentColor,
+                itemSize = itemSize,
                 onClick = { onSelectPane(PlayerPane.Queue) },
             )
 
-            // 4. Audio Pipeline
+            // 4. Audio Pipeline Button
             if (onOpenPipeline != null) {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 2.dp)
+                        .width(20.dp)
+                        .height(1.dp)
+                        .background(Color.White.copy(alpha = 0.15f)),
+                )
                 SideRailItem(
                     icon = Icons.Rounded.GraphicEq,
                     selected = false,
                     contentDescription = "Audio Pipeline",
-                    accentColor = accentColor,
+                    itemSize = itemSize,
                     onClick = onOpenPipeline,
                 )
             }
@@ -375,33 +448,29 @@ private fun SideRailItem(
     icon: ImageVector,
     selected: Boolean,
     contentDescription: String,
-    accentColor: Color,
+    itemSize: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
-    val animatedBg by animateColorAsState(
-        targetValue = if (selected) accentColor.copy(alpha = 0.35f) else Color.Transparent,
-        animationSpec = tween(280),
-        label = "SideRailBg",
-    )
-    val animatedBorder by animateColorAsState(
-        targetValue = if (selected) accentColor.copy(alpha = 0.75f) else Color.Transparent,
-        animationSpec = tween(280),
-        label = "SideRailBorder",
-    )
     val iconTint by animateColorAsState(
-        targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.50f),
-        animationSpec = tween(280),
-        label = "SideRailIcon",
+        targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.48f),
+        animationSpec = tween(220),
+        label = "SideRailIconTint",
+    )
+    val iconScale by animateFloatAsState(
+        targetValue = if (selected) 1.10f else 1.0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "SideRailIconScale",
     )
 
     Box(
         modifier = modifier
-            .size(42.dp)
+            .size(itemSize)
             .clip(CircleShape)
-            .background(animatedBg)
-            .border(1.dp, animatedBorder, CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -415,7 +484,12 @@ private fun SideRailItem(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = iconTint,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier
+                .size((itemSize.value * 0.52f).dp)
+                .graphicsLayer {
+                    scaleX = iconScale
+                    scaleY = iconScale
+                },
         )
     }
 }
@@ -596,54 +670,155 @@ internal fun LandscapeCredits(
 }
 
 /**
- * Bottom-Left Floating Action Pill with Heart (Like), Add to Playlist, and More menu.
+ * Frosted Glass Action Capsule positioned at the bottom-right of the album artwork.
+ * Houses: Spotify Canvas toggle, Heart (Like), Add to Playlist, and Three Dots menu.
+ * Styled in frosted glass matching the top minimize button (no dark background, no inner borders).
  */
 @Composable
-internal fun LandscapeBottomLeftActions(
+internal fun LandscapeArtworkActions(
     song: Song,
     signedIn: Boolean,
     likeStatus: LikeStatus,
     showRevertCue: Boolean,
+    animatedCanvas: Boolean,
+    onToggleAnimatedCanvas: () -> Unit,
     onToggleLike: () -> Unit,
     onAddToPlaylist: (() -> Unit)? = null,
     onOpenMenu: () -> Unit,
+    palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberHaptics()
+    val accentColor = palette.colors.firstOrNull() ?: MaterialTheme.colorScheme.primary
+
     Row(
         modifier = modifier
-            .padding(start = 20.dp, bottom = 20.dp)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.45f))
-            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .background(Color.White.copy(alpha = 0.12f))
+            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 1. Spotify Canvas Toggle Button
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Select)
+                        onToggleAnimatedCanvas()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            val spotifyGreen = Color(0xFF1DB954)
+            val iconTint = if (animatedCanvas) spotifyGreen else Color.White.copy(alpha = 0.45f)
+            Icon(
+                painter = painterResource(Res.drawable.spotify_logo),
+                contentDescription = if (animatedCanvas) "Turn off Spotify Canvas" else "Turn on Spotify Canvas",
+                tint = iconTint,
+                modifier = Modifier
+                    .size(20.dp)
+                    .then(
+                        if (!animatedCanvas) {
+                            Modifier.drawWithContent {
+                                drawContent()
+                                val pad = 2.dp.toPx()
+                                val strokeWidth = 1.8.dp.toPx()
+                                drawLine(
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    start = androidx.compose.ui.geometry.Offset(pad, pad),
+                                    end = androidx.compose.ui.geometry.Offset(size.width - pad, size.height - pad),
+                                    strokeWidth = strokeWidth,
+                                    cap = StrokeCap.Round,
+                                )
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
+            )
+        }
+
+        // 2. Heart (Like / Unlike)
         if (signedIn && song.localUri == null) {
             val liked = likeStatus == LikeStatus.LIKE
-            CircleGlyph(
-                icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
-                contentDescription = stringResource(
-                    if (liked) Res.string.remove_from_liked else Res.string.like,
-                ),
-                onClick = onToggleLike,
-                active = liked,
-                haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
-            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            haptics.play(if (liked) Haptic.ToggleOff else Haptic.ToggleOn)
+                            onToggleLike()
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    contentDescription = stringResource(
+                        if (liked) Res.string.remove_from_liked else Res.string.like,
+                    ),
+                    tint = if (liked) accentColor else Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
+
+        // 3. Add to Playlist
         if (onAddToPlaylist != null && song.localUri == null) {
-            CircleGlyph(
-                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                contentDescription = stringResource(Res.string.add_to_playlist),
-                onClick = onAddToPlaylist,
-                haptic = Haptic.Tap,
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {
+                            haptics.play(Haptic.Tap)
+                            onAddToPlaylist()
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    contentDescription = stringResource(Res.string.add_to_playlist),
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+
+        // 4. Three dots (More / Undo)
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    haptics.play(Haptic.Tap)
+                    onOpenMenu()
+                },
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+                contentDescription = stringResource(Res.string.more),
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(22.dp),
             )
         }
-        CircleGlyph(
-            icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
-            contentDescription = stringResource(Res.string.more),
-            onClick = onOpenMenu,
-        )
     }
 }
 
@@ -688,26 +863,28 @@ internal fun LandscapeLyricsPane(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
+                    .padding(top = 10.dp, start = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+                // Bottom-left: Lyrics provider attribution / status
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center,
+                        .padding(end = 12.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
                     LyricsStatusWithChange(
                         status = status,
                         onStatusClick = onStatusClick,
                     )
                 }
+                // Bottom-right: Language (Globe), Style (TT), and Translation (文A)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (hasLyrics) {
+                        romanizationToggle()
                         styleToggle()
                         translationToggle()
                     }

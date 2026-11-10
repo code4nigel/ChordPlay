@@ -1889,24 +1889,28 @@ fun NowPlayingScreen(
                         )
                     }
                 },
-                bottomLeftActions = {
-                    LandscapeBottomLeftActions(
+                artworkActions = {
+                    LandscapeArtworkActions(
                         song = song,
                         signedIn = signedIn,
                         likeStatus = likeStatus,
                         showRevertCue = showRevertCue,
+                        animatedCanvas = animatedCanvas,
+                        onToggleAnimatedCanvas = {
+                            haptics.play(Haptic.Select)
+                            PlayerSettings.setAnimatedCanvas(!animatedCanvas)
+                        },
                         onToggleLike = onToggleLike,
                         onAddToPlaylist = onAddToPlaylist,
                         onOpenMenu = onOpenMenu,
+                        palette = synesthesiaPalette,
                     )
                 },
                 topBar = {
-                    Row(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
                             modifier = Modifier
@@ -1927,16 +1931,6 @@ fun NowPlayingScreen(
                                 modifier = Modifier.size(28.dp),
                             )
                         }
-                        Spacer(Modifier.weight(1f))
-                        SpotifyCanvasToggleButton(
-                            animatedCanvas = animatedCanvas,
-                            isTopBright = false,
-                            topBarGlyphTint = Color.White,
-                            onToggle = {
-                                haptics.play(Haptic.Select)
-                                PlayerSettings.setAnimatedCanvas(!animatedCanvas)
-                            },
-                        )
                     }
                 },
                 actions = playerActions,
