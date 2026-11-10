@@ -70,6 +70,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -1714,17 +1715,8 @@ fun NowPlayingScreen(
         .graphicsLayer { alpha = if (docking()) dockFade().coerceAtLeast(DOCK_FADE_FLOOR) else 1f }
 
     if (landscape) {
-        // Paused always wins outright over a scrub in progress — see
-        // [ARTWORK_PAUSE_SHRINK_SCALE].
-        val landscapeArtScale by animateFloatAsState(
-            targetValue = when {
-                !isPlaying -> ARTWORK_PAUSE_SHRINK_SCALE
-                scrub.scrubbing -> ARTWORK_DRAG_SHRINK_SCALE
-                else -> ARTWORK_EXPANDED_SCALE
-            },
-            animationSpec = tween(durationMillis = ARTWORK_SCALE_DURATION_MS, easing = ArtworkScaleEasing),
-            label = "landscapeArtworkScale",
-        )
+        // Full-bleed edge-to-edge landscape hero artwork remains pinned to borders
+        val landscapeArtScale = 1f
         val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
         val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
         val panelOpen = lyricsOpen || queueOpen
@@ -1886,28 +1878,64 @@ fun NowPlayingScreen(
                                 closeLyrics()
                             },
                     ) {
-                        // Overlay audio pipeline specs pill on bottom-left of artwork
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(start = 20.dp, bottom = 20.dp),
-                        ) {
-                            ChordPlayPipelineBottomPill(
-                                song = song,
-                                isLoading = isLoading,
-                                onOpenPipeline = { showAudioPipeline = true },
-                                onOpenOutput = openAudioOutput,
-                                palette = synesthesiaPalette,
-                            )
-                        }
                         // The stats belong to the player, not to the sleeve, so
                         // they leave it along with the rest of the player.
                         SleeveNerdStats(
                             song = song,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .padding(start = 16.dp, top = 16.dp)
+                                .padding(start = 16.dp, top = 56.dp)
                                 .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
+                        )
+                    }
+                },
+                bottomLeftActions = {
+                    LandscapeBottomLeftActions(
+                        song = song,
+                        signedIn = signedIn,
+                        likeStatus = likeStatus,
+                        showRevertCue = showRevertCue,
+                        onToggleLike = onToggleLike,
+                        onAddToPlaylist = onAddToPlaylist,
+                        onOpenMenu = onOpenMenu,
+                    )
+                },
+                topBar = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onOpenPlaybackSource,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = "Minimize",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        SpotifyCanvasToggleButton(
+                            animatedCanvas = animatedCanvas,
+                            isTopBright = false,
+                            topBarGlyphTint = Color.White,
+                            onToggle = {
+                                haptics.play(Haptic.Select)
+                                PlayerSettings.setAnimatedCanvas(!animatedCanvas)
+                            },
                         )
                     }
                 },
@@ -1915,17 +1943,9 @@ fun NowPlayingScreen(
                 mainPane = { compact ->
                     LandscapeMainPane(
                         compact = compact,
-                        caption = if (hideSongStatus) null else playbackOriginText(song, playedBy),
-                        onOpenCaption = openPlaybackOrigin,
                         credits = {
                             LandscapeCredits(
                                 song = song,
-                                signedIn = signedIn,
-                                likeStatus = likeStatus,
-                                showRevertCue = showRevertCue,
-                                onToggleLike = onToggleLike,
-                                onAddToPlaylist = onAddToPlaylist,
-                                onOpenMenu = onOpenMenu,
                                 onOpenAlbum = onOpenAlbum,
                                 onOpenArtist = onOpenArtist,
                                 fontScale = landscapeFontScale,
