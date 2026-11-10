@@ -25,6 +25,9 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.DockStyle
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.ui.graphics.Brush
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
@@ -171,11 +174,35 @@ fun Modifier.lightweightLiquidGlass(
  */
 @Composable
 fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
-    if (!isGlassSupported()) return this
+    val isSupported = isGlassSupported()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    if (reduceDynamicBlur) {
-        return background(MaterialTheme.colorScheme.surface, shape)
-            .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+    val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
+    val liquidGlassActive = AppSettings.liquidGlass.collectAsStateWithLifecycle().value
+
+    // If device doesn't support AGSL lens or user selected Adaptive Dock (or reduced blur),
+    // provide an adaptive frosted glass surface with elevation and subtle glass rim!
+    if (!isSupported || reduceDynamicBlur || (!liquidGlassActive && dockStyle == DockStyle.ADAPTIVE)) {
+        val surfaceColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        return this
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        surfaceColor.copy(alpha = 0.88f),
+                        surfaceColor.copy(alpha = 0.82f),
+                    ),
+                ),
+                shape,
+            )
+            .border(
+                width = 0.8.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.20f),
+                        Color.White.copy(alpha = 0.06f),
+                    ),
+                ),
+                shape = shape,
+            )
     }
     val backdrop = LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current

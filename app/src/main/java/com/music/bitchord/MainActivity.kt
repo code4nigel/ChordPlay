@@ -163,6 +163,7 @@ import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.DockStyle
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.ThemeMode
@@ -521,7 +522,9 @@ private fun BitChordApp(
     val hazeState = remember { HazeState() }
     // Recording the backdrop layer costs a draw pass, so it only runs when a
     // liquid-glass surface (the nav bar or artwork-page back button) can sample it.
-    val glassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
+    val useIntegratedDock = dockStyle != DockStyle.NORMAL
+    val glassActive = (dockStyle == DockStyle.LIQUID || LocalLiquidGlassEnabled.current) && isGlassSupported()
     // "Reduce dynamic blur" keeps the glass bar's *shape* — the folding
     // now-playing-and-tabs component is a layout, not an effect, and dropping
     // back to the two stacked bars would be answering a question about material
@@ -4129,7 +4132,7 @@ private fun BitChordApp(
                     }
                 }
 
-                if (glassActive) Column(
+                if (useIntegratedDock) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)

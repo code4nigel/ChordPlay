@@ -1904,6 +1904,17 @@ fun NowPlayingScreen(
                         onAddToPlaylist = onAddToPlaylist,
                         onOpenMenu = onOpenMenu,
                         palette = synesthesiaPalette,
+                        currentPane = when {
+                            lyricsOpen -> PlayerPane.Lyrics
+                            queueOpen -> PlayerPane.Queue
+                            else -> PlayerPane.Main
+                        },
+                        shuffleEnabled = shuffleEnabled,
+                        repeatMode = repeatMode,
+                        autoplayEnabled = autoplayEnabled,
+                        onToggleShuffle = onToggleShuffle,
+                        onCycleRepeat = onCycleRepeat,
+                        onToggleAutoplay = onToggleAutoplay,
                     )
                 },
                 topBar = {

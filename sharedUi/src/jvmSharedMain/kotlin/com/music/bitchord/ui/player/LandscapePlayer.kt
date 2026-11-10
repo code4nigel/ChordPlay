@@ -4,6 +4,10 @@ import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -54,6 +58,7 @@ import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -157,11 +162,11 @@ internal fun LandscapePlayerLayout(
             ) {
                 artwork(Modifier.fillMaxSize())
 
-                // Frosted action capsule at bottom-right of album art area
+                // Frosted action capsule centered at bottom of album art area
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 20.dp),
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp),
                 ) {
                     artworkActions()
                 }
@@ -670,9 +675,9 @@ internal fun LandscapeCredits(
 }
 
 /**
- * Frosted Glass Action Capsule positioned at the bottom-right of the album artwork.
- * Houses: Spotify Canvas toggle, Heart (Like), Add to Playlist, and Three Dots menu.
- * Styled in frosted glass matching the top minimize button (no dark background, no inner borders).
+ * Frosted Glass Action Capsule positioned at the bottom-center of the album artwork.
+ * Houses: Spotify Canvas toggle, Heart (Like), Add to Playlist, Three Dots menu,
+ * and dynamically adds Shuffle & Repeat (when not on Main pane) and Autoplay (when on Queue pane).
  */
 @Composable
 internal fun LandscapeArtworkActions(
@@ -686,6 +691,13 @@ internal fun LandscapeArtworkActions(
     onAddToPlaylist: (() -> Unit)? = null,
     onOpenMenu: () -> Unit,
     palette: MeshPalette = remember { MeshPalette(emptyList()) },
+    currentPane: PlayerPane = PlayerPane.Main,
+    shuffleEnabled: Boolean = false,
+    repeatMode: Int = RepeatModes.OFF,
+    autoplayEnabled: Boolean = false,
+    onToggleShuffle: (() -> Unit)? = null,
+    onCycleRepeat: (() -> Unit)? = null,
+    onToggleAutoplay: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -693,6 +705,7 @@ internal fun LandscapeArtworkActions(
 
     Row(
         modifier = modifier
+            .animateContentSize()
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.12f))
             .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
@@ -797,19 +810,110 @@ internal fun LandscapeArtworkActions(
             }
         }
 
-        // 4. Three dots (More / Undo)
+        // 4. Shuffle & Repeat buttons (visible on Lyrics & Queue panes)
+        AnimatedVisibility(
+            visible = currentPane != PlayerPane.Main,
+            enter = fadeIn(tween(200)) + expandHorizontally(),
+            exit = fadeOut(tween(160)) + shrinkHorizontally(),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Shuffle
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                haptics.play(if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn)
+                                onToggleShuffle?.invoke()
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = BitChordIcons.Shuffle,
+                        contentDescription = "Shuffle",
+                        tint = if (shuffleEnabled) accentColor else Color.White.copy(alpha = 0.50f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                // Repeat
+                val isRepeatActive = repeatMode != RepeatModes.OFF
+                val repeatIcon = if (repeatMode == RepeatModes.ONE) Icons.Rounded.RepeatOne else BitChordIcons.Repeat
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                haptics.play(Haptic.Select)
+                                onCycleRepeat?.invoke()
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = repeatIcon,
+                        contentDescription = "Repeat",
+                        tint = if (isRepeatActive) accentColor else Color.White.copy(alpha = 0.50f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                // Autoplay (visible on Queue pane)
+                AnimatedVisibility(
+                    visible = currentPane == PlayerPane.Queue,
+                    enter = fadeIn(tween(200)) + expandHorizontally(),
+                    exit = fadeOut(tween(160)) + shrinkHorizontally(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    haptics.play(if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn)
+                                    onToggleAutoplay?.invoke()
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = BitChordIcons.Infinity,
+                            contentDescription = stringResource(
+                                if (autoplayEnabled) Res.string.autoplay_on else Res.string.autoplay_off,
+                            ),
+                            tint = if (autoplayEnabled) accentColor else Color.White.copy(alpha = 0.50f),
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Three dots (More / Undo)
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    haptics.play(Haptic.Tap)
-                    onOpenMenu()
-                },
-            ),
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onOpenMenu()
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

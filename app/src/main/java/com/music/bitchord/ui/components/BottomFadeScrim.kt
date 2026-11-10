@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -136,6 +137,7 @@ private val TAP_GUARD_MARGIN = 8.dp
 @Composable
 fun FloatingBarsTapGuard(
     barsHeight: () -> Int,
+    maxWidth: Dp = FLOATING_BAR_MAX_WIDTH,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -143,9 +145,10 @@ fun FloatingBarsTapGuard(
             .layout { measurable, constraints ->
                 val bars = barsHeight()
                 val height = if (bars <= 0) 0 else (bars + TAP_GUARD_MARGIN.roundToPx())
+                val guardWidth = minOf(constraints.maxWidth, maxWidth.roundToPx())
                 val placeable = measurable.measure(
                     Constraints.fixed(
-                        width = constraints.maxWidth,
+                        width = guardWidth,
                         height = height.coerceAtMost(constraints.maxHeight),
                     ),
                 )

@@ -95,6 +95,8 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
 import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.data.settings.DockStyle
+import androidx.compose.material.icons.rounded.Layers
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.performance.displayDensityLabel
