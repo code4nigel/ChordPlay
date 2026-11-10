@@ -1,5 +1,29 @@
 [
     {
+        "timestamp":  "2026-11-10 13:50:27",
+        "versionCode":  63,
+        "versionName":  "2.1.2",
+        "variant":  "devDebug",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.2-vc63-devDebug-arm64-v8a.apk",
+                          "SizeMB":  98.26
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.2-vc63-devDebug-armeabi-v7a.apk",
+                          "SizeMB":  89.66
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.2-vc63-devDebug-universal.apk",
+                          "SizeMB":  191.48
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.2-vc63-devDebug-x86_64.apk",
+                          "SizeMB":  104.18
+                      }
+                  ]
+    },
+    {
         "timestamp":  "2026-11-10 13:05:10",
         "versionCode":  63,
         "versionName":  "2.1.2",

@@ -1382,6 +1382,144 @@ internal fun LyricsStyleToggleButton(
     }
 }
 
+/**
+ * Unified Frosted Glass Lyrics Actions Pill.
+ * Houses: Font Style (TT), Translation (文A), and Romanization (Globe) in a cohesive glassy capsule.
+ */
+@Composable
+internal fun GlassyLyricsActions(
+    showingRomanization: Boolean,
+    romanizationState: LyricsTranslationUiState,
+    onToggleRomanization: () -> Unit,
+    showingTranslation: Boolean,
+    translationState: LyricsTranslationUiState,
+    onToggleTranslation: () -> Unit,
+    onOpenStyle: () -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val primary = MaterialTheme.colorScheme.primary
+
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.12f))
+            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // 1. Font Style (TT)
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onOpenStyle()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.FormatSize,
+                contentDescription = stringResource(Res.string.lyrics_options),
+                tint = if (enabled) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.40f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+
+        // 2. Translation (文A)
+        val transActive = showingTranslation || translationState is LyricsTranslationUiState.Loading
+        val transBg = if (transActive) primary.copy(alpha = 0.35f) else Color.Transparent
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(transBg)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onToggleTranslation()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (translationState is LyricsTranslationUiState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp),
+                    color = primary,
+                    strokeWidth = 1.7.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Translate,
+                    contentDescription = stringResource(
+                        if (showingTranslation) Res.string.show_original_lyrics
+                        else Res.string.translate_lyrics,
+                    ),
+                    tint = when {
+                        !enabled || translationState is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+                        transActive -> primary
+                        else -> Color.White.copy(alpha = 0.90f)
+                    },
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+
+        // 3. Romanization (Globe)
+        val romActive = showingRomanization || romanizationState is LyricsTranslationUiState.Loading
+        val romBg = if (romActive) primary.copy(alpha = 0.35f) else Color.Transparent
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(romBg)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onToggleRomanization()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (romanizationState is LyricsTranslationUiState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp),
+                    color = primary,
+                    strokeWidth = 1.7.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = stringResource(
+                        if (showingRomanization) Res.string.show_original_lyrics
+                        else Res.string.romanize_lyrics,
+                    ),
+                    tint = when {
+                        !enabled || romanizationState is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+                        romActive -> primary
+                        else -> Color.White.copy(alpha = 0.90f)
+                    },
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
 /** The button opening the lyrics timing / sync offset sheet. */
 @Composable
 internal fun LyricsOffsetToggleButton(

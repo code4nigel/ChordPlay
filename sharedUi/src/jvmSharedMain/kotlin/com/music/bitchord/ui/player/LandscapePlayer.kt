@@ -173,6 +173,16 @@ internal fun LandscapePlayerLayout(
             }
 
             // 2. Right Deck Area: Player Deck & Far-Right Floating Side Rail
+            val deckTopPadding by animateDpAsState(
+                targetValue = when (pane) {
+                    PlayerPane.Lyrics -> 0.dp
+                    PlayerPane.Queue -> if (compact) 8.dp else 14.dp
+                    PlayerPane.Main -> if (compact) 40.dp else 48.dp
+                },
+                animationSpec = tween(280),
+                label = "deckTopPadding",
+            )
+
             Row(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -184,7 +194,7 @@ internal fun LandscapePlayerLayout(
                         ),
                     )
                     .padding(
-                        top = if (compact) 48.dp else 56.dp,
+                        top = deckTopPadding,
                         bottom = if (compact) 8.dp else 16.dp,
                         end = if (compact) 10.dp else 18.dp,
                         start = if (compact) 8.dp else 16.dp,
@@ -937,9 +947,13 @@ internal fun LandscapeLyricsPane(
     onStatusClick: () -> Unit,
     picking: Boolean = false,
     pickBar: @Composable () -> Unit = {},
-    romanizationToggle: @Composable () -> Unit,
-    translationToggle: @Composable () -> Unit,
-    styleToggle: @Composable () -> Unit = {},
+    showingRomanization: Boolean = false,
+    romanizationState: LyricsTranslationUiState = LyricsTranslationUiState.Idle,
+    onToggleRomanization: () -> Unit = {},
+    showingTranslation: Boolean = false,
+    translationState: LyricsTranslationUiState = LyricsTranslationUiState.Idle,
+    onToggleTranslation: () -> Unit = {},
+    onOpenStyle: () -> Unit = {},
     modifier: Modifier = Modifier,
     panel: @Composable (Modifier) -> Unit,
 ) {
@@ -947,7 +961,20 @@ internal fun LandscapeLyricsPane(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val topFade = 44.dp.toPx()
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black),
+                            startY = 0f,
+                            endY = topFade,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                },
         ) {
             if (hasLyrics) {
                 panel(Modifier.fillMaxSize())
@@ -982,16 +1009,17 @@ internal fun LandscapeLyricsPane(
                         onStatusClick = onStatusClick,
                     )
                 }
-                // Bottom-right: Language (Globe), Style (TT), and Translation (文A)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (hasLyrics) {
-                        romanizationToggle()
-                        styleToggle()
-                        translationToggle()
-                    }
+                // Bottom-right: Language (Globe), Style (TT), and Translation (文A) in unified glassy capsule
+                if (hasLyrics) {
+                    GlassyLyricsActions(
+                        showingRomanization = showingRomanization,
+                        romanizationState = romanizationState,
+                        onToggleRomanization = onToggleRomanization,
+                        showingTranslation = showingTranslation,
+                        translationState = translationState,
+                        onToggleTranslation = onToggleTranslation,
+                        onOpenStyle = onOpenStyle,
+                    )
                 }
             }
         }
