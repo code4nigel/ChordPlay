@@ -519,6 +519,7 @@ internal fun CurrentLyricStrip(
     lyricsUnavailable: Boolean,
     loadingText: String,
     onClick: () -> Unit,
+    textStyle: TextStyle? = null,
 ) {
     Box(
         modifier = Modifier
@@ -538,6 +539,7 @@ internal fun CurrentLyricStrip(
                 durationMs = durationMs,
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
+                textStyle = textStyle,
             )
         } else if (lyricsUnavailable) {
             LyricsUnavailableLine(
@@ -1377,6 +1379,144 @@ internal fun LyricsStyleToggleButton(
             tint = tint,
             modifier = Modifier.size(19.dp),
         )
+    }
+}
+
+/**
+ * Unified Frosted Glass Lyrics Actions Pill.
+ * Houses: Font Style (TT), Translation (文A), and Romanization (Globe) in a cohesive glassy capsule.
+ */
+@Composable
+internal fun GlassyLyricsActions(
+    showingRomanization: Boolean,
+    romanizationState: LyricsTranslationUiState,
+    onToggleRomanization: () -> Unit,
+    showingTranslation: Boolean,
+    translationState: LyricsTranslationUiState,
+    onToggleTranslation: () -> Unit,
+    onOpenStyle: () -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val primary = MaterialTheme.colorScheme.primary
+
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.12f))
+            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // 1. Font Style (TT)
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onOpenStyle()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.FormatSize,
+                contentDescription = stringResource(Res.string.lyrics_options),
+                tint = if (enabled) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.40f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+
+        // 2. Translation (文A)
+        val transActive = showingTranslation || translationState is LyricsTranslationUiState.Loading
+        val transBg = if (transActive) primary.copy(alpha = 0.35f) else Color.Transparent
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(transBg)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onToggleTranslation()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (translationState is LyricsTranslationUiState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp),
+                    color = primary,
+                    strokeWidth = 1.7.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Translate,
+                    contentDescription = stringResource(
+                        if (showingTranslation) Res.string.show_original_lyrics
+                        else Res.string.translate_lyrics,
+                    ),
+                    tint = when {
+                        !enabled || translationState is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+                        transActive -> primary
+                        else -> Color.White.copy(alpha = 0.90f)
+                    },
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+
+        // 3. Romanization (Globe)
+        val romActive = showingRomanization || romanizationState is LyricsTranslationUiState.Loading
+        val romBg = if (romActive) primary.copy(alpha = 0.35f) else Color.Transparent
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(romBg)
+                .clickable(
+                    enabled = enabled,
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        haptics.play(Haptic.Tap)
+                        onToggleRomanization()
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (romanizationState is LyricsTranslationUiState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp),
+                    color = primary,
+                    strokeWidth = 1.7.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = stringResource(
+                        if (showingRomanization) Res.string.show_original_lyrics
+                        else Res.string.romanize_lyrics,
+                    ),
+                    tint = when {
+                        !enabled || romanizationState is LyricsTranslationUiState.SameLanguage -> Color.White.copy(alpha = 0.40f)
+                        romActive -> primary
+                        else -> Color.White.copy(alpha = 0.90f)
+                    },
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
     }
 }
 
@@ -2570,7 +2710,9 @@ private fun CurrentLyricLine(
     durationMs: Long,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    textStyle: TextStyle? = null,
 ) {
+    val resolvedStyle = textStyle ?: MaterialTheme.typography.titleMedium
     val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
     if (!isSynced) {
         Row(
@@ -2589,7 +2731,7 @@ private fun CurrentLyricLine(
             Spacer(Modifier.width(6.dp))
             Text(
                 text = stringResource(Res.string.open_lyrics),
-                style = MaterialTheme.typography.titleMedium,
+                style = resolvedStyle,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2675,16 +2817,16 @@ private fun CurrentLyricLine(
                 SweptLyricLine(
                     line = swept,
                     clock = clock,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = resolvedStyle,
                     dimAlpha = UNSUNG_ALPHA_STRIP,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Clip,
                     rise = false,
                 )
             } else {
                 Text(
                     text = lineText,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = resolvedStyle,
                     color = if (itemInstrumental) Color.White.copy(alpha = 0.5f) else Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

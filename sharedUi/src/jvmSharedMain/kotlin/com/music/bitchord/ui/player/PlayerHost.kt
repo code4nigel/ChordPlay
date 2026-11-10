@@ -175,8 +175,10 @@ interface PlayerSettingsSource {
     val fullscreenArtworkLyricsStyle: StateFlow<FullscreenArtworkLyricsStyle>
     val enableBreathingAura: StateFlow<Boolean>
     val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.Q_720P)
+    val landscapeFontScale: StateFlow<com.music.bitchord.data.settings.LandscapeFontScale> get() = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
 
     fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) {}
+    fun setLandscapeFontScale(value: com.music.bitchord.data.settings.LandscapeFontScale) {}
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)

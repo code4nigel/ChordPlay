@@ -179,6 +179,12 @@ data class CustomPalette(
     val surfaceHex: Long,
 )
 
+enum class DockStyle(val label: String) {
+    NORMAL("Normal"),
+    ADAPTIVE("Adaptive"),
+    LIQUID("Liquid Glass"),
+}
+
 enum class ThemeMode(val label: String) {
     SYSTEM("System"), LIGHT("Light"), DARK("Dark")
 }
@@ -518,6 +524,7 @@ object AppSettings {
     val reduceDynamicBlur = MutableStateFlow(false)
 
     /** Real backdrop-sampled glass (blur, lens refraction) on the floating nav bar, Android 12+ only. */
+    val dockStyle = MutableStateFlow(DockStyle.NORMAL)
     val liquidGlass = MutableStateFlow(false)
     val liquidGlassIntensity = MutableStateFlow(0.75f)
 
@@ -617,6 +624,9 @@ object AppSettings {
 
     /** Breathing artwork aura animation behind the cover during playback. */
     val enableBreathingAura = MutableStateFlow(true)
+
+    /** Typography font scaling for landscape and In-Car / Android Auto mode. */
+    val landscapeFontScale = MutableStateFlow(LandscapeFontScale.LARGE)
 
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
@@ -1007,6 +1017,9 @@ object AppSettings {
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
+        dockStyle.value = prefs.getString(KEY_DOCK_STYLE, null)?.let {
+            runCatching { DockStyle.valueOf(it) }.getOrNull()
+        } ?: if (liquidGlass.value) DockStyle.LIQUID else DockStyle.NORMAL
         liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
@@ -1039,6 +1052,9 @@ object AppSettings {
             SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_LEFT_ACTION, null) ?: SongSwipeAction.ADD_TO_QUEUE.name)
         }.getOrDefault(SongSwipeAction.ADD_TO_QUEUE)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
+        landscapeFontScale.value = runCatching {
+            LandscapeFontScale.valueOf(prefs.getString(KEY_LANDSCAPE_FONT_SCALE, null) ?: LandscapeFontScale.LARGE.name)
+        }.getOrDefault(LandscapeFontScale.LARGE)
 
         val savedLyricsStyle = LyricsCustomStyle(
             fontChoice = runCatching {
@@ -1624,9 +1640,28 @@ object AppSettings {
         editor.apply()
     }
 
+    fun setDockStyle(value: DockStyle) {
+        dockStyle.value = value
+        prefs.edit().putString(KEY_DOCK_STYLE, value.name).apply()
+        if (value == DockStyle.LIQUID) {
+            liquidGlass.value = true
+            prefs.edit().putBoolean(KEY_LIQUID_GLASS, true).apply()
+        } else if (value == DockStyle.NORMAL) {
+            liquidGlass.value = false
+            prefs.edit().putBoolean(KEY_LIQUID_GLASS, false).apply()
+        }
+    }
+
     fun setLiquidGlass(value: Boolean) {
         liquidGlass.value = value
         prefs.edit().putBoolean(KEY_LIQUID_GLASS, value).apply()
+        if (value && dockStyle.value != DockStyle.LIQUID) {
+            dockStyle.value = DockStyle.LIQUID
+            prefs.edit().putString(KEY_DOCK_STYLE, DockStyle.LIQUID.name).apply()
+        } else if (!value && dockStyle.value == DockStyle.LIQUID) {
+            dockStyle.value = DockStyle.NORMAL
+            prefs.edit().putString(KEY_DOCK_STYLE, DockStyle.NORMAL.name).apply()
+        }
     }
 
     fun setLiquidGlassIntensity(value: Float) {
@@ -1854,6 +1889,13 @@ object AppSettings {
         enableBreathingAura.value = value
         if (this::prefs.isInitialized) {
             prefs.edit().putBoolean(KEY_ENABLE_BREATHING_AURA, value).apply()
+        }
+    }
+
+    fun setLandscapeFontScale(value: LandscapeFontScale) {
+        landscapeFontScale.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_LANDSCAPE_FONT_SCALE, value.name).apply()
         }
     }
 
@@ -2588,6 +2630,7 @@ object AppSettings {
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
+    private const val KEY_DOCK_STYLE = "dock_style"
     private const val KEY_LIQUID_GLASS_INTENSITY = "liquid_glass_intensity"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
@@ -2610,6 +2653,7 @@ object AppSettings {
     private const val KEY_SONG_SWIPE_RIGHT_ACTION = "song_swipe_right_action"
     private const val KEY_SONG_SWIPE_LEFT_ACTION = "song_swipe_left_action"
     private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"
+    private const val KEY_LANDSCAPE_FONT_SCALE = "landscape_font_scale"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"

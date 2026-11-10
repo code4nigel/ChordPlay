@@ -70,6 +70,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -1714,17 +1715,8 @@ fun NowPlayingScreen(
         .graphicsLayer { alpha = if (docking()) dockFade().coerceAtLeast(DOCK_FADE_FLOOR) else 1f }
 
     if (landscape) {
-        // Paused always wins outright over a scrub in progress — see
-        // [ARTWORK_PAUSE_SHRINK_SCALE].
-        val landscapeArtScale by animateFloatAsState(
-            targetValue = when {
-                !isPlaying -> ARTWORK_PAUSE_SHRINK_SCALE
-                scrub.scrubbing -> ARTWORK_DRAG_SHRINK_SCALE
-                else -> ARTWORK_EXPANDED_SCALE
-            },
-            animationSpec = tween(durationMillis = ARTWORK_SCALE_DURATION_MS, easing = ArtworkScaleEasing),
-            label = "landscapeArtworkScale",
-        )
+        // Full-bleed edge-to-edge landscape hero artwork remains pinned to borders
+        val landscapeArtScale = 1f
         val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
         val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
         val panelOpen = lyricsOpen || queueOpen
@@ -1775,16 +1767,49 @@ fun NowPlayingScreen(
         }
 
         Box(modifier = modifier.fillMaxSize().then(dockHost)) {
+            val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
+
             LandscapePlayerLayout(
                 pane = when {
                     lyricsOpen -> PlayerPane.Lyrics
                     queueOpen -> PlayerPane.Queue
                     else -> PlayerPane.Main
                 },
+                onSelectPane = { selectedPane ->
+                    when (selectedPane) {
+                        PlayerPane.Main -> {
+                            lyricsOpen = false
+                            queueOpen = false
+                        }
+                        PlayerPane.Lyrics -> {
+                            lyricsOpen = true
+                            queueOpen = false
+                        }
+                        PlayerPane.Queue -> {
+                            queueOpen = true
+                            lyricsOpen = false
+                        }
+                    }
+                },
+                onOpenPipeline = { showAudioPipeline = true },
+                palette = synesthesiaPalette,
                 background = { backgroundModifier ->
-                    // The whole screen is the sheets' frost source: there is
-                    // no full-bleed banner here to be it instead.
-                    fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze))
+                    Box(modifier = backgroundModifier) {
+                        MeshGradientBackground(
+                            palette = synesthesiaPalette,
+                            trackKey = song.videoId,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .hazeSource(playerHaze),
+                        )
+                        if (isWavePlay && !spotifyCanvasPresentation) {
+                            SynesthesiaNocturneOverlay(
+                                palette = synesthesiaPalette,
+                                isPlaying = isPlaying,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
                 },
                 artwork = { artworkModifier ->
                     LandscapeArtwork(
@@ -1858,35 +1883,82 @@ fun NowPlayingScreen(
                         SleeveNerdStats(
                             song = song,
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(horizontal = 10.dp, vertical = 8.dp)
-                                // Faded with the player rather than flown with
-                                // the sleeve: the cover in the bar has none.
+                                .align(Alignment.TopStart)
+                                .padding(start = 16.dp, top = 56.dp)
                                 .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
                         )
+                    }
+                },
+                artworkActions = {
+                    LandscapeArtworkActions(
+                        song = song,
+                        signedIn = signedIn,
+                        likeStatus = likeStatus,
+                        showRevertCue = showRevertCue,
+                        animatedCanvas = animatedCanvas,
+                        onToggleAnimatedCanvas = {
+                            haptics.play(Haptic.Select)
+                            PlayerSettings.setAnimatedCanvas(!animatedCanvas)
+                        },
+                        onToggleLike = onToggleLike,
+                        onAddToPlaylist = onAddToPlaylist,
+                        onOpenMenu = onOpenMenu,
+                        palette = synesthesiaPalette,
+                        currentPane = when {
+                            lyricsOpen -> PlayerPane.Lyrics
+                            queueOpen -> PlayerPane.Queue
+                            else -> PlayerPane.Main
+                        },
+                        shuffleEnabled = shuffleEnabled,
+                        repeatMode = repeatMode,
+                        autoplayEnabled = autoplayEnabled,
+                        onToggleShuffle = onToggleShuffle,
+                        onCycleRepeat = onCycleRepeat,
+                        onToggleAutoplay = onToggleAutoplay,
+                    )
+                },
+                topBar = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onOpenPlaybackSource,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = "Minimize",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 },
                 actions = playerActions,
                 mainPane = { compact ->
                     LandscapeMainPane(
                         compact = compact,
-                        caption = if (hideSongStatus) null else playbackOriginText(song, playedBy),
-                        onOpenCaption = openPlaybackOrigin,
                         credits = {
                             LandscapeCredits(
                                 song = song,
-                                signedIn = signedIn,
-                                likeStatus = likeStatus,
-                                showRevertCue = showRevertCue,
-                                onToggleLike = onToggleLike,
-                                onAddToPlaylist = onAddToPlaylist,
-                                onOpenMenu = onOpenMenu,
                                 onOpenAlbum = onOpenAlbum,
                                 onOpenArtist = onOpenArtist,
+                                fontScale = landscapeFontScale,
                             )
                         },
                         lyricStrip = if (syncedLyricsEnabled) {
                             {
+                                val stripFontSize = (16 * landscapeFontScale.scaleFactor).sp
                                 CurrentLyricStrip(
                                     lines = lyricsTranslation.displayedLyrics,
                                     trackKey = song.videoId,
@@ -1896,44 +1968,80 @@ fun NowPlayingScreen(
                                     lyricsUnavailable = lyricsUnavailable,
                                     loadingText = lyricsLoadingText,
                                     onClick = openLyrics,
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                                        fontSize = stripFontSize,
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
                                 )
                             }
                         } else {
                             null
                         },
                         scrubber = {
-                            PlayerScrubber(
-                                shown = shown,
-                                durationMs = durationMs,
-                                loading = versionAligning || audioVersionSwitching,
-                                mixing = mixing && !scrub.scrubbing,
-                                transitionWindow = transitionWindow
-                                    ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                                    ?.let { it.start..it.end },
-                                onScrub = onScrub,
-                                onScrubFinished = onScrubFinished,
-                            ) {
-                                PlaybackQualityLabel(
-                                    song = song,
-                                    isLoading = isLoading,
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .padding(horizontal = 8.dp),
+                            if (isWavePlay) {
+                                SynesthesiaWaveformScrubber(
+                                    shown = shown,
+                                    durationMs = durationMs,
+                                    isPlaying = isPlaying && position.advancing,
+                                    onScrub = onScrub,
+                                    onScrubFinished = onScrubFinished,
+                                    trackKey = song.videoId,
+                                    palette = synesthesiaPalette,
                                 )
+                            } else {
+                                PlayerScrubber(
+                                    shown = shown,
+                                    durationMs = durationMs,
+                                    loading = versionAligning || audioVersionSwitching,
+                                    mixing = mixing && !scrub.scrubbing,
+                                    transitionWindow = transitionWindow
+                                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                                        ?.let { it.start..it.end },
+                                    onScrub = onScrub,
+                                    onScrubFinished = onScrubFinished,
+                                ) {
+                                    PlaybackQualityLabel(
+                                        song = song,
+                                        isLoading = isLoading,
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .padding(horizontal = 8.dp),
+                                    )
+                                }
                             }
                         },
                         transport = {
-                            TransportRow(
-                                isPlaying = isPlaying,
-                                isLoading = isLoading || audioVersionSwitching,
-                                previousEnabled = !controlsLocked &&
-                                    (hasPrevious || pastRestartPoint),
-                                nextEnabled = !controlsLocked && hasNext,
-                                onPrevious = onPrevious,
-                                onPlayPause = onPlayPause,
-                                onNext = onNext,
-                                compact = compact,
-                            )
+                            if (isWavePlay) {
+                                ChordPlayTransportDeck(
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading || audioVersionSwitching,
+                                    previousEnabled = !controlsLocked &&
+                                        (hasPrevious || pastRestartPoint),
+                                    nextEnabled = !controlsLocked && hasNext,
+                                    onPrevious = onPrevious,
+                                    onPlayPause = onPlayPause,
+                                    onNext = onNext,
+                                    shuffleEnabled = shuffleEnabled,
+                                    repeatMode = repeatMode,
+                                    onToggleShuffle = onToggleShuffle,
+                                    onCycleRepeat = onCycleRepeat,
+                                    palette = synesthesiaPalette,
+                                    hazeState = playerHaze,
+                                    queueOpen = queueOpen,
+                                )
+                            } else {
+                                TransportRow(
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading || audioVersionSwitching,
+                                    previousEnabled = !controlsLocked &&
+                                        (hasPrevious || pastRestartPoint),
+                                    nextEnabled = !controlsLocked && hasNext,
+                                    onPrevious = onPrevious,
+                                    onPlayPause = onPlayPause,
+                                    onNext = onNext,
+                                    compact = compact,
+                                )
+                            }
                         },
                         volume = if (hideVolumeBar) {
                             null
@@ -1967,28 +2075,13 @@ fun NowPlayingScreen(
                                 onShare = lyricPicker.share,
                             )
                         },
-                        romanizationToggle = {
-                            RomanizationToggleButton(
-                                state = lyricsTranslation.romanizationState,
-                                showingRomanization = lyricsTranslation.showingRomanization,
-                                enabled = !lyrics.isNullOrEmpty(),
-                                onClick = lyricsTranslation.toggleRomanization,
-                            )
-                        },
-                        translationToggle = {
-                            TranslationToggleButton(
-                                state = lyricsTranslation.translationState,
-                                showingTranslation = lyricsTranslation.showingTranslation,
-                                enabled = !lyrics.isNullOrEmpty(),
-                                onClick = lyricsTranslation.toggleTranslation,
-                            )
-                        },
-                        styleToggle = {
-                            LyricsStyleToggleButton(
-                                enabled = !lyrics.isNullOrEmpty(),
-                                onClick = { showLyricsStyleSheet = true },
-                            )
-                        },
+                        showingRomanization = lyricsTranslation.showingRomanization,
+                        romanizationState = lyricsTranslation.romanizationState,
+                        onToggleRomanization = lyricsTranslation.toggleRomanization,
+                        showingTranslation = lyricsTranslation.showingTranslation,
+                        translationState = lyricsTranslation.translationState,
+                        onToggleTranslation = lyricsTranslation.toggleTranslation,
+                        onOpenStyle = { showLyricsStyleSheet = true },
                     ) { panelModifier ->
                         LyricsTranslationMotion(
                             trigger = lyricsTranslation.transition,
@@ -3291,33 +3384,87 @@ fun NowPlayingScreen(
                     // there's no account to record it against — and neither
                     // does a local file or a finished download, which carries
                     // no YouTube identity to rate.
-                    if (signedIn && song.localUri == null) {
-                        val liked = likeStatus == LikeStatus.LIKE
-                        CircleGlyph(
-                            icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
-                            contentDescription = stringResource(
-                                if (liked) Res.string.remove_from_liked else Res.string.like,
-                            ),
-                            onClick = onToggleLike,
-                            active = liked,
-                            haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
-                        )
-                        Spacer(Modifier.width(4.dp))
+                    // Unified Frosted Glass Capsule for Player Header Actions
+                    Row(
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        if (signedIn && song.localUri == null) {
+                            val liked = likeStatus == LikeStatus.LIKE
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            haptics.play(if (liked) Haptic.ToggleOff else Haptic.ToggleOn)
+                                            onToggleLike()
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                                    contentDescription = stringResource(
+                                        if (liked) Res.string.remove_from_liked else Res.string.like,
+                                    ),
+                                    tint = if (liked) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        if (onAddToPlaylist != null && (song.localUri == null || isModernOrVinyl)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = {
+                                            haptics.play(Haptic.Tap)
+                                            onAddToPlaylist()
+                                        },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlaylistAdd,
+                                    contentDescription = stringResource(Res.string.add_to_playlist),
+                                    tint = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = {
+                                        haptics.play(Haptic.Tap)
+                                        onOpenMenu()
+                                    },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
+                                contentDescription = stringResource(Res.string.more),
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
-                    if (onAddToPlaylist != null && (song.localUri == null || isModernOrVinyl)) {
-                        CircleGlyph(
-                            icon = Icons.Rounded.PlaylistAdd,
-                            contentDescription = stringResource(Res.string.add_to_playlist),
-                            onClick = onAddToPlaylist,
-                            haptic = Haptic.Tap,
-                        )
-                        Spacer(Modifier.width(4.dp))
-                    }
-                    CircleGlyph(
-                        icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
-                        contentDescription = stringResource(Res.string.more),
-                        onClick = onOpenMenu,
-                    )
                 }
 
                 // [lyricsOpen] asked first: a close has already hidden the
@@ -3370,47 +3517,6 @@ fun NowPlayingScreen(
                     // Floated over the foot of the lyrics rather than placed in
                     // the controls below them. In the controls it was a row of
                     // layout like any other, and the bottom block is measured at
-                    // its natural height — so the button's 34dp came straight
-                    // off the panel above it and the lyrics lost a line. Drawn
-                    // here it costs the panel nothing and still reads as sitting
-                    // on top of the half player, because that is where it is.
-                    //
-                    // Arrives and leaves on the controls' own fade: the panel is
-                    // for reading, and a control parked over the words when
-                    // nobody asked for the controls is one more thing between
-                    // the reader and them.
-                    val translateShown = lyricsPanelVisible && lyricsControlsOpen
-                    val translateFade by animateFloatAsState(
-                        targetValue = if (translateShown) 1f else 0f,
-                        animationSpec = tween(if (translateShown) 220 else 160),
-                        label = "translateFade",
-                    )
-                    if (translateFade > 0.01f && !lyricPicker.picking) {
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .graphicsLayer { alpha = translateFade },
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            LyricsStyleToggleButton(
-                                enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                onClick = { showLyricsStyleSheet = true },
-                            )
-                            TranslationToggleButton(
-                                state = lyricsTranslation.translationState,
-                                showingTranslation = lyricsTranslation.showingTranslation,
-                                enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                onClick = lyricsTranslation.toggleTranslation,
-                            )
-                            RomanizationToggleButton(
-                                state = lyricsTranslation.romanizationState,
-                                showingRomanization = lyricsTranslation.showingRomanization,
-                                enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                onClick = lyricsTranslation.toggleRomanization,
-                            )
-                        }
-                    }
                     // The bar arrives and leaves without a transition of its own:
                     // it is an instruction over the words, and one that has to
                     // be legible the instant it is on. Anything that animated
@@ -3563,14 +3669,33 @@ fun NowPlayingScreen(
                 )
             }
             if (lyricsOpen) {
-                LyricsStatusWithChange(
-                    status = lyricsTranslation.status,
-                    onStatusClick = { showLyricsProviders = true },
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .offset(y = 6.dp)
                         .padding(vertical = 4.dp),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    LyricsStatusWithChange(
+                        status = lyricsTranslation.status,
+                        onStatusClick = { showLyricsProviders = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                    )
+                    if (!lyricPicker.picking && !lyrics.isNullOrEmpty()) {
+                        GlassyLyricsActions(
+                            showingRomanization = lyricsTranslation.showingRomanization,
+                            romanizationState = lyricsTranslation.romanizationState,
+                            onToggleRomanization = lyricsTranslation.toggleRomanization,
+                            showingTranslation = lyricsTranslation.showingTranslation,
+                            translationState = lyricsTranslation.translationState,
+                            onToggleTranslation = lyricsTranslation.toggleTranslation,
+                            onOpenStyle = { showLyricsStyleSheet = true },
+                            enabled = lyricsControlsOpen,
+                        )
+                    }
+                }
             }
             if (isWavePlay) {
                 SynesthesiaWaveformScrubber(

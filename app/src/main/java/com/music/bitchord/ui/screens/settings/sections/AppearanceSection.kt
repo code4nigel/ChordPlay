@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
@@ -95,6 +96,8 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
 import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.data.settings.DockStyle
+import androidx.compose.material.icons.rounded.Layers
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.performance.displayDensityLabel
@@ -138,6 +141,7 @@ fun AppearanceSection(
     var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
@@ -218,6 +222,7 @@ fun AppearanceSection(
         )
         val showLiquidGlass = matchesSearch(
             searchQuery,
+            "dock", "dock style", "navigation", "adaptive",
             stringResource(R.string.liquid_glass),
             stringResource(R.string.liquid_glass_subtitle),
             stringResource(R.string.glass_intensity),
@@ -493,11 +498,29 @@ fun AppearanceSection(
                 )
             }
 
-            // Glass & Animation Effects
+            // Dock Style & Liquid Glass
             if (showLiquidGlass) {
                 if (showColorPalette || showTheme || showTypography || showDisplayScale) {
-                    SettingsSectionDivider(title = stringResource(R.string.liquid_glass))
+                    SettingsSectionDivider(title = "Navigation Dock & Glass")
                 }
+
+                SettingsRow(
+                    icon = Icons.Rounded.ViewAgenda,
+                    title = "Dock Style",
+                    subtitle = when (dockStyle) {
+                        DockStyle.NORMAL -> "Classic floating player above navigation dock"
+                        DockStyle.ADAPTIVE -> "Integrated player dock with adaptive frosted glass"
+                        DockStyle.LIQUID -> "Integrated player dock with real refracting liquid glass"
+                    },
+                )
+                SegmentedControl(
+                    options = DockStyle.entries.map { it.label },
+                    selectedIndex = DockStyle.entries.indexOf(dockStyle),
+                    onSelect = { index ->
+                        AppSettings.setDockStyle(DockStyle.entries[index])
+                    },
+                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
 
                 val liquidGlassTitle = stringResource(R.string.liquid_glass)
                 SettingsRow(
@@ -523,7 +546,7 @@ fun AppearanceSection(
                 )
 
                 AnimatedVisibility(
-                    visible = liquidGlass && liquidGlassSupported,
+                    visible = (liquidGlass || dockStyle == DockStyle.LIQUID) && liquidGlassSupported,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
