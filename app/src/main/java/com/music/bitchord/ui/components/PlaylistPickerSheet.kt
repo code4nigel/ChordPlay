@@ -132,6 +132,11 @@ fun PlaylistPickerSheet(
     pinnedPlaylists: List<String> = emptyList(),
     onDismiss: (() -> Unit)? = null,
     onCommit: ((toAdd: List<UserPlaylist>, toRemove: List<UserPlaylist>) -> Unit)? = null,
+    collectionTitle: String? = null,
+    collectionSubtitle: String? = null,
+    collectionArtworkUrl: String? = null,
+    collectionSongs: List<Song> = emptyList(),
+    excludePlaylistId: String? = null,
 ) {
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -143,12 +148,15 @@ fun PlaylistPickerSheet(
     var sortOrder by remember { mutableStateOf(PlaylistSortOrder.DEFAULT) }
     val listState = rememberLazyListState()
 
-    var isCheckingMembership by remember(song?.videoId) { mutableStateOf(song != null) }
+    var isCheckingMembership by remember(song?.videoId, collectionTitle) {
+        mutableStateOf(song != null && collectionTitle == null)
+    }
 
     // Seed initiallyPresent from local memory cache
-    var initiallyPresent by remember(song?.videoId) {
+    var initiallyPresent by remember(song?.videoId, collectionTitle) {
         mutableStateOf(
-            song?.videoId?.let { vid ->
+            if (collectionTitle != null) emptySet()
+            else song?.videoId?.let { vid ->
                 playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
                     .map { it.playlistId }.toSet()
             } ?: emptySet()
@@ -157,19 +165,21 @@ fun PlaylistPickerSheet(
 
     // Selected state begins identical to initiallyPresent:
     // Any playlist containing the song is checked; others are unchecked.
-    var selected by remember(song?.videoId) {
+    var selected by remember(song?.videoId, collectionTitle) {
         mutableStateOf(
-            song?.videoId?.let { vid ->
+            if (collectionTitle != null) emptySet()
+            else song?.videoId?.let { vid ->
                 playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
                     .map { it.playlistId }.toSet()
             } ?: emptySet()
         )
     }
 
-    val userToggledPlaylists = remember(song?.videoId) { mutableSetOf<String>() }
+    val userToggledPlaylists = remember(song?.videoId, collectionTitle) { mutableSetOf<String>() }
 
     // When playlists finishes loading or changes, update initiallyPresent from cache if user hasn't toggled yet
-    LaunchedEffect(playlists, song?.videoId) {
+    LaunchedEffect(playlists, song?.videoId, collectionTitle) {
+        if (collectionTitle != null) return@LaunchedEffect
         val vid = song?.videoId ?: return@LaunchedEffect
         if (playlists.isNotEmpty() && initiallyPresent.isEmpty() && userToggledPlaylists.isEmpty()) {
             val fromCache = playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
@@ -182,7 +192,8 @@ fun PlaylistPickerSheet(
     }
 
     // Fast, single-call membership check using YouTube Music's native get_add_to_playlist endpoint.
-    LaunchedEffect(song?.videoId) {
+    LaunchedEffect(song?.videoId, collectionTitle) {
+        if (collectionTitle != null) return@LaunchedEffect
         val target = song ?: return@LaunchedEffect
         isCheckingMembership = true
         withContext(Dispatchers.IO) {
@@ -229,9 +240,18 @@ fun PlaylistPickerSheet(
         }
     }
 
-    val displayedPlaylists = remember(playlists, playlistSearchQuery) {
-        if (playlistSearchQuery.isBlank()) playlists
-        else playlists.filter { it.title.contains(playlistSearchQuery, ignoreCase = true) }
+    val cleanExclude = excludePlaylistId?.removePrefix("VL")?.removePrefix("local:playlist:")
+    val filteredByExclusion = remember(playlists, excludePlaylistId) {
+        if (excludePlaylistId.isNullOrBlank()) playlists
+        else playlists.filterNot { pl ->
+            val pid = pl.playlistId.removePrefix("VL").removePrefix("local:playlist:")
+            pid == cleanExclude || pl.playlistId == excludePlaylistId || pl.browseId == excludePlaylistId
+        }
+    }
+
+    val displayedPlaylists = remember(filteredByExclusion, playlistSearchQuery) {
+        if (playlistSearchQuery.isBlank()) filteredByExclusion
+        else filteredByExclusion.filter { it.title.contains(playlistSearchQuery, ignoreCase = true) }
     }
 
     val sortedPlaylists = remember(displayedPlaylists, pinnedPlaylists, sortOrder, initiallyPresent) {
@@ -313,6 +333,40 @@ fun PlaylistPickerSheet(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            } else if (collectionTitle != null) {
+                AsyncImage(
+                    model = collectionArtworkUrl.artworkAt(ROW_ART_PX),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .thumbnailBorder(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = collectionTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val countText = if (collectionSongs.isNotEmpty()) {
+                        pluralStringResource(R.plurals.song_count_plural, collectionSongs.size, collectionSongs.size)
+                    } else {
+                        collectionSubtitle.orEmpty()
+                    }
+                    if (countText.isNotBlank()) {
+                        Text(
+                            text = countText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             } else {
                 Text(
                     text = stringResource(R.string.your_playlists).uppercase(Locale.getDefault()),
@@ -356,7 +410,7 @@ fun PlaylistPickerSheet(
             }
         }
 
-        if (song != null) {
+        if (song != null || collectionTitle != null) {
             HorizontalDivider(
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
@@ -371,15 +425,18 @@ fun PlaylistPickerSheet(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = stringResource(if (song != null) R.string.add_to_playlist else R.string.your_playlists)
-                    .uppercase(Locale.getDefault()),
+                text = stringResource(
+                    if (collectionTitle != null) R.string.add_to_other_playlist
+                    else if (song != null) R.string.add_to_playlist
+                    else R.string.your_playlists,
+                ).uppercase(Locale.getDefault()),
                 style = MaterialTheme.typography.labelSmall.copy(
                     letterSpacing = 1.sp,
                     fontWeight = FontWeight.Bold,
                 ),
                 color = MaterialTheme.colorScheme.primary,
             )
-            if (isCheckingMembership && song != null) {
+            if (isCheckingMembership && song != null && collectionTitle == null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),

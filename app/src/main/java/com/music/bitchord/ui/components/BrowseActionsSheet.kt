@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
@@ -137,6 +138,7 @@ fun BrowseActionsSheet(
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
     modifier: Modifier = Modifier,
+    onAddToOtherPlaylist: (() -> Unit)? = null,
     onPlay: (() -> Unit)? = null,
     onShuffle: (() -> Unit)? = null,
     /** Null where the sheet was opened from the page it would navigate to. */
@@ -231,6 +233,13 @@ fun BrowseActionsSheet(
                 stringResource(R.string.add_to_queue),
                 onClick = onAddToQueue,
             )
+            onAddToOtherPlaylist?.let {
+                ActionRow(
+                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    stringResource(R.string.add_to_other_playlist),
+                    onClick = it,
+                )
+            }
             ActionRow(
                 icon = Icons.Rounded.PushPin,
                 label = if (isSpeedDialPinned) stringResource(R.string.unpin_from_your_space) else stringResource(R.string.pin_to_your_space),

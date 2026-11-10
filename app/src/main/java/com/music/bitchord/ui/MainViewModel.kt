@@ -101,6 +101,16 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
+data class BulkAddProgress(
+    val currentSongIndex: Int,
+    val totalSongs: Int,
+    val currentBatch: Int,
+    val totalBatches: Int,
+    val playlistTitle: String,
+    val estimatedRemainingSeconds: Long,
+    val isComplete: Boolean = false,
+)
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authStore = AuthStore(app)
@@ -1004,6 +1014,114 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun addSongsToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        batchSize: Int = 35,
+        onProgress: ((BulkAddProgress) -> Unit)? = null,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+    ) {
+        if (playlists.isEmpty() || songs.isEmpty()) return
+        viewModelScope.launch {
+            var totalAdded = 0
+            var totalAlreadyThere = 0
+            var totalFailed = 0
+
+            playlists.forEach { playlist ->
+                val cleanId = playlist.playlistId.removePrefix("VL")
+                val isLocal = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(playlist.playlistId) != null
+                if (isLocal) {
+                    val added = com.music.bitchord.data.spotify.LocalPlaylistStore.addSongs(playlist.playlistId, songs)
+                    songs.forEach { s ->
+                        PlaylistMembershipCache.add(cleanId, s.videoId)
+                        PlaylistMembershipCache.add(playlist.playlistId, s.videoId)
+                        appendToOpenPlaylist(playlist.browseId, s, null)
+                    }
+                    totalAdded += added
+                    totalAlreadyThere += (songs.size - added)
+                    onProgress?.invoke(
+                        BulkAddProgress(
+                            currentSongIndex = songs.size,
+                            totalSongs = songs.size,
+                            currentBatch = 1,
+                            totalBatches = 1,
+                            playlistTitle = playlist.title,
+                            estimatedRemainingSeconds = 0,
+                            isComplete = true,
+                        ),
+                    )
+                } else {
+                    if (!requireSignIn()) {
+                        totalFailed += songs.size
+                        return@forEach
+                    }
+                    val validSongs = songs.filter { it.videoId.isNotBlank() && !it.videoId.startsWith("local:") }
+                    if (validSongs.isEmpty()) {
+                        totalFailed += songs.size
+                        return@forEach
+                    }
+                    val chunks = validSongs.chunked(batchSize.coerceIn(10, 50))
+                    val totalBatches = chunks.size
+                    val startTime = System.currentTimeMillis()
+
+                    chunks.forEachIndexed { index, chunk ->
+                        val processedSoFar = index * chunk.size
+                        val elapsed = System.currentTimeMillis() - startTime
+                        val avgTimePerBatch = if (index > 0) elapsed / index else 1400L
+                        val remainingBatches = totalBatches - index
+                        val estimatedSeconds = ((remainingBatches * avgTimePerBatch) / 1000L).coerceAtLeast(1L)
+
+                        onProgress?.invoke(
+                            BulkAddProgress(
+                                currentSongIndex = processedSoFar,
+                                totalSongs = validSongs.size,
+                                currentBatch = index + 1,
+                                totalBatches = totalBatches,
+                                playlistTitle = playlist.title,
+                                estimatedRemainingSeconds = estimatedSeconds,
+                                isComplete = false,
+                            ),
+                        )
+
+                        val videoIds = chunk.map { it.videoId }
+                        val result = YtMusicRepository.addToPlaylist(cleanId, videoIds)
+                        result.fold(
+                            onSuccess = { addedMap ->
+                                libraryStale = true
+                                chunk.forEach { song ->
+                                    val newSetVideoId = addedMap[song.videoId]
+                                    PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
+                                    appendToOpenPlaylist(playlist.browseId, song, newSetVideoId)
+                                }
+                                val existingPending = pendingPlaylistAdditions[cleanId].orEmpty()
+                                pendingPlaylistAdditions[cleanId] = existingPending + chunk
+                                totalAdded += addedMap.size
+                                totalAlreadyThere += (chunk.size - addedMap.size)
+                            },
+                            onFailure = {
+                                totalFailed += chunk.size
+                            },
+                        )
+                    }
+
+                    onProgress?.invoke(
+                        BulkAddProgress(
+                            currentSongIndex = validSongs.size,
+                            totalSongs = validSongs.size,
+                            currentBatch = totalBatches,
+                            totalBatches = totalBatches,
+                            playlistTitle = playlist.title,
+                            estimatedRemainingSeconds = 0,
+                            isComplete = true,
+                        ),
+                    )
+                }
+            }
+
+            onResult(totalAdded, totalAlreadyThere, totalFailed)
+        }
+    }
+
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
     private suspend fun removeOne(playlist: UserPlaylist, song: Song): Boolean {
@@ -1178,6 +1296,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         privacy: PlaylistPrivacy,
         videoIds: List<String>,
         songs: List<Song> = emptyList(),
+        onProgress: ((BulkAddProgress) -> Unit)? = null,
         /** [savedLocally] is true when the playlist went to this device, not YouTube Music. */
         onResult: ((browseId: String?, title: String, savedLocally: Boolean) -> Unit)? = null,
     ) {
@@ -1192,9 +1311,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     onSuccess = { playlistId ->
                         AppSettings.addChordplayPlaylistId(playlistId)
                         if (videoIds.isNotEmpty()) {
-                            videoIds.chunked(50).forEach { chunk ->
+                            val chunks = videoIds.chunked(35)
+                            val totalBatches = chunks.size
+                            val startTime = System.currentTimeMillis()
+                            chunks.forEachIndexed { index, chunk ->
+                                val processedSoFar = index * chunk.size
+                                val elapsed = System.currentTimeMillis() - startTime
+                                val avgTimePerBatch = if (index > 0) elapsed / index else 1400L
+                                val remainingBatches = totalBatches - index
+                                val estimatedSeconds = ((remainingBatches * avgTimePerBatch) / 1000L).coerceAtLeast(1L)
+                                onProgress?.invoke(
+                                    BulkAddProgress(
+                                        currentSongIndex = processedSoFar,
+                                        totalSongs = videoIds.size,
+                                        currentBatch = index + 1,
+                                        totalBatches = totalBatches,
+                                        playlistTitle = name,
+                                        estimatedRemainingSeconds = estimatedSeconds,
+                                        isComplete = false,
+                                    ),
+                                )
                                 YtMusicRepository.addToPlaylist(playlistId, chunk)
                             }
+                            onProgress?.invoke(
+                                BulkAddProgress(
+                                    currentSongIndex = videoIds.size,
+                                    totalSongs = videoIds.size,
+                                    currentBatch = totalBatches,
+                                    totalBatches = totalBatches,
+                                    playlistTitle = name,
+                                    estimatedRemainingSeconds = 0,
+                                    isComplete = true,
+                                ),
+                            )
                         }
                         if (songs.isNotEmpty()) {
                             preseededSongs["VL$playlistId"] = songs
@@ -1226,12 +1375,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     onFailure = {
                         val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
                         AppSettings.addChordplayPlaylistId(local.browseId)
+                        onProgress?.invoke(
+                            BulkAddProgress(
+                                currentSongIndex = songs.size,
+                                totalSongs = songs.size,
+                                currentBatch = 1,
+                                totalBatches = 1,
+                                playlistTitle = name,
+                                estimatedRemainingSeconds = 0,
+                                isComplete = true,
+                            ),
+                        )
                         onResult?.invoke(local.browseId, local.title, true)
                     },
                 )
             } else {
                 val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
                 AppSettings.addChordplayPlaylistId(local.browseId)
+                onProgress?.invoke(
+                    BulkAddProgress(
+                        currentSongIndex = songs.size,
+                        totalSongs = songs.size,
+                        currentBatch = 1,
+                        totalBatches = 1,
+                        playlistTitle = name,
+                        estimatedRemainingSeconds = 0,
+                        isComplete = true,
+                    ),
+                )
                 onResult?.invoke(local.browseId, local.title, true)
             }
         }

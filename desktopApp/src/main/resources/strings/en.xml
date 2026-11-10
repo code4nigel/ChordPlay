@@ -50,6 +50,7 @@
     <string name="auto_unavailable_title">Content unavailable</string>
     <string name="auto_unavailable_subtitle">Reopen the folder and try again</string>
     <string name="add_to_playlist">Add to playlist</string>
+    <string name="add_to_other_playlist">Add to other playlist</string>
     <string name="add_to_library">Add to library</string>
     <string name="remove_from_library">Remove from library</string>
     <string name="subscribe">Subscribe</string>

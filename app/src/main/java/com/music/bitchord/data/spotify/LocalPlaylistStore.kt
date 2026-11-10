@@ -95,21 +95,27 @@ object LocalPlaylistStore {
     }
 
     fun addSong(id: String, song: Song): Boolean {
+        return addSongs(id, listOf(song)) > 0
+    }
+
+    fun addSongs(id: String, songs: List<Song>): Int {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
-        var changed = false
+        var addedCount = 0
         val updated = _playlists.value.map { pl ->
             if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
-                if (pl.songs.none { it.videoId == song.videoId }) {
-                    changed = true
-                    pl.copy(songs = pl.songs + song)
+                val existingIds = pl.songs.map { it.videoId }.toSet()
+                val newSongs = songs.filter { it.videoId.isNotBlank() && it.videoId !in existingIds }
+                if (newSongs.isNotEmpty()) {
+                    addedCount += newSongs.size
+                    pl.copy(songs = pl.songs + newSongs)
                 } else pl
             } else pl
         }
-        if (changed) {
+        if (addedCount > 0) {
             _playlists.value = updated
             persist(updated)
         }
-        return changed
+        return addedCount
     }
 
     fun removeSong(id: String, videoId: String): Boolean {

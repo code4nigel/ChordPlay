@@ -224,6 +224,8 @@ import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.components.BrowseActionsSheet
 import com.music.bitchord.ui.components.BrowseTarget
+import com.music.bitchord.ui.components.BulkAddProgressDialog
+import com.music.bitchord.ui.BulkAddProgress
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.DownloadManagerSheet
 import com.music.bitchord.ui.components.PlaylistPickerSheet
@@ -686,6 +688,8 @@ private fun BitChordApp(
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
+    var collectionPlaylistTarget by remember { mutableStateOf<CollectionPlaylistTarget?>(null) }
+    var bulkAddProgress by remember { mutableStateOf<BulkAddProgress?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -4813,6 +4817,103 @@ private fun BitChordApp(
             }
         }
 
+        if (collectionPlaylistTarget != null) {
+            val target = collectionPlaylistTarget
+            val dismiss = { collectionPlaylistTarget = null }
+            val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+            val collectionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
+            ModalBottomSheet(
+                onDismissRequest = dismiss,
+                sheetState = collectionSheetState,
+                containerColor = MaterialTheme.colorScheme.surface.copy(
+                    alpha = if (isLiquidGlassActive) 0.88f else 0.96f
+                ),
+            ) {
+                target?.let { col ->
+                    PlaylistPickerSheet(
+                        playlists = playlists,
+                        loading = playlistsLoading,
+                        song = null,
+                        collectionTitle = col.title,
+                        collectionSubtitle = col.subtitle,
+                        collectionArtworkUrl = col.thumbnailUrl,
+                        collectionSongs = col.songs,
+                        excludePlaylistId = col.sourceBrowseId,
+                        startCreating = false,
+                        pinnedPlaylists = pinnedPlaylists,
+                        onDismiss = dismiss,
+                        onAdd = { picked ->
+                            dismiss()
+                            if (picked.isNotEmpty() && col.songs.isNotEmpty()) {
+                                viewModel.addSongsToPlaylists(
+                                    playlists = picked,
+                                    songs = col.songs,
+                                    onProgress = { p -> bulkAddProgress = p },
+                                    onResult = { added, alreadyThere, failed ->
+                                        showQueueNotice(
+                                            when {
+                                                added > 0 -> context.getString(
+                                                    R.string.songs_added_to_playlist,
+                                                    added,
+                                                    picked.joinToString(", ") { it.title },
+                                                )
+                                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                                else -> context.getString(R.string.failed)
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        },
+                        onCommit = { toAdd, _ ->
+                            dismiss()
+                            if (toAdd.isNotEmpty() && col.songs.isNotEmpty()) {
+                                viewModel.addSongsToPlaylists(
+                                    playlists = toAdd,
+                                    songs = col.songs,
+                                    onProgress = { p -> bulkAddProgress = p },
+                                    onResult = { added, alreadyThere, failed ->
+                                        showQueueNotice(
+                                            when {
+                                                added > 0 -> context.getString(
+                                                    R.string.songs_added_to_playlist,
+                                                    added,
+                                                    toAdd.joinToString(", ") { it.title },
+                                                )
+                                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                                else -> context.getString(R.string.failed)
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        },
+                        onCreate = { title, privacy ->
+                            dismiss()
+                            val videoIds = col.songs.map { it.videoId }.filter { it.isNotBlank() && !it.startsWith("local:") }
+                            viewModel.createPlaylistWithVideoIds(
+                                title = title,
+                                privacy = privacy,
+                                videoIds = videoIds,
+                                songs = col.songs,
+                                onProgress = { p -> bulkAddProgress = p },
+                                onResult = { browseId, createdTitle, savedLocally ->
+                                    showQueueNotice(
+                                        context.getString(
+                                            R.string.songs_added_to_playlist,
+                                            col.songs.size,
+                                            createdTitle,
+                                        )
+                                    )
+                                }
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
         if (showSpotifyImportDialog) {
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
@@ -4893,6 +4994,21 @@ private fun BitChordApp(
                 startRenaming = browseRenameInSheet,
                 onPlayNext = act(playSongsNext),
                 onAddToQueue = act(addSongsToQueue),
+                onAddToOtherPlaylist = if (target.type != BrowseType.ARTIST) {
+                    act { songs ->
+                        if (songs.isNotEmpty()) {
+                            collectionPlaylistTarget = CollectionPlaylistTarget(
+                                title = target.title,
+                                subtitle = target.subtitle,
+                                thumbnailUrl = target.thumbnailUrl,
+                                sourceBrowseId = target.browseId,
+                                songs = songs,
+                            )
+                        } else {
+                            Toast.makeText(context, context.getString(R.string.no_tracks_here), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else null,
                 onPlay = act { songs -> play(songs, 0) }.takeIf { target.fromCard },
                 onShuffle = act { songs ->
                     // As on a release page: shuffle goes on before the queue
@@ -5198,6 +5314,14 @@ private fun BitChordApp(
                     )
                 }
             }
+        }
+
+        bulkAddProgress?.let { progress ->
+            BulkAddProgressDialog(
+                progress = progress,
+                hazeState = hazeState,
+                onDismiss = { bulkAddProgress = null },
+            )
         }
 
         // ---- Diwali Celebration (once per launch of the festival) ----
@@ -5889,3 +6013,11 @@ private const val TAB_SEARCH = 3
  * prefix has to be the one thing both the writing and the reading agree on.
  */
 private const val TAB_KEY = "tab:"
+
+private data class CollectionPlaylistTarget(
+    val title: String,
+    val subtitle: String? = null,
+    val thumbnailUrl: String? = null,
+    val sourceBrowseId: String? = null,
+    val songs: List<Song>,
+)
