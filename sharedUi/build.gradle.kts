@@ -106,6 +106,7 @@ kotlin {
         val iosMain by getting {
             dependencies {
                 api("org.jetbrains.compose.ui:ui-uikit:$cmp")
+                api("io.coil-kt.coil3:coil-network-ktor3:3.0.4")
             }
         }
         jvmTest.dependencies {
