@@ -519,6 +519,7 @@ internal fun CurrentLyricStrip(
     lyricsUnavailable: Boolean,
     loadingText: String,
     onClick: () -> Unit,
+    textStyle: TextStyle? = null,
 ) {
     Box(
         modifier = Modifier
@@ -538,6 +539,7 @@ internal fun CurrentLyricStrip(
                 durationMs = durationMs,
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
+                textStyle = textStyle,
             )
         } else if (lyricsUnavailable) {
             LyricsUnavailableLine(
@@ -2570,7 +2572,9 @@ private fun CurrentLyricLine(
     durationMs: Long,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    textStyle: TextStyle? = null,
 ) {
+    val resolvedStyle = textStyle ?: MaterialTheme.typography.titleMedium
     val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
     if (!isSynced) {
         Row(
@@ -2589,7 +2593,7 @@ private fun CurrentLyricLine(
             Spacer(Modifier.width(6.dp))
             Text(
                 text = stringResource(Res.string.open_lyrics),
-                style = MaterialTheme.typography.titleMedium,
+                style = resolvedStyle,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2675,16 +2679,16 @@ private fun CurrentLyricLine(
                 SweptLyricLine(
                     line = swept,
                     clock = clock,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = resolvedStyle,
                     dimAlpha = UNSUNG_ALPHA_STRIP,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.Clip,
                     rise = false,
                 )
             } else {
                 Text(
                     text = lineText,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = resolvedStyle,
                     color = if (itemInstrumental) Color.White.copy(alpha = 0.5f) else Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

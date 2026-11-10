@@ -1775,16 +1775,49 @@ fun NowPlayingScreen(
         }
 
         Box(modifier = modifier.fillMaxSize().then(dockHost)) {
+            val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
+
             LandscapePlayerLayout(
                 pane = when {
                     lyricsOpen -> PlayerPane.Lyrics
                     queueOpen -> PlayerPane.Queue
                     else -> PlayerPane.Main
                 },
+                onSelectPane = { selectedPane ->
+                    when (selectedPane) {
+                        PlayerPane.Main -> {
+                            lyricsOpen = false
+                            queueOpen = false
+                        }
+                        PlayerPane.Lyrics -> {
+                            lyricsOpen = true
+                            queueOpen = false
+                        }
+                        PlayerPane.Queue -> {
+                            queueOpen = true
+                            lyricsOpen = false
+                        }
+                    }
+                },
+                onOpenPipeline = { showAudioPipeline = true },
+                palette = synesthesiaPalette,
                 background = { backgroundModifier ->
-                    // The whole screen is the sheets' frost source: there is
-                    // no full-bleed banner here to be it instead.
-                    fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze))
+                    Box(modifier = backgroundModifier) {
+                        MeshGradientBackground(
+                            palette = synesthesiaPalette,
+                            trackKey = song.videoId,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .hazeSource(playerHaze),
+                        )
+                        if (isWavePlay && !spotifyCanvasPresentation) {
+                            SynesthesiaNocturneOverlay(
+                                palette = synesthesiaPalette,
+                                isPlaying = isPlaying,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
                 },
                 artwork = { artworkModifier ->
                     LandscapeArtwork(
@@ -1853,15 +1886,27 @@ fun NowPlayingScreen(
                                 closeLyrics()
                             },
                     ) {
+                        // Overlay audio pipeline specs pill on bottom-left of artwork
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 20.dp, bottom = 20.dp),
+                        ) {
+                            ChordPlayPipelineBottomPill(
+                                song = song,
+                                isLoading = isLoading,
+                                onOpenPipeline = { showAudioPipeline = true },
+                                onOpenOutput = openAudioOutput,
+                                palette = synesthesiaPalette,
+                            )
+                        }
                         // The stats belong to the player, not to the sleeve, so
                         // they leave it along with the rest of the player.
                         SleeveNerdStats(
                             song = song,
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(horizontal = 10.dp, vertical = 8.dp)
-                                // Faded with the player rather than flown with
-                                // the sleeve: the cover in the bar has none.
+                                .align(Alignment.TopStart)
+                                .padding(start = 16.dp, top = 16.dp)
                                 .graphicsLayer { alpha = if (panelOpen) 0f else dockFade() },
                         )
                     }
@@ -1883,10 +1928,12 @@ fun NowPlayingScreen(
                                 onOpenMenu = onOpenMenu,
                                 onOpenAlbum = onOpenAlbum,
                                 onOpenArtist = onOpenArtist,
+                                fontScale = landscapeFontScale,
                             )
                         },
                         lyricStrip = if (syncedLyricsEnabled) {
                             {
+                                val stripFontSize = (16 * landscapeFontScale.scaleFactor).sp
                                 CurrentLyricStrip(
                                     lines = lyricsTranslation.displayedLyrics,
                                     trackKey = song.videoId,
@@ -1896,44 +1943,80 @@ fun NowPlayingScreen(
                                     lyricsUnavailable = lyricsUnavailable,
                                     loadingText = lyricsLoadingText,
                                     onClick = openLyrics,
+                                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                                        fontSize = stripFontSize,
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
                                 )
                             }
                         } else {
                             null
                         },
                         scrubber = {
-                            PlayerScrubber(
-                                shown = shown,
-                                durationMs = durationMs,
-                                loading = versionAligning || audioVersionSwitching,
-                                mixing = mixing && !scrub.scrubbing,
-                                transitionWindow = transitionWindow
-                                    ?.takeIf { !scrub.scrubbing && it.end > it.start }
-                                    ?.let { it.start..it.end },
-                                onScrub = onScrub,
-                                onScrubFinished = onScrubFinished,
-                            ) {
-                                PlaybackQualityLabel(
-                                    song = song,
-                                    isLoading = isLoading,
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .padding(horizontal = 8.dp),
+                            if (isWavePlay) {
+                                SynesthesiaWaveformScrubber(
+                                    shown = shown,
+                                    durationMs = durationMs,
+                                    isPlaying = isPlaying && position.advancing,
+                                    onScrub = onScrub,
+                                    onScrubFinished = onScrubFinished,
+                                    trackKey = song.videoId,
+                                    palette = synesthesiaPalette,
                                 )
+                            } else {
+                                PlayerScrubber(
+                                    shown = shown,
+                                    durationMs = durationMs,
+                                    loading = versionAligning || audioVersionSwitching,
+                                    mixing = mixing && !scrub.scrubbing,
+                                    transitionWindow = transitionWindow
+                                        ?.takeIf { !scrub.scrubbing && it.end > it.start }
+                                        ?.let { it.start..it.end },
+                                    onScrub = onScrub,
+                                    onScrubFinished = onScrubFinished,
+                                ) {
+                                    PlaybackQualityLabel(
+                                        song = song,
+                                        isLoading = isLoading,
+                                        modifier = Modifier
+                                            .align(Alignment.Center)
+                                            .padding(horizontal = 8.dp),
+                                    )
+                                }
                             }
                         },
                         transport = {
-                            TransportRow(
-                                isPlaying = isPlaying,
-                                isLoading = isLoading || audioVersionSwitching,
-                                previousEnabled = !controlsLocked &&
-                                    (hasPrevious || pastRestartPoint),
-                                nextEnabled = !controlsLocked && hasNext,
-                                onPrevious = onPrevious,
-                                onPlayPause = onPlayPause,
-                                onNext = onNext,
-                                compact = compact,
-                            )
+                            if (isWavePlay) {
+                                ChordPlayTransportDeck(
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading || audioVersionSwitching,
+                                    previousEnabled = !controlsLocked &&
+                                        (hasPrevious || pastRestartPoint),
+                                    nextEnabled = !controlsLocked && hasNext,
+                                    onPrevious = onPrevious,
+                                    onPlayPause = onPlayPause,
+                                    onNext = onNext,
+                                    shuffleEnabled = shuffleEnabled,
+                                    repeatMode = repeatMode,
+                                    onToggleShuffle = onToggleShuffle,
+                                    onCycleRepeat = onCycleRepeat,
+                                    palette = synesthesiaPalette,
+                                    hazeState = playerHaze,
+                                    queueOpen = queueOpen,
+                                )
+                            } else {
+                                TransportRow(
+                                    isPlaying = isPlaying,
+                                    isLoading = isLoading || audioVersionSwitching,
+                                    previousEnabled = !controlsLocked &&
+                                        (hasPrevious || pastRestartPoint),
+                                    nextEnabled = !controlsLocked && hasNext,
+                                    onPrevious = onPrevious,
+                                    onPlayPause = onPlayPause,
+                                    onNext = onNext,
+                                    compact = compact,
+                                )
+                            }
                         },
                         volume = if (hideVolumeBar) {
                             null

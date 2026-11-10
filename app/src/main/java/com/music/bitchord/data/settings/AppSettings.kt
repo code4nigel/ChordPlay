@@ -618,6 +618,9 @@ object AppSettings {
     /** Breathing artwork aura animation behind the cover during playback. */
     val enableBreathingAura = MutableStateFlow(true)
 
+    /** Typography font scaling for landscape and In-Car / Android Auto mode. */
+    val landscapeFontScale = MutableStateFlow(LandscapeFontScale.LARGE)
+
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
 
@@ -1039,6 +1042,9 @@ object AppSettings {
             SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_LEFT_ACTION, null) ?: SongSwipeAction.ADD_TO_QUEUE.name)
         }.getOrDefault(SongSwipeAction.ADD_TO_QUEUE)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
+        landscapeFontScale.value = runCatching {
+            LandscapeFontScale.valueOf(prefs.getString(KEY_LANDSCAPE_FONT_SCALE, null) ?: LandscapeFontScale.LARGE.name)
+        }.getOrDefault(LandscapeFontScale.LARGE)
 
         val savedLyricsStyle = LyricsCustomStyle(
             fontChoice = runCatching {
@@ -1857,6 +1863,13 @@ object AppSettings {
         }
     }
 
+    fun setLandscapeFontScale(value: LandscapeFontScale) {
+        landscapeFontScale.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_LANDSCAPE_FONT_SCALE, value.name).apply()
+        }
+    }
+
     fun setLastPlayerScreen(value: LastPlayerScreen) {
         if (lastPlayerScreen.value == value) return
         lastPlayerScreen.value = value
@@ -2610,6 +2623,7 @@ object AppSettings {
     private const val KEY_SONG_SWIPE_RIGHT_ACTION = "song_swipe_right_action"
     private const val KEY_SONG_SWIPE_LEFT_ACTION = "song_swipe_left_action"
     private const val KEY_ENABLE_BREATHING_AURA = "enable_breathing_aura"
+    private const val KEY_LANDSCAPE_FONT_SCALE = "landscape_font_scale"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"
     private const val KEY_LYRICS_SOURCES = "lyrics_sources"

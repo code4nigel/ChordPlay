@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.PlayerLayoutMode
+import com.music.bitchord.data.settings.LandscapeFontScale
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import com.music.bitchord.ui.screens.*
@@ -67,6 +69,7 @@ fun PlayerSection(
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+    val landscapeFontScale by AppSettings.landscapeFontScale.collectAsStateWithLifecycle()
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
@@ -146,11 +149,17 @@ fun PlayerSection(
             stringResource(R.string.show_nerd_stats_subtitle),
             "nerd", "stats", "codec", "bitrate",
         )
+        val showLandscapeFontScale = matchesSearch(
+            searchQuery,
+            stringResource(R.string.landscape_font_size),
+            landscapeFontScale.detail,
+            "landscape", "car", "in-car", "font", "size", "auto", "text", "auto",
+        )
 
         val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
             showFullScreenCoverArt || showLegacyMeshGradient || showAnimatedCoverArt ||
             showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose ||
-            showSmartAlignment || showNerdStats
+            showLandscapeFontScale || showSmartAlignment || showNerdStats
 
         // Pinned Live Preview (hidden during active search)
         if (searchQuery.isBlank()) {
@@ -362,6 +371,24 @@ fun PlayerSection(
                             onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
                         )
                     }
+                }
+
+                // Landscape & In-Car Display Section
+                if (showLandscapeFontScale) {
+                    if (hasTopVisuals || hasArtworkVisuals || hasPreferences) {
+                        SettingsSectionDivider(title = stringResource(R.string.landscape_display_header))
+                    }
+                    SettingsRow(
+                        icon = Icons.Rounded.FormatSize,
+                        title = stringResource(R.string.landscape_font_size),
+                        subtitle = landscapeFontScale.detail,
+                    )
+                    SegmentedControl(
+                        options = LandscapeFontScale.entries.map { it.label },
+                        selectedIndex = LandscapeFontScale.entries.indexOf(landscapeFontScale),
+                        onSelect = { AppSettings.setLandscapeFontScale(LandscapeFontScale.entries[it]) },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
                 }
 
                 // Advanced & Stats Section Divider

@@ -221,6 +221,11 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
     override val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
     override val enableBreathingAura = MutableStateFlow(true)
+    override val landscapeFontScale = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
+
+    override fun setLandscapeFontScale(value: com.music.bitchord.data.settings.LandscapeFontScale) {
+        landscapeFontScale.value = value
+    }
 
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
         lastPlayerScreen.value = value

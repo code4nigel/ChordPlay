@@ -84,3 +84,11 @@ enum class AppFontChoice(val label: String, val detail: String) {
     PARKINSANS("Parkinsans", "Playful grotesque with distinctive curves and character"),
     SYSTEM_DEFAULT("System Default", "Standard Android system sans-serif"),
 }
+
+/** Typography font scaling for landscape and In-Car / Android Auto mode. */
+enum class LandscapeFontScale(val label: String, val detail: String, val scaleFactor: Float) {
+    STANDARD("Standard", "Compact typography for handheld devices", 1.0f),
+    LARGE("Large (Recommended)", "Bigger title, artist, and lyrics strip", 1.25f),
+    CAR_MODE("In-Car / Extra Large", "Maximum legibility optimized for car head units & driving distance", 1.5f),
+}
+

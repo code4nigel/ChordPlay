@@ -83,6 +83,8 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) = AppSettings.setPlayerInterfaceStyle(value)
         override val fullscreenArtworkLyricsStyle get() = AppSettings.fullscreenArtworkLyricsStyle
         override val enableBreathingAura get() = AppSettings.enableBreathingAura
+        override val landscapeFontScale get() = AppSettings.landscapeFontScale
+        override fun setLandscapeFontScale(value: com.music.bitchord.data.settings.LandscapeFontScale) = AppSettings.setLandscapeFontScale(value)
         override val videoQuality get() = AppSettings.videoQuality
         override fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) = AppSettings.setVideoQuality(value)
 

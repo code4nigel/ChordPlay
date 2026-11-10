@@ -1277,6 +1277,9 @@
 
     <string name="breathing_artwork_aura">Breathing Artwork Aura</string>
     <string name="breathing_artwork_aura_desc">Subtle ambient artwork glow pulsing with audio playback</string>
+    <string name="landscape_display_header">Landscape &amp; In-Car Display</string>
+    <string name="landscape_font_size">Landscape &amp; In-Car Text Size</string>
+    <string name="landscape_font_size_subtitle">Scale typography for dashboard head units and driving legibility</string>
     <string name="artwork_and_visuals">Artwork &amp; Visuals</string>
 
     <!-- Settings: Custom Saves & Swipe Gestures & Typography -->

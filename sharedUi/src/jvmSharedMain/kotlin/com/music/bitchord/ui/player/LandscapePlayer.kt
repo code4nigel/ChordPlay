@@ -4,11 +4,16 @@ import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -16,7 +21,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,126 +34,108 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import com.music.bitchord.ui.haptics.Haptic
-import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
-
-/**
- * The widest the two columns are allowed to get between them, centred in
- * whatever is left over.
- *
- * Without a cap the lyric column simply takes every pixel past the artwork,
- * and on a wide window that is a column of text with a hand's width of empty
- * backdrop trailing off the right of every line. Lyrics are read down, not
- * across: past a certain measure the extra width is further for the eye to
- * travel back rather than more room for the words.
- */
-private val LANDSCAPE_PLAYER_MAX_WIDTH = 1100.dp
+import com.music.bitchord.data.settings.LandscapeFontScale
+import com.music.bitchord.ui.haptics.Haptic
+import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.icons.BitChordIcons
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Below this height the landscape player tightens its right column — smaller
- * transport, shorter gaps — so a phone on its side fits the credits, the
- * scrubber, the transport and the volume bar between its status and
- * navigation bars without any of them falling off the bottom.
+ * transport, shorter gaps — so a phone or car head unit fits the player deck
+ * without vertical clipping.
  */
 private val LANDSCAPE_COMPACT_HEIGHT = 440.dp
 
-/**
- * Side margin of the landscape player's sleeve column and credits on a
- * phone-height window, in place of [PLAYER_GUTTER].
- */
-private val LANDSCAPE_GUTTER_COMPACT = 20.dp
-
-/**
- * How the right column hands over between the player, the lyrics and the
- * queue. The left column never moves, so a crossfade is the whole transition —
- * the same page being turned, not a panel being opened.
- */
 private const val LANDSCAPE_PANE_FADE_IN_MS = 220
-private const val LANDSCAPE_PANE_FADE_IN_DELAY_MS = 90
+private const val LANDSCAPE_PANE_FADE_IN_DELAY_MS = 80
 private const val LANDSCAPE_PANE_FADE_OUT_MS = 140
 
-/** Which of its three things the player's content column is showing. */
+/** Which of the content panes the landscape right side is showing. */
 internal enum class PlayerPane { Main, Lyrics, Queue }
 
 /** The landscape sleeve's corner radius, at rest. */
-internal val LANDSCAPE_ART_CORNER = 10.dp
+internal val LANDSCAPE_ART_CORNER = 16.dp
 
-/** The landscape sleeve's shape at rest, for a caller with no docking to do. */
+/** The landscape sleeve's shape at rest. */
 private val LandscapeArtShape = RoundedCornerShape(LANDSCAPE_ART_CORNER)
 
 /** Room above the landscape columns for the sheet's drag handle. */
-private val LANDSCAPE_HANDLE_STRIP = 24.dp
+private val LANDSCAPE_HANDLE_STRIP = 20.dp
 
 /**
- * The player in a landscape window — a tablet, or a phone on its side. See
- * [landscapePlayerAvailable].
+ * Modernized ChordPlay Landscape / In-Car / Android Auto Player Layout.
  *
- * Two columns of equal width. The left one is the same in every state: the
- * sleeve, and under it the lyrics / output / queue row with the output name —
- * the controls for *which* of the three the right column shows. The right one
- * is that one thing: the credits and transport, the lyric sheet or the queue.
- * Nothing else is drawn twice and nothing moves between columns, so opening
- * the lyrics or the queue is only ever the right column's page being turned.
+ * Left side: Edge-to-edge bleeding artwork / animated canvas dissolving into the
+ * dynamic mesh gradient with an overlay audio pipeline bottom pill.
  *
- * Purely the arrangement. Every slot is built by [NowPlayingScreen], which is
- * where the state behind all of them lives — the same state the portrait
- * player reads, so rotating mid-song carries the open panel, the scrub and the
- * translation mode straight across.
+ * Right side: Centered player deck with large legible typography, waveform scrubber,
+ * glowing ripple transport orb deck, and far-right vertical floating glass rail.
  *
- * Held to [LANDSCAPE_PLAYER_MAX_WIDTH] and centred, inside the safe-drawing
- * insets: a phone on its side has its status bar, navigation bar and camera
- * cutout down the short edges, and the player's content keeps clear of all
- * three while its backdrop still runs underneath them.
+ * Supports vertical drag gestures on the right side to seamlessly flip between:
+ * Main ↕ Lyrics ↕ Queue.
  */
 @Composable
 internal fun LandscapePlayerLayout(
     pane: PlayerPane,
     background: @Composable (Modifier) -> Unit,
-    /** The sleeve; handed a modifier that already fixes its square size. */
+    /** The sleeve/artwork container. Given full height bounds. */
     artwork: @Composable (Modifier) -> Unit,
-    /** The row under the sleeve, emitted into its column. */
-    actions: @Composable () -> Unit,
-    /** Credits and transport. [compact] is a phone-height window. */
+    actions: @Composable () -> Unit = {},
     mainPane: @Composable (compact: Boolean) -> Unit,
     lyricsPane: @Composable () -> Unit,
     queuePane: @Composable () -> Unit,
+    onSelectPane: (PlayerPane) -> Unit = {},
+    onOpenPipeline: (() -> Unit)? = null,
+    palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
 ) {
+    val haptics = rememberHaptics()
+
     Box(modifier = modifier.fillMaxSize()) {
+        // Dynamic atmospheric background (Mesh Gradient + Synesthesia Nocturne ribbons)
         background(Modifier.fillMaxSize())
 
         BoxWithConstraints(
@@ -159,116 +145,279 @@ internal fun LandscapePlayerLayout(
             contentAlignment = Alignment.TopCenter,
         ) {
             val compact = maxHeight < LANDSCAPE_COMPACT_HEIGHT
-            val gutter = if (compact) LANDSCAPE_GUTTER_COMPACT else PLAYER_GUTTER
 
             Row(
                 modifier = Modifier
-                    .widthIn(max = LANDSCAPE_PLAYER_MAX_WIDTH)
                     .fillMaxSize()
                     .padding(
                         top = LANDSCAPE_HANDLE_STRIP,
-                        bottom = if (compact) 8.dp else 20.dp,
+                        bottom = if (compact) 8.dp else 16.dp,
                     ),
             ) {
-                Column(
+                // 1. Left Hero Area: Edge-to-edge bleeding artwork dissolving into the mesh
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .padding(horizontal = gutter),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .weight(0.46f)
+                        .fillMaxHeight(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    // The sleeve is square and takes whichever of the two axes
-                    // runs out first once the row below has had its height —
-                    // the column's width on a big tablet, the height on
-                    // anything shorter. Measured here rather than estimated,
-                    // so the row under it can never be pushed off the bottom.
-                    BoxWithConstraints(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        artwork(Modifier.size(minOf(maxWidth, maxHeight)))
-                    }
-                    Spacer(Modifier.height(if (compact) 12.dp else 24.dp))
-                    actions()
+                    artwork(Modifier.fillMaxSize())
                 }
 
-                AnimatedContent(
-                    targetState = pane,
-                    transitionSpec = {
-                        fadeIn(
-                            tween(
-                                LANDSCAPE_PANE_FADE_IN_MS,
-                                delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
-                            ),
-                        ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
-                    },
-                    contentAlignment = Alignment.Center,
+                // 2. Right Deck Area: Player Deck & Far-Right Floating Side Rail
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                    label = "landscapePane",
-                ) { shown ->
-                    when (shown) {
-                        PlayerPane.Main -> Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = gutter),
+                        .weight(0.54f)
+                        .fillMaxHeight()
+                        .padding(
+                            start = if (compact) 10.dp else 18.dp,
+                            end = if (compact) 10.dp else 20.dp,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // Right Content Pane with vertical swipe gesture detection
+                    var dragAccumulatorY by remember { mutableFloatStateOf(0f) }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .pointerInput(pane) {
+                                detectVerticalDragGestures(
+                                    onDragStart = { dragAccumulatorY = 0f },
+                                    onVerticalDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragAccumulatorY += dragAmount
+                                    },
+                                    onDragEnd = {
+                                        val swipeThreshold = 55.dp.toPx()
+                                        if (dragAccumulatorY < -swipeThreshold) {
+                                            // Swiped UP -> Forward
+                                            when (pane) {
+                                                PlayerPane.Main -> {
+                                                    haptics.play(Haptic.Tap)
+                                                    onSelectPane(PlayerPane.Lyrics)
+                                                }
+                                                PlayerPane.Lyrics -> {
+                                                    haptics.play(Haptic.Tap)
+                                                    onSelectPane(PlayerPane.Queue)
+                                                }
+                                                PlayerPane.Queue -> {}
+                                            }
+                                        } else if (dragAccumulatorY > swipeThreshold) {
+                                            // Swiped DOWN -> Backward
+                                            when (pane) {
+                                                PlayerPane.Queue -> {
+                                                    haptics.play(Haptic.Tap)
+                                                    onSelectPane(PlayerPane.Lyrics)
+                                                }
+                                                PlayerPane.Lyrics -> {
+                                                    haptics.play(Haptic.Tap)
+                                                    onSelectPane(PlayerPane.Main)
+                                                }
+                                                PlayerPane.Main -> {}
+                                            }
+                                        }
+                                        dragAccumulatorY = 0f
+                                    },
+                                )
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AnimatedContent(
+                            targetState = pane,
+                            transitionSpec = {
+                                fadeIn(
+                                    tween(
+                                        LANDSCAPE_PANE_FADE_IN_MS,
+                                        delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
+                                    ),
+                                ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
+                            },
                             contentAlignment = Alignment.Center,
-                        ) {
-                            mainPane(compact)
-                        }
-                        // The lyric sheet and the queue both reach back across
-                        // [PLAYER_GUTTER] on their own (see
-                        // [bleedHorizontally]), so that is the padding they
-                        // get: their scroll areas then run exactly to the
-                        // column's edges.
-                        PlayerPane.Lyrics -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = PLAYER_GUTTER),
-                        ) {
-                            lyricsPane()
-                        }
-                        PlayerPane.Queue -> Box(
-                            Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = PLAYER_GUTTER),
-                        ) {
-                            queuePane()
+                            modifier = Modifier.fillMaxSize(),
+                            label = "landscapePaneTransition",
+                        ) { shown ->
+                            when (shown) {
+                                PlayerPane.Main -> Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    mainPane(compact)
+                                }
+                                PlayerPane.Lyrics -> Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    lyricsPane()
+                                }
+                                PlayerPane.Queue -> Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    queuePane()
+                                }
+                            }
                         }
                     }
+
+                    Spacer(Modifier.width(if (compact) 8.dp else 14.dp))
+
+                    // 3. Far-Right Floating Frosted Glass Rail
+                    LandscapeSideRail(
+                        currentPane = pane,
+                        onSelectPane = onSelectPane,
+                        onOpenPipeline = onOpenPipeline,
+                        palette = palette,
+                    )
                 }
             }
 
-            // The sheet closes from a downward drag anywhere nothing else
-            // claims, as it does in portrait; this is only the promise.
+            // Top collapse drag handle
             Box(
                 Modifier
                     .align(Alignment.TopCenter)
-                    .offset(y = 8.dp)
-                    .width(38.dp)
-                    .height(5.dp)
-                    .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.70f)),
+                    .offset(y = 6.dp)
+                    .width(36.dp)
+                    .height(4.dp)
+                    .shadow(2.dp, RoundedCornerShape(2.dp), clip = false)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color.White.copy(alpha = 0.60f)),
             )
         }
     }
 }
 
 /**
- * The landscape player's sleeve: the still cover, and over it the looping
- * clip when there is one.
+ * Far-Right Floating Frosted Glass Rail for fast 1-tap pane switching and audio pipeline access.
+ */
+@Composable
+internal fun LandscapeSideRail(
+    currentPane: PlayerPane,
+    onSelectPane: (PlayerPane) -> Unit,
+    onOpenPipeline: (() -> Unit)?,
+    palette: MeshPalette,
+    modifier: Modifier = Modifier,
+) {
+    val accentColor = palette.colors.firstOrNull() ?: MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(
+                width = 1.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.06f),
+                    ),
+                ),
+                shape = CircleShape,
+            )
+            .padding(vertical = 12.dp, horizontal = 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // 1. Now Playing / Player Deck
+            SideRailItem(
+                icon = Icons.Rounded.Album,
+                selected = currentPane == PlayerPane.Main,
+                contentDescription = "Now Playing",
+                accentColor = accentColor,
+                onClick = { onSelectPane(PlayerPane.Main) },
+            )
+
+            // 2. Lyrics
+            SideRailItem(
+                icon = Icons.Rounded.FormatQuote,
+                selected = currentPane == PlayerPane.Lyrics,
+                contentDescription = "Lyrics",
+                accentColor = accentColor,
+                onClick = { onSelectPane(PlayerPane.Lyrics) },
+            )
+
+            // 3. Queue
+            SideRailItem(
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                selected = currentPane == PlayerPane.Queue,
+                contentDescription = "Queue",
+                accentColor = accentColor,
+                onClick = { onSelectPane(PlayerPane.Queue) },
+            )
+
+            // 4. Audio Pipeline
+            if (onOpenPipeline != null) {
+                SideRailItem(
+                    icon = Icons.Rounded.GraphicEq,
+                    selected = false,
+                    contentDescription = "Audio Pipeline",
+                    accentColor = accentColor,
+                    onClick = onOpenPipeline,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SideRailItem(
+    icon: ImageVector,
+    selected: Boolean,
+    contentDescription: String,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = rememberHaptics()
+    val animatedBg by animateColorAsState(
+        targetValue = if (selected) accentColor.copy(alpha = 0.35f) else Color.Transparent,
+        animationSpec = tween(280),
+        label = "SideRailBg",
+    )
+    val animatedBorder by animateColorAsState(
+        targetValue = if (selected) accentColor.copy(alpha = 0.75f) else Color.Transparent,
+        animationSpec = tween(280),
+        label = "SideRailBorder",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (selected) Color.White else Color.White.copy(alpha = 0.50f),
+        animationSpec = tween(280),
+        label = "SideRailIcon",
+    )
+
+    Box(
+        modifier = modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(animatedBg)
+            .border(1.dp, animatedBorder, CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(Haptic.Tap)
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = iconTint,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+/**
+ * Modernized Landscape Artwork.
  *
- * Draws from the screen's own [request][PlayerArtwork.request] rather than a
- * request of its own, so it shares the portrait sleeve's bitmap, its retries
- * and its [loaded][PlayerArtwork.loaded] — rotating never reloads the cover.
- *
- * The clip keeps playing whichever pane is up. The portrait player stops it
- * because its sleeve shrinks to a thumbnail behind a panel; this one never
- * shrinks.
+ * Full-height edge-to-edge coverage with horizontal gradient alpha dissolve
+ * on the right edge, smoothly fading into the dynamic mesh background.
  */
 @Composable
 internal fun LandscapeArtwork(
@@ -280,39 +429,27 @@ internal fun LandscapeArtwork(
     isPlaying: Boolean,
     onCanvasRenderedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    /** Halts the clip for a transition — see [CanvasArtworkPlayer]'s own. */
     pausedForTransition: Boolean = false,
-    /**
-     * The sleeve's shape, asked for each frame: its corner rounds off into the
-     * mini player's cover's as the player docks into it.
-     */
     sleeveShape: () -> Shape = { LandscapeArtShape },
-    /** How much of the sleeve's shadow is cast, 1 at rest. */
     shadowFraction: () -> Float = { 1f },
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val casts = artLoaded || canvasRendered
+
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // What `.shadow` and then `.clip` laid down, asked for in the
-                // layers' own blocks so a docking player can move them
-                // without recomposing the sleeve.
-                //
-                // Only cast once there is a picture: on the flat placeholder
-                // tile a shadow reads as a second, darker square.
                 .graphicsLayer {
                     shadowElevation = if (casts) 14.dp.toPx() * shadowFraction() else 0f
                     shape = sleeveShape()
-                    // As `.shadow` did: it clips only when it casts.
                     clip = casts
                 }
                 .graphicsLayer {
                     shape = sleeveShape()
                     clip = true
                 }
-                .background(Color.Black.copy(alpha = 0.18f)),
+                .background(Color.Black.copy(alpha = 0.20f)),
             contentAlignment = Alignment.Center,
         ) {
             if (!artLoaded && !canvasRendered) {
@@ -320,7 +457,7 @@ internal fun LandscapeArtwork(
                     imageVector = BitChordIcons.MusicNote,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.35f),
-                    modifier = Modifier.fillMaxSize(0.36f),
+                    modifier = Modifier.fillMaxSize(0.28f),
                 )
             }
             AsyncImage(
@@ -328,8 +465,6 @@ internal fun LandscapeArtwork(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onState = onArtState,
-                // Not drawn under a clip that got there first — see the
-                // portrait sleeve's note on TextureView stacking order.
                 modifier = Modifier
                     .fillMaxSize()
                     .drawWithContent { if (artLoaded || !canvasRendered) drawContent() },
@@ -343,84 +478,117 @@ internal fun LandscapeArtwork(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+
+            // Right-side horizontal dissolve gradient mask into the ambient mesh
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            0.00f to Color.Transparent,
+                            0.50f to Color.Transparent,
+                            0.82f to Color.Black.copy(alpha = 0.45f),
+                            1.00f to Color.Black.copy(alpha = 0.88f),
+                        ),
+                    ),
+            )
         }
+
+        // Overlay elements (e.g. ChordPlayPipelineBottomPill at bottom-left)
         overlay()
     }
 }
 
 /**
- * The landscape player's right column in its main state: where the session
- * came from, the credits, the current line, the scrubber, the transport and
- * the volume bar — the portrait half-player, less the row the left column
- * already has.
- *
- * Centred in the column rather than pinned to its foot: there is no artwork
- * above it here to hand the spare height to.
+ * Modernized ChordPlay Landscape Main Player Deck.
  */
 @Composable
 internal fun LandscapeMainPane(
     compact: Boolean,
-    /** "Playing from …", or null where Settings hides it. */
     caption: String?,
     onOpenCaption: () -> Unit,
     credits: @Composable () -> Unit,
-    /** The one-line lyric over the scrubber; null where synced lyrics are off. */
     lyricStrip: (@Composable () -> Unit)?,
     scrubber: @Composable () -> Unit,
     transport: @Composable () -> Unit,
-    /** Null where Settings hides the volume bar. */
-    volume: (@Composable () -> Unit)?,
+    volume: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
-            .widthIn(max = PLAYER_MAX_WIDTH)
-            .fillMaxWidth(),
+            .widthIn(max = 680.dp)
+            .fillMaxWidth()
+            .padding(horizontal = if (compact) 4.dp else 10.dp),
+        verticalArrangement = Arrangement.Center,
     ) {
         if (caption != null) {
-            PlaybackOriginCaption(
-                text = caption,
-                onClick = onOpenCaption,
-                textAlign = TextAlign.Start,
-                contentPadding = PaddingValues(vertical = 2.dp),
-            )
-            Spacer(Modifier.height(if (compact) 4.dp else 8.dp))
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                    .clickable(onClick = onOpenCaption)
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.GraphicEq,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.70f),
+                    modifier = Modifier.size(13.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
         }
+
         credits()
-        Spacer(Modifier.height(if (compact) 2.dp else 10.dp))
+        Spacer(Modifier.height(if (compact) 4.dp else 10.dp))
+
         lyricStrip?.invoke()
+        Spacer(Modifier.height(if (compact) 4.dp else 10.dp))
+
         scrubber()
-        Spacer(Modifier.height(if (compact) 0.dp else 8.dp))
+        Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
+
         transport()
+
         if (volume != null) {
-            Spacer(Modifier.height(if (compact) 0.dp else 12.dp))
+            Spacer(Modifier.height(if (compact) 6.dp else 12.dp))
             volume()
         }
     }
 }
 
 /**
- * Title, artist, like and the three-dot menu, for the landscape player.
- *
- * Marquee rather than a plain ellipsis, matching the portrait player: a tablet
- * is wider, not infinitely wide, and a long title truncated on the one surface
- * with room to scroll it would be the odd one out.
+ * Modernized Title, Artist, Like, Add to Playlist, and More menu with scalable typography
+ * optimized for in-car and landscape readability.
  */
 @Composable
 internal fun LandscapeCredits(
     song: Song,
     signedIn: Boolean,
     likeStatus: LikeStatus,
-    /** The menu glyph is briefly the undo arrow after a quality upgrade. */
     showRevertCue: Boolean,
     onToggleLike: () -> Unit,
     onAddToPlaylist: (() -> Unit)? = null,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
-    /** Null browse id for anyone but the lead credit — see [NowPlayingScreen]. */
     onOpenArtist: (browseId: String?, name: String) -> Unit,
+    fontScale: LandscapeFontScale = LandscapeFontScale.LARGE,
     modifier: Modifier = Modifier,
 ) {
+    val scale = fontScale.scaleFactor
+    val titleFontSize = (22 * scale).sp
+    val artistFontSize = (16 * scale).sp
+
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Crossfade(
             targetState = song.title to song.artist,
@@ -432,7 +600,11 @@ internal fun LandscapeCredits(
                 var titleOverflowing by remember { mutableStateOf(false) }
                 MarqueeText(
                     text = song.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = titleFontSize,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = (titleFontSize.value * 1.2f).sp,
+                    ),
                     color = Color.White,
                     onOverflowChange = { titleOverflowing = it },
                     leading = if (song.isExplicit == true) {
@@ -442,25 +614,24 @@ internal fun LandscapeCredits(
                     },
                     modifier = Modifier.opensPage(song.albumId, onOpenAlbum),
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(3.dp))
                 ArtistCreditsMarquee(
                     text = song.artist,
                     credits = remember(song.artist, song.artists, song.artistId) {
                         artistCredits(song.artist, song.artists, song.artistId)
                     },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W500),
-                    color = Color.White.copy(alpha = 0.55f),
-                    // A title that's also scrolling gets to go first — starting
-                    // together reads as clutter, so the artist waits a beat.
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = artistFontSize,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = (artistFontSize.value * 1.25f).sp,
+                    ),
+                    color = Color.White.copy(alpha = 0.65f),
                     startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
                     onOpenArtist = onOpenArtist,
                 )
             }
         }
-        Spacer(Modifier.width(10.dp))
-        // Same gate as the portrait player's: no account to like against for a
-        // guest, and no YouTube identity to rate a local file or a finished
-        // download against either.
+        Spacer(Modifier.width(12.dp))
         if (signedIn && song.localUri == null) {
             val liked = likeStatus == LikeStatus.LIKE
             CircleGlyph(
@@ -472,7 +643,7 @@ internal fun LandscapeCredits(
                 active = liked,
                 haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
             )
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(6.dp))
         }
         if (onAddToPlaylist != null && song.localUri == null) {
             CircleGlyph(
@@ -481,7 +652,7 @@ internal fun LandscapeCredits(
                 onClick = onAddToPlaylist,
                 haptic = Haptic.Tap,
             )
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(6.dp))
         }
         CircleGlyph(
             icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
@@ -492,24 +663,15 @@ internal fun LandscapeCredits(
 }
 
 /**
- * The landscape player's right column with the lyrics open: the sheet, and
- * under it the romanize / source / translate bar.
- *
- * The bar is where the portrait player's status line and its two floating
- * toggles went. There the line sits over the scrubber and the toggles float
- * over the foot of the words; here there is no scrubber beside the lyrics, and
- * the bar gives all three a place of their own that costs the sheet no lines.
+ * Landscape Lyrics Pane: full scrolling synced lyrics sheet with status and language options.
  */
 @Composable
 internal fun LandscapeLyricsPane(
     hasLyrics: Boolean,
-    /** Shown in place of the sheet while there are no lines to draw. */
     placeholder: String,
     status: String,
     onStatusClick: () -> Unit,
-    /** Whether lines are being picked, which is what the bar stands in for. */
     picking: Boolean = false,
-    /** The pick bar itself, drawn in place of the row below. */
     pickBar: @Composable () -> Unit = {},
     romanizationToggle: @Composable () -> Unit,
     translationToggle: @Composable () -> Unit,
@@ -526,10 +688,6 @@ internal fun LandscapeLyricsPane(
             if (hasLyrics) {
                 panel(Modifier.fillMaxSize())
             } else {
-                // Held at a fixed line rather than through
-                // [LyricsUnavailableLine] or [LyricsLoadingLine]: those fade
-                // out after a few seconds, which here would leave the whole
-                // column blank for as long as the track keeps playing.
                 Text(
                     text = placeholder,
                     style = MaterialTheme.typography.titleMedium,
@@ -539,10 +697,6 @@ internal fun LandscapeLyricsPane(
                 )
             }
         }
-        // While a pick is open the row below gives way to the bar: the two
-        // toggles in it would redraw the very lines the pick is indexing, and
-        // the status line is the one thing the bar's own Cancel and Share sit
-        // where.
         if (picking) {
             Box(Modifier.fillMaxWidth()) { pickBar() }
         } else {
@@ -552,8 +706,6 @@ internal fun LandscapeLyricsPane(
                     .padding(top = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Fixed slots either side whether or not the toggles are drawn, so
-                // the status line stays centred as lyrics arrive.
                 Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
                 Box(
                     modifier = Modifier
