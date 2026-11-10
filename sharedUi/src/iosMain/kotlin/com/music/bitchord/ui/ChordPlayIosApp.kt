@@ -889,3 +889,4 @@ private fun formatSeconds(seconds: Float): String {
     val secs = totalSecs % 60
     return "$mins:${if (secs < 10) "0$secs" else "$secs"}"
 }
+
