@@ -796,4 +796,49 @@ object BitChordIcons {
             }
         }.build()
     }
+
+    /**
+     * Map/location pin teardrop marker with a centered circular cutout,
+     * used for pinning songs/playlists to Your Space.
+     */
+    val LocationPin: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_location_pin",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = stroke) {
+                // Outer teardrop (clockwise)
+                moveTo(12f, 2.5f)
+                curveTo(7.86f, 2.5f, 4.5f, 5.86f, 4.5f, 10f)
+                curveTo(4.5f, 15.5f, 12f, 22f, 12f, 22f)
+                curveTo(12f, 22f, 19.5f, 15.5f, 19.5f, 10f)
+                curveTo(19.5f, 5.86f, 16.14f, 2.5f, 12f, 2.5f)
+                close()
+                // Center circular hole (counter-clockwise cutout)
+                moveTo(12f, 6.8f)
+                arcToRelative(3.2f, 3.2f, 0f, isMoreThanHalf = true, isPositiveArc = false, 0f, 6.4f)
+                arcToRelative(3.2f, 3.2f, 0f, isMoreThanHalf = true, isPositiveArc = false, 0f, -6.4f)
+                close()
+            }
+        }.build()
+    }
+
+    /** 4-pointed sparkle star used in discovery badges / Lucky card. */
+    val Sparkle: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_sparkle",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = stroke) {
+                moveTo(12f, 2f)
+                quadTo(12f, 12f, 22f, 12f)
+                quadTo(12f, 12f, 12f, 22f)
+                quadTo(12f, 12f, 2f, 12f)
+                quadTo(12f, 12f, 12f, 2f)
+                close()
+            }
+        }.build()
+    }
 }

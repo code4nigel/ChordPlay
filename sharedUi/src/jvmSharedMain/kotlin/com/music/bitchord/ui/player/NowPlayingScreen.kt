@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.runtime.CompositionLocalProvider
+
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
@@ -802,6 +804,7 @@ fun NowPlayingScreen(
     // to show, so the pill and the caption fall back to [onListenTogether]
     // itself (create/join) when there isn't one.
     val openListenTogetherMembers: () -> Unit = { showListenTogetherMembers = true }
+    val likeBurstState = remember { LikeBurstState() }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
@@ -1578,6 +1581,7 @@ fun NowPlayingScreen(
             lyricsShare = lyricsShare,
             onDismissLyricsShare = { lyricsShare = null },
         )
+        LikeBurstOverlay(likeBurstState)
     }
 
     // A landscape window — a tablet, or a phone on its side — takes an entirely
@@ -1766,11 +1770,12 @@ fun NowPlayingScreen(
             }
         }
 
-        Box(modifier = modifier.fillMaxSize().then(dockHost)) {
-            val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
-            val customLyricsStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
+        CompositionLocalProvider(LocalLikeBurstState provides likeBurstState) {
+            Box(modifier = modifier.fillMaxSize().then(dockHost)) {
+                val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
+                val customLyricsStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
 
-            LandscapePlayerLayout(
+                LandscapePlayerLayout(
                 pane = when {
                     lyricsOpen -> PlayerPane.Lyrics
                     queueOpen -> PlayerPane.Queue
@@ -2135,8 +2140,9 @@ fun NowPlayingScreen(
             )
             playerOverlays()
         }
-        return
     }
+    return
+}
 
 
     Box(
@@ -3399,14 +3405,16 @@ fun NowPlayingScreen(
                             val liked = likeStatus == LikeStatus.LIKE
                             Box(
                                 modifier = Modifier
+                                    .likeButtonTarget(likeBurstState)
                                     .size(34.dp)
                                     .clip(CircleShape)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                         onClick = {
+                                            val liked = likeStatus == LikeStatus.LIKE
                                             haptics.play(if (liked) Haptic.ToggleOff else Haptic.ToggleOn)
-                                            onToggleLike()
+                                            likeBurstState.launchFromButton(liked, onToggleLike)
                                         },
                                     ),
                                 contentAlignment = Alignment.Center,

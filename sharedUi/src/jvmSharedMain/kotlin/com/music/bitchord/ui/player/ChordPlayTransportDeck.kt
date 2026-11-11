@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.ui.components.OdometerText
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -369,13 +371,13 @@ fun SynesthesiaWaveformScrubber(
                 .padding(top = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text(
-                text = formatTime((progress * durationMs).toLong()),
+            OdometerText(
+                value = formatTime((progress * durationMs).toLong()),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.65f),
             )
-            Text(
-                text = formatTime(durationMs.coerceAtLeast(0L)),
+            OdometerText(
+                value = formatTime(durationMs.coerceAtLeast(0L)),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.65f),
             )

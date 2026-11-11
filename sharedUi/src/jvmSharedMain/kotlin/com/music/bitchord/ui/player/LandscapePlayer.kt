@@ -770,16 +770,23 @@ internal fun LandscapeArtworkActions(
         // 2. Heart (Like / Unlike)
         if (signedIn && song.localUri == null) {
             val liked = likeStatus == LikeStatus.LIKE
+            val likeBurst = LocalLikeBurstState.current
             Box(
                 modifier = Modifier
+                    .likeButtonTarget(likeBurst)
                     .size(36.dp)
                     .clip(CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {
-                            haptics.play(if (liked) Haptic.ToggleOff else Haptic.ToggleOn)
-                            onToggleLike()
+                            val isLiked = likeStatus == LikeStatus.LIKE
+                            haptics.play(if (isLiked) Haptic.ToggleOff else Haptic.ToggleOn)
+                            if (likeBurst != null) {
+                                likeBurst.launchFromButton(isLiked, onToggleLike)
+                            } else {
+                                onToggleLike()
+                            }
                         },
                     ),
                 contentAlignment = Alignment.Center,

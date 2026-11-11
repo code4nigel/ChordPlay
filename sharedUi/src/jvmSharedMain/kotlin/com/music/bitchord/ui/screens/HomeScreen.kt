@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.ui.components.HomeMood
 import com.music.bitchord.ui.components.HomeSpeedDial
+import com.music.bitchord.ui.components.SmoothCornerShape
+import com.music.bitchord.ui.components.press3D
 import com.music.bitchord.ui.components.SpeedDialSectionHeader
 import com.music.bitchord.ui.components.MoodFilterChips
 import androidx.compose.animation.AnimatedContent
@@ -1632,6 +1634,7 @@ internal fun ShelfCard(
 ) {
     Column(
         modifier = modifier
+            .press3D()
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress),
     ) {
@@ -1642,7 +1645,7 @@ internal fun ShelfCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)),
+                        .clip(SmoothCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     MeshGradientBackground(
@@ -1680,7 +1683,7 @@ internal fun ShelfCard(
                 icon = Icons.Rounded.Storage,
             )
             else -> {
-                val cardShape = RoundedCornerShape(if (isVideo) 16.dp else if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)
+                val cardShape = SmoothCornerShape(if (isVideo) 16.dp else if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

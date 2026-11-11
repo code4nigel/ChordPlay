@@ -8,6 +8,7 @@ import androidx.compose.ui.draw.drawWithContent
 import com.music.bitchord.data.model.ArtistCredit
 import com.music.bitchord.data.model.CreditSegment
 import com.music.bitchord.data.model.creditSegments
+import com.music.bitchord.ui.components.OdometerText
 import com.music.bitchord.sharedui.resources.*
 
 import org.jetbrains.compose.resources.DrawableResource
@@ -249,13 +250,13 @@ internal fun PlayerScrubber(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    text = formatTime((shown * durationMs).toLong()),
+                OdometerText(
+                    value = formatTime((shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
                 )
-                Text(
-                    text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
+                OdometerText(
+                    value = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
                 )

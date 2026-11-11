@@ -211,3 +211,23 @@ This directory contains versioned Production APK builds (com.chordplay.music) fo
   - `ChordPlay-v2.1.3-vc64-prodRelease-armeabi-v7a.apk` (58.49 MB)
   - `ChordPlay-v2.1.3-vc64-prodRelease-universal.apk` (160.12 MB)
   - `ChordPlay-v2.1.3-vc64-prodRelease-x86_64.apk` (72.98 MB)
+
+### Build v2.1.4 (versionCode: 65)
+- **Timestamp**: 2026-11-11 16:45:09
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.4-vc65-prodRelease-arm64-v8a.apk` (67.08 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-armeabi-v7a.apk` (58.51 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-universal.apk` (160.14 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-x86_64.apk` (72.99 MB)
+
+### Build v2.1.4 (versionCode: 65)
+- **Timestamp**: 2026-11-11 17:17:02
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.4-vc65-prodRelease-arm64-v8a.apk` (67.08 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-armeabi-v7a.apk` (58.51 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-universal.apk` (160.14 MB)
+  - `ChordPlay-v2.1.4-vc65-prodRelease-x86_64.apk` (72.99 MB)
