@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">Nuovi album e singoli</string>
     <string name="shelf_top_songs">Brani principali</string>
     <string name="shelf_top_picks_desc">Stazioni artisti, mix e brani in evidenza</string>
+    <string name="add_to_other_playlist">Aggiungi a un\'altra playlist</string>
 </resources>

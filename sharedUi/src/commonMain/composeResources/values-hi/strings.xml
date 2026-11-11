@@ -250,4 +250,5 @@
     <string name="search_addons_empty">एक साथ सभी सक्षम ऐड-ऑन में खोजें। गाने सीधे ऐड-ऑन से चलते हैं।</string>
     <string name="search_addons_no_results">किसी भी ऐड-ऑन में “%1” नहीं मिला।</string>
     <string name="search_addons_none">कोई ऐड-ऑन सक्षम नहीं है। सेटिंग्स → स्रोत में जाकर जोड़ें।</string>
+    <string name="add_to_other_playlist">अन्य प्लेलिस्ट में जोड़ें</string>
 </resources>

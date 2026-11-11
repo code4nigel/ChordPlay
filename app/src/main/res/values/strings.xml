@@ -1337,6 +1337,23 @@
     <string name="developer_profile">Developer Profile</string>
     <string name="bitchord_upstream_repo">BitChord Upstream Repository</string>
     <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Upstream project credit</string>
+    <!-- Dock Style -->
+    <string name="dock_style">Dock Style</string>
+    <string name="dock_style_section">Navigation Dock &amp; Glass</string>
+    <string name="dock_style_normal">Normal</string>
+    <string name="dock_style_adaptive">Adaptive</string>
+    <string name="dock_style_liquid">Liquid Glass</string>
+    <string name="dock_style_normal_desc">Classic floating player above navigation dock</string>
+    <string name="dock_style_adaptive_desc">Integrated player dock with adaptive frosted glass</string>
+    <string name="dock_style_liquid_desc">Integrated player dock with real refracting liquid glass</string>
+
+    <!-- Lyrics Highlight Focus Position -->
+    <string name="lyrics_highlight_position">Highlight Line Position</string>
+    <string name="lyrics_highlight_position_subtitle">Anchor position for the currently playing lyric line</string>
+    <string name="lyrics_highlight_top">Top</string>
+    <string name="lyrics_highlight_top_mid">Top-Mid</string>
+    <string name="lyrics_highlight_center">Center</string>
+
     <string name="advanced_and_performance">Advanced &amp; Performance</string>
     <string name="support_community">Support &amp; Community</string>
     <string name="reddit_community">Reddit Community</string>

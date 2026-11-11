@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">新专辑与单曲</string>
     <string name="shelf_top_songs">热门歌曲</string>
     <string name="shelf_top_picks_desc">歌手电台、精选与聚光灯卡片</string>
+    <string name="add_to_other_playlist">添加到其他播放列表</string>
 </resources>

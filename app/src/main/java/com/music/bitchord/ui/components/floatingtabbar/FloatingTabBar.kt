@@ -113,8 +113,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.DockStyle
 import com.music.bitchord.ui.components.GlassSpring
 import com.music.bitchord.ui.components.LocalGlassExport
+import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.isGlassSupported
@@ -760,7 +762,10 @@ private fun SharedTransitionScope.ExpandedTabs(
     pill.reduceMotion = reduceAnimation
     // The lens samples the recorded page, and "reduce dynamic blur" stops that
     // recording. There the flat pill carries the whole motion on its own.
-    val glassPill = isGlassSupported() && !reduceDynamicBlur
+    // Glass pill lens is exclusively enabled for Liquid Glass mode, avoiding transparency/refraction in Adaptive mode.
+    val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
+    val liquidGlassActive = LocalLiquidGlassEnabled.current
+    val glassPill = isGlassSupported() && !reduceDynamicBlur && (dockStyle == DockStyle.LIQUID || liquidGlassActive)
     val barGlass = rememberLayerBackdrop()
     val tabRow = rememberLayerBackdrop()
 

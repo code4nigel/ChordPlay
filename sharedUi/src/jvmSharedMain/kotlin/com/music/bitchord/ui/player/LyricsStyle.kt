@@ -40,6 +40,15 @@ enum class LyricsFontChoice(val label: String) {
 }
 
 /**
+ * Vertical position options where the active/highlighted lyric line anchors.
+ */
+enum class LyricsHighlightPosition(val label: String, val fraction: Float) {
+    TOP("Top", 0.04f),
+    UPPER_CENTER("Top-Mid", 0.15f),
+    CENTER("Center", 0.28f),
+}
+
+/**
  * Text size scaling options for lyrics.
  */
 enum class LyricsSizeScale(val label: String, val scale: Float) {
@@ -65,11 +74,16 @@ enum class LyricsWeightChoice(val label: String, val weight: FontWeight) {
 data class LyricsCustomStyle(
     val fontChoice: LyricsFontChoice = LyricsFontChoice.DEFAULT,
     val sizeScale: LyricsSizeScale = LyricsSizeScale.STANDARD,
+    val customFontScale: Float? = null,
     val weightChoice: LyricsWeightChoice = LyricsWeightChoice.HEAVY,
     val centerAligned: Boolean = false,
+    val highlightPosition: LyricsHighlightPosition = LyricsHighlightPosition.UPPER_CENTER,
     val customFontName: String? = null,
     val customFontPath: String? = null,
-)
+) {
+    val effectiveScale: Float
+        get() = (customFontScale ?: sizeScale.scale).coerceIn(0.55f, 2.20f)
+}
 
 /**
  * Resolves the Compose [FontFamily] for the given [LyricsCustomStyle].
@@ -152,7 +166,16 @@ object LyricsStyleManager {
     }
 
     fun updateScale(scale: LyricsSizeScale) {
-        updateAndPersist(_style.value.copy(sizeScale = scale))
+        updateAndPersist(_style.value.copy(sizeScale = scale, customFontScale = scale.scale))
+    }
+
+    fun updateFontScale(scale: Float) {
+        val clamped = scale.coerceIn(0.55f, 2.20f)
+        updateAndPersist(_style.value.copy(customFontScale = clamped))
+    }
+
+    fun updateHighlightPosition(position: LyricsHighlightPosition) {
+        updateAndPersist(_style.value.copy(highlightPosition = position))
     }
 
     fun updateWeight(weight: LyricsWeightChoice) {

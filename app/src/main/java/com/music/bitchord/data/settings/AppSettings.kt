@@ -523,8 +523,8 @@ object AppSettings {
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
 
-    /** Real backdrop-sampled glass (blur, lens refraction) on the floating nav bar, Android 12+ only. */
-    val dockStyle = MutableStateFlow(DockStyle.NORMAL)
+    /** Navigation dock style. Defaults to [DockStyle.ADAPTIVE]. */
+    val dockStyle = MutableStateFlow(DockStyle.ADAPTIVE)
     val liquidGlass = MutableStateFlow(false)
     val liquidGlassIntensity = MutableStateFlow(0.75f)
 
@@ -1019,7 +1019,7 @@ object AppSettings {
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         dockStyle.value = prefs.getString(KEY_DOCK_STYLE, null)?.let {
             runCatching { DockStyle.valueOf(it) }.getOrNull()
-        } ?: if (liquidGlass.value) DockStyle.LIQUID else DockStyle.NORMAL
+        } ?: if (liquidGlass.value) DockStyle.LIQUID else DockStyle.ADAPTIVE
         liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
@@ -1063,23 +1063,38 @@ object AppSettings {
             sizeScale = runCatching {
                 LyricsSizeScale.valueOf(prefs.getString(KEY_LYRICS_SIZE_SCALE, null) ?: "")
             }.getOrDefault(LyricsSizeScale.STANDARD),
+            customFontScale = if (prefs.contains(KEY_LYRICS_CUSTOM_FONT_SCALE)) {
+                prefs.getFloat(KEY_LYRICS_CUSTOM_FONT_SCALE, 1.0f)
+            } else null,
             weightChoice = runCatching {
                 LyricsWeightChoice.valueOf(prefs.getString(KEY_LYRICS_WEIGHT_CHOICE, null) ?: "")
             }.getOrDefault(LyricsWeightChoice.HEAVY),
             centerAligned = prefs.getBoolean(KEY_LYRICS_CENTER_ALIGNED, false),
+            highlightPosition = runCatching {
+                com.music.bitchord.ui.player.LyricsHighlightPosition.valueOf(
+                    prefs.getString(KEY_LYRICS_HIGHLIGHT_POSITION, null) ?: ""
+                )
+            }.getOrDefault(com.music.bitchord.ui.player.LyricsHighlightPosition.UPPER_CENTER),
             customFontName = prefs.getString(KEY_LYRICS_CUSTOM_FONT_NAME, null),
             customFontPath = prefs.getString(KEY_LYRICS_CUSTOM_FONT_PATH, null),
         )
         LyricsStyleManager.setInitialStyle(savedLyricsStyle)
         LyricsStyleManager.setPersister { style ->
-            prefs.edit()
+            val editor = prefs.edit()
                 .putString(KEY_LYRICS_FONT_CHOICE, style.fontChoice.name)
                 .putString(KEY_LYRICS_SIZE_SCALE, style.sizeScale.name)
                 .putString(KEY_LYRICS_WEIGHT_CHOICE, style.weightChoice.name)
                 .putBoolean(KEY_LYRICS_CENTER_ALIGNED, style.centerAligned)
+                .putString(KEY_LYRICS_HIGHLIGHT_POSITION, style.highlightPosition.name)
                 .putString(KEY_LYRICS_CUSTOM_FONT_NAME, style.customFontName)
                 .putString(KEY_LYRICS_CUSTOM_FONT_PATH, style.customFontPath)
-                .apply()
+            val scale = style.customFontScale
+            if (scale != null) {
+                editor.putFloat(KEY_LYRICS_CUSTOM_FONT_SCALE, scale)
+            } else {
+                editor.remove(KEY_LYRICS_CUSTOM_FONT_SCALE)
+            }
+            editor.apply()
         }
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
@@ -1646,7 +1661,7 @@ object AppSettings {
         if (value == DockStyle.LIQUID) {
             liquidGlass.value = true
             prefs.edit().putBoolean(KEY_LIQUID_GLASS, true).apply()
-        } else if (value == DockStyle.NORMAL) {
+        } else {
             liquidGlass.value = false
             prefs.edit().putBoolean(KEY_LIQUID_GLASS, false).apply()
         }
@@ -2646,6 +2661,8 @@ object AppSettings {
     private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
     private const val KEY_LYRICS_FONT_CHOICE = "lyrics_font_choice"
     private const val KEY_LYRICS_SIZE_SCALE = "lyrics_size_scale"
+    private const val KEY_LYRICS_CUSTOM_FONT_SCALE = "lyrics_custom_font_scale"
+    private const val KEY_LYRICS_HIGHLIGHT_POSITION = "lyrics_highlight_position"
     private const val KEY_LYRICS_WEIGHT_CHOICE = "lyrics_weight_choice"
     private const val KEY_LYRICS_CENTER_ALIGNED = "lyrics_center_aligned"
     private const val KEY_LYRICS_CUSTOM_FONT_NAME = "lyrics_custom_font_name"

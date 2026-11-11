@@ -242,6 +242,7 @@ import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.LocalCarConnected
 import com.music.bitchord.ui.SearchSource
 import com.music.bitchord.ui.components.BottomFadeScrim
 import com.music.bitchord.ui.components.FloatingBarsTapGuard
@@ -522,8 +523,11 @@ private fun BitChordApp(
     val hazeState = remember { HazeState() }
     // Recording the backdrop layer costs a draw pass, so it only runs when a
     // liquid-glass surface (the nav bar or artwork-page back button) can sample it.
+    val isCarConnected by com.music.bitchord.playback.PlaybackService.isCarConnected.collectAsStateWithLifecycle()
+    val isCarMode = isCarConnected || (context.getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager)?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_CAR
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
     val useIntegratedDock = dockStyle != DockStyle.NORMAL
+    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "TOP of BitChordApp: dockStyle=$dockStyle, isCarMode=$isCarMode, useIntegratedDock=$useIntegratedDock")
     val glassActive = (dockStyle == DockStyle.LIQUID || LocalLiquidGlassEnabled.current) && isGlassSupported()
     // "Reduce dynamic blur" keeps the glass bar's *shape* — the folding
     // now-playing-and-tabs component is a layout, not an effect, and dropping
@@ -2631,7 +2635,10 @@ private fun BitChordApp(
     }
     val effectiveAppBackdrop = rememberLayerBackdrop(onDraw = paintBackdrop)
 
-    CompositionLocalProvider(LocalAppBackdrop provides effectiveAppBackdrop) {
+    CompositionLocalProvider(
+        LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalCarConnected provides isCarMode,
+    ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -2830,23 +2837,15 @@ private fun BitChordApp(
                     modifier = Modifier
                         .hazeSource(hazeState)
                         .then(
-                            if (glassActive) {
+                            if (glassSamplesBackdrop) {
+                                Modifier.layerBackdrop(effectiveAppBackdrop)
+                            } else {
                                 Modifier
-                                    // Not under "reduce dynamic blur": nothing
-                                    // samples the layer then, and recording a
-                                    // whole page into one for no reader is the
-                                    // cost that setting exists to remove.
-                                    .then(
-                                        if (glassSamplesBackdrop) {
-                                            Modifier.layerBackdrop(effectiveAppBackdrop)
-                                        } else {
-                                            Modifier
-                                        },
-                                    )
-                                    // Every page's scroll passes through here, so
-                                    // the glass bar collapses on all of them
-                                    // without each one having to know about it.
-                                    .nestedScroll(navBarScroll)
+                            },
+                        )
+                        .then(
+                            if (useIntegratedDock) {
+                                Modifier.nestedScroll(navBarScroll)
                             } else {
                                 Modifier
                             },
@@ -4132,6 +4131,7 @@ private fun BitChordApp(
                     }
                 }
 
+                android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "dockStyle=$dockStyle, useIntegratedDock=$useIntegratedDock")
                 if (useIntegratedDock) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -4139,6 +4139,7 @@ private fun BitChordApp(
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
+                    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "DRAWING: GlassNavBar")
                     QueueActionNoticeHost(queueNotice)
                     // Liquid glass replaces the two stacked bars with the single
                     // component they are stacked to imitate: the now playing
@@ -4173,17 +4174,12 @@ private fun BitChordApp(
                 } else Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        // Capped and centred rather than run to the page's edges
-                        // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Column
-                        // rather than on each bar so the two are held to the same
-                        // width and keep the shared left and right edge they have
-                        // on a phone. Before fillMaxWidth, so the fill has
-                        // already been bounded by the time it is applied.
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "DRAWING: MiniPlayer + FloatingBottomBar")
                     QueueActionNoticeHost(queueNotice)
                     player.song?.let { song ->
                         MiniPlayer(

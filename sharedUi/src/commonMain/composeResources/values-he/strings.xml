@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">אלבומים וסינגלים חדשים</string>
     <string name="shelf_top_songs">שירים מובילים</string>
     <string name="shelf_top_picks_desc">תחנות אמנים, מיקסים וכרטיסיות נבחרות</string>
+    <string name="add_to_other_playlist">הוסף לפלייליסט אחר</string>
 </resources>

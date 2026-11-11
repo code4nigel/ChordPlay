@@ -5,11 +5,13 @@ import androidx.compose.ui.res.stringResource
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppFontChoice
+import com.music.bitchord.data.settings.DockStyle
 import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.settings.PlayerInterfaceStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.SongSwipeAction
 import com.music.bitchord.ui.player.LyricsFontChoice
+import com.music.bitchord.ui.player.LyricsHighlightPosition
 import com.music.bitchord.ui.player.LyricsSizeScale
 import com.music.bitchord.ui.player.LyricsWeightChoice
 
@@ -134,4 +136,19 @@ fun AppFontChoice.localizedDetail(): String = when (this) {
     AppFontChoice.PARKINSANS -> stringResource(R.string.font_choice_parkinsans_desc)
     AppFontChoice.SYSTEM_DEFAULT -> stringResource(R.string.font_choice_system_default_desc)
 }
+
+@Composable
+fun DockStyle.localizedLabel(): String = when (this) {
+    DockStyle.NORMAL -> stringResource(R.string.dock_style_normal)
+    DockStyle.ADAPTIVE -> stringResource(R.string.dock_style_adaptive)
+    DockStyle.LIQUID -> stringResource(R.string.dock_style_liquid)
+}
+
+@Composable
+fun LyricsHighlightPosition.localizedLabel(): String = when (this) {
+    LyricsHighlightPosition.TOP -> stringResource(R.string.lyrics_highlight_top)
+    LyricsHighlightPosition.UPPER_CENTER -> stringResource(R.string.lyrics_highlight_top_mid)
+    LyricsHighlightPosition.CENTER -> stringResource(R.string.lyrics_highlight_center)
+}
+
 

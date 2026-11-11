@@ -98,3 +98,9 @@ object AppUi {
  * refresh nobody asked for — so the desktop switches it off.
  */
 val LocalPullToRefreshEnabled = staticCompositionLocalOf { true }
+
+/**
+ * Whether the app is connected to Android Auto, Automotive OS, or in In-Car display mode.
+ */
+val LocalCarConnected = staticCompositionLocalOf { false }
+

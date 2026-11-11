@@ -250,4 +250,5 @@
     <string name="search_addons_empty">Busca en todos los complementos habilitados a la vez. Las pistas se reproducen directamente desde el complemento.</string>
     <string name="search_addons_no_results">Ningún complemento tiene “%1”.</string>
     <string name="search_addons_none">No hay complementos habilitados. Añade uno en Ajustes → Fuentes.</string>
+    <string name="add_to_other_playlist">Añadir a otra lista de reproducción</string>
 </resources>

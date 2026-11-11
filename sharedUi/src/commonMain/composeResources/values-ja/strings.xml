@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">新しいアルバムとシングル</string>
     <string name="shelf_top_songs">トップソング</string>
     <string name="shelf_top_picks_desc">アーティストラジオ、ミックス、おすすめカード</string>
+    <string name="add_to_other_playlist">他のプレイリストに追加</string>
 </resources>

@@ -250,4 +250,5 @@
     <string name="search_addons_empty">Przeszukuj wszystkie włączone wtyczki naraz. Utwory odtwarzają się bezpośrednio z wtyczki.</string>
     <string name="search_addons_no_results">Żadna wtyczka nie ma „%1”.</string>
     <string name="search_addons_none">Brak włączonych wtyczek. Dodaj w Ustawienia → Źródła.</string>
+    <string name="add_to_other_playlist">Dodaj do innej playlisty</string>
 </resources>

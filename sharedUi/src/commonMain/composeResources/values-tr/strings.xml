@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">Yeni albümler ve tekliler</string>
     <string name="shelf_top_songs">Popüler parçalar</string>
     <string name="shelf_top_picks_desc">Sanatçı istasyonları, miksler ve öne çıkanlar</string>
+    <string name="add_to_other_playlist">Başka çalma listesine ekle</string>
 </resources>

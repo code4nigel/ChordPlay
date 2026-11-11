@@ -223,6 +223,8 @@ fun AppearanceSection(
         val showLiquidGlass = matchesSearch(
             searchQuery,
             "dock", "dock style", "navigation", "adaptive",
+            stringResource(R.string.dock_style),
+            stringResource(R.string.dock_style_section),
             stringResource(R.string.liquid_glass),
             stringResource(R.string.liquid_glass_subtitle),
             stringResource(R.string.glass_intensity),
@@ -501,20 +503,20 @@ fun AppearanceSection(
             // Dock Style & Liquid Glass
             if (showLiquidGlass) {
                 if (showColorPalette || showTheme || showTypography || showDisplayScale) {
-                    SettingsSectionDivider(title = "Navigation Dock & Glass")
+                    SettingsSectionDivider(title = stringResource(R.string.dock_style_section))
                 }
 
                 SettingsRow(
                     icon = Icons.Rounded.ViewAgenda,
-                    title = "Dock Style",
+                    title = stringResource(R.string.dock_style),
                     subtitle = when (dockStyle) {
-                        DockStyle.NORMAL -> "Classic floating player above navigation dock"
-                        DockStyle.ADAPTIVE -> "Integrated player dock with adaptive frosted glass"
-                        DockStyle.LIQUID -> "Integrated player dock with real refracting liquid glass"
+                        DockStyle.NORMAL -> stringResource(R.string.dock_style_normal_desc)
+                        DockStyle.ADAPTIVE -> stringResource(R.string.dock_style_adaptive_desc)
+                        DockStyle.LIQUID -> stringResource(R.string.dock_style_liquid_desc)
                     },
                 )
                 SegmentedControl(
-                    options = DockStyle.entries.map { it.label },
+                    options = DockStyle.entries.map { it.localizedLabel() },
                     selectedIndex = DockStyle.entries.indexOf(dockStyle),
                     onSelect = { index ->
                         AppSettings.setDockStyle(DockStyle.entries[index])

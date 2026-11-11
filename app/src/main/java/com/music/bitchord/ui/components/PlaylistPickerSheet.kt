@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -274,6 +278,30 @@ fun PlaylistPickerSheet(
         }
     }
 
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val toAdd = remember(playlists, selected, initiallyPresent) {
+        playlists.filter { it.playlistId in selected && it.playlistId !in initiallyPresent }
+    }
+    val toRemove = remember(playlists, selected, initiallyPresent) {
+        playlists.filter { it.playlistId !in selected && it.playlistId in initiallyPresent }
+    }
+    val hasChanges = toAdd.isNotEmpty() || toRemove.isNotEmpty()
+
+    val commitAction: () -> Unit = {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        song?.videoId?.let { vid ->
+            toAdd.forEach { pl -> PlaylistMembershipCache.markPendingAdd(pl.playlistId, vid) }
+            toRemove.forEach { pl -> PlaylistMembershipCache.markPendingRemove(pl.playlistId, vid) }
+        }
+        if (onCommit != null) {
+            onCommit(toAdd, toRemove)
+        } else {
+            onAdd(toAdd)
+        }
+    }
+
     if (creating) {
         NewPlaylistForm(
             onBack = if (startCreating) null else ({ creating = false }),
@@ -291,291 +319,300 @@ fun PlaylistPickerSheet(
         return
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            ),
-    ) {
-        // Track Header or Sheet Header with Circular Cross button at top right
+    if (isLandscape) {
         Row(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 16.dp, top = 12.dp, bottom = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .heightIn(max = 310.dp)
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                )
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (song != null) {
-                AsyncImage(
-                    model = song.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .thumbnailBorder(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                )
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    ExplicitSongTitle(
-                        song = song,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            } else if (collectionTitle != null) {
-                AsyncImage(
-                    model = collectionArtworkUrl.artworkAt(ROW_ART_PX),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .thumbnailBorder(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                )
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = collectionTitle,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val countText = if (collectionSongs.isNotEmpty()) {
-                        pluralStringResource(R.plurals.song_count_plural, collectionSongs.size, collectionSongs.size)
-                    } else {
-                        collectionSubtitle.orEmpty()
-                    }
-                    if (countText.isNotBlank()) {
-                        Text(
-                            text = countText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            } else {
-                Text(
-                    text = stringResource(R.string.your_playlists).uppercase(Locale.getDefault()),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            if (onDismiss != null) {
-                Spacer(Modifier.width(10.dp))
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (liquidGlass && glassSupported) {
-                                Modifier.lightweightLiquidGlass(
-                                    shape = CircleShape,
-                                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                                )
-                            } else {
-                                Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                            }
-                        )
-                        .clickable(onClick = onDismiss),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.close),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
-
-        if (song != null || collectionTitle != null) {
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 22.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(
-                    if (collectionTitle != null) R.string.add_to_other_playlist
-                    else if (song != null) R.string.add_to_playlist
-                    else R.string.your_playlists,
-                ).uppercase(Locale.getDefault()),
-                style = MaterialTheme.typography.labelSmall.copy(
-                    letterSpacing = 1.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.primary,
-            )
-            if (isCheckingMembership && song != null && collectionTitle == null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(12.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(R.string.checking),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        }
-
-        // Action Bar Row: Circular '+' Button | Pill Search Bar | Circular Sort Icon Button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            // Left: Circular + Button (matches playlist add song round button)
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .then(
-                        if (liquidGlass && glassSupported) {
-                            Modifier.lightweightLiquidGlass(
-                                shape = CircleShape,
-                                fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                            )
-                        } else {
-                            Modifier
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), CircleShape)
-                        }
-                    )
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        creating = true
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(R.string.new_playlist),
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
-            }
-
-            // Center: Pill-Shaped Search Bar
-            Row(
+            // Left Pane (Track / Search / Done)
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
-                    .clip(CircleShape)
-                    .then(
-                        if (liquidGlass && glassSupported) {
-                            Modifier.lightweightLiquidGlass(
-                                shape = CircleShape,
-                                fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                            )
-                        } else {
-                            Modifier
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                        }
-                    )
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (playlistSearchQuery.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.search_playlists),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    BasicTextField(
-                        value = playlistSearchQuery,
-                        onValueChange = { playlistSearchQuery = it },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Track Header
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                if (playlistSearchQuery.isNotEmpty()) {
-                    IconButton(
-                        onClick = { playlistSearchQuery = "" },
-                        modifier = Modifier.size(22.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = stringResource(R.string.clear_search),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(15.dp),
+                        if (song != null) {
+                            AsyncImage(
+                                model = song.artworkAt(ROW_ART_PX),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .thumbnailBorder(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                ExplicitSongTitle(
+                                    song = song,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                )
+                                Text(
+                                    text = song.artist,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else if (collectionTitle != null) {
+                            AsyncImage(
+                                model = collectionArtworkUrl.artworkAt(ROW_ART_PX),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .thumbnailBorder(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = collectionTitle,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                val countText = if (collectionSongs.isNotEmpty()) {
+                                    pluralStringResource(R.plurals.song_count_plural, collectionSongs.size, collectionSongs.size)
+                                } else {
+                                    collectionSubtitle.orEmpty()
+                                }
+                                if (countText.isNotBlank()) {
+                                    Text(
+                                        text = countText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.your_playlists).uppercase(Locale.getDefault()),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // Action row: + Button & Search Bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // Circular +
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .then(
+                                    if (liquidGlass && glassSupported) {
+                                        Modifier.lightweightLiquidGlass(
+                                            shape = CircleShape,
+                                            fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                        )
+                                    } else {
+                                        Modifier
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), CircleShape)
+                                    }
+                                )
+                                .clickable {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    creating = true
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = stringResource(R.string.new_playlist),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+
+                        // Search
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .clip(CircleShape)
+                                .then(
+                                    if (liquidGlass && glassSupported) {
+                                        Modifier.lightweightLiquidGlass(
+                                            shape = CircleShape,
+                                            fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                        )
+                                    } else {
+                                        Modifier
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                    }
+                                )
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                                if (playlistSearchQuery.isEmpty()) {
+                                    Text(
+                                        text = stringResource(R.string.search_playlists),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                BasicTextField(
+                                    value = playlistSearchQuery,
+                                    onValueChange = { playlistSearchQuery = it },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodySmall.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (playlistSearchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { playlistSearchQuery = "" },
+                                    modifier = Modifier.size(20.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.clear_search),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Centered Done Button (no tick icon)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Button(
+                        onClick = commitAction,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 4.dp,
+                            pressedElevation = 2.dp,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                    ) {
+                        Text(
+                            text = when {
+                                hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
+                                hasChanges && toAdd.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (+${toAdd.size})"
+                                hasChanges && toRemove.isNotEmpty() ->
+                                    "${stringResource(R.string.done)} (-${toRemove.size})"
+                                else -> stringResource(R.string.done)
+                            },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
             }
 
-            // Right: Circular Sort / Filter Icon Button
-            val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
+            // Vertical Divider between columns
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .then(
-                        if (liquidGlass && glassSupported) {
-                            Modifier.lightweightLiquidGlass(
-                                shape = CircleShape,
-                                fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                    .width(0.5.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+            )
+
+            // Right Pane: Header + Full-height LazyColumn of Playlists
+            Column(
+                modifier = Modifier
+                    .weight(1.3f)
+                    .fillMaxHeight(),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.your_playlists).uppercase(Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                letterSpacing = 1.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        if (isCheckingMembership && song != null && collectionTitle == null) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(12.dp),
+                                color = MaterialTheme.colorScheme.primary,
                             )
-                        } else {
-                            Modifier
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // Circular Sort Button
+                        val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
                                 .background(
                                     if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 )
                                 .border(
                                     width = 1.dp,
@@ -583,63 +620,52 @@ fun PlaylistPickerSheet(
                                     else Color.White.copy(alpha = 0.08f),
                                     shape = CircleShape,
                                 )
+                                .clickable {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    sortOrder = sortOrder.next()
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                contentDescription = "Sort (${sortOrder.label})",
+                                tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp),
+                            )
                         }
-                    )
-                    .clickable {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        sortOrder = sortOrder.next()
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.Sort,
-                    contentDescription = "Sort (${sortOrder.label})",
-                    tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
 
-        when {
-            loading && playlists.isEmpty() -> Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator(
-                    strokeWidth = 2.5.dp,
-                    modifier = Modifier.size(26.dp),
-                )
-            }
+                        // Close button
+                        if (onDismiss != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                    .clickable(onClick = onDismiss),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.close),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                    }
+                }
 
-            playlists.isEmpty() -> Text(
-                text = stringResource(R.string.no_playlists_yet),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-            )
-
-            else -> {
                 HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 6.dp),
                     thickness = 0.5.dp,
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                 )
-
-                val toAdd = remember(playlists, selected, initiallyPresent) {
-                    playlists.filter { it.playlistId in selected && it.playlistId !in initiallyPresent }
-                }
-                val toRemove = remember(playlists, selected, initiallyPresent) {
-                    playlists.filter { it.playlistId !in selected && it.playlistId in initiallyPresent }
-                }
-                val hasChanges = toAdd.isNotEmpty() || toRemove.isNotEmpty()
 
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f),
                 ) {
                     items(sortedPlaylists, key = { it.playlistId }) { playlist ->
                         val isTicked = playlist.playlistId in selected
@@ -664,56 +690,404 @@ fun PlaylistPickerSheet(
                         )
                     }
                 }
+            }
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.08f),
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                ),
+        ) {
+            // Track Header or Sheet Header with Circular Cross button at top right
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 16.dp, top = 12.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (song != null) {
+                    AsyncImage(
+                        model = song.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .thumbnailBorder(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        ExplicitSongTitle(
+                            song = song,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Text(
+                            text = song.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else if (collectionTitle != null) {
+                    AsyncImage(
+                        model = collectionArtworkUrl.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .thumbnailBorder(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = collectionTitle,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        val countText = if (collectionSongs.isNotEmpty()) {
+                            pluralStringResource(R.plurals.song_count_plural, collectionSongs.size, collectionSongs.size)
+                        } else {
+                            collectionSubtitle.orEmpty()
+                        }
+                        if (countText.isNotBlank()) {
+                            Text(
+                                text = countText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.your_playlists).uppercase(Locale.getDefault()),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
 
-                // Centered Floating Pill Done Button
+                if (onDismiss != null) {
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (liquidGlass && glassSupported) {
+                                    Modifier.lightweightLiquidGlass(
+                                        shape = CircleShape,
+                                        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                    )
+                                } else {
+                                    Modifier
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                }
+                            )
+                            .clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+
+            if (song != null || collectionTitle != null) {
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 22.dp, end = 20.dp, top = 8.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = stringResource(
+                        if (collectionTitle != null) R.string.add_to_other_playlist
+                        else if (song != null) R.string.add_to_playlist
+                        else R.string.your_playlists,
+                    ).uppercase(Locale.getDefault()),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        letterSpacing = 1.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (isCheckingMembership && song != null && collectionTitle == null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(12.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = stringResource(R.string.checking),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+
+            // Action Bar Row: Circular '+' Button | Pill Search Bar | Circular Sort Icon Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // Left: Circular + Button (matches playlist add song round button)
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                        .navigationBarsPadding(),
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (liquidGlass && glassSupported) {
+                                Modifier.lightweightLiquidGlass(
+                                    shape = CircleShape,
+                                    fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                )
+                            } else {
+                                Modifier
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), CircleShape)
+                            }
+                        )
+                        .clickable {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            creating = true
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Button(
-                        onClick = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            song?.videoId?.let { vid ->
-                                toAdd.forEach { pl -> PlaylistMembershipCache.markPendingAdd(pl.playlistId, vid) }
-                                toRemove.forEach { pl -> PlaylistMembershipCache.markPendingRemove(pl.playlistId, vid) }
-                            }
-                            if (onCommit != null) {
-                                onCommit(toAdd, toRemove)
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.new_playlist),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+
+                // Center: Pill-Shaped Search Bar
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (liquidGlass && glassSupported) {
+                                Modifier.lightweightLiquidGlass(
+                                    shape = CircleShape,
+                                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                )
                             } else {
-                                onAdd(toAdd)
+                                Modifier
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
                             }
-                        },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 2.dp,
-                        ),
-                        modifier = Modifier
-                            .height(46.dp)
-                            .widthIn(min = 160.dp, max = 260.dp)
-                            .animateContentSize(
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow,
-                                ),
+                        )
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (playlistSearchQuery.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.search_playlists),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        BasicTextField(
+                            value = playlistSearchQuery,
+                            onValueChange = { playlistSearchQuery = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
                             ),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (playlistSearchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { playlistSearchQuery = "" },
+                            modifier = Modifier.size(22.dp),
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.clear_search),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(15.dp),
                             )
+                        }
+                    }
+                }
+
+                // Right: Circular Sort / Filter Icon Button
+                val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .then(
+                            if (liquidGlass && glassSupported) {
+                                Modifier.lightweightLiquidGlass(
+                                    shape = CircleShape,
+                                    fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                )
+                            } else {
+                                Modifier
+                                    .background(
+                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+                                        else Color.White.copy(alpha = 0.08f),
+                                        shape = CircleShape,
+                                    )
+                            }
+                        )
+                        .clickable {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            sortOrder = sortOrder.next()
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.Sort,
+                        contentDescription = "Sort (${sortOrder.label})",
+                        tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            when {
+                loading && playlists.isEmpty() -> Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+
+                playlists.isEmpty() -> Text(
+                    text = stringResource(R.string.no_playlists_yet),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                )
+
+                else -> {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    )
+
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false),
+                    ) {
+                        items(sortedPlaylists, key = { it.playlistId }) { playlist ->
+                            val isTicked = playlist.playlistId in selected
+                            val wasPresent = playlist.playlistId in initiallyPresent
+                            val isChordplay = playlist.playlistId in chordplayPlaylistIds
+                            val isPinned = playlist.isPinned(pinnedPlaylists)
+                            PlaylistRow(
+                                playlist = playlist,
+                                selected = isTicked,
+                                wasInitiallyThere = wasPresent,
+                                isChordPlayPlaylist = isChordplay,
+                                isPinned = isPinned,
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    userToggledPlaylists.add(playlist.playlistId)
+                                    selected = if (isTicked) {
+                                        selected - playlist.playlistId
+                                    } else {
+                                        selected + playlist.playlistId
+                                    }
+                                },
+                            )
+                        }
+                    }
+
+                    // Centered Floating Pill Done Button (no tick icon)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .navigationBarsPadding(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Button(
+                            onClick = commitAction,
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(
+                                defaultElevation = 4.dp,
+                                pressedElevation = 2.dp,
+                            ),
+                            modifier = Modifier
+                                .height(46.dp)
+                                .widthIn(min = 160.dp, max = 260.dp)
+                                .animateContentSize(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow,
+                                    ),
+                                ),
+                        ) {
                             Text(
                                 text = when {
                                     hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->

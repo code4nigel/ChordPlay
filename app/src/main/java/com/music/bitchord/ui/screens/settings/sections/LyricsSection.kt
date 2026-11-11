@@ -65,6 +65,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.ui.player.LyricsCustomStyle
 import com.music.bitchord.ui.player.LyricsFontChoice
+import com.music.bitchord.ui.player.LyricsHighlightPosition
 import com.music.bitchord.ui.player.LyricsSizeScale
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.player.LyricsWeightChoice
@@ -158,6 +159,13 @@ fun LyricsSection(
             stringResource(R.string.align_center),
             "alignment", "align", "left", "center",
         )
+        val showHighlightPosition = matchesSearch(
+            searchQuery,
+            stringResource(R.string.lyrics_highlight_position),
+            stringResource(R.string.lyrics_highlight_position_subtitle),
+            customStyle.highlightPosition.localizedLabel(),
+            "highlight", "line", "position", "focus", "anchor",
+        )
         val showSyncedLyrics = matchesSearch(
             searchQuery,
             stringResource(R.string.synced_lyrics),
@@ -189,7 +197,7 @@ fun LyricsSection(
         )
 
         val hasFontSection = showFontFamily
-        val hasTypographySection = showSizeScale || showFontWeight || showAlignment
+        val hasTypographySection = showSizeScale || showFontWeight || showAlignment || showHighlightPosition
         val hasSyncSection = showSyncedLyrics || ((showLyricsBlur || showLyricsSources || showTranslationLanguage || showFullscreenLyrics) && syncedLyrics)
         val anyLyricsMatch = hasFontSection || hasTypographySection || hasSyncSection
 
@@ -435,6 +443,32 @@ fun LyricsSection(
                                     )
                                 }
                             }
+                        }
+                    }
+
+                    if (showHighlightPosition) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = ROW_INSET, vertical = 8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.lyrics_highlight_position),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.lyrics_highlight_position_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            SegmentedControl(
+                                options = LyricsHighlightPosition.entries.map { it.localizedLabel() },
+                                selectedIndex = LyricsHighlightPosition.entries.indexOf(customStyle.highlightPosition).coerceAtLeast(0),
+                                onSelect = { LyricsStyleManager.updateHighlightPosition(LyricsHighlightPosition.entries[it]) },
+                            )
                         }
                     }
                 }

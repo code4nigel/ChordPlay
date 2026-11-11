@@ -7213,12 +7213,16 @@ class PlaybackService : MediaLibraryService() {
         override fun onPostConnect(session: MediaSession, controller: MediaSession.ControllerInfo) {
             if (session.isAutoCompanionController(controller) || session.isAutomotiveController(controller)) {
                 carControllers += controller
+                isCarConnected.value = carControllers.isNotEmpty()
                 refreshCustomLayouts()
             }
         }
 
         override fun onDisconnected(session: MediaSession, controller: MediaSession.ControllerInfo) {
-            if (carControllers.remove(controller)) refreshCustomLayouts()
+            if (carControllers.remove(controller)) {
+                isCarConnected.value = carControllers.isNotEmpty()
+                refreshCustomLayouts()
+            }
         }
 
         override fun onCustomCommand(
@@ -8012,7 +8016,8 @@ class PlaybackService : MediaLibraryService() {
             )
             .build()
 
-    private companion object {
+    companion object {
+        val isCarConnected = kotlinx.coroutines.flow.MutableStateFlow(false)
         const val MEDIA_ROOT_ID = "root"
         const val MEDIA_RECENTS_ID = "recents"
         const val MEDIA_QUICK_PICKS_ID = "quick_picks"

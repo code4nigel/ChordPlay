@@ -179,9 +179,9 @@ fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
     val liquidGlassActive = AppSettings.liquidGlass.collectAsStateWithLifecycle().value
 
-    // If device doesn't support AGSL lens or user selected Adaptive Dock (or reduced blur),
+    // If device doesn't support AGSL lens or user selected Adaptive/Normal Dock (or reduced blur),
     // provide an adaptive frosted glass surface with elevation and subtle glass rim!
-    if (!isSupported || reduceDynamicBlur || (!liquidGlassActive && dockStyle == DockStyle.ADAPTIVE)) {
+    if (!isSupported || reduceDynamicBlur || (!liquidGlassActive && dockStyle != DockStyle.LIQUID)) {
         val surfaceColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         return this
             .background(

@@ -1849,6 +1849,8 @@ internal fun LyricsPanel(
 
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val lyricsBlur by PlayerSettings.lyricsBlur.collectAsStateWithLifecycle()
+    val customStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
+    val effectiveScale = customStyle.effectiveScale
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
     val glowing = !reduceAnimation && !reduceDynamicBlur && lyricsBlur &&
@@ -1932,16 +1934,18 @@ internal fun LyricsPanel(
     // browse on their own terms.
     // A newer line replaces an unfinished automatic scroll. Only a user's
     // browsing gesture should suspend following, not our own animation.
-    LaunchedEffect(focusLine, browsing, controlsOpen, active) {
+    val focusPosition = customStyle.highlightPosition
+    LaunchedEffect(focusLine, browsing, controlsOpen, active, focusPosition) {
         if (active && isSynced && !browsing &&
             focusLine >= 0 && focusLine in lines.indices
         ) {
-            snapshotFlow { listState.layoutInfo.viewportSize.height }.first { it > 0 }
-            // Keep the same top anchor whether the playback controls are visible or hidden.
+            val vHeight = snapshotFlow { listState.layoutInfo.viewportSize.height }.first { it > 0 }
             val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focusLine }
+            val itemSize = visible?.size ?: 0
+            val targetY = ((vHeight * focusPosition.fraction) - (itemSize * 0.4f)).coerceAtLeast(0f)
             when {
                 !placed -> {
-                    listState.scrollToItem(focusLine, scrollOffset = 0)
+                    listState.scrollToItem(focusLine, scrollOffset = -targetY.toInt())
                     placed = true
                 }
                 // Already on screen, which is the ordinary case of handing over
@@ -1950,20 +1954,17 @@ internal fun LyricsPanel(
                 // list's default spring.
                 visible != null -> {
                     val span = scrollLead(lines, clock.longValue).toInt()
-                    run = ScrollRun(run.id + 1, visible.offset.toFloat(), span)
-                    // The same curve the rows catch up on. Two different
-                    // curves and a row with no delay at all still trails the
-                    // list it is sitting in, which is most of the way to
-                    // looking like the panel cannot keep up with itself.
+                    val delta = visible.offset.toFloat() - targetY
+                    run = ScrollRun(run.id + 1, delta, span)
                     listState.animateScrollBy(
-                        value = visible.offset.toFloat(),
+                        value = delta,
                         animationSpec = tween(durationMillis = span, easing = LYRIC_EASING),
                     )
                 }
                 // Somewhere off screen — after a seek, or a long instrumental
                 // scrolled past. How far is not known without laying the rows
                 // out, so this hands back to the list's own staged scroll.
-                else -> listState.animateScrollToItem(focusLine, scrollOffset = 0)
+                else -> listState.animateScrollToItem(focusLine, scrollOffset = -targetY.toInt())
             }
         }
     }
@@ -1986,6 +1987,12 @@ internal fun LyricsPanel(
         return
     }
 
+    val density = LocalDensity.current
+    val focusPaddingTop = with(density) {
+        (viewportHeight * focusPosition.fraction).toDp()
+    }
+    val effectiveTopPadding = (40.dp - GLOW_ROOM + focusPaddingTop).coerceAtLeast(40.dp - GLOW_ROOM)
+
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -2002,8 +2009,8 @@ internal fun LyricsPanel(
         // list hands that much back — otherwise the lines would sit a glow's
         // width further apart and further in than they used to.
         contentPadding = PaddingValues(
-            top = 40.dp - GLOW_ROOM,
-            bottom = with(LocalDensity.current) { viewportHeight.toDp() } * 0.8f,
+            top = effectiveTopPadding,
+            bottom = with(density) { viewportHeight.toDp() } * 0.8f,
             start = PLAYER_GUTTER - GLOW_ROOM,
             end = PLAYER_GUTTER - GLOW_ROOM,
         ),
@@ -2162,7 +2169,6 @@ internal fun LyricsPanel(
                 )
                 }
             } else {
-                val customStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
                 val alignEnd = duet && line.alignment == LyricAlignment.End
                 val chosenAlign = when {
                     customStyle.centerAligned -> TextAlign.Center
@@ -2171,8 +2177,8 @@ internal fun LyricsPanel(
                 }
                 val baseSize = if (isSynced) 34.sp else 30.sp
                 val baseLineHeight = if (isSynced) 41.sp else 38.sp
-                val scaledSize = baseSize * customStyle.sizeScale.scale
-                val scaledLineHeight = baseLineHeight * customStyle.sizeScale.scale
+                val scaledSize = baseSize * effectiveScale
+                val scaledLineHeight = baseLineHeight * effectiveScale
                 val resolvedFont = rememberLyricsFontFamily(customStyle)
                 val style = (if (isSynced) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium).copy(
                     fontFamily = resolvedFont,
@@ -2315,8 +2321,8 @@ internal fun LyricsPanel(
                 // seeks to the same place.
                 val sub = subReveal.lines?.getOrNull(index)
                 val subStyle = style.copy(
-                    fontSize = SUB_LYRIC_FONT_SIZE * customStyle.sizeScale.scale,
-                    lineHeight = SUB_LYRIC_LINE_HEIGHT * customStyle.sizeScale.scale,
+                    fontSize = SUB_LYRIC_FONT_SIZE * effectiveScale,
+                    lineHeight = SUB_LYRIC_LINE_HEIGHT * effectiveScale,
                     fontWeight = customStyle.weightChoice.weight,
                 )
                 // The answering voice is only on screen while it is being sung,
@@ -2417,8 +2423,8 @@ internal fun LyricsPanel(
                                 line = backing.withoutBracketPunctuation(),
                                 clock = clock,
                                 style = style.copy(
-                                    fontSize = BACKING_FONT_SIZE * customStyle.sizeScale.scale,
-                                    lineHeight = BACKING_LINE_HEIGHT * customStyle.sizeScale.scale,
+                                    fontSize = BACKING_FONT_SIZE * effectiveScale,
+                                    lineHeight = BACKING_LINE_HEIGHT * effectiveScale,
                                 ),
                                 isActive = isActive,
                                 sung = sung,
@@ -2447,8 +2453,8 @@ internal fun LyricsPanel(
                                         line = subBacking.withoutBracketPunctuation(),
                                         clock = clock,
                                         style = subStyle.copy(
-                                            fontSize = SUB_BACKING_FONT_SIZE * customStyle.sizeScale.scale,
-                                            lineHeight = SUB_BACKING_LINE_HEIGHT * customStyle.sizeScale.scale,
+                                            fontSize = SUB_BACKING_FONT_SIZE * effectiveScale,
+                                            lineHeight = SUB_BACKING_LINE_HEIGHT * effectiveScale,
                                         ),
                                         isActive = isActive,
                                         sung = sung,

@@ -1768,6 +1768,7 @@ fun NowPlayingScreen(
 
         Box(modifier = modifier.fillMaxSize().then(dockHost)) {
             val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
+            val customLyricsStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
 
             LandscapePlayerLayout(
                 pane = when {

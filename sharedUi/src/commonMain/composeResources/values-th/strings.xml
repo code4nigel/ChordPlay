@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">อัลบั้ม &amp; ซิงเกิลใหม่</string>
     <string name="shelf_top_songs">เพลงยอดนิยม</string>
     <string name="shelf_top_picks_desc">สถานีวิทยุศิลปิน มิกซ์ และการ์ดเด่น</string>
+    <string name="add_to_other_playlist">เพิ่มไปยังเพลย์ลิสต์อื่น</string>
 </resources>

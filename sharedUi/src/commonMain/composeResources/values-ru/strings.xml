@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">Новые альбомы и синглы</string>
     <string name="shelf_top_songs">Лучшие песни</string>
     <string name="shelf_top_picks_desc">Радио артиста, миксы и подборки</string>
+    <string name="add_to_other_playlist">Добавить в другой плейлист</string>
 </resources>

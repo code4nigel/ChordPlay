@@ -246,4 +246,5 @@
     <string name="shelf_new_albums_singles">新專輯與單曲</string>
     <string name="shelf_top_songs">熱門歌曲</string>
     <string name="shelf_top_picks_desc">藝人電台、混合推薦與焦點卡片</string>
+    <string name="add_to_other_playlist">新增至其他播放清單</string>
 </resources>

@@ -69,6 +69,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.music.bitchord.data.settings.CustomPalette
@@ -108,6 +110,9 @@ fun AccountProfileSelector(
     var presetNameInput by remember { mutableStateOf("") }
 
     val shape = MaterialTheme.shapes.extraLarge
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -116,14 +121,20 @@ fun AccountProfileSelector(
                 indication = null,
                 onClick = onDismiss,
             ),
-        contentAlignment = Alignment.TopCenter,
+        contentAlignment = if (isLandscape) Alignment.Center else Alignment.TopCenter,
     ) {
         Surface(
             color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurface,
             shape = shape,
             modifier = Modifier
-                .padding(top = 56.dp, start = 20.dp, end = 20.dp)
+                .padding(
+                    top = if (isLandscape) 16.dp else 56.dp,
+                    bottom = if (isLandscape) 16.dp else 24.dp,
+                    start = 20.dp,
+                    end = 20.dp,
+                )
+                .widthIn(max = if (isLandscape) 560.dp else 420.dp)
                 .fillMaxWidth()
                 .clip(shape)
                 .then(
@@ -144,54 +155,153 @@ fun AccountProfileSelector(
                     onClick = {},
                 ),
         ) {
-            LazyColumn {
-                item { Text(stringResource(R.string.switch_account), style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(20.dp, 18.dp, 20.dp, 8.dp)) }
-                accounts.forEach { account ->
-                item {
-                    Text(account.email.ifBlank { account.name.ifBlank { stringResource(R.string.accounts) } },
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(20.dp, 12.dp, 20.dp, 4.dp))
-                }
-                items(account.profiles.size) { index ->
-                    val profile = account.profiles[index]
-                    ProfileRow(profile, account.accountId == activeAccountId && profile.profileId == activeProfileId,
-                        managing, { onSelect(account, profile); onDismiss() }, { onRemoveAccount(account) })
-                }
-                }
-                item { SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount) }
-                item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts), onClick = { managing = !managing }) }
-                item {
-                    SelectorAction(
-                        icon = Icons.Rounded.Brush,
-                        label = stringResource(R.string.preserve_style),
-                        onClick = {
-                            if (customPalettes.size >= 5) {
-                                Toast.makeText(
-                                    context,
-                                    "Preset not saved: 5 custom presets limit reached. Delete one in Settings → Appearance.",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                            } else {
-                                presetNameInput = "Style ${customPalettes.size + 1}"
-                                showSavePresetDialog = true
+            if (isLandscape) {
+                // Two-column layout in landscape: Left = Accounts & Profiles, Right = Actions
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    // Left Column: Accounts & Profiles
+                    Column(
+                        modifier = Modifier
+                            .weight(1.1f)
+                            .heightIn(max = 280.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.switch_account),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                            accounts.forEach { account ->
+                                item {
+                                    Text(
+                                        account.email.ifBlank { account.name.ifBlank { stringResource(R.string.accounts) } },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                    )
+                                }
+                                items(account.profiles.size) { index ->
+                                    val profile = account.profiles[index]
+                                    ProfileRow(
+                                        profile,
+                                        account.accountId == activeAccountId && profile.profileId == activeProfileId,
+                                        managing,
+                                        { onSelect(account, profile); onDismiss() },
+                                        { onRemoveAccount(account) },
+                                    )
+                                }
                             }
-                        },
-                        trailing = {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(activeAccent))
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(activeSurfaceVariant))
-                                Box(Modifier.size(10.dp).clip(CircleShape).background(activeBackground))
-                            }
-                        },
+                        }
+                    }
+
+                    // Vertical Divider
+                    Box(
+                        modifier = Modifier
+                            .width(0.5.dp)
+                            .height(240.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
                     )
+
+                    // Right Column: Actions
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(max = 280.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "Actions",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                        SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount)
+                        SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts), onClick = { managing = !managing })
+                        SelectorAction(
+                            icon = Icons.Rounded.Brush,
+                            label = stringResource(R.string.preserve_style),
+                            onClick = {
+                                if (customPalettes.size >= 5) {
+                                    Toast.makeText(
+                                        context,
+                                        "Preset not saved: 5 custom presets limit reached. Delete one in Settings → Appearance.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                } else {
+                                    presetNameInput = "Style ${customPalettes.size + 1}"
+                                    showSavePresetDialog = true
+                                }
+                            },
+                            trailing = {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeAccent))
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeSurfaceVariant))
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeBackground))
+                                }
+                            },
+                        )
+                        SelectorAction(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings)
+                    }
                 }
-                item { SelectorAction(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings) }
+            } else {
+                LazyColumn {
+                    item { Text(stringResource(R.string.switch_account), style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(20.dp, 18.dp, 20.dp, 8.dp)) }
+                    accounts.forEach { account ->
+                    item {
+                        Text(account.email.ifBlank { account.name.ifBlank { stringResource(R.string.accounts) } },
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(20.dp, 12.dp, 20.dp, 4.dp))
+                    }
+                    items(account.profiles.size) { index ->
+                        val profile = account.profiles[index]
+                        ProfileRow(profile, account.accountId == activeAccountId && profile.profileId == activeProfileId,
+                            managing, { onSelect(account, profile); onDismiss() }, { onRemoveAccount(account) })
+                    }
+                    }
+                    item { SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount) }
+                    item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts), onClick = { managing = !managing }) }
+                    item {
+                        SelectorAction(
+                            icon = Icons.Rounded.Brush,
+                            label = stringResource(R.string.preserve_style),
+                            onClick = {
+                                if (customPalettes.size >= 5) {
+                                    Toast.makeText(
+                                        context,
+                                        "Preset not saved: 5 custom presets limit reached. Delete one in Settings → Appearance.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                } else {
+                                    presetNameInput = "Style ${customPalettes.size + 1}"
+                                    showSavePresetDialog = true
+                                }
+                            },
+                            trailing = {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeAccent))
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeSurfaceVariant))
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(activeBackground))
+                                }
+                            },
+                        )
+                    }
+                    item { SelectorAction(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings) }
+                }
             }
         }
     }
