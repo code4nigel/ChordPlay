@@ -48,6 +48,8 @@ param(
 
     [string]$ExplicitVersionName = "",
 
+    [string]$Abi = "",
+
     [switch]$NoBump,
 
     [switch]$Clean,
@@ -205,6 +207,16 @@ if ($Clean) {
 $gradleArgs += $taskName
 $gradleArgs += "--stacktrace"
 if ($NoDaemon) { $gradleArgs += "--no-daemon" }
+if ($Abi) {
+    $resolvedAbi = switch -Regex ($Abi.ToLower().Trim()) {
+        "^(x8a|arm64|arm64-v8a|aarch64)$" { "arm64-v8a" }
+        "^(v7a|arm|armeabi-v7a|armv7)$"    { "armeabi-v7a" }
+        "^(x64|x86_64|amd64)$"             { "x86_64" }
+        default { $Abi }
+    }
+    $gradleArgs += "-Pandroid.injected.build.abi=$resolvedAbi"
+    Write-Host "Target ABI Filter : $resolvedAbi (Single ABI Fast Build)" -ForegroundColor Yellow
+}
 
 Write-Host "`nRunning Gradle Build: .\gradlew.bat $($gradleArgs -join ' ')" -ForegroundColor Cyan
 $sw = [System.Diagnostics.Stopwatch]::StartNew()

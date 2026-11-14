@@ -267,6 +267,7 @@ class CanvasVideoSpec(
     val bottomFade: Float,
     val bottomFadeEndPx: Float?,
     val pausedForTransition: Boolean,
+    val positionMs: Long = 0L,
 )
 
 /**
@@ -291,6 +292,7 @@ fun CanvasArtworkPlayer(
     bottomFade: Float = 0f,
     bottomFadeEndPx: Float? = null,
     pausedForTransition: Boolean = false,
+    positionMs: Long = 0L,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -309,6 +311,7 @@ fun CanvasArtworkPlayer(
             bottomFade = bottomFade,
             bottomFadeEndPx = bottomFadeEndPx,
             pausedForTransition = pausedForTransition,
+            positionMs = positionMs,
         ),
         modifier,
     )

@@ -4,6 +4,7 @@ import com.music.bitchord.R
 
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -240,7 +242,9 @@ fun SongActionsSheet(
         // a substituted copy, the other for a track held on YouTube's own —
         // and between them they are the whole of the choice, which is why they
         // sit in the same place under the same divider.
-        if (onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null) {
+        val hasVersionActions = onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null
+        val showVideoQualityAction = !isAudioVersion || song.isVideo
+        if (hasVersionActions || showVideoQualityAction) {
             (onRollbackToOriginal ?: onUpgradeQuality)?.let {
                 ActionRow(
                     icon = if (onRollbackToOriginal != null) {
@@ -273,7 +277,7 @@ fun SongActionsSheet(
                     onClick = it,
                 )
             }
-            if (!isAudioVersion || song.isVideo) {
+            if (showVideoQualityAction) {
                 ActionRow(
                     icon = Icons.Rounded.HighQuality,
                     label = "Video Quality • ${currentVideoQuality.label}",
@@ -427,34 +431,73 @@ fun SongActionsSheet(
     if (pickingVideoQuality) {
         AlertDialog(
             onDismissRequest = { pickingVideoQuality = false },
-            title = { Text("Video Streaming Quality") },
+            containerColor = Color(0xFF18181B),
+            titleContentColor = Color.White,
+            textContentColor = Color.White.copy(alpha = 0.85f),
+            title = {
+                Text(
+                    text = "Video Streaming Quality",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                )
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     VideoQuality.entries.forEach { q ->
                         val selected = q == currentVideoQuality
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (selected) palette.accent.copy(alpha = 0.16f)
+                                    else Color.White.copy(alpha = 0.05f)
+                                )
+                                .then(
+                                    if (selected) {
+                                        Modifier.border(
+                                            width = 1.dp,
+                                            color = palette.accent.copy(alpha = 0.45f),
+                                            shape = RoundedCornerShape(12.dp),
+                                        )
+                                    } else Modifier
+                                )
                                 .clickable {
                                     AppSettings.setVideoQuality(q)
                                     pickingVideoQuality = false
                                 }
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = q.label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) Color.White else Color.White.copy(alpha = 0.85f),
                                 modifier = Modifier.weight(1f),
                             )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (selected) palette.accent.copy(alpha = 0.28f)
+                                        else Color.White.copy(alpha = 0.10f)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = q.badge,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (selected) palette.accent else Color.White.copy(alpha = 0.65f),
+                                )
+                            }
                             if (selected) {
+                                Spacer(Modifier.width(8.dp))
                                 Icon(
                                     imageVector = Icons.Rounded.Check,
                                     contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = palette.accent,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
@@ -464,7 +507,11 @@ fun SongActionsSheet(
             },
             confirmButton = {
                 TextButton(onClick = { pickingVideoQuality = false }) {
-                    Text(stringResource(R.string.close))
+                    Text(
+                        text = stringResource(R.string.close),
+                        color = palette.accent,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             },
         )

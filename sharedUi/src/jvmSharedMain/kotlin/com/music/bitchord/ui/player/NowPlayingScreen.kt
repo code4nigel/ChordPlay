@@ -1,7 +1,7 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.CompositionLocalProvider
-
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
@@ -186,9 +186,12 @@ import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToInt
+
+val LocalPlayerHazeState = staticCompositionLocalOf<HazeState?> { null }
 
 
 /** Collapsed-header geometry, shared by the layout and its animation. */
@@ -789,6 +792,7 @@ fun NowPlayingScreen(
     // the bottom navigation pill.
     val playerHaze = remember { HazeState() }
     var showAudioPipeline by remember { mutableStateOf(false) }
+    var showVideoQualitySheet by remember { mutableStateOf(false) }
     var showCast by remember { mutableStateOf(false) }
     var showAudioOutput by remember { mutableStateOf(false) }
     var showLyricsProviders by remember { mutableStateOf(false) }
@@ -1068,6 +1072,8 @@ fun NowPlayingScreen(
 
     PlayerBackHandler(enabled = showAudioPipeline) { showAudioPipeline = false }
 
+    PlayerBackHandler(enabled = showVideoQualitySheet) { showVideoQualitySheet = false }
+
     PlayerBackHandler(enabled = showCast) { showCast = false }
 
     PlayerBackHandler(enabled = effectiveLyricsOffsetOpen, onBack = dismissLyricsOffset)
@@ -1332,7 +1338,7 @@ fun NowPlayingScreen(
     // it starts fresh once playback/interaction resumes.
     val canvasAutoHideBlocked = !isPlaying || scrub.scrubbing || volume.dragging ||
         lyricsOpen || queueOpen || effectiveLyricsOffsetOpen || showLyricsStyleSheet ||
-        showAudioPipeline || showCast || showAudioOutput || showLyricsProviders || mixing
+        showAudioPipeline || showVideoQualitySheet || showCast || showAudioOutput || showLyricsProviders || mixing
     LaunchedEffect(
         spotifyCanvasPresentation,
         spotifyCanvasControlsOpen,
@@ -1530,7 +1536,13 @@ fun NowPlayingScreen(
             song = song,
             isLoading = isLoading,
             isModernOrVinyl = isWavePlay,
-            onOpenPipeline = { showAudioPipeline = true },
+            onOpenPipeline = {
+                if (song.isVideo) {
+                    showVideoQualitySheet = true
+                } else {
+                    showAudioPipeline = true
+                }
+            },
             palette = synesthesiaPalette,
         )
         if (!isWavePlay) {
@@ -1560,7 +1572,13 @@ fun NowPlayingScreen(
             isPlaying = isPlaying,
             showAudioOutput = showAudioOutput,
             onDismissAudioOutput = { showAudioOutput = false },
-            onOpenPipeline = { showAudioPipeline = true },
+            onOpenPipeline = {
+                if (song.isVideo) {
+                    showVideoQualitySheet = true
+                } else {
+                    showAudioPipeline = true
+                }
+            },
             onOpenCast = { showCast = true },
             showLyricsProviders = showLyricsProviders,
             onDismissLyricsProviders = { showLyricsProviders = false },
@@ -1571,6 +1589,8 @@ fun NowPlayingScreen(
             onDismissLyricsStyleSheet = { showLyricsStyleSheet = false },
             showAudioPipeline = showAudioPipeline,
             onDismissAudioPipeline = { showAudioPipeline = false },
+            showVideoQualitySheet = showVideoQualitySheet,
+            onDismissVideoQualitySheet = { showVideoQualitySheet = false },
             showCast = showCast,
             onDismissCast = { showCast = false },
             showListenTogetherMembers = showListenTogetherMembers,
@@ -1770,7 +1790,10 @@ fun NowPlayingScreen(
             }
         }
 
-        CompositionLocalProvider(LocalLikeBurstState provides likeBurstState) {
+        CompositionLocalProvider(
+            LocalLikeBurstState provides likeBurstState,
+            LocalPlayerHazeState provides playerHaze,
+        ) {
             Box(modifier = modifier.fillMaxSize().then(dockHost)) {
                 val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
                 val customLyricsStyle by LyricsStyleManager.style.collectAsStateWithLifecycle()
@@ -1797,7 +1820,13 @@ fun NowPlayingScreen(
                         }
                     }
                 },
-                onOpenPipeline = { showAudioPipeline = true },
+                onOpenPipeline = {
+                    if (song.isVideo) {
+                        showVideoQualitySheet = true
+                    } else {
+                        showAudioPipeline = true
+                    }
+                },
                 palette = synesthesiaPalette,
                 background = { backgroundModifier ->
                     Box(modifier = backgroundModifier) {
@@ -1826,6 +1855,7 @@ fun NowPlayingScreen(
                         canvasRendered = canvasRendered,
                         isPlaying = isPlaying,
                         onCanvasRenderedChange = { canvasRendered = it },
+                        positionMs = if (scrub.scrubbing) (scrub.value * durationMs).toLong() else position.positionMs,
                         // A clip decoding behind a player on its way to the
                         // bar is work nobody sees — see [dockMoving].
                         pausedForTransition = dockMoving,
@@ -1929,11 +1959,42 @@ fun NowPlayingScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                     ) {
+                        val tc1 = synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
+                        val tc2 = synesthesiaPalette.colors.getOrNull(1) ?: synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
+                        val tc3 = synesthesiaPalette.colors.getOrNull(2) ?: Color.Black
+
+                        val animTc1 by animateColorAsState(targetValue = tc1, animationSpec = tween(650), label = "lsMinC1")
+                        val animTc2 by animateColorAsState(targetValue = tc2, animationSpec = tween(650), label = "lsMinC2")
+                        val animTc3 by animateColorAsState(targetValue = tc3, animationSpec = tween(650), label = "lsMinC3")
+
+                        val topDockAdaptiveGradient = remember(animTc1, animTc2, animTc3) {
+                            Brush.horizontalGradient(
+                                0.0f to animTc1.copy(alpha = 0.40f),
+                                0.48f to animTc2.copy(alpha = 0.22f),
+                                1.0f to animTc3.copy(alpha = 0.45f),
+                            )
+                        }
+                        val topDockGlassSheen = remember {
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.22f),
+                                    Color.White.copy(alpha = 0.08f),
+                                    Color.White.copy(alpha = 0.02f),
+                                    Color.Black.copy(alpha = 0.16f),
+                                ),
+                            )
+                        }
+
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .optimizedHazeEffect(
+                                    state = playerHaze,
+                                    style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
+                                )
+                                .background(topDockAdaptiveGradient)
+                                .background(topDockGlassSheen)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -2064,6 +2125,7 @@ fun NowPlayingScreen(
                 },
                 lyricsPane = {
                     LandscapeLyricsPane(
+                        palette = synesthesiaPalette,
                         hasLyrics = lyricsTranslation.displayedLyrics.isNotEmpty(),
                         placeholder = if (lyricsUnavailable) {
                             stringResource(Res.string.lyrics_not_available)
@@ -2145,13 +2207,17 @@ fun NowPlayingScreen(
 }
 
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged { playerBounds = it }
-            .then(dockHost)
-            .background(Color.Black),
+    CompositionLocalProvider(
+        LocalLikeBurstState provides likeBurstState,
+        LocalPlayerHazeState provides playerHaze,
     ) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .onSizeChanged { playerBounds = it }
+                .then(dockHost)
+                .background(Color.Black),
+        ) {
         // Anchored to the sleeve's bottom edge, so the screen carries on in the
         // colours the artwork ended in rather than in a quantiser's idea of what
         // the artwork was about. Position ticks recompose this screen twice a
@@ -2210,6 +2276,7 @@ fun NowPlayingScreen(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
+                    positionMs = if (scrub.scrubbing) (scrub.value * durationMs).toLong() else position.positionMs,
                     // Paused for the whole collapse into the queue/lyrics panel
                     // and back, not just once it hands off to the still frame at
                     // p >= 0.5 — see [CanvasArtworkPlayer.pausedForTransition].
@@ -2249,7 +2316,7 @@ fun NowPlayingScreen(
                     // Keeping this null also removes the old three-second GPU
                     // readback cadence from this provider alone.
                     refreshFrameEveryMs = if (
-                        clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
+                        song.isVideo || clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
                         queueDragging || dockMoving
                     ) {
                         null
@@ -2281,7 +2348,7 @@ fun NowPlayingScreen(
         // A subview replaces that hero with an artwork-derived mesh, so it gets
         // only a modest floor rather than an opaque status-bar surface.
         val playerSubviewOpen = lyricsOpen || queueOpen || effectiveLyricsOffsetOpen ||
-            showAudioPipeline || showCast || showAudioOutput || showLyricsProviders ||
+            showAudioPipeline || showVideoQualitySheet || showCast || showAudioOutput || showLyricsProviders ||
             lyricsShare != null
         val topGradientAlpha = if (playerSubviewOpen) {
             maxOf(artworkStatusScrimAlpha, SUBVIEW_STATUS_SCRIM_MIN_ALPHA)
@@ -3078,6 +3145,7 @@ fun NowPlayingScreen(
                             CanvasArtworkPlayer(
                                 canvas = canvas,
                                 isPlaying = isPlaying,
+                                positionMs = if (scrub.scrubbing) (scrub.value * durationMs).toLong() else position.positionMs,
                                 // The panels first: a collapse the tap asked
                                 // for is paused from the tap, and then never
                                 // asks after its first frame of movement.
@@ -3090,7 +3158,7 @@ fun NowPlayingScreen(
                                     }
                                 },
                                 refreshFrameEveryMs = if (
-                                    tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
+                                    song.isVideo || tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
                                 ) null else meshRefreshMs,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -3391,12 +3459,42 @@ fun NowPlayingScreen(
                     // there's no account to record it against — and neither
                     // does a local file or a finished download, which carries
                     // no YouTube identity to rate.
+                    val pc1 = synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
+                    val pc2 = synesthesiaPalette.colors.getOrNull(1) ?: synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
+                    val pc3 = synesthesiaPalette.colors.getOrNull(2) ?: Color.Black
+
+                    val animPc1 by animateColorAsState(targetValue = pc1, animationSpec = tween(650), label = "ptActionC1")
+                    val animPc2 by animateColorAsState(targetValue = pc2, animationSpec = tween(650), label = "ptActionC2")
+                    val animPc3 by animateColorAsState(targetValue = pc3, animationSpec = tween(650), label = "ptActionC3")
+
+                    val portraitDockAdaptiveGradient = remember(animPc1, animPc2, animPc3) {
+                        Brush.horizontalGradient(
+                            0.0f to animPc1.copy(alpha = 0.40f),
+                            0.48f to animPc2.copy(alpha = 0.22f),
+                            1.0f to animPc3.copy(alpha = 0.45f),
+                        )
+                    }
+                    val portraitDockGlassSheen = remember {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.22f),
+                                Color.White.copy(alpha = 0.08f),
+                                Color.White.copy(alpha = 0.02f),
+                                Color.Black.copy(alpha = 0.16f),
+                            ),
+                        )
+                    }
+
                     // Unified Frosted Glass Capsule for Player Header Actions
                     Row(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+                            .optimizedHazeEffect(
+                                state = playerHaze,
+                                style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
+                            )
+                            .background(portraitDockAdaptiveGradient)
+                            .background(portraitDockGlassSheen)
                             .padding(horizontal = 4.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -3701,6 +3799,7 @@ fun NowPlayingScreen(
                             translationState = lyricsTranslation.translationState,
                             onToggleTranslation = lyricsTranslation.toggleTranslation,
                             onOpenStyle = { showLyricsStyleSheet = true },
+                            palette = synesthesiaPalette,
                             enabled = lyricsControlsOpen,
                         )
                     }
@@ -3804,6 +3903,7 @@ fun NowPlayingScreen(
         }
         playerOverlays()
     }
+}
 }
 
 /**
@@ -4298,6 +4398,8 @@ private fun PlayerOverlays(
     onDismissLyricsStyleSheet: () -> Unit,
     showAudioPipeline: Boolean,
     onDismissAudioPipeline: () -> Unit,
+    showVideoQualitySheet: Boolean = false,
+    onDismissVideoQualitySheet: () -> Unit = {},
     showCast: Boolean,
     onDismissCast: () -> Unit,
     showListenTogetherMembers: Boolean,
@@ -4338,6 +4440,13 @@ private fun PlayerOverlays(
             hazeState = playerHaze,
             isPlaying = isPlaying,
             onDismiss = onDismissAudioPipeline,
+            accentColor = accentColor,
+        )
+    }
+    if (showVideoQualitySheet) {
+        VideoQualitySheet(
+            hazeState = playerHaze,
+            onDismiss = onDismissVideoQualitySheet,
             accentColor = accentColor,
         )
     }

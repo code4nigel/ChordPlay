@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,14 +41,18 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Tune
 import kotlin.math.roundToInt
 import java.util.Locale
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.Composable
 import com.music.bitchord.sharedui.resources.Res
@@ -198,13 +203,6 @@ internal fun LyricsStyleSheet(
                     .onSizeChanged { height = it.height }
                     .offset { IntOffset(0, drawerOffset.roundToInt()) }
                     .clip(DrawerShape)
-                    .border(
-                        width = 1.dp,
-                        color = (accentColor?.copy(alpha = 0.35f) ?: Color.White.copy(alpha = 0.12f)).copy(
-                            alpha = ((if (accentColor != null) 0.35f else 0.12f) * sheetBgAlpha),
-                        ),
-                        shape = DrawerShape,
-                    )
                     .then(
                         if (reduceDynamicBlur || isDraggingFontSlider) {
                             Modifier.background(
@@ -309,7 +307,14 @@ internal fun LyricsStyleSheet(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(
+                                            Color(0xFF1E2130).copy(alpha = 0.65f),
+                                            Color(0xFF12141C).copy(alpha = 0.50f),
+                                        ),
+                                    ),
+                                )
                                 .clickable {
                                     haptics.play(Haptic.Tap)
                                     LyricsStyleManager.reset()
@@ -479,19 +484,54 @@ internal fun LyricsStyleSheet(
 
                 Spacer(Modifier.height(16.dp))
 
-                // Section 2: Text Size Scale with Live Slider
+                // Section 2: Text Size Scale with Live Slider, +/- steppers, and Reset
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        StyleSectionHeader(title = stringResource(Res.string.text_size).uppercase())
-                        Text(
-                            text = "${(customStyle.effectiveScale * 100).roundToInt()}%",
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            StyleSectionHeader(title = stringResource(Res.string.text_size).uppercase())
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                            ) {
+                                Text(
+                                    text = "${(customStyle.effectiveScale * 100).roundToInt()}%",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+
+                        // Reset button
+                        val isDefaultScale = kotlin.math.abs(customStyle.effectiveScale - 1.0f) < 0.02f
+                        TextButton(
+                            onClick = {
+                                haptics.play(Haptic.Tap)
+                                LyricsStyleManager.updateFontScale(1.0f)
+                            },
+                            enabled = !isDefaultScale,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Reset size",
+                                modifier = Modifier.size(15.dp),
+                                tint = if (!isDefaultScale) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Reset",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = if (!isDefaultScale) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                            )
+                        }
                     }
                     Spacer(Modifier.height(6.dp))
                     Box(
@@ -504,9 +544,32 @@ internal fun LyricsStyleSheet(
                                 color = if (isDraggingFontSlider) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.08f),
                                 shape = RoundedCornerShape(16.dp),
                             )
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            // Minus button
+                            IconButton(
+                                onClick = {
+                                    haptics.play(Haptic.Tap)
+                                    val newScale = ((customStyle.effectiveScale - 0.05f) * 100).roundToInt() / 100f
+                                    LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
+                                },
+                                modifier = Modifier.size(36.dp),
+                                enabled = customStyle.effectiveScale > 0.55f,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Remove,
+                                    contentDescription = "Decrease text size",
+                                    tint = if (customStyle.effectiveScale > 0.55f) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+
+                            // Slider
                             Slider(
                                 value = customStyle.effectiveScale,
                                 onValueChange = { newScale ->
@@ -519,28 +582,25 @@ internal fun LyricsStyleSheet(
                                     activeTrackColor = MaterialTheme.colorScheme.primary,
                                     inactiveTrackColor = Color.White.copy(alpha = 0.16f),
                                 ),
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.weight(1f),
                             )
 
-                            // Quick preset chips below slider
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            // Plus button
+                            IconButton(
+                                onClick = {
+                                    haptics.play(Haptic.Tap)
+                                    val newScale = ((customStyle.effectiveScale + 0.05f) * 100).roundToInt() / 100f
+                                    LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
+                                },
+                                modifier = Modifier.size(36.dp),
+                                enabled = customStyle.effectiveScale < 2.20f,
                             ) {
-                                LyricsSizeScale.entries.forEach { scale ->
-                                    val selected = (customStyle.effectiveScale - scale.scale).let { kotlin.math.abs(it) < 0.05f }
-                                    Box(Modifier.weight(1f)) {
-                                        StyleChip(
-                                            label = scale.label,
-                                            selected = selected,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            onClick = {
-                                                haptics.play(Haptic.Select)
-                                                LyricsStyleManager.updateFontScale(scale.scale)
-                                            },
-                                        )
-                                    }
-                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.Add,
+                                    contentDescription = "Increase text size",
+                                    tint = if (customStyle.effectiveScale < 2.20f) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
                         }
                     }
@@ -699,7 +759,14 @@ internal fun LyricsStyleSheet(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFF1E2130).copy(alpha = 0.65f),
+                                                Color(0xFF12141C).copy(alpha = 0.50f),
+                                            ),
+                                        ),
+                                    )
                                     .clickable(enabled = offsetMs > MIN_LYRICS_OFFSET_MS) {
                                         haptics.play(Haptic.Select)
                                         PlayerSettings.setLyricsOffsetMs(offsetMs - 100)
@@ -722,7 +789,14 @@ internal fun LyricsStyleSheet(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                Color(0xFF1E2130).copy(alpha = 0.65f),
+                                                Color(0xFF12141C).copy(alpha = 0.50f),
+                                            ),
+                                        ),
+                                    )
                                     .clickable(enabled = offsetMs < MAX_LYRICS_OFFSET_MS) {
                                         haptics.play(Haptic.Select)
                                         PlayerSettings.setLyricsOffsetMs(offsetMs + 100)
@@ -758,7 +832,10 @@ internal fun LyricsStyleSheet(
 }
 
 @Composable
-private fun StyleSectionHeader(title: String) {
+private fun StyleSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall.copy(
@@ -766,7 +843,7 @@ private fun StyleSectionHeader(title: String) {
             letterSpacing = 0.8.sp,
         ),
         color = Color.White.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth().padding(start = 2.dp),
+        modifier = modifier.padding(start = 2.dp),
     )
 }
 

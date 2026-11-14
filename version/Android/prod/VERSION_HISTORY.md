@@ -231,3 +231,63 @@ This directory contains versioned Production APK builds (com.chordplay.music) fo
   - `ChordPlay-v2.1.4-vc65-prodRelease-armeabi-v7a.apk` (58.51 MB)
   - `ChordPlay-v2.1.4-vc65-prodRelease-universal.apk` (160.14 MB)
   - `ChordPlay-v2.1.4-vc65-prodRelease-x86_64.apk` (72.99 MB)
+
+### Build v2.1.5 (versionCode: 66)
+- **Timestamp**: 2026-11-12 15:37:05
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.5-vc66-prodRelease-arm64-v8a.apk` (67.08 MB)
+  - `ChordPlay-v2.1.5-vc66-prodRelease-armeabi-v7a.apk` (58.51 MB)
+  - `ChordPlay-v2.1.5-vc66-prodRelease-universal.apk` (160.14 MB)
+  - `ChordPlay-v2.1.5-vc66-prodRelease-x86_64.apk` (72.99 MB)
+
+### Build v2.1.6 (versionCode: 67)
+- **Timestamp**: 2026-11-13 02:09:35
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk` (68.4 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk` (59.82 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-universal.apk` (161.45 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk` (74.31 MB)
+
+### Build v2.1.6 (versionCode: 67)
+- **Timestamp**: 2026-11-13 11:29:41
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk` (68.41 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk` (59.84 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-universal.apk` (161.47 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk` (74.33 MB)
+
+### Build v2.1.6 (versionCode: 67)
+- **Timestamp**: 2026-11-13 14:19:53
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk` (68.41 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk` (59.84 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-universal.apk` (161.47 MB)
+  - `ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk` (74.33 MB)
+
+### Build v2.1.7 (versionCode: 68)
+- **Timestamp**: 2026-11-13 15:14:38
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.7-vc68-prodRelease-arm64-v8a.apk` (68.41 MB)
+  - `ChordPlay-v2.1.7-vc68-prodRelease-armeabi-v7a.apk` (59.84 MB)
+  - `ChordPlay-v2.1.7-vc68-prodRelease-universal.apk` (161.47 MB)
+  - `ChordPlay-v2.1.7-vc68-prodRelease-x86_64.apk` (74.33 MB)
+
+### Build v2.1.8 (versionCode: 69)
+- **Timestamp**: 2026-11-13 22:16:50
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.1.8-vc69-prodRelease-arm64-v8a.apk` (68.41 MB)
+  - `ChordPlay-v2.1.8-vc69-prodRelease-armeabi-v7a.apk` (59.84 MB)
+  - `ChordPlay-v2.1.8-vc69-prodRelease-universal.apk` (161.47 MB)
+  - `ChordPlay-v2.1.8-vc69-prodRelease-x86_64.apk` (74.33 MB)

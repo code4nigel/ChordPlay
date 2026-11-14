@@ -244,6 +244,7 @@ import com.music.bitchord.playback.setQueueDragActive
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.LocalCarConnected
 import com.music.bitchord.ui.SearchSource
+import com.music.bitchord.ui.components.CommunitySupportDialog
 import com.music.bitchord.ui.components.BottomFadeScrim
 import com.music.bitchord.ui.components.FloatingBarsTapGuard
 import com.music.bitchord.ui.components.BottomTab
@@ -769,6 +770,26 @@ private fun BitChordApp(
         showDiwaliDialog = false
         diwaliDialogDismissedThisSession = true
         AppSettings.markDiwaliPopupShown()
+    }
+
+    // Community & Developer popup state (shown on first launch or every 28-30 days)
+    val communityPopupDismissedTimeMs by AppSettings.communityPopupDismissedTimeMs.collectAsStateWithLifecycle()
+    var communityDialogDismissedThisSession by rememberSaveable { mutableStateOf(false) }
+    var showCommunityDialog by remember { mutableStateOf(false) }
+
+    val dismissCommunityDialog: () -> Unit = {
+        showCommunityDialog = false
+        communityDialogDismissedThisSession = true
+        AppSettings.recordCommunityPopupDismissed()
+    }
+
+    LaunchedEffect(communityPopupDismissedTimeMs, communityDialogDismissedThisSession) {
+        val now = System.currentTimeMillis()
+        val isFirstTime = communityPopupDismissedTimeMs == 0L
+        val daysElapsed = if (isFirstTime) 999L else (now - communityPopupDismissedTimeMs) / (1000L * 60L * 60L * 24L)
+        if ((isFirstTime || daysElapsed >= 28L) && !communityDialogDismissedThisSession) {
+            showCommunityDialog = true
+        }
     }
 
     val isFestivalActive by FestivalTheme.isFestivalActive.collectAsStateWithLifecycle()
@@ -2589,9 +2610,21 @@ private fun BitChordApp(
     }
 
     val currentSong = player.song
+    val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
+    val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
+    val activeCustomPalette = remember(activeCustomPaletteId, customPalettes) {
+        activeCustomPaletteId?.let { id -> customPalettes.firstOrNull { it.id == id } }
+    }
+
+    val effectiveArtworkUrl = if (activeCustomPalette != null) {
+        activeCustomPalette.artworkUrl
+    } else {
+        currentSong?.thumbnailUrl
+    }
+
     val appBlurImage = rememberFullArtworkBlurImage(
-        imageUrl = currentSong?.thumbnailUrl,
-        prepare = currentSong != null,
+        imageUrl = effectiveArtworkUrl,
+        prepare = effectiveArtworkUrl != null,
     )
 
     val windowBackground = MaterialTheme.colorScheme.background
@@ -2725,6 +2758,7 @@ private fun BitChordApp(
             selectedTab = TAB_HOME
         }
         BackHandler(enabled = showDiwaliDialog) { dismissDiwaliDialog() }
+        BackHandler(enabled = showCommunityDialog) { dismissCommunityDialog() }
         BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
         BackHandler(enabled = showListenBrainzLogin) { showListenBrainzLogin = false }
         BackHandler(enabled = showLastfmLogin) { showLastfmLogin = false }
@@ -5327,6 +5361,13 @@ private fun BitChordApp(
         if (showDiwaliDialog) {
             DiwaliCelebrationDialog(
                 onDismiss = dismissDiwaliDialog,
+            )
+        }
+
+        // ---- Community & Support Popup (once on first install, or every 28-30 days) ----
+        if (showCommunityDialog) {
+            CommunitySupportDialog(
+                onDismiss = dismissCommunityDialog,
             )
         }
 

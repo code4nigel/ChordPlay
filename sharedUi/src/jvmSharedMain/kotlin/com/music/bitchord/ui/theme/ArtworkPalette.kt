@@ -118,27 +118,27 @@ fun rememberArtworkPalette(
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
 
-    val target = effectiveSeed?.toPalette(dark) ?: if (dark) {
-        ArtworkPalette(
-            background = Color(0xFF0D0D0F),
-            wash = Color(0xFF141416),
-            elevated = Color(0xFF1E1E22),
-            accent = Color(0xFFFF334B),
-            onBackground = Color(0xFFF2F2F2),
-            onBackgroundVariant = Color(0xFFA0A0AB),
-            divider = Color(0x26FFFFFF),
-        )
-    } else {
-        ArtworkPalette(
-            background = Color(0xFFF8F9FA),
-            wash = Color(0xFFFFFFFF),
-            elevated = Color(0xFFECEFF1),
-            accent = Color(0xFFE50914),
-            onBackground = Color(0xFF191C1E),
-            onBackgroundVariant = Color(0xFF49454F),
-            divider = Color(0x1F000000),
-        )
-    }
+    val darkFallback = ArtworkPalette(
+        background = Color(0xFF0F080B),
+        wash = Color(0xFF160D12),
+        elevated = Color(0xFF26141D),
+        accent = Color(0xFFFD3F69),
+        onBackground = Color(0xFFFCE0E8),
+        onBackgroundVariant = Color(0xFFE2B6C3),
+        divider = Color.White.copy(alpha = 0.08f),
+    )
+    val lightFallback = ArtworkPalette(
+        background = Color(0xFFFFF8F9),
+        wash = Color(0xFFFFFFFF),
+        elevated = Color(0xFFFCE0E8),
+        accent = Color(0xFFD60237),
+        onBackground = Color(0xFF22191C),
+        onBackgroundVariant = Color(0xFF554148),
+        divider = Color(0xFFD3BEC5),
+    )
+    val defaultFallback = if (dark) darkFallback else lightFallback
+
+    val target = effectiveSeed?.toPalette(dark) ?: defaultFallback
 
     val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
         snap()

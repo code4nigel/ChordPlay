@@ -1,5 +1,149 @@
 [
     {
+        "timestamp":  "2026-11-13 22:16:50",
+        "versionCode":  69,
+        "versionName":  "2.1.8",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.8-vc69-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  68.41
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.8-vc69-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  59.84
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.8-vc69-prodRelease-universal.apk",
+                          "SizeMB":  161.47
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.8-vc69-prodRelease-x86_64.apk",
+                          "SizeMB":  74.33
+                      }
+                  ]
+    },
+    {
+        "timestamp":  "2026-11-13 15:14:38",
+        "versionCode":  68,
+        "versionName":  "2.1.7",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.7-vc68-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  68.41
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.7-vc68-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  59.84
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.7-vc68-prodRelease-universal.apk",
+                          "SizeMB":  161.47
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.7-vc68-prodRelease-x86_64.apk",
+                          "SizeMB":  74.33
+                      }
+                  ]
+    },
+    {
+        "timestamp":  "2026-11-13 14:19:53",
+        "versionCode":  67,
+        "versionName":  "2.1.6",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  68.41
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  59.84
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-universal.apk",
+                          "SizeMB":  161.47
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk",
+                          "SizeMB":  74.33
+                      }
+                  ]
+    },
+    {
+        "timestamp":  "2026-11-13 11:29:41",
+        "versionCode":  67,
+        "versionName":  "2.1.6",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  68.41
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  59.84
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-universal.apk",
+                          "SizeMB":  161.47
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk",
+                          "SizeMB":  74.33
+                      }
+                  ]
+    },
+    {
+        "timestamp":  "2026-11-13 02:09:35",
+        "versionCode":  67,
+        "versionName":  "2.1.6",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  68.4
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  59.82
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-universal.apk",
+                          "SizeMB":  161.45
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.6-vc67-prodRelease-x86_64.apk",
+                          "SizeMB":  74.31
+                      }
+                  ]
+    },
+    {
+        "timestamp":  "2026-11-12 15:37:05",
+        "versionCode":  66,
+        "versionName":  "2.1.5",
+        "variant":  "prodRelease",
+        "files":  [
+                      {
+                          "FileName":  "ChordPlay-v2.1.5-vc66-prodRelease-arm64-v8a.apk",
+                          "SizeMB":  67.08
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.5-vc66-prodRelease-armeabi-v7a.apk",
+                          "SizeMB":  58.51
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.5-vc66-prodRelease-universal.apk",
+                          "SizeMB":  160.14
+                      },
+                      {
+                          "FileName":  "ChordPlay-v2.1.5-vc66-prodRelease-x86_64.apk",
+                          "SizeMB":  72.99
+                      }
+                  ]
+    },
+    {
         "timestamp":  "2026-11-11 17:17:02",
         "versionCode":  65,
         "versionName":  "2.1.4",

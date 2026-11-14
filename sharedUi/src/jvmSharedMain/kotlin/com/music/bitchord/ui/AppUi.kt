@@ -25,6 +25,10 @@ interface AppUiHost {
     val appDesignStyle: StateFlow<AppDesignStyle>
         get() = MutableStateFlow(AppDesignStyle.CHORDPLAY)
 
+    /** True when dynamic song artwork palette is actively driving the theme (false for presets & custom preserved styles). */
+    val isDynamicTheme: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
     /** A swipe on a track row plays it next rather than adding it to the end of the queue. */
     val swipeToPlayNext: StateFlow<Boolean>
 

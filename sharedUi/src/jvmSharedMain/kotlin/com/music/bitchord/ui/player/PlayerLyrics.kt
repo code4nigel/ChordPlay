@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -24,6 +25,10 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+import com.music.bitchord.ui.components.optimizedHazeEffect
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.DragInteraction
@@ -1386,6 +1391,7 @@ internal fun LyricsStyleToggleButton(
  * Unified Frosted Glass Lyrics Actions Pill.
  * Houses: Font Style (TT), Translation (文A), and Romanization (Globe) in a cohesive glassy capsule.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun GlassyLyricsActions(
     showingRomanization: Boolean,
@@ -1396,16 +1402,55 @@ internal fun GlassyLyricsActions(
     onToggleTranslation: () -> Unit,
     onOpenStyle: () -> Unit,
     enabled: Boolean = true,
+    palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
+    hazeState: HazeState? = null,
 ) {
     val haptics = rememberHaptics()
+    val haze = hazeState ?: LocalPlayerHazeState.current
+
     val primary = MaterialTheme.colorScheme.primary
+    val c1 = palette.colors.getOrNull(0) ?: primary
+    val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
+    val c3 = palette.colors.getOrNull(2) ?: Color.Black
+
+    val animC1 by animateColorAsState(targetValue = c1, animationSpec = tween(650), label = "lyricsActionsC1")
+    val animC2 by animateColorAsState(targetValue = c2, animationSpec = tween(650), label = "lyricsActionsC2")
+    val animC3 by animateColorAsState(targetValue = c3, animationSpec = tween(650), label = "lyricsActionsC3")
+
+    val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
+        Brush.horizontalGradient(
+            0.0f to animC1.copy(alpha = 0.40f),
+            0.48f to animC2.copy(alpha = 0.22f),
+            1.0f to animC3.copy(alpha = 0.45f),
+        )
+    }
+    val dockGlassSheen = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.08f),
+                Color.White.copy(alpha = 0.02f),
+                Color.Black.copy(alpha = 0.16f),
+            ),
+        )
+    }
 
     Row(
         modifier = modifier
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f))
-            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .then(
+                if (haze != null) {
+                    Modifier.optimizedHazeEffect(
+                        state = haze,
+                        style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .background(dockAdaptiveGradient)
+            .background(dockGlassSheen)
             .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),

@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -935,7 +936,7 @@ fun ChordPlayPipelineBottomPill(
                 .padding(end = 12.dp),
         ) {
             Icon(
-                imageVector = Icons.Rounded.GraphicEq,
+                imageVector = if (song.isVideo) Icons.Rounded.HighQuality else Icons.Rounded.GraphicEq,
                 contentDescription = null,
                 tint = accentColor,
                 modifier = Modifier.size(16.dp),

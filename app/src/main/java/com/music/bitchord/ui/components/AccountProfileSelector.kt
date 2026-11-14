@@ -403,6 +403,7 @@ fun AccountProfileSelector(
                                     secondaryHex = activeSecondary.toArgb().toLong() and 0xFFFFFFFFL,
                                     backgroundHex = activeBackground.toArgb().toLong() and 0xFFFFFFFFL,
                                     surfaceHex = activeSurfaceVariant.toArgb().toLong() and 0xFFFFFFFFL,
+                                    artworkUrl = activeArtworkUrl,
                                 )
                                 AppSettings.saveCustomPalette(newPalette)
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)

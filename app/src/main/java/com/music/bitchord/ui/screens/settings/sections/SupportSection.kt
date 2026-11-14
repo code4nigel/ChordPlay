@@ -30,7 +30,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Favorite
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.CommunitySupportDialog
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Person
@@ -89,6 +92,7 @@ fun SupportSection(
     val updateScope = rememberCoroutineScope()
     var checkingUpdate by remember { mutableStateOf(false) }
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
+    var showCommunityDialog by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateChecker.available.collectAsStateWithLifecycle()
     val downloadState by AppUpdateChecker.download.collectAsStateWithLifecycle()
 
@@ -336,6 +340,22 @@ fun SupportSection(
                     header = stringResource(R.string.links_and_community),
                     footer = "Join our community on Reddit, report bugs, and follow development on GitHub.",
                 ) {
+                    SettingsRow(
+                        iconPainter = painterResource(R.drawable.ic_chordplay_squircle),
+                        title = "ChordPlay Community Hub",
+                        subtitle = "Follow developer, view Reddit & GitHub repositories",
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
+                        onClick = { showCommunityDialog = true },
+                    )
+                    RowDivider()
+
                     var linkPreceding = false
                     if (showReddit) {
                         SettingsRow(
@@ -438,6 +458,15 @@ fun SupportSection(
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    if (showCommunityDialog) {
+        CommunitySupportDialog(
+            onDismiss = {
+                showCommunityDialog = false
+                AppSettings.recordCommunityPopupDismissed()
+            },
+        )
     }
 }
 

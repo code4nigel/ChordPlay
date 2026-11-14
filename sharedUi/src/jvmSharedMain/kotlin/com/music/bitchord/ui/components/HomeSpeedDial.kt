@@ -47,8 +47,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.*
+import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import org.jetbrains.compose.resources.stringResource
@@ -148,10 +150,27 @@ fun HomeSpeedDial(
     if (items.isEmpty()) return
 
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val dynamicPalette = rememberArtworkPalette(
-        imageUrl = currentSong?.thumbnailUrl,
-        dark = isDark,
-    )
+    val isDynamicTheme by AppUi.host.isDynamicTheme.collectAsStateWithLifecycle()
+    val colorScheme = MaterialTheme.colorScheme
+    val themePalette = remember(colorScheme) {
+        ArtworkPalette(
+            background = colorScheme.background,
+            wash = colorScheme.surface,
+            elevated = colorScheme.surfaceVariant,
+            accent = colorScheme.primary,
+            onBackground = colorScheme.onBackground,
+            onBackgroundVariant = colorScheme.onSurfaceVariant,
+            divider = colorScheme.outline,
+        )
+    }
+    val activePalette = if (isDynamicTheme) {
+        rememberArtworkPalette(
+            imageUrl = currentSong?.thumbnailUrl,
+            dark = isDark,
+        )
+    } else {
+        themePalette
+    }
 
     when (layoutMode) {
         SpeedDialLayoutMode.TWO_BY_THREE -> {
@@ -160,7 +179,7 @@ fun HomeSpeedDial(
                 pinnedIds = pinnedIds,
                 currentSong = currentSong,
                 isPlaying = isPlaying,
-                palette = dynamicPalette,
+                palette = activePalette,
                 onItemClick = onItemClick,
                 onLuckyDialClick = onLuckyDialClick,
                 onItemLongPress = onItemLongPress,
@@ -174,7 +193,7 @@ fun HomeSpeedDial(
                 pinnedIds = pinnedIds,
                 currentSong = currentSong,
                 isPlaying = isPlaying,
-                palette = dynamicPalette,
+                palette = activePalette,
                 onItemClick = onItemClick,
                 onLuckyDialClick = onLuckyDialClick,
                 onItemLongPress = onItemLongPress,
@@ -188,7 +207,7 @@ fun HomeSpeedDial(
                 pinnedIds = pinnedIds,
                 currentSong = currentSong,
                 isPlaying = isPlaying,
-                palette = dynamicPalette,
+                palette = activePalette,
                 onItemClick = onItemClick,
                 onLuckyDialClick = onLuckyDialClick,
                 onItemLongPress = onItemLongPress,
@@ -835,7 +854,7 @@ private fun SpeedDialArtwork(
                     modifier = Modifier
                         .size(avatarSize)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF1E2834) else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
                         .border(1.5.dp, palette.accent.copy(alpha = 0.55f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -893,7 +912,7 @@ private fun SpeedDialArtwork(
                         modifier = Modifier
                             .size(jacketSize)
                             .clip(RoundedCornerShape(if (isCompact) 8.dp else 10.dp))
-                            .background(if (isDark) Color(0xFF1E2834) else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
                             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(if (isCompact) 8.dp else 10.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -939,7 +958,7 @@ private fun SpeedDialArtwork(
                         modifier = Modifier
                             .size(frontSize)
                             .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
-                            .background(if (isDark) Color(0xFF1E2834) else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
                             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(if (isCompact) 10.dp else 12.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -987,7 +1006,7 @@ private fun SpeedDialArtwork(
                     modifier = Modifier
                         .size(mixSize)
                         .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
-                        .background(if (isDark) Color(0xFF1E2834) else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
                         .border(1.5.dp, palette.accent, RoundedCornerShape(if (isCompact) 10.dp else 12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -1056,7 +1075,7 @@ private fun SpeedDialArtwork(
                     modifier = Modifier
                         .size(songSize)
                         .clip(artworkShape)
-                        .background(if (isDark) Color(0xFF1E2834) else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
                         .border(1.dp, Color.White.copy(alpha = 0.10f), artworkShape),
                     contentAlignment = Alignment.Center,
                 ) {

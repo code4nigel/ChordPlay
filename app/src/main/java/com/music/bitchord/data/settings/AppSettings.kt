@@ -177,6 +177,7 @@ data class CustomPalette(
     val secondaryHex: Long,
     val backgroundHex: Long,
     val surfaceHex: Long,
+    val artworkUrl: String? = null,
 )
 
 enum class DockStyle(val label: String) {
@@ -242,6 +243,9 @@ object AppSettings {
 
     /** Tracks whether the one-time Diwali celebration popup has been dismissed. */
     val diwaliPopupShown = MutableStateFlow(false)
+
+    /** Tracks timestamp when the community & developer popup was last dismissed. */
+    val communityPopupDismissedTimeMs = MutableStateFlow(0L)
 
     /** Persistent seasonal festival states cached on disk. */
     val festivalActive = MutableStateFlow(false)
@@ -1220,6 +1224,7 @@ object AppSettings {
         discordButton2Visible.value = prefs.getBoolean(KEY_DISCORD_BUTTON_2_VISIBLE, true)
         discordInfoDismissed.value = prefs.getBoolean(KEY_DISCORD_INFO_DISMISSED, false)
         diwaliPopupShown.value = prefs.getBoolean(KEY_DIWALI_POPUP_SHOWN_2026, false)
+        communityPopupDismissedTimeMs.value = prefs.getLong(KEY_COMMUNITY_POPUP_DISMISSED_TIME, 0L)
 
         festivalActive.value = prefs.getBoolean(KEY_FESTIVAL_ACTIVE, false)
         festivalId.value = prefs.getString(KEY_FESTIVAL_ID, "diwali_2026").orEmpty()
@@ -1270,6 +1275,17 @@ object AppSettings {
     fun markDiwaliPopupShown() {
         diwaliPopupShown.value = true
         prefs.edit().putBoolean(KEY_DIWALI_POPUP_SHOWN_2026, true).apply()
+    }
+
+    /**
+     * Records dismissal of the community & developer popup with the current epoch millis.
+     */
+    fun recordCommunityPopupDismissed() {
+        val now = System.currentTimeMillis()
+        communityPopupDismissedTimeMs.value = now
+        if (this::prefs.isInitialized) {
+            prefs.edit().putLong(KEY_COMMUNITY_POPUP_DISMISSED_TIME, now).apply()
+        }
     }
 
     /**
@@ -2735,6 +2751,7 @@ object AppSettings {
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
     private const val KEY_DIWALI_POPUP_SHOWN_2026 = "diwali_popup_shown_2026"
+    private const val KEY_COMMUNITY_POPUP_DISMISSED_TIME = "community_popup_dismissed_time_ms"
     private const val KEY_FESTIVAL_ACTIVE = "festival_active"
     private const val KEY_FESTIVAL_ID = "festival_id"
     private const val KEY_FESTIVAL_THEME_TYPE = "festival_theme_type"

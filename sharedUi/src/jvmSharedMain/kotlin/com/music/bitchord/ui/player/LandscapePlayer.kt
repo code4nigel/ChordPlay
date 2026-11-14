@@ -25,6 +25,10 @@ import kotlin.math.absoluteValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+import com.music.bitchord.ui.components.optimizedHazeEffect
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -331,6 +335,7 @@ internal fun LandscapeSideRail(
 ) {
     // 1. Adaptive Song Palette Colors
     val c1 = palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
+    val accentColor = c1
     val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
     val c3 = palette.colors.getOrNull(2) ?: Color.Black
 
@@ -526,6 +531,7 @@ internal fun LandscapeArtwork(
     onCanvasRenderedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     pausedForTransition: Boolean = false,
+    positionMs: Long = 0L,
     sleeveShape: () -> Shape = { RoundedCornerShape(0.dp) },
     shadowFraction: () -> Float = { 0f },
     overlay: @Composable BoxScope.() -> Unit = {},
@@ -573,6 +579,7 @@ internal fun LandscapeArtwork(
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,
+                    positionMs = positionMs,
                     pausedForTransition = pausedForTransition,
                     onRenderedChanged = onCanvasRenderedChange,
                     modifier = Modifier.fillMaxSize(),
@@ -689,6 +696,7 @@ internal fun LandscapeCredits(
  * Houses: Spotify Canvas toggle, Heart (Like), Add to Playlist, Three Dots menu,
  * and dynamically adds Shuffle & Repeat (when not on Main pane) and Autoplay (when on Queue pane).
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun LandscapeArtworkActions(
     song: Song,
@@ -709,16 +717,54 @@ internal fun LandscapeArtworkActions(
     onCycleRepeat: (() -> Unit)? = null,
     onToggleAutoplay: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    hazeState: HazeState? = null,
 ) {
     val haptics = rememberHaptics()
-    val accentColor = palette.colors.firstOrNull() ?: MaterialTheme.colorScheme.primary
+    val haze = hazeState ?: LocalPlayerHazeState.current
+
+    val c1 = palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
+    val accentColor = c1
+    val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
+    val c3 = palette.colors.getOrNull(2) ?: Color.Black
+
+    val animC1 by animateColorAsState(targetValue = c1, animationSpec = tween(650), label = "artActionsC1")
+    val animC2 by animateColorAsState(targetValue = c2, animationSpec = tween(650), label = "artActionsC2")
+    val animC3 by animateColorAsState(targetValue = c3, animationSpec = tween(650), label = "artActionsC3")
+
+    val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
+        Brush.horizontalGradient(
+            0.0f to animC1.copy(alpha = 0.40f),
+            0.48f to animC2.copy(alpha = 0.22f),
+            1.0f to animC3.copy(alpha = 0.45f),
+        )
+    }
+    val dockGlassSheen = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.08f),
+                Color.White.copy(alpha = 0.02f),
+                Color.Black.copy(alpha = 0.16f),
+            ),
+        )
+    }
 
     Row(
         modifier = modifier
             .animateContentSize()
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f))
-            .border(0.8.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+            .then(
+                if (haze != null) {
+                    Modifier.optimizedHazeEffect(
+                        state = haze,
+                        style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
+                    )
+                } else {
+                    Modifier
+                }
+            )
+            .background(dockAdaptiveGradient)
+            .background(dockGlassSheen)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -961,6 +1007,7 @@ internal fun LandscapeLyricsPane(
     translationState: LyricsTranslationUiState = LyricsTranslationUiState.Idle,
     onToggleTranslation: () -> Unit = {},
     onOpenStyle: () -> Unit = {},
+    palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
     panel: @Composable (Modifier) -> Unit,
 ) {
@@ -1026,6 +1073,7 @@ internal fun LandscapeLyricsPane(
                         translationState = translationState,
                         onToggleTranslation = onToggleTranslation,
                         onOpenStyle = onOpenStyle,
+                        palette = palette,
                     )
                 }
             }
