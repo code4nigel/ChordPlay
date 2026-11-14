@@ -26,6 +26,24 @@ actual fun StatusBarIcons(dark: Boolean) {
     }
 }
 
+@Composable
+actual fun HideSystemBars(hidden: Boolean) {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    val window = findWindow(view) ?: return
+    androidx.compose.runtime.DisposableEffect(window, hidden) {
+        if (!hidden) return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, view)
+        val behavior = controller.systemBarsBehavior
+        controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = behavior
+        }
+    }
+}
+
 // Walks up the Compose view hierarchy to find a DialogWindowProvider (e.g. modal player) before falling back to Activity context.
 fun findWindow(view: android.view.View): android.view.Window? {
     var parent = view.parent

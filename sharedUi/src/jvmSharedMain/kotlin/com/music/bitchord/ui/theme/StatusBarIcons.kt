@@ -8,3 +8,6 @@ import androidx.compose.runtime.Composable
  */
 @Composable
 expect fun StatusBarIcons(dark: Boolean)
+
+@Composable
+expect fun HideSystemBars(hidden: Boolean)

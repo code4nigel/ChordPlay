@@ -91,6 +91,7 @@ internal fun AndroidCanvasArtworkPlayer(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     positionMs: Long = 0L,
+    isScrubbing: Boolean = false,
     contentMode: CanvasContentMode = CanvasContentMode.CROP,
     /** Align a contained portrait clip to the top; other callers retain centered FIT. */
     alignPortraitTop: Boolean = false,
@@ -187,9 +188,12 @@ internal fun AndroidCanvasArtworkPlayer(
     val currentPortraitRevealBounds by rememberUpdatedState(portraitRevealBounds)
     val currentPresentationAlpha by rememberUpdatedState(presentationAlpha)
     val reportAspect by rememberUpdatedState(onAspectRatioChanged)
+    val currentPositionMs by rememberUpdatedState(positionMs)
+    val currentIsScrubbing by rememberUpdatedState(isScrubbing)
 
     val player = remember {
         ExoPlayer.Builder(context)
+            .setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
             // Shares the app's one OkHttp client, as everything that fetches
             // over the network here does — and wrapped in CanvasCache so a
             // loop past the first is read off disk rather than re-fetched;
@@ -246,91 +250,13 @@ internal fun AndroidCanvasArtworkPlayer(
         reportAspect(0f)
         val item = MediaItem.Builder().setUri(url)
         mimeTypeOf(url)?.let { item.setMimeType(it) }
-        val mediaItem = item.build()
-        if (url.contains("googlevideo.com")) {
-            val headers = com.music.bitchord.data.innertube.StreamResolver.mediaHeadersFor(url)
-            val dataSourceFactory = OkHttpDataSource.Factory(Http.client).setDefaultRequestProperties(headers)
-            val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
-            player.setMediaSource(mediaSourceFactory.createMediaSource(mediaItem))
-        } else {
-            player.setMediaItem(mediaItem)
-        }
+        player.setMediaItem(item.build())
         player.prepare()
     }
 
-    // Gated on the app being on screen as well as on the caller's own state.
-    //
-    // This is a video decoder. Left to [isPlaying] alone it goes on decoding
-    // frames into a surface nobody can see for as long as the composition is
-    // alive — which, with the phone in a pocket and music playing, is the whole
-    // album. Worse on a detail page, whose caller passes a constant `true`
-    // because "the page is only up while it's being read": true of a page being
-    // looked at, not of one left open behind a locked screen.
-    //
-    // Held inside this component rather than asked of each caller, so no call
-    // site can forget it. The player now runs continuously in the foreground
-    // regardless of playback state, so coming back from background always has
-    // a surface ready and `onRenderedFirstFrame()` fires naturally.
-    val isVideoStream = remember(url) {
-        url.contains("googlevideo.com") || url.contains("videoplayback")
-    }
-
-    LaunchedEffect(isVideoStream) {
-        player.repeatMode = if (isVideoStream) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-    }
-
     val foreground = rememberIsForeground()
-    LaunchedEffect(foreground, pausedForTransition, isPlaying, isVideoStream) {
-        player.playWhenReady = foreground && !pausedForTransition && (!isVideoStream || isPlaying)
-    }
-
-    // Keep music video stream synchronized with audio track position and scrub actions smoothly
-    DisposableEffect(player, isVideoStream) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_READY && isVideoStream) {
-                    if (positionMs > 0L && kotlin.math.abs(player.currentPosition - positionMs) > 1000L) {
-                        player.seekTo(positionMs)
-                    }
-                }
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-        }
-    }
-
-    // Detect user seek/scrub jumps without continuous seeking during normal playback.
-    // Continuous seeking on small drift flushes the video decoder repeatedly, causing jitter and dropped frames.
-    var lastReportedPositionMs by remember(url) { mutableLongStateOf(positionMs) }
-    LaunchedEffect(positionMs, isVideoStream) {
-        if (!isVideoStream) return@LaunchedEffect
-        val delta = positionMs - lastReportedPositionMs
-        lastReportedPositionMs = positionMs
-        // If the position jumped backward or jumped forward by > 2000ms,
-        // it indicates an explicit scrub or track skip. Seek the video decoder to sync.
-        if (delta < -500L || delta > 2000L) {
-            if (player.playbackState != Player.STATE_IDLE) {
-                player.seekTo(positionMs)
-            }
-        }
-    }
-
-    // Periodic gentle drift correction (checked every 4 seconds, only if drift > 3500ms)
-    // to recover if video stalled due to network buffering while audio continued.
-    LaunchedEffect(isVideoStream) {
-        if (!isVideoStream) return@LaunchedEffect
-        while (isActive) {
-            delay(4000L)
-            if (player.playbackState == Player.STATE_READY && player.playWhenReady) {
-                val drift = kotlin.math.abs(player.currentPosition - positionMs)
-                if (drift > 3500L) {
-                    Log.d(TAG, "Video drift exceeds threshold ($drift ms), resyncing to $positionMs")
-                    player.seekTo(positionMs)
-                }
-            }
-        }
+    LaunchedEffect(foreground, pausedForTransition, isPlaying) {
+        player.playWhenReady = foreground && !pausedForTransition && isPlaying
     }
 
     // Repaint onto a surface that has just been handed back. A TextureView's
@@ -375,9 +301,7 @@ internal fun AndroidCanvasArtworkPlayer(
     // folded into the one above: that one is keyed on [rendered] so it fires
     // again on every fade-in, and this one only needs to start once a fade-in
     // has actually happened and then keep going for as long as it holds.
-    // Video streams disable this periodic capture to prevent GPU texture readback stalls.
-    LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop, isVideoStream) {
-        if (isVideoStream) return@LaunchedEffect
+    LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop) {
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
         Log.d(TAG, "periodic frame refresh started, interval=$interval")
         if (!rendered) return@LaunchedEffect
@@ -636,8 +560,12 @@ private fun TextureView.applyContentTransform(
     } else bounds.height / 2f
     val matrix = Matrix().apply {
         if (clipAspect > 1.15f) {
-            val targetScaleY = (viewAspect / clipAspect) * 1.04f
-            setScale(1f, targetScaleY, bounds.width / 2f, bounds.height * 0.44f)
+            // Center-fit 16:9 widescreen video cleanly inside its stage without vertical distortion
+            if (clipAspect > viewAspect) {
+                setScale(1f, viewAspect / clipAspect, bounds.width / 2f, bounds.height / 2f)
+            } else {
+                setScale(clipAspect / viewAspect, 1f, bounds.width / 2f, bounds.height / 2f)
+            }
         } else {
             val fit = contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f
             if (fit && clipAspect > viewAspect) {
@@ -676,44 +604,6 @@ private fun TextureView.setBottomFade(
 ) {
     if (bounds.width <= 0 || bounds.height <= 0) {
         setRenderEffect(null)
-        return
-    }
-    if (clipAspect > 1.15f) {
-        val totalH = bounds.height.toFloat()
-        val totalW = bounds.width.toFloat()
-        val vGradient = LinearGradient(
-            0f, 0f, 0f, totalH,
-            intArrayOf(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.BLACK,
-                android.graphics.Color.BLACK,
-                android.graphics.Color.TRANSPARENT,
-            ),
-            floatArrayOf(0f, 0.18f, 0.82f, 1f),
-            Shader.TileMode.CLAMP,
-        )
-        val hGradient = LinearGradient(
-            0f, 0f, totalW, 0f,
-            intArrayOf(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.BLACK,
-                android.graphics.Color.BLACK,
-                android.graphics.Color.TRANSPARENT,
-            ),
-            floatArrayOf(0f, 0.08f, 0.92f, 1f),
-            Shader.TileMode.CLAMP,
-        )
-        val baseEffect = RenderEffect.createBlendModeEffect(
-            RenderEffect.createOffsetEffect(0f, 0f),
-            RenderEffect.createShaderEffect(vGradient),
-            BlendMode.DST_IN,
-        )
-        val combinedEffect = RenderEffect.createBlendModeEffect(
-            baseEffect,
-            RenderEffect.createShaderEffect(hGradient),
-            BlendMode.DST_IN,
-        )
-        setRenderEffect(combinedEffect)
         return
     }
     val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
@@ -868,10 +758,17 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
  * saves ExoPlayer a sniff, and an unrecognised URL is left for it to work out.
  */
 private fun mimeTypeOf(url: String): String? {
+    if (url.contains("mime=video%2Fwebm") || url.contains("mime=video/webm")) {
+        return MimeTypes.VIDEO_WEBM
+    }
+    if (url.contains("mime=video%2Fmp4") || url.contains("mime=video/mp4")) {
+        return MimeTypes.VIDEO_MP4
+    }
     val path = url.substringBefore('?').lowercase(Locale.ROOT)
     return when {
         path.endsWith(".m3u8") -> MimeTypes.APPLICATION_M3U8
         path.endsWith(".mp4") -> MimeTypes.VIDEO_MP4
+        path.endsWith(".webm") -> MimeTypes.VIDEO_WEBM
         else -> null
     }
 }
@@ -883,6 +780,7 @@ internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
         canvas = spec.canvas,
         isPlaying = spec.isPlaying,
         positionMs = spec.positionMs,
+        isScrubbing = spec.isScrubbing,
         modifier = modifier,
         contentMode = spec.contentMode,
         alignPortraitTop = spec.alignPortraitTop,

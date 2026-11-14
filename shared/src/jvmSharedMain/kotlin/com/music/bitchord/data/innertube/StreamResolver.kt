@@ -1027,10 +1027,57 @@ object StreamResolver {
         }
     }
 
-    data class ResolvedVideoStream(val url: String, val height: Int)
-    data class CandidateVideoStream(val url: String, val height: Int, val isMp4: Boolean)
+    fun isLiveUrl(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.queryParameter("live") == "1" ||
+            parsed.queryParameter("source") == "yt_live_broadcast"
+    }
+
+    data class ResolvedVideoStream(
+        val url: String,
+        val height: Int,
+        val mimeType: String = "video/mp4",
+        val fallbackUrl: String? = null,
+    )
+
+    data class CandidateVideoStream(
+        val url: String,
+        val height: Int,
+        val isMp4: Boolean,
+        val isMuxed: Boolean,
+        val mimeType: String,
+    )
+
     private val videoStreamCache = ConcurrentHashMap<String, ResolvedVideoStream>()
     private val candidateVideoStreamsByVideoId = ConcurrentHashMap<String, List<CandidateVideoStream>>()
+
+    private fun selectVideoCandidate(
+        candidates: List<CandidateVideoStream>,
+        maxHeight: Int,
+    ): ResolvedVideoStream? {
+        if (candidates.isEmpty()) return null
+        val picked = candidates.filter { it.height <= maxHeight }
+            .sortedWith(
+                compareBy<CandidateVideoStream> { it.height }
+                    .thenBy { if (it.isMp4) 1 else 0 }
+                    .thenBy { if (it.isMuxed) 1 else 0 },
+            )
+            .lastOrNull()
+            ?: candidates.minByOrNull { it.height }
+            ?: return null
+
+        val fallback = candidates
+            .filter { it.url != picked.url && it.isMp4 }
+            .minByOrNull { kotlin.math.abs(it.height - 360) }
+            ?.url
+
+        return ResolvedVideoStream(
+            url = picked.url,
+            height = picked.height,
+            mimeType = picked.mimeType,
+            fallbackUrl = fallback,
+        )
+    }
 
     suspend fun resolveVideoStream(videoId: String, maxHeight: Int): ResolvedVideoStream? =
         withContext(Dispatchers.IO) {
@@ -1038,42 +1085,63 @@ object StreamResolver {
             val cacheKey = "$videoId:$maxHeight"
             videoStreamCache[cacheKey]?.let { return@withContext it }
 
-            // Check if candidates were already extracted for this videoId to enable instant quality switching
             val cachedCandidates = candidateVideoStreamsByVideoId[videoId]
             if (!cachedCandidates.isNullOrEmpty()) {
-                val picked = cachedCandidates.filter { it.height <= maxHeight }
-                    .sortedWith(compareBy<CandidateVideoStream> { it.height }.thenBy { if (it.isMp4) 1 else 0 })
-                    .lastOrNull() ?: cachedCandidates.minByOrNull { it.height }
-                if (picked != null) {
-                    return@withContext ResolvedVideoStream(url = picked.url, height = picked.height).also {
-                        videoStreamCache[cacheKey] = it
-                    }
+                selectVideoCandidate(cachedCandidates, maxHeight)?.let { resolved ->
+                    videoStreamCache[cacheKey] = resolved
+                    return@withContext resolved
                 }
             }
 
-            runCatching {
-                extractionGate.withLock {
-                    val extractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
-                    extractor.fetchPage()
-                    val muxed = runCatching { extractor.videoStreams }.getOrDefault(emptyList())
-                        .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
-                    val videoOnly = runCatching { extractor.videoOnlyStreams }.getOrDefault(emptyList())
-                        .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && (it.format == MediaFormat.MPEG_4 || it.format == MediaFormat.WEBM) }
-                    val candidates = (muxed + videoOnly)
-                        .filter { it.height >= 240 && !it.content.isNullOrBlank() }
-                        .map { CandidateVideoStream(url = it.content, height = it.height, isMp4 = it.format == MediaFormat.MPEG_4) }
-                    if (candidates.isNotEmpty()) {
-                        candidateVideoStreamsByVideoId[videoId] = candidates
+            repeat(2) { attempt ->
+                if (attempt > 0) delay(400L * attempt)
+                val extracted = runCatching {
+                    extractionGate.withLock {
+                        val extractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
+                        extractor.fetchPage()
+                        val muxed = runCatching { extractor.videoStreams }.getOrDefault(emptyList())
+                            .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+                            .map {
+                                val isMp4 = it.format == MediaFormat.MPEG_4
+                                CandidateVideoStream(
+                                    url = it.content,
+                                    height = it.height,
+                                    isMp4 = isMp4,
+                                    isMuxed = true,
+                                    mimeType = if (isMp4) "video/mp4" else "video/webm",
+                                )
+                            }
+                        val videoOnly = runCatching { extractor.videoOnlyStreams }.getOrDefault(emptyList())
+                            .filter {
+                                !it.content.isNullOrBlank() &&
+                                    it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP &&
+                                    (it.format == MediaFormat.MPEG_4 || it.format == MediaFormat.WEBM)
+                            }
+                            .map {
+                                val isMp4 = it.format == MediaFormat.MPEG_4
+                                CandidateVideoStream(
+                                    url = it.content,
+                                    height = it.height,
+                                    isMp4 = isMp4,
+                                    isMuxed = false,
+                                    mimeType = if (isMp4) "video/mp4" else "video/webm",
+                                )
+                            }
+                        val candidates = (muxed + videoOnly)
+                            .filter { it.height >= 240 && it.url.isNotBlank() }
+                        if (candidates.isNotEmpty()) {
+                            candidateVideoStreamsByVideoId[videoId] = candidates
+                        }
+                        selectVideoCandidate(candidates, maxHeight)
                     }
-                    val picked = candidates.filter { it.height <= maxHeight }
-                        .sortedWith(compareBy<CandidateVideoStream> { it.height }.thenBy { if (it.isMp4) 1 else 0 })
-                        .lastOrNull() ?: candidates.minByOrNull { it.height }
-                        ?: return@withLock null
-                    ResolvedVideoStream(url = picked.url, height = picked.height).also {
-                        videoStreamCache[cacheKey] = it
-                    }
+                }.getOrNull()
+
+                if (extracted != null) {
+                    videoStreamCache[cacheKey] = extracted
+                    return@withContext extracted
                 }
-            }.getOrNull()
+            }
+            null
         }
 
 

@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.ui.theme.rememberScreenOrientation
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.settings.AppDesignStyle
@@ -839,7 +840,18 @@ fun NowPlayingScreen(
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
     val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
-    val canvas = rememberCanvasArtwork(song)
+    val videoMode = showsMusicVideo(song)
+    var videoRendered by remember(song.videoId) { mutableStateOf(false) }
+    val videoAspectState = PlayerPlatform.host.musicVideoAspect.collectAsStateWithLifecycle()
+    val screenOrientation = rememberScreenOrientation()
+    var fullscreenRequested by remember { mutableStateOf(false) }
+    val sideways = landscapePlayerAvailable(windowWidth, windowHeight)
+    LaunchedEffect(sideways) { if (!sideways) fullscreenRequested = false }
+    val exitFullscreen = {
+        fullscreenRequested = false
+        screenOrientation.portrait()
+    }
+    val canvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
     var canvasAspect by remember(canvas) { mutableFloatStateOf(0f) }
     // Whether the clip actually has a frame on screen right now, and one of
     // them — used to blow the sleeve out to the full-bleed hero treatment and
@@ -1044,6 +1056,8 @@ fun NowPlayingScreen(
     // value, and the panel now outlives a track change (see above), so there is
     // no longer a whole-player recomposition standing behind it as a backstop.
     KeepScreenOn(enabled = lyricsOpen)
+
+    PlayerBackHandler(enabled = sideways && (videoMode || fullscreenRequested), onBack = exitFullscreen)
 
     // Back out of the lyrics panel to the player, and only from the player
     // itself out to the mini player.
@@ -1259,8 +1273,11 @@ fun NowPlayingScreen(
     // Spotify Canvas is the player background on a phone, independent of the
     // still-art full-bleed preference. Other providers and static artwork keep
     // answering to that preference exactly as before.
-    val heroMode = spotifyCanvasOnPhone ||
-        ((fullBleedArt || song.isVideo || canvasAspect > 1.15f) && playerFillsWindow(windowWidth))
+    // A music video sits in the card's place at its own 16:9, never full bleed.
+    val heroMode = !videoMode && (
+        spotifyCanvasOnPhone ||
+            ((fullBleedArt || canvasAspect > 1.15f) && playerFillsWindow(windowWidth))
+    )
 
     // Whether there's a still image to blow out — a placeholder tile is a card
     // or it is nothing, and going full-bleed with one would just tint the top
@@ -1737,6 +1754,50 @@ fun NowPlayingScreen(
         // bigger and higher than the bar's. One step of 255 is nothing to
         // look at and keeps the subtree drawing.
         .graphicsLayer { alpha = if (docking()) dockFade().coerceAtLeast(DOCK_FADE_FLOOR) else 1f }
+
+    if (landscape && videoMode) {
+        CompositionLocalProvider(
+            LocalLikeBurstState provides likeBurstState,
+            LocalPlayerHazeState provides playerHaze,
+        ) {
+            Box(modifier = modifier.fillMaxSize().then(dockHost)) {
+                FullscreenVideoPlayer(
+                    song = song,
+                    isPlaying = isPlaying,
+                    artRequest = art.request,
+                    rendered = videoRendered,
+                    onRenderedChanged = { videoRendered = it },
+                    onExitFullscreen = exitFullscreen,
+                    onOpenQuality = { showVideoQualitySheet = true },
+                    scrubber = {
+                        PlayerScrubber(
+                            shown = shown,
+                            durationMs = durationMs,
+                            loading = isLoading,
+                            mixing = mixing && !scrub.scrubbing,
+                            transitionWindow = null,
+                            onScrub = onScrub,
+                            onScrubFinished = onScrubFinished,
+                        )
+                    },
+                    transport = {
+                        TransportRow(
+                            isPlaying = isPlaying,
+                            isLoading = isLoading,
+                            previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                            nextEnabled = !controlsLocked && hasNext,
+                            onPrevious = onPrevious,
+                            onPlayPause = onPlayPause,
+                            onNext = onNext,
+                            compact = true,
+                        )
+                    },
+                )
+                playerOverlays()
+            }
+        }
+        return
+    }
 
     if (landscape) {
         // Full-bleed edge-to-edge landscape hero artwork remains pinned to borders
@@ -2729,7 +2790,8 @@ fun NowPlayingScreen(
                         lerp(collapsedTitleTop, regularTitleTop(), playerDeckReveal.value)
                     } ?: regularTitleTop()
                 }
-                fun titleStart(): Dp = lerp(0.dp, THUMB_SIZE + 12.dp, p())
+                val thumbWidth = if (videoMode) THUMB_SIZE * (16f / 9f) else THUMB_SIZE
+                fun titleStart(): Dp = lerp(0.dp, thumbWidth + 12.dp, p())
 
                 // How far down the *screen* the sleeve's bottom edge sits, which
                 // is where the full-bleed banner has to stop for the credits
@@ -2787,13 +2849,23 @@ fun NowPlayingScreen(
                 // rather than a fade chained after it.
                 fun bannerShown(): Float = bannerShare() * (1f - p())
                 // The card's paused shrink, let go of as it collapses.
-                fun cardScale(): Float = artScale + (1f - artScale) * p()
+                fun cardScale(): Float = if (videoMode) 1f else artScale + (1f - artScale) * p()
                 fun cardRect(): Rect = with(density) {
                     val side = artSize().roundToPx().toFloat()
-                    Rect(
+                    val square = Rect(
                         offset = Offset(artStart().roundToPx().toFloat(), artTop().roundToPx().toFloat()),
                         size = Size(side, side),
                     )
+                    if (!videoMode) return@with square
+                    val height = boxWidthPx / videoAspectState.value.coerceIn(1f, 2.4f)
+                    val video = Rect(
+                        offset = Offset(0f, square.center.y - height / 2f),
+                        size = Size(boxWidthPx.toFloat(), height),
+                    )
+                    val thumbW = thumbWidth.roundToPx().toFloat()
+                    val thumbH = THUMB_SIZE.roundToPx().toFloat()
+                    val thumb = Rect(Offset.Zero, Size(thumbW, thumbH))
+                    lerp(video, thumb, p())
                 }
                 fun sleeveRect(): Rect {
                     val card = cardRect()
@@ -3158,7 +3230,7 @@ fun NowPlayingScreen(
                                     }
                                 },
                                 refreshFrameEveryMs = if (
-                                    song.isVideo || tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
+                                    tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving
                                 ) null else meshRefreshMs,
                                 modifier = Modifier.fillMaxSize(),
                             )
@@ -3230,6 +3302,62 @@ fun NowPlayingScreen(
                                     alpha = (1f - p() * 2f) * spotifyChromeAlpha
                                 },
                         )
+                    }
+                }
+
+                // The music video, across the player's whole width — the
+                // same gutters as everything under it — at its own shape,
+                // centred where the sleeve's square sits.
+                if (videoMode) {
+                    WhileShown({ !collapsePastHalf && !docking() }) {
+                        val videoAspect by PlayerPlatform.host.musicVideoAspect
+                            .collectAsStateWithLifecycle()
+                        val aspect = videoAspect.coerceIn(1f, 2.4f)
+                        Box(
+                            modifier = Modifier
+                                .offset {
+                                    val height = (boxWidthPx / aspect).roundToInt()
+                                    val centre = (artTop() + artSize() / 2).roundToPx()
+                                    IntOffset(0, centre - height / 2)
+                                }
+                                .layout { measurable, _ ->
+                                    val width = boxWidthPx
+                                    val height = (boxWidthPx / aspect).roundToInt()
+                                    val placeable = measurable.measure(Constraints.fixed(width, height))
+                                    layout(width, height) { placeable.placeRelative(0, 0) }
+                                }
+                                .graphicsLayer {
+                                    alpha = (1f - p() * 2f).coerceIn(0f, 1f)
+                                    translationX = swipeSettle.value * (1f - p())
+                                },
+                        ) {
+                            if (!videoRendered) {
+                                VideoLoadingBackdrop(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(10.dp)),
+                                )
+                            }
+                            MusicVideoSurface(
+                                videoId = song.videoId,
+                                fit = true,
+                                onRenderedChanged = { videoRendered = it },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(10.dp)),
+                            )
+                            VideoCornerControls(
+                                fullscreen = false,
+                                onToggleFullscreen = {
+                                    fullscreenRequested = true
+                                    screenOrientation.landscape()
+                                },
+                                onOpenQuality = { showVideoQualitySheet = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp),
+                            )
+                        }
                     }
                 }
 
