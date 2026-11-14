@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.constrain
 import androidx.compose.ui.unit.Constraints
 import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.ui.graphics.ImageBitmap
@@ -3681,6 +3682,7 @@ fun NowPlayingScreen(
                         Box(
                             modifier = Modifier
                                 .size(34.dp)
+                                .menuAnchor()
                                 .clip(CircleShape)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },

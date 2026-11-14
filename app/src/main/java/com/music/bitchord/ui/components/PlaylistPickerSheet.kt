@@ -812,13 +812,6 @@ fun PlaylistPickerSheet(
                 }
             }
 
-            if (song != null || collectionTitle != null) {
-                HorizontalDivider(
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                )
-            }
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1023,11 +1016,7 @@ fun PlaylistPickerSheet(
                 )
 
                 else -> {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 6.dp),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                    )
+                    Spacer(Modifier.height(4.dp))
 
                     LazyColumn(
                         state = listState,

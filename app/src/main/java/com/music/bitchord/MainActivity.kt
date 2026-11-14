@@ -232,6 +232,9 @@ import com.music.bitchord.ui.components.DownloadManagerSheet
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.ReorderPlaylistSheet
 import com.music.bitchord.ui.components.LongPressOrigin
+import com.music.bitchord.ui.components.MenuAnchor
+import com.music.bitchord.ui.components.IosMenuPopover
+import com.music.bitchord.ui.components.SongActionsMenu
 import com.music.bitchord.ui.components.SongActionsPresentation
 import com.music.bitchord.ui.components.SongActionsSheet
 import com.music.bitchord.ui.components.HeldContextMenu
@@ -682,10 +685,12 @@ private fun BitChordApp(
      * the very same row still opens.
      */
     var songMenuOrigin by remember { mutableStateOf<HeldItem?>(null) }
+    var songMenuAnchor by remember { mutableStateOf<Rect?>(null) }
     /** Holding a row anywhere but the player — the menu without the player's rows. */
     val openSongMenu: (Song) -> Unit = { song ->
         menuFromPlayer = false
         songMenuOrigin = LongPressOrigin.consume()
+        songMenuAnchor = MenuAnchor.consume()
         songActions = song
     }
     // Whether the player's album/artist lookup (below, for the current track)
@@ -2472,6 +2477,7 @@ private fun BitChordApp(
             onOpenMenu = {
                 menuFromPlayer = true
                 songMenuOrigin = null
+                songMenuAnchor = MenuAnchor.consume()
                 songActions = song
             },
             onShareSong = {
@@ -4444,7 +4450,7 @@ private fun BitChordApp(
         // One body for both presentations of the track menu: the sheet the ⋮
         // and the player open, and the popup a held row lifts into. Every
         // callback below is the same in either; only the frame differs.
-        val songMenuBody: @Composable (Song, SongActionsPresentation) -> Unit = { song, presentation ->
+        val songMenuBody: @Composable (Song) -> Unit = { song ->
             // Set by whoever opened it — see [menuFromPlayer]. It cannot be
             // read off the player's own visibility any more, because on a
             // tablet the player is visible whatever the menu was opened from.
@@ -4572,9 +4578,8 @@ private fun BitChordApp(
             // carries the per-entry id a removal is expressed in.
             val editable = viewModel.editablePlaylist(detail?.browseId)
                 ?.takeIf { !fromPlayer && song.setVideoId != null }
-            SongActionsSheet(
+            SongActionsMenu(
                 song = song,
-                presentation = presentation,
                 signedIn = signedIn,
                 likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
                 onPlayNext = { playNext(song); songActions = null },
@@ -4731,16 +4736,14 @@ private fun BitChordApp(
                 onLyricsOffset = null,
             )
         }
-        songActions?.takeIf { songMenuOrigin == null }?.let { song ->
-            ModalBottomSheet(
-                onDismissRequest = { songActions = null },
-                // The sheet paints itself in the track's own colours, corners
-                // and drag handle included — see SongActionsSheet.
-                containerColor = Color.Transparent,
-                dragHandle = null,
-            ) {
-                songMenuBody(song, SongActionsPresentation.Sheet)
-            }
+        IosMenuPopover(
+            item = songActions?.takeIf { songMenuOrigin == null },
+            anchor = songMenuAnchor,
+            onDismiss = { songActions = null },
+            backdrop = effectiveAppBackdrop,
+            hazeState = hazeState,
+        ) { song ->
+            songMenuBody(song)
         }
         // Drawn over everything, tab bar and mini player included, and kept
         // composed through its own exit — so it is not gated on songActions.
@@ -4757,12 +4760,15 @@ private fun BitChordApp(
                 }
             },
         ) { song ->
-            songMenuBody(song, SongActionsPresentation.Menu)
+            songMenuBody(song)
         }
-        // A closed menu forgets where it was held, so whatever opens it next
-        // — the ⋮, the player — starts from the sheet.
+        // A closed menu forgets where it was held and what it hung off, so whatever opens it next
+        // starts from nothing.
         LaunchedEffect(songActions == null) {
-            if (songActions == null) songMenuOrigin = null
+            if (songActions == null) {
+                songMenuOrigin = null
+                songMenuAnchor = null
+            }
         }
 
         // ---- Download manager ----

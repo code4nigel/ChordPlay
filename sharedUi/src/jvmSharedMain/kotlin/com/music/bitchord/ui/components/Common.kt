@@ -147,7 +147,7 @@ val FLOATING_BAR_MAX_WIDTH = 440.dp
  * Sized so a phone-width row shows two cards whole with the edge of a third
  * showing: enough to say the row scrolls without a card being half a card.
  */
-val SHELF_CARD_WIDTH = 150.dp
+val SHELF_CARD_WIDTH = 164.dp
 
 /** Share of the row a lead-shelf card takes, so the next one peeks in past it. */
 private const val HERO_CARD_FRACTION = 0.70f
@@ -689,8 +689,11 @@ fun RowMoreButton(
 ) {
     Box(
         modifier = modifier
+            .leftOutOfHeldPicture()
+            .hangIntoGutter(ROW_MORE_OUTSET)
             .padding(end = 6.dp)
             .size(36.dp)
+            .menuAnchor()
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
