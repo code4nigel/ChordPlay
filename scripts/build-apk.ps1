@@ -215,7 +215,8 @@ if ($Abi) {
         default { $Abi }
     }
     $gradleArgs += "-Pandroid.injected.build.abi=$resolvedAbi"
-    Write-Host "Target ABI Filter : $resolvedAbi (Single ABI Fast Build)" -ForegroundColor Yellow
+    $gradleArgs += "-Pandroid.injected.testOnly=false"
+    Write-Host "Target ABI Filter : $resolvedAbi (Single ABI Fast Build, Non-testOnly)" -ForegroundColor Yellow
 }
 
 Write-Host "`nRunning Gradle Build: .\gradlew.bat $($gradleArgs -join ' ')" -ForegroundColor Cyan
