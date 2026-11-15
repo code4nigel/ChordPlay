@@ -101,6 +101,7 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.ThinSlider
 import com.music.bitchord.ui.theme.ArtworkPalette
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -227,7 +228,12 @@ fun SongActionsMenu(
         )
     }
 
-    val palette = neutralMenuPalette()
+    val artworkPalette = rememberArtworkPalette(imageUrl = song.thumbnailUrl)
+    val palette = if (artworkPalette.accent != Color.Unspecified && artworkPalette.background != Color.Unspecified) {
+        artworkPalette
+    } else {
+        neutralMenuPalette()
+    }
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
     val isOffline = song.localUri != null

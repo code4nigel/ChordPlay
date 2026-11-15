@@ -35,7 +35,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.zIndex
+import com.music.bitchord.data.model.Song
+import com.music.bitchord.ui.theme.ArtworkPalette
+import com.music.bitchord.ui.theme.rememberArtworkPalette
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -160,12 +167,15 @@ val IosMenuWidth = 256.dp
  * "Reduce dynamic blur" turns the frost off and the slab opaque: an unblurred
  * page seen through it is exactly what the frost was there to prevent.
  */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun Modifier.iosMenuPanel(
     colors: IosMenuColors = iosMenuColors(),
     translucent: Boolean = false,
     backdrop: Backdrop? = null,
     hazeState: HazeState? = null,
+    palette: ArtworkPalette? = null,
+    isLiquidGlass: Boolean = false,
     /** Paints the slab in this instead, as the held-item menu does to match its item's plate. */
     fillOverride: Color? = null,
     rimOverride: Color? = null,
@@ -173,29 +183,117 @@ fun Modifier.iosMenuPanel(
     castsShadow: Boolean = true,
 ): Modifier {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val plain = false
+    val shadowed = if (castsShadow) iosMenuShadow() else this
+
+    // 1. Explicit fill/rim override (e.g. from HeldContextMenu)
+    if (fillOverride != null) {
+        return shadowed
+            .clip(IosMenuShape)
+            .background(fillOverride)
+            .border(0.5.dp, rimOverride ?: colors.rim, IosMenuShape)
+    }
+
+    // 2. Liquid Glass Mode (Refractive AGSL lens UI matching other Liquid elements)
+    if (isLiquidGlass && isGlassSupported()) {
+        val liquidPanel = shadowed.liquidGlass(shape = IosMenuShape as CornerBasedShape)
+        return if (palette != null && palette.accent != Color.Unspecified) {
+            liquidPanel
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            palette.accent.copy(alpha = 0.08f),
+                            palette.background.copy(alpha = 0.16f),
+                        ),
+                    ),
+                    shape = IosMenuShape,
+                )
+                .border(
+                    width = 0.6.dp,
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            palette.accent.copy(alpha = 0.38f),
+                            Color.White.copy(alpha = 0.16f),
+                        ),
+                    ),
+                    shape = IosMenuShape,
+                )
+        } else {
+            liquidPanel
+        }
+    }
+
+    // 3. Adaptive & Non-Liquid Glass Mode: Song Artwork Gradient Translucent Blur
     val blurs = translucent && !reduceDynamicBlur
     val backdropFrost = blurs && backdrop != null && isGlassSupported()
     val hazeFrost = blurs && !backdropFrost && hazeState != null
-    val fill = fillOverride ?: if (backdropFrost || hazeFrost) {
-        // Thinner on a dark panel while its rows are blended, which takes them
-        // further into the colour behind; plain rows want the denser slab back.
-        colors.fill.copy(alpha = if (!colors.dark) 0.72f else if (plain) 0.80f else 0.60f)
-    } else {
-        colors.fill
+
+    val gradientBrush = remember(palette, colors.dark) {
+        if (palette != null && palette.accent != Color.Unspecified) {
+            if (colors.dark) {
+                Brush.verticalGradient(
+                    listOf(
+                        palette.wash.copy(alpha = 0.45f),
+                        palette.elevated.copy(alpha = 0.68f),
+                        palette.background.copy(alpha = 0.88f),
+                    ),
+                )
+            } else {
+                Brush.verticalGradient(
+                    listOf(
+                        palette.wash.copy(alpha = 0.35f),
+                        palette.elevated.copy(alpha = 0.55f),
+                        palette.background.copy(alpha = 0.78f),
+                    ),
+                )
+            }
+        } else {
+            val top = if (colors.dark) Color(0xFF2C2C2E).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.80f)
+            val bottom = colors.fill.copy(alpha = if (colors.dark) 0.88f else 0.82f)
+            Brush.verticalGradient(listOf(top, bottom))
+        }
     }
-    val shadowed = if (castsShadow) iosMenuShadow() else this
-    val surface = if (hazeFrost) {
-        val style = remember(colors, fill) { menuFrost(colors.fill, alpha = fill.alpha) }
-        shadowed.clip(IosMenuShape).optimizedHazeEffect(state = hazeState, style = style)
-    } else if (backdropFrost) {
-        shadowed.menuBackdropFrost(backdrop, IosMenuShape, fill)
-    } else {
-        shadowed.clip(IosMenuShape).background(fill)
+
+    val rimBrush = remember(palette, colors.dark, colors.rim) {
+        if (palette != null && palette.accent != Color.Unspecified) {
+            Brush.verticalGradient(
+                listOf(
+                    palette.accent.copy(alpha = if (colors.dark) 0.45f else 0.35f),
+                    Color.White.copy(alpha = if (colors.dark) 0.15f else 0.08f),
+                    palette.accent.copy(alpha = if (colors.dark) 0.20f else 0.15f),
+                ),
+            )
+        } else {
+            Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = if (colors.dark) 0.18f else 0.10f),
+                    colors.rim,
+                ),
+            )
+        }
     }
+
+    val baseFill = palette?.background ?: colors.fill
+    val surface = when {
+        hazeFrost -> {
+            val style = remember(baseFill) { menuFrost(baseFill, alpha = 0.55f) }
+            shadowed.clip(IosMenuShape).optimizedHazeEffect(state = hazeState, style = style)
+        }
+        backdropFrost -> {
+            shadowed.menuBackdropFrost(backdrop, IosMenuShape, baseFill.copy(alpha = 0.55f))
+        }
+        else -> {
+            shadowed.clip(IosMenuShape)
+        }
+    }
+
     return surface
         .clip(IosMenuShape)
-        .border(0.5.dp, rimOverride ?: colors.rim, IosMenuShape)
+        .background(brush = gradientBrush, shape = IosMenuShape)
+        .border(
+            width = 0.8.dp,
+            brush = rimBrush,
+            shape = IosMenuShape,
+        )
 }
 
 /** The shadow the menu panel casts. */
@@ -284,7 +382,12 @@ fun RowScope.IosMenuQuickAction(
             .weight(1f)
             .fillMaxHeight()
             .clip(RoundedCornerShape(16.dp))
-            .background(if (pressed) colors.pressed else Color.Transparent)
+            .background(if (pressed) colors.pressed else Color.White.copy(alpha = if (colors.dark) 0.08f else 0.12f))
+            .border(
+                0.5.dp,
+                Color.White.copy(alpha = if (colors.dark) 0.09f else 0.06f),
+                RoundedCornerShape(16.dp),
+            )
             .clickable(interactionSource = interaction, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -432,6 +535,7 @@ fun <T : Any> IosMenuPopover(
     onDismiss: () -> Unit,
     backdrop: Backdrop? = null,
     hazeState: HazeState? = null,
+    artworkUrl: String? = (item as? Song)?.thumbnailUrl,
     content: @Composable (T) -> Unit,
 ) {
     var last by remember { mutableStateOf<Pair<T, Rect?>?>(null) }
@@ -442,6 +546,12 @@ fun <T : Any> IosMenuPopover(
     val shown = requested ?: last ?: return
     val (menuItem, menuAnchor) = shown
     val open = item != null
+
+    val songArtworkPalette = if (!artworkUrl.isNullOrBlank()) {
+        rememberArtworkPalette(imageUrl = artworkUrl)
+    } else null
+    val liquidGlassActive by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+    val isLiquidGlassOn = liquidGlassActive && isGlassSupported()
 
     val context = LocalContext.current
     val appReduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
@@ -494,6 +604,7 @@ fun <T : Any> IosMenuPopover(
     Layout(
         modifier = Modifier
             .fillMaxSize()
+            .zIndex(100f)
             .onGloballyPositioned { overlayOffset = it.positionInWindow() }
             // Nothing under the menu moves while it is up: a drag that the
             // rows didn't take would otherwise reach the sheet the player is
@@ -529,6 +640,8 @@ fun <T : Any> IosMenuPopover(
                         translucent = true,
                         backdrop = backdrop,
                         hazeState = hazeState,
+                        palette = songArtworkPalette,
+                        isLiquidGlass = isLiquidGlassOn,
                         castsShadow = false,
                     ),
                 propagateMinConstraints = true,
