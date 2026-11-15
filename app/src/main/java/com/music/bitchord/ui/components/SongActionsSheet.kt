@@ -345,13 +345,13 @@ fun SongActionsSheet(
             onClick = onStartRadio,
         )
         ActionRow(
-            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            icon = BitChordIcons.PlayNext,
             label = stringResource(R.string.play_next),
             accent = palette.accent,
             onClick = onPlayNext,
         )
         ActionRow(
-            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            icon = BitChordIcons.AddToQueue,
             label = stringResource(R.string.add_to_queue),
             accent = palette.accent,
             onClick = onAddToQueue,
@@ -950,12 +950,9 @@ internal fun ActionRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // A context menu reads label-first with the glyph at the far edge;
-        // the sheet keeps the glyph leading, like every other list in the app.
-        if (!menu) {
-            iconView()
-            Spacer(Modifier.width(18.dp))
-        }
+        // Icon leading on the left for all presentation modes (matching iOS & app-wide style)
+        iconView()
+        Spacer(Modifier.width(if (menu) 14.dp else 18.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
@@ -972,10 +969,6 @@ internal fun ActionRow(
                 color = accent.copy(alpha = alpha),
                 maxLines = 1,
             )
-        }
-        if (menu) {
-            Spacer(Modifier.width(14.dp))
-            iconView()
         }
     }
 }

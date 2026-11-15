@@ -397,13 +397,13 @@ fun SongActionsMenu(
             )
         }
         ActionRow(
-            icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+            icon = BitChordIcons.PlayNext,
             label = stringResource(R.string.play_next),
             accent = palette.accent,
             onClick = onPlayNext,
         )
         ActionRow(
-            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+            icon = BitChordIcons.AddToQueue,
             label = stringResource(R.string.add_to_queue),
             accent = palette.accent,
             onClick = onAddToQueue,

@@ -195,7 +195,7 @@ fun Modifier.iosMenuPanel(
 
     // 2. Liquid Glass Mode (Refractive AGSL lens UI matching other Liquid elements)
     if (isLiquidGlass && isGlassSupported()) {
-        val liquidPanel = shadowed.liquidGlass(shape = IosMenuShape as CornerBasedShape)
+        val liquidPanel = shadowed.liquidGlass(shape = IosMenuShape as CornerBasedShape, backdrop = backdrop)
         return if (palette != null && palette.accent != Color.Unspecified) {
             liquidPanel
                 .background(
@@ -232,23 +232,23 @@ fun Modifier.iosMenuPanel(
             if (colors.dark) {
                 Brush.verticalGradient(
                     listOf(
-                        palette.wash.copy(alpha = 0.45f),
-                        palette.elevated.copy(alpha = 0.68f),
-                        palette.background.copy(alpha = 0.88f),
+                        palette.wash.copy(alpha = 0.22f),
+                        palette.elevated.copy(alpha = 0.32f),
+                        palette.background.copy(alpha = 0.46f),
                     ),
                 )
             } else {
                 Brush.verticalGradient(
                     listOf(
-                        palette.wash.copy(alpha = 0.35f),
-                        palette.elevated.copy(alpha = 0.55f),
-                        palette.background.copy(alpha = 0.78f),
+                        palette.wash.copy(alpha = 0.18f),
+                        palette.elevated.copy(alpha = 0.26f),
+                        palette.background.copy(alpha = 0.38f),
                     ),
                 )
             }
         } else {
-            val top = if (colors.dark) Color(0xFF2C2C2E).copy(alpha = 0.75f) else Color.White.copy(alpha = 0.80f)
-            val bottom = colors.fill.copy(alpha = if (colors.dark) 0.88f else 0.82f)
+            val top = if (colors.dark) Color(0xFF2C2C2E).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.50f)
+            val bottom = colors.fill.copy(alpha = if (colors.dark) 0.52f else 0.42f)
             Brush.verticalGradient(listOf(top, bottom))
         }
     }
@@ -257,15 +257,15 @@ fun Modifier.iosMenuPanel(
         if (palette != null && palette.accent != Color.Unspecified) {
             Brush.verticalGradient(
                 listOf(
-                    palette.accent.copy(alpha = if (colors.dark) 0.45f else 0.35f),
-                    Color.White.copy(alpha = if (colors.dark) 0.15f else 0.08f),
-                    palette.accent.copy(alpha = if (colors.dark) 0.20f else 0.15f),
+                    Color.White.copy(alpha = if (colors.dark) 0.34f else 0.45f),
+                    palette.accent.copy(alpha = if (colors.dark) 0.40f else 0.30f),
+                    Color.White.copy(alpha = if (colors.dark) 0.12f else 0.18f),
                 ),
             )
         } else {
             Brush.verticalGradient(
                 listOf(
-                    Color.White.copy(alpha = if (colors.dark) 0.18f else 0.10f),
+                    Color.White.copy(alpha = if (colors.dark) 0.22f else 0.30f),
                     colors.rim,
                 ),
             )
@@ -275,11 +275,11 @@ fun Modifier.iosMenuPanel(
     val baseFill = palette?.background ?: colors.fill
     val surface = when {
         hazeFrost -> {
-            val style = remember(baseFill) { menuFrost(baseFill, alpha = 0.55f) }
+            val style = remember(baseFill) { menuFrost(baseFill, alpha = 0.20f) }
             shadowed.clip(IosMenuShape).optimizedHazeEffect(state = hazeState, style = style)
         }
         backdropFrost -> {
-            shadowed.menuBackdropFrost(backdrop, IosMenuShape, baseFill.copy(alpha = 0.55f))
+            shadowed.menuBackdropFrost(backdrop, IosMenuShape, baseFill.copy(alpha = 0.20f))
         }
         else -> {
             shadowed.clip(IosMenuShape)

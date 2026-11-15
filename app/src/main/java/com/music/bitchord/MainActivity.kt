@@ -2678,6 +2678,7 @@ private fun BitChordApp(
         }
     }
     val effectiveAppBackdrop = rememberLayerBackdrop(onDraw = paintBackdrop)
+    val playerBackdrop = rememberLayerBackdrop()
 
     CompositionLocalProvider(
         LocalAppBackdrop provides effectiveAppBackdrop,
@@ -4682,20 +4683,28 @@ private fun BitChordApp(
                             .onSizeChanged {
                                 playerDock.sheetTravel = it.height.toFloat()
                                 playerSheetMotion.laidOut = true
-                            },
+                            }
+                            .layerBackdrop(playerBackdrop),
                     ) {
-                        CompositionLocalProvider(LocalPlayerDock provides activeDock) {
+                        CompositionLocalProvider(
+                            LocalPlayerDock provides activeDock,
+                            LocalAppBackdrop provides playerBackdrop,
+                        ) {
                             nowPlaying(playerSong)
                         }
                     }
-                    IosMenuPopover(
-                        item = songActions?.takeIf { songMenuOrigin == null && menuFromPlayer },
-                        anchor = songMenuAnchor,
-                        onDismiss = { songActions = null },
-                        backdrop = effectiveAppBackdrop,
-                        hazeState = hazeState,
-                    ) { song ->
-                        songMenuBody(song)
+                    CompositionLocalProvider(
+                        LocalAppBackdrop provides playerBackdrop,
+                    ) {
+                        IosMenuPopover(
+                            item = songActions?.takeIf { songMenuOrigin == null && menuFromPlayer },
+                            anchor = songMenuAnchor,
+                            onDismiss = { songActions = null },
+                            backdrop = playerBackdrop,
+                            hazeState = null,
+                        ) { song ->
+                            songMenuBody(song)
+                        }
                     }
                 }
             }
@@ -4814,7 +4823,9 @@ private fun BitChordApp(
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val playlistSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-            ModalBottomSheet(
+            val activeBackdrop = if (playerRaised) playerBackdrop else effectiveAppBackdrop
+            CompositionLocalProvider(LocalAppBackdrop provides activeBackdrop) {
+                ModalBottomSheet(
                 onDismissRequest = dismiss,
                 sheetState = playlistSheetState,
                 containerColor = MaterialTheme.colorScheme.surface.copy(
@@ -4870,6 +4881,7 @@ private fun BitChordApp(
                     },
                 )
             }
+            }
         }
 
         if (collectionPlaylistTarget != null) {
@@ -4878,7 +4890,9 @@ private fun BitChordApp(
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val collectionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-            ModalBottomSheet(
+            val activeBackdrop = if (playerRaised) playerBackdrop else effectiveAppBackdrop
+            CompositionLocalProvider(LocalAppBackdrop provides activeBackdrop) {
+                ModalBottomSheet(
                 onDismissRequest = dismiss,
                 sheetState = collectionSheetState,
                 containerColor = MaterialTheme.colorScheme.surface.copy(
@@ -4966,6 +4980,7 @@ private fun BitChordApp(
                         },
                     )
                 }
+            }
             }
         }
 

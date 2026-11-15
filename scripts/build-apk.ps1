@@ -247,7 +247,25 @@ if (-not (Test-Path $outputDir)) {
 
 $apkFiles = Get-ChildItem -Path $outputDir -Filter "*.apk"
 if ($apkFiles.Count -eq 0) {
-    Write-Error "No APK files found in $outputDir"
+    $intermediatesDir = Join-Path $rootDir "app\build\intermediates\apk\$flavor\$buildType"
+    if (Test-Path $intermediatesDir) {
+        $apkFiles = Get-ChildItem -Path $intermediatesDir -Filter "*.apk"
+    }
+}
+if ($Abi -and $apkFiles.Count -gt 0) {
+    $resolvedAbiFilter = switch -Regex ($Abi.ToLower().Trim()) {
+        "^(x8a|arm64|arm64-v8a|aarch64)$" { "arm64-v8a" }
+        "^(v7a|arm|armeabi-v7a|armv7)$"    { "armeabi-v7a" }
+        "^(x64|x86_64|amd64)$"             { "x86_64" }
+        default { $Abi }
+    }
+    $filtered = $apkFiles | Where-Object { $_.Name -like "*$resolvedAbiFilter*" }
+    if ($filtered) {
+        $apkFiles = @($filtered)
+    }
+}
+if ($apkFiles.Count -eq 0) {
+    Write-Error "No APK files found in $outputDir or intermediates"
 }
 
 # --------------------------------------------------------------------------

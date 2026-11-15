@@ -173,7 +173,10 @@ fun Modifier.lightweightLiquidGlass(
  * throws for any other shape type.
  */
 @Composable
-fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
+fun Modifier.liquidGlass(
+    shape: CornerBasedShape,
+    backdrop: Backdrop? = null,
+): Modifier {
     val isSupported = isGlassSupported()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
@@ -204,7 +207,7 @@ fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
                 shape = shape,
             )
     }
-    val backdrop = LocalAppBackdrop.current
+    val activeBackdrop = backdrop ?: LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current
     val density = LocalDensity.current
     val intensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
@@ -218,7 +221,7 @@ fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
     }
 
     return drawBackdrop(
-        backdrop = backdrop,
+        backdrop = activeBackdrop,
         shape = { shape },
         effects = {
             colorControls(saturation = 1f + 0.5f * VIBRANCY)

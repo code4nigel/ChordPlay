@@ -2021,32 +2021,6 @@ fun NowPlayingScreen(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 10.dp),
                     ) {
-                        val tc1 = synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
-                        val tc2 = synesthesiaPalette.colors.getOrNull(1) ?: synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
-                        val tc3 = synesthesiaPalette.colors.getOrNull(2) ?: Color.Black
-
-                        val animTc1 by animateColorAsState(targetValue = tc1, animationSpec = tween(650), label = "lsMinC1")
-                        val animTc2 by animateColorAsState(targetValue = tc2, animationSpec = tween(650), label = "lsMinC2")
-                        val animTc3 by animateColorAsState(targetValue = tc3, animationSpec = tween(650), label = "lsMinC3")
-
-                        val topDockAdaptiveGradient = remember(animTc1, animTc2, animTc3) {
-                            Brush.horizontalGradient(
-                                0.0f to animTc1.copy(alpha = 0.40f),
-                                0.48f to animTc2.copy(alpha = 0.22f),
-                                1.0f to animTc3.copy(alpha = 0.45f),
-                            )
-                        }
-                        val topDockGlassSheen = remember {
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.22f),
-                                    Color.White.copy(alpha = 0.08f),
-                                    Color.White.copy(alpha = 0.02f),
-                                    Color.Black.copy(alpha = 0.16f),
-                                ),
-                            )
-                        }
-
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
@@ -2055,8 +2029,17 @@ fun NowPlayingScreen(
                                     state = playerHaze,
                                     style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
                                 )
-                                .background(topDockAdaptiveGradient)
-                                .background(topDockGlassSheen)
+                                .background(Color.White.copy(alpha = 0.10f))
+                                .border(
+                                    width = 0.6.dp,
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color.White.copy(alpha = 0.25f),
+                                            Color.White.copy(alpha = 0.08f),
+                                        ),
+                                    ),
+                                    shape = CircleShape,
+                                )
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -2067,7 +2050,7 @@ fun NowPlayingScreen(
                             Icon(
                                 imageVector = Icons.Rounded.KeyboardArrowDown,
                                 contentDescription = "Minimize",
-                                tint = Color.White,
+                                tint = Color.White.copy(alpha = 0.90f),
                                 modifier = Modifier.size(28.dp),
                             )
                         }
@@ -3598,18 +3581,18 @@ fun NowPlayingScreen(
 
                     val portraitDockAdaptiveGradient = remember(animPc1, animPc2, animPc3) {
                         Brush.horizontalGradient(
-                            0.0f to animPc1.copy(alpha = 0.40f),
-                            0.48f to animPc2.copy(alpha = 0.22f),
-                            1.0f to animPc3.copy(alpha = 0.45f),
+                            0.0f to animPc1.copy(alpha = 0.12f),
+                            0.48f to animPc2.copy(alpha = 0.06f),
+                            1.0f to animPc3.copy(alpha = 0.14f),
                         )
                     }
                     val portraitDockGlassSheen = remember {
                         Brush.verticalGradient(
                             listOf(
-                                Color.White.copy(alpha = 0.22f),
-                                Color.White.copy(alpha = 0.08f),
-                                Color.White.copy(alpha = 0.02f),
-                                Color.Black.copy(alpha = 0.16f),
+                                Color.White.copy(alpha = 0.16f),
+                                Color.White.copy(alpha = 0.04f),
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.04f),
                             ),
                         )
                     }
@@ -3624,6 +3607,16 @@ fun NowPlayingScreen(
                             )
                             .background(portraitDockAdaptiveGradient)
                             .background(portraitDockGlassSheen)
+                            .border(
+                                width = 0.6.dp,
+                                brush = Brush.verticalGradient(
+                                    listOf(
+                                        Color.White.copy(alpha = 0.22f),
+                                        Color.White.copy(alpha = 0.06f),
+                                    ),
+                                ),
+                                shape = CircleShape,
+                            )
                             .padding(horizontal = 4.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),

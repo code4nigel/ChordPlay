@@ -735,18 +735,18 @@ internal fun LandscapeArtworkActions(
 
     val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
         Brush.horizontalGradient(
-            0.0f to animC1.copy(alpha = 0.40f),
-            0.48f to animC2.copy(alpha = 0.22f),
-            1.0f to animC3.copy(alpha = 0.45f),
+            0.0f to animC1.copy(alpha = 0.12f),
+            0.48f to animC2.copy(alpha = 0.06f),
+            1.0f to animC3.copy(alpha = 0.14f),
         )
     }
     val dockGlassSheen = remember {
         Brush.verticalGradient(
             listOf(
-                Color.White.copy(alpha = 0.22f),
-                Color.White.copy(alpha = 0.08f),
-                Color.White.copy(alpha = 0.02f),
-                Color.Black.copy(alpha = 0.16f),
+                Color.White.copy(alpha = 0.16f),
+                Color.White.copy(alpha = 0.04f),
+                Color.Transparent,
+                Color.White.copy(alpha = 0.04f),
             ),
         )
     }
@@ -767,6 +767,16 @@ internal fun LandscapeArtworkActions(
             )
             .background(dockAdaptiveGradient)
             .background(dockGlassSheen)
+            .border(
+                width = 0.6.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.06f),
+                    ),
+                ),
+                shape = CircleShape,
+            )
             .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,

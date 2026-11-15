@@ -44,6 +44,52 @@ object BitChordIcons {
         }.build()
     }
 
+    /** Queue icon with top line highlighted with leading play indicator ("Play next"). */
+    val PlayNext: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_play_next", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = stroke) {
+                moveTo(3f, 4f)
+                lineTo(7.5f, 6.5f)
+                lineTo(3f, 9f)
+                close()
+            }
+            path(stroke = stroke, strokeLineWidth = 2.2f, strokeLineCap = StrokeCap.Round) {
+                moveTo(10.5f, 6.5f)
+                lineTo(21f, 6.5f)
+                moveTo(3.5f, 12.5f)
+                lineTo(21f, 12.5f)
+                moveTo(3.5f, 18.5f)
+                lineTo(21f, 18.5f)
+            }
+        }.build()
+    }
+
+    /** Queue icon with bottom line highlighted with leading play indicator ("Add to queue"). */
+    val AddToQueue: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_add_to_queue", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(stroke = stroke, strokeLineWidth = 2.2f, strokeLineCap = StrokeCap.Round) {
+                moveTo(3.5f, 6.5f)
+                lineTo(21f, 6.5f)
+                moveTo(3.5f, 12.5f)
+                lineTo(21f, 12.5f)
+                moveTo(10.5f, 18.5f)
+                lineTo(21f, 18.5f)
+            }
+            path(fill = stroke) {
+                moveTo(3f, 16f)
+                lineTo(7.5f, 18.5f)
+                lineTo(3f, 21f)
+                close()
+            }
+        }.build()
+    }
+
     val LyricsQuote: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_lyrics_quote", defaultWidth = 24.dp, defaultHeight = 24.dp,
