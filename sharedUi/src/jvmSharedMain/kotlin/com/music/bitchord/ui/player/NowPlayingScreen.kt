@@ -842,6 +842,20 @@ fun NowPlayingScreen(
     val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
     val videoMode = showsMusicVideo(song)
+    val videoFullBleed by PlayerSettings.videoFullBleed.collectAsStateWithLifecycle()
+    val videoFill by PlayerSettings.videoFill.collectAsStateWithLifecycle()
+    var videoControlsVisible by remember { mutableStateOf(true) }
+    val videoControlsAlpha by animateFloatAsState(
+        targetValue = if (videoControlsVisible) 1f else 0f,
+        animationSpec = tween(180),
+        label = "videoControlsAlpha",
+    )
+    LaunchedEffect(videoControlsVisible, isPlaying) {
+        if (videoControlsVisible && isPlaying) {
+            delay(3500)
+            videoControlsVisible = false
+        }
+    }
     var videoRendered by remember(song.videoId) { mutableStateOf(false) }
     val videoAspectState = PlayerPlatform.host.musicVideoAspect.collectAsStateWithLifecycle()
     val screenOrientation = rememberScreenOrientation()
@@ -1274,11 +1288,12 @@ fun NowPlayingScreen(
     // Spotify Canvas is the player background on a phone, independent of the
     // still-art full-bleed preference. Other providers and static artwork keep
     // answering to that preference exactly as before.
-    // A music video sits in the card's place at its own 16:9, never full bleed.
-    val heroMode = !videoMode && (
+    // A music video sits in the card's place at its own 16:9, or full bleed if toggled.
+    val videoHeroMode = videoMode && videoFullBleed && playerFillsWindow(windowWidth)
+    val heroMode = videoHeroMode || (!videoMode && (
         spotifyCanvasOnPhone ||
             ((fullBleedArt || canvasAspect > 1.15f) && playerFillsWindow(windowWidth))
-    )
+    ))
 
     // Whether there's a still image to blow out — a placeholder tile is a card
     // or it is nothing, and going full-bleed with one would just tint the top
@@ -1392,7 +1407,7 @@ fun NowPlayingScreen(
         targetValue = if (
             // Latched first, so a clip coming and going isn't listened for
             // once the banner has settled — see [heroSettled].
-            heroMode && (heroSettled || art.loaded || canvasRendered)
+            heroMode && (heroSettled || art.loaded || canvasRendered || videoRendered)
         ) 1f else 0f,
         animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
         label = "heroCanvas",
@@ -2314,6 +2329,52 @@ fun NowPlayingScreen(
             )
         }
 
+        // Full-bleed edge-to-edge music video banner with soft bottom fade
+        if (videoHeroMode && heroHeight > 0.dp && !collapsePastHalf) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heroHeight)
+                    .align(Alignment.TopStart)
+                    .hazeSource(playerHaze)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { videoControlsVisible = !videoControlsVisible },
+                    ),
+            ) {
+                MusicVideoSurface(
+                    videoId = song.videoId,
+                    fit = !videoFill,
+                    bottomFade = HERO_FADE_FRACTION,
+                    onRenderedChanged = { videoRendered = it },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (videoControlsVisible || videoControlsAlpha > 0f) {
+                    VideoControlsDock(
+                        videoFill = videoFill,
+                        onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },
+                        videoFullBleed = videoFullBleed,
+                        onToggleVideoFullBleed = { PlayerSettings.setVideoFullBleed(!videoFullBleed) },
+                        fullscreen = false,
+                        onToggleFullscreen = {
+                            fullscreenRequested = true
+                            screenOrientation.landscape()
+                        },
+                        onOpenQuality = { showVideoQualitySheet = true },
+                        onEnterPip = { PlayerPlatform.host.enterPip() },
+                        pipSupported = PlayerPlatform.host.pipSupported,
+                        showFullBleedToggle = true,
+                        hazeState = playerHaze,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .graphicsLayer { alpha = videoControlsAlpha }
+                            .padding(end = 16.dp, bottom = 14.dp),
+                    )
+                }
+            }
+        }
+
         // Mount once, behind the controls. A known portrait aspect changes the
         // invisible view to full-player bounds before its first frame is shown.
         if (heroMode && heroHeight > 0.dp) {
@@ -3190,7 +3251,7 @@ fun NowPlayingScreen(
                         // [PlayerArtwork.loaded] still flips the moment it does.
                         modifier = Modifier
                             .fillMaxSize()
-                            .drawWithContent { if (art.loaded || !canvasRendered) drawContent() },
+                            .drawWithContent { if ((art.loaded || !canvasRendered) && !videoMode) drawContent() },
                     )
 
                     // Where the clip plays when it can't have the banner:
@@ -3292,7 +3353,7 @@ fun NowPlayingScreen(
                 // The music video, across the player's whole width — the
                 // same gutters as everything under it — at its own shape,
                 // centred where the sleeve's square sits.
-                if (videoMode) {
+                if (videoMode && !videoHeroMode) {
                     WhileShown({ !collapsePastHalf && !docking() }) {
                         val videoAspect by PlayerPlatform.host.musicVideoAspect
                             .collectAsStateWithLifecycle()
@@ -3313,7 +3374,12 @@ fun NowPlayingScreen(
                                 .graphicsLayer {
                                     alpha = (1f - p() * 2f).coerceIn(0f, 1f)
                                     translationX = swipeSettle.value * (1f - p())
-                                },
+                                }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { videoControlsVisible = !videoControlsVisible },
+                                ),
                         ) {
                             if (!videoRendered) {
                                 VideoLoadingBackdrop(
@@ -3324,23 +3390,34 @@ fun NowPlayingScreen(
                             }
                             MusicVideoSurface(
                                 videoId = song.videoId,
-                                fit = true,
+                                fit = !videoFill,
                                 onRenderedChanged = { videoRendered = it },
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(10.dp)),
                             )
-                            VideoCornerControls(
-                                fullscreen = false,
-                                onToggleFullscreen = {
-                                    fullscreenRequested = true
-                                    screenOrientation.landscape()
-                                },
-                                onOpenQuality = { showVideoQualitySheet = true },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(8.dp),
-                            )
+                            if (videoControlsVisible || videoControlsAlpha > 0f) {
+                                VideoControlsDock(
+                                    videoFill = videoFill,
+                                    onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },
+                                    videoFullBleed = videoFullBleed,
+                                    onToggleVideoFullBleed = { PlayerSettings.setVideoFullBleed(!videoFullBleed) },
+                                    fullscreen = false,
+                                    onToggleFullscreen = {
+                                        fullscreenRequested = true
+                                        screenOrientation.landscape()
+                                    },
+                                    onOpenQuality = { showVideoQualitySheet = true },
+                                    onEnterPip = { PlayerPlatform.host.enterPip() },
+                                    pipSupported = PlayerPlatform.host.pipSupported,
+                                    showFullBleedToggle = true,
+                                    hazeState = playerHaze,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .graphicsLayer { alpha = videoControlsAlpha }
+                                        .padding(8.dp),
+                                )
+                            }
                         }
                     }
                 }

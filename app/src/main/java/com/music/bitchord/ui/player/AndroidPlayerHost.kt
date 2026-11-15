@@ -87,6 +87,10 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setLandscapeFontScale(value: com.music.bitchord.data.settings.LandscapeFontScale) = AppSettings.setLandscapeFontScale(value)
         override val videoQuality get() = AppSettings.videoQuality
         override fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) = AppSettings.setVideoQuality(value)
+        override val videoFullBleed get() = AppSettings.videoFullBleed
+        override fun setVideoFullBleed(value: Boolean) = AppSettings.setVideoFullBleed(value)
+        override val videoFill get() = AppSettings.videoFill
+        override fun setVideoFill(value: Boolean) = AppSettings.setVideoFill(value)
 
         override fun setLastPlayerScreen(value: LastPlayerScreen) = AppSettings.setLastPlayerScreen(value)
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
@@ -104,9 +108,25 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     override val musicVideoSupported: Boolean get() = true
 
+    override val pipSupported: Boolean
+        get() = pipSupportedProvider?.invoke() ?: false
+
+    override fun enterPip(): Boolean =
+        onEnterPip?.invoke() ?: false
+
+    companion object {
+        var onEnterPip: (() -> Boolean)? = null
+        var pipSupportedProvider: (() -> Boolean)? = null
+    }
+
     @Composable
-    override fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) =
-        AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier)
+    override fun MusicVideo(
+        videoId: String,
+        fit: Boolean,
+        onRenderedChanged: (Boolean) -> Unit,
+        modifier: Modifier,
+        bottomFade: Float,
+    ) = AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier, bottomFade = bottomFade)
 
     override fun showsMusicVideoPicture(videoId: String): Boolean = !AppSettings.preferMusicOnly.value
 

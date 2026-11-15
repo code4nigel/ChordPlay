@@ -51,6 +51,12 @@ interface PlayerHost {
      */
     val musicVideoSupported: Boolean get() = false
 
+    /** Whether this platform supports Picture-in-Picture. */
+    val pipSupported: Boolean get() = false
+
+    /** Enters Picture-in-Picture mode for music video. Returns true if successful. */
+    fun enterPip(): Boolean = false
+
     /**
      * The playing music video's picture, fitted into these bounds ([fit]) or
      * cropped to fill them. Draws nothing until a frame of [videoId] has
@@ -58,7 +64,13 @@ interface PlayerHost {
      * still artwork under it until then.
      */
     @Composable
-    fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) = Unit
+    fun MusicVideo(
+        videoId: String,
+        fit: Boolean,
+        onRenderedChanged: (Boolean) -> Unit,
+        modifier: Modifier,
+        bottomFade: Float = 0f,
+    ) = Unit
 
     /** Whether [videoId] shows its picture, rather than playing as audio by the listener's choice. */
     fun showsMusicVideoPicture(videoId: String): Boolean = true
@@ -203,9 +215,13 @@ interface PlayerSettingsSource {
     val enableBreathingAura: StateFlow<Boolean>
     val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.Q_720P)
     val landscapeFontScale: StateFlow<com.music.bitchord.data.settings.LandscapeFontScale> get() = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
+    val videoFullBleed: StateFlow<Boolean> get() = MutableStateFlow(false)
+    val videoFill: StateFlow<Boolean> get() = MutableStateFlow(false)
 
     fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) {}
     fun setLandscapeFontScale(value: com.music.bitchord.data.settings.LandscapeFontScale) {}
+    fun setVideoFullBleed(value: Boolean) {}
+    fun setVideoFill(value: Boolean) {}
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
@@ -304,8 +320,9 @@ internal fun MusicVideoSurface(
     videoId: String,
     modifier: Modifier = Modifier,
     fit: Boolean = true,
+    bottomFade: Float = 0f,
     onRenderedChanged: (Boolean) -> Unit = {},
-) = PlayerPlatform.host.MusicVideo(videoId, fit, onRenderedChanged, modifier)
+) = PlayerPlatform.host.MusicVideo(videoId, fit, onRenderedChanged, modifier, bottomFade)
 
 /** How a clip fills the bounds supplied by its caller. */
 enum class CanvasContentMode {

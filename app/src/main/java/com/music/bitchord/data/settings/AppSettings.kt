@@ -521,6 +521,12 @@ object AppSettings {
      */
     val preferMusicOnly = MutableStateFlow(false)
 
+    /** Edge-to-edge full-bleed video banner with soft bottom fade (like full-screen artwork). */
+    val videoFullBleed = MutableStateFlow(false)
+
+    /** Video scaling: false = Fit (letterboxed to keep full frame), true = Fill/Zoom (crop to fill). */
+    val videoFill = MutableStateFlow(false)
+
     /** Analyzes audio waveform/envelope to align matching playback moment between versions. */
     val smartVersionAlignment = MutableStateFlow(true)
 
@@ -1018,6 +1024,8 @@ object AppSettings {
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
+        videoFullBleed.value = prefs.getBoolean(KEY_VIDEO_FULL_BLEED, false)
+        videoFill.value = prefs.getBoolean(KEY_VIDEO_FILL, false)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
@@ -1656,6 +1664,16 @@ object AppSettings {
     fun setPreferMusicOnly(value: Boolean) {
         preferMusicOnly.value = value
         prefs.edit().putBoolean(KEY_PREFER_MUSIC_ONLY, value).apply()
+    }
+
+    fun setVideoFullBleed(value: Boolean) {
+        videoFullBleed.value = value
+        prefs.edit().putBoolean(KEY_VIDEO_FULL_BLEED, value).apply()
+    }
+
+    fun setVideoFill(value: Boolean) {
+        videoFill.value = value
+        prefs.edit().putBoolean(KEY_VIDEO_FILL, value).apply()
     }
 
     fun setSmartVersionAlignment(value: Boolean) {
@@ -2658,6 +2676,8 @@ object AppSettings {
     private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
+    private const val KEY_VIDEO_FULL_BLEED = "video_full_bleed"
+    private const val KEY_VIDEO_FILL = "video_fill"
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"

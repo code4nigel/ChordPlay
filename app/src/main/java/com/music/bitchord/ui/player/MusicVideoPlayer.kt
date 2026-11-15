@@ -563,6 +563,7 @@ internal fun AndroidMusicVideo(
     modifier: Modifier,
     /** Which surface wins when two are mounted: the full player's, over the mini player's. */
     priority: Int = 1,
+    bottomFade: Float = 0f,
 ) {
     val foreground = rememberIsForeground()
     var view by remember { mutableStateOf<TextureView?>(null) }
@@ -596,7 +597,7 @@ internal fun AndroidMusicVideo(
     Box(modifier.clipToBounds(), contentAlignment = Alignment.Center) {
         AndroidView(
             factory = { context ->
-                TextureView(context).apply {
+                val texture = TextureView(context).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -607,9 +608,23 @@ internal fun AndroidMusicVideo(
                     this.alpha = 0f
                     view = this
                 }
+                FadingBottomFrame(context).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    addView(texture)
+                }
             },
-            update = { it.alpha = alpha },
-            onRelease = { if (view === it) view = null },
+            update = { frame ->
+                val texture = frame.getChildAt(0) as? TextureView
+                texture?.alpha = alpha
+                frame.fadeFraction = bottomFade
+            },
+            onRelease = { frame ->
+                val texture = frame.getChildAt(0) as? TextureView
+                if (view === texture) view = null
+            },
             // The picture at its own shape: letterboxed into the bounds, or
             // overflowing them and cropped by the clip above.
             modifier = Modifier.layout { measurable, constraints ->

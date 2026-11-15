@@ -90,6 +90,84 @@ object BitChordIcons {
         }.build()
     }
 
+    /** Aspect ratio fit / zoom toggle icon matching Prism & video player conventions. */
+    val AspectRatio: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_aspect_ratio", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(stroke = stroke, strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(6f, 5f)
+                lineTo(18f, 5f)
+                arcToRelative(3f, 3f, 0f, false, true, 3f, 3f)
+                lineTo(21f, 16f)
+                arcToRelative(3f, 3f, 0f, false, true, -3f, 3f)
+                lineTo(6f, 19f)
+                arcToRelative(3f, 3f, 0f, false, true, -3f, -3f)
+                lineTo(3f, 8f)
+                arcToRelative(3f, 3f, 0f, false, true, 3f, -3f)
+                close()
+            }
+            path(stroke = stroke, strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(7f, 11f)
+                lineTo(7f, 9f)
+                lineTo(9.5f, 9f)
+                moveTo(17f, 13f)
+                lineTo(17f, 15f)
+                lineTo(14.5f, 15f)
+            }
+        }.build()
+    }
+
+    /** Edge-to-edge / Full-bleed video expand toggle icon (top-left arrow ↖). */
+    val FillIn: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_fill_in", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(stroke = stroke, strokeLineWidth = 2.2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(17.5f, 17.5f)
+                lineTo(7f, 7f)
+                moveTo(7f, 14.5f)
+                lineTo(7f, 7f)
+                lineTo(14.5f, 7f)
+            }
+        }.build()
+    }
+
+    /** Picture-in-Picture mode icon. */
+    val PictureInPicture: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_pip", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(stroke = stroke, strokeLineWidth = 2f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+                moveTo(6f, 5f)
+                lineTo(18f, 5f)
+                arcToRelative(3f, 3f, 0f, false, true, 3f, 3f)
+                lineTo(21f, 16f)
+                arcToRelative(3f, 3f, 0f, false, true, -3f, 3f)
+                lineTo(6f, 19f)
+                arcToRelative(3f, 3f, 0f, false, true, -3f, -3f)
+                lineTo(3f, 8f)
+                arcToRelative(3f, 3f, 0f, false, true, 3f, -3f)
+                close()
+            }
+            path(fill = stroke) {
+                moveTo(13f, 12f)
+                lineTo(18f, 12f)
+                arcToRelative(1f, 1f, 0f, false, true, 1f, 1f)
+                lineTo(19f, 16f)
+                arcToRelative(1f, 1f, 0f, false, true, -1f, 1f)
+                lineTo(13f, 17f)
+                arcToRelative(1f, 1f, 0f, false, true, -1f, -1f)
+                lineTo(12f, 13f)
+                arcToRelative(1f, 1f, 0f, false, true, 1f, -1f)
+                close()
+            }
+        }.build()
+    }
+
     val LyricsQuote: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_lyrics_quote", defaultWidth = 24.dp, defaultHeight = 24.dp,

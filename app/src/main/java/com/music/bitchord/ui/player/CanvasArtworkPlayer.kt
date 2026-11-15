@@ -651,7 +651,7 @@ private fun TextureView.setBottomFade(
  * What the update block last applied to the clip's view, so it re-applies a
  * transform or a fade only when one of its inputs has actually changed.
  */
-private class AppliedLook {
+internal class AppliedLook {
     private var aspect = Float.NaN
     private var mode: CanvasContentMode? = null
     private var alignTop = false
@@ -691,7 +691,7 @@ private class AppliedLook {
     }
 }
 
-private class FadingBottomFrame(context: Context) : FrameLayout(context) {
+internal class FadingBottomFrame(context: Context) : FrameLayout(context) {
     /** See [AppliedLook]. */
     val applied = AppliedLook()
 

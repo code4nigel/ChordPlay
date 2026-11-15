@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import android.Manifest
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,7 +9,10 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.View
+import com.music.bitchord.ui.player.AndroidPlayerHost
+import com.music.bitchord.ui.player.PlayerPlatform
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -370,8 +374,39 @@ internal fun shouldSkipAfterDislike(
 
 
 class MainActivity : AppCompatActivity() {
+
+    fun triggerPictureInPicture(): Boolean {
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false
+        val aspect = PlayerPlatform.host.musicVideoAspect.value.coerceIn(0.42f, 2.39f)
+        val num = (aspect * 1000).toInt().coerceAtLeast(1)
+        val den = 1000
+        val rational = Rational(num, den)
+        val params = PictureInPictureParams.Builder()
+            .setAspectRatio(rational)
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    setAutoEnterEnabled(true)
+                    setSeamlessResizeEnabled(true)
+                }
+            }
+            .build()
+        return runCatching { enterPictureInPictureMode(params) }.getOrDefault(false)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        AndroidPlayerHost.onEnterPip = null
+        AndroidPlayerHost.pipSupportedProvider = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AndroidPlayerHost.pipSupportedProvider = {
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        }
+        AndroidPlayerHost.onEnterPip = {
+            triggerPictureInPicture()
+        }
         enableEdgeToEdge()
         // Lock to high refresh rate (e.g. 120Hz) immediately at startup so the window
         // renders smoothly with zero display-mode switch stutter from the very first frame.

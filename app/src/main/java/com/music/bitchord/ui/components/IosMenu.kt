@@ -207,16 +207,6 @@ fun Modifier.iosMenuPanel(
                     ),
                     shape = IosMenuShape,
                 )
-                .border(
-                    width = 0.6.dp,
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            palette.accent.copy(alpha = 0.38f),
-                            Color.White.copy(alpha = 0.16f),
-                        ),
-                    ),
-                    shape = IosMenuShape,
-                )
         } else {
             liquidPanel
         }
@@ -253,25 +243,6 @@ fun Modifier.iosMenuPanel(
         }
     }
 
-    val rimBrush = remember(palette, colors.dark, colors.rim) {
-        if (palette != null && palette.accent != Color.Unspecified) {
-            Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = if (colors.dark) 0.34f else 0.45f),
-                    palette.accent.copy(alpha = if (colors.dark) 0.40f else 0.30f),
-                    Color.White.copy(alpha = if (colors.dark) 0.12f else 0.18f),
-                ),
-            )
-        } else {
-            Brush.verticalGradient(
-                listOf(
-                    Color.White.copy(alpha = if (colors.dark) 0.22f else 0.30f),
-                    colors.rim,
-                ),
-            )
-        }
-    }
-
     val baseFill = palette?.background ?: colors.fill
     val surface = when {
         hazeFrost -> {
@@ -289,11 +260,6 @@ fun Modifier.iosMenuPanel(
     return surface
         .clip(IosMenuShape)
         .background(brush = gradientBrush, shape = IosMenuShape)
-        .border(
-            width = 0.8.dp,
-            brush = rimBrush,
-            shape = IosMenuShape,
-        )
 }
 
 /** The shadow the menu panel casts. */
