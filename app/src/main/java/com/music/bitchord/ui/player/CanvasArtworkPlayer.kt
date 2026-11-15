@@ -596,7 +596,7 @@ private fun TextureView.applyContentTransform(
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun TextureView.setBottomFade(
+internal fun TextureView.setBottomFade(
     fraction: Float,
     bounds: IntSize,
     endPx: Float?,

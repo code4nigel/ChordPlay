@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.player
 
 import android.content.Context
+import android.graphics.SurfaceTexture
+import android.os.Build
 import android.view.TextureView
 import android.view.ViewGroup
 import androidx.compose.animation.core.animateFloatAsState
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
@@ -266,6 +269,10 @@ object MusicVideoEngine {
      */
     internal fun claim(view: TextureView, priority: Int): () -> Unit {
         releaseJob?.cancel()
+        val wantedSong = controller?.currentMediaItem?.toSong()
+        if (wantedSong?.isVideo == true) {
+            noPicture.remove(wantedSong.videoId)
+        }
         surfaces.removeAll { it.view === view }
         surfaces += Surface(view, priority)
         val app = view.context.applicationContext
@@ -278,7 +285,7 @@ object MusicVideoEngine {
         val exo = ensurePlayer(app)
         if (top() === view) {
             _frameOn.value = null
-            exo.setVideoTextureView(view)
+            attachSurface(view)
             repaint()
         }
         refresh()
@@ -289,13 +296,44 @@ object MusicVideoEngine {
             if (_frameOn.value === view) _frameOn.value = null
             val next = top()
             if (next != null) {
-                exo.setVideoTextureView(next)
+                attachSurface(next)
                 repaint()
             } else {
                 exo.clearVideoTextureView(view)
                 releaseJob = scope.launch {
                     delay(RELEASE_GRACE_MS)
                     if (surfaces.isEmpty()) unload()
+                }
+            }
+        }
+    }
+
+    private fun attachSurface(view: TextureView) {
+        val exo = player ?: return
+        exo.setVideoTextureView(view)
+        val delegate = view.surfaceTextureListener
+        view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                delegate?.onSurfaceTextureAvailable(surface, width, height)
+            }
+
+            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                delegate?.onSurfaceTextureSizeChanged(surface, width, height)
+            }
+
+            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                if (_frameOn.value === view) _frameOn.value = null
+                return delegate?.onSurfaceTextureDestroyed(surface) ?: true
+            }
+
+            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                delegate?.onSurfaceTextureUpdated(surface)
+                if (top() === view) {
+                    _frameOn.value = view
+                    val currentId = loadedId
+                    if (currentId != null) {
+                        _shownVideoId.value = currentId
+                    }
                 }
             }
         }
@@ -597,7 +635,7 @@ internal fun AndroidMusicVideo(
     Box(modifier.clipToBounds(), contentAlignment = Alignment.Center) {
         AndroidView(
             factory = { context ->
-                val texture = TextureView(context).apply {
+                TextureView(context).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -608,21 +646,18 @@ internal fun AndroidMusicVideo(
                     this.alpha = 0f
                     view = this
                 }
-                FadingBottomFrame(context).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                    addView(texture)
+            },
+            update = { texture ->
+                texture.alpha = alpha
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (bottomFade > 0.001f) {
+                        texture.setBottomFade(bottomFade, IntSize(texture.width, texture.height), null)
+                    } else {
+                        texture.setRenderEffect(null)
+                    }
                 }
             },
-            update = { frame ->
-                val texture = frame.getChildAt(0) as? TextureView
-                texture?.alpha = alpha
-                frame.fadeFraction = bottomFade
-            },
-            onRelease = { frame ->
-                val texture = frame.getChildAt(0) as? TextureView
+            onRelease = { texture ->
                 if (view === texture) view = null
             },
             // The picture at its own shape: letterboxed into the bounds, or

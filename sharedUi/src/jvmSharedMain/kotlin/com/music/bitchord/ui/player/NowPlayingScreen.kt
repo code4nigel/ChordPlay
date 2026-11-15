@@ -3251,7 +3251,7 @@ fun NowPlayingScreen(
                         // [PlayerArtwork.loaded] still flips the moment it does.
                         modifier = Modifier
                             .fillMaxSize()
-                            .drawWithContent { if ((art.loaded || !canvasRendered) && !videoMode) drawContent() },
+                            .drawWithContent { if (art.loaded || !canvasRendered) drawContent() },
                     )
 
                     // Where the clip plays when it can't have the banner:
