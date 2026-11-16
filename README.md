@@ -15,7 +15,7 @@
 
 <br/>
 
-[Overview](#overview) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
+[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
 
 </div>
 
@@ -37,33 +37,57 @@ ChordPlay is built upon the open-source foundation of [BitChord](https://github.
 
 ---
 
+## Demo Video
+
+<div align="center">
+  <a href="https://youtube.com/shorts/GABddWzZBOg">
+    <img src="Images/Thumbnail.jpg" alt="ChordPlay UI Demonstration Video" width="280" />
+  </a>
+  <br/>
+  <sub>▶ Watch the ChordPlay UI Demonstration on YouTube Shorts</sub>
+</div>
+
+---
+
 ## Screenshots
 
 <div align="center">
   <table>
     <tr>
-      <td align="center" width="25%"><b>Living Home</b></td>
-      <td align="center" width="25%"><b>Modern Ambient</b></td>
-      <td align="center" width="25%"><b>Vinyl Turntable</b></td>
-      <td align="center" width="25%"><b>Synced Lyrics</b></td>
-    </tr>
-    <tr>
-      <td valign="top"><img src="Images/UI%20demo%20v2/chordplay_homescreen1.jpg" width="220" alt="Living Home Screen" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_1.jpg" width="220" alt="Modern Ambient Stage" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_2.jpg" width="220" alt="Vinyl Turntable Stage" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_Lyrics_ui.jpg" width="220" alt="Synced Lyrics View" /></td>
-    </tr>
-    <tr>
+      <td align="center" width="25%"><b>Player UI</b></td>
       <td align="center" width="25%"><b>Living Player</b></td>
-      <td align="center" width="25%"><b>Album View</b></td>
-      <td align="center" width="25%"><b>Dynamic Feed</b></td>
-      <td align="center" width="25%"><b>Customization</b></td>
+      <td align="center" width="25%"><b>Canvas UI</b></td>
+      <td align="center" width="25%"><b>Canvas UI (Alt)</b></td>
     </tr>
     <tr>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_player_3.jpg" width="220" alt="Living Player Stage" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_album.jpg" width="220" alt="Album View" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/chordplay_homescreen2.jpg" width="220" alt="Dynamic Artwork Feed" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v2/ChordPlay_settings.jpg" width="220" alt="Settings & Customization" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_PlayerUI1.jpg" width="220" alt="Player UI" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/ChordPlay_player_3.jpg" width="220" alt="Living Player" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Canvas_UI.jpg" width="220" alt="Canvas UI" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_CanvasUI2.jpg" width="220" alt="Canvas UI Alt" /></td>
+    </tr>
+    <tr>
+      <td align="center" width="25%"><b>Synced Lyrics</b></td>
+      <td align="center" width="25%"><b>Album &amp; Playlist View</b></td>
+      <td align="center" width="25%"><b>Car Mode</b></td>
+      <td align="center" width="25%"><b>Car Mode Lyrics</b></td>
+    </tr>
+    <tr>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_LyricsUI.jpg" width="220" alt="Synced Lyrics UI" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Album%26PlaylistView.jpg" width="220" alt="Album and Playlist View" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Carplay.jpg" width="220" alt="Car Mode UI" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_CarPlayLyricsUI.jpg" width="220" alt="Car Mode Lyrics UI" /></td>
+    </tr>
+    <tr>
+      <td align="center" width="25%"><b>Settings &amp; Customization</b></td>
+      <td align="center" width="25%"><b>Canvas Waveform Player</b></td>
+      <td align="center" width="25%"><b>Transport Controls</b></td>
+      <td align="center" width="25%"></td>
+    </tr>
+    <tr>
+      <td valign="top"><img src="Images/UI%20demo%20v3/ChordPlay_settings.jpg" width="220" alt="Settings and Customization" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Screenshot_20261116_180633_ChordPlay.jpg" width="220" alt="Canvas Waveform Player" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Screenshot_20261104_221825%20(2).jpg" width="220" alt="Morphing Transport Controls" /></td>
+      <td valign="top"></td>
     </tr>
   </table>
 </div>
