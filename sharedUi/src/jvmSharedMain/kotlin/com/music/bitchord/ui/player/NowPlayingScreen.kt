@@ -841,7 +841,8 @@ fun NowPlayingScreen(
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
     val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val mixing by PlayerSettings.smartMixInProgress.collectAsStateWithLifecycle()
-    val videoMode = showsMusicVideo(song)
+    val noPictureIds by PlayerPlatform.host.musicVideoNoPictureIds.collectAsStateWithLifecycle()
+    val videoMode = showsMusicVideo(song) && song.videoId !in noPictureIds
     val videoFullBleed by PlayerSettings.videoFullBleed.collectAsStateWithLifecycle()
     val videoFill by PlayerSettings.videoFill.collectAsStateWithLifecycle()
     var videoControlsVisible by remember { mutableStateOf(true) }
@@ -857,6 +858,7 @@ fun NowPlayingScreen(
         }
     }
     var videoRendered by remember(song.videoId) { mutableStateOf(false) }
+    val inPip by PlayerPlatform.host.inPictureInPicture.collectAsStateWithLifecycle()
     val videoAspectState = PlayerPlatform.host.musicVideoAspect.collectAsStateWithLifecycle()
     val screenOrientation = rememberScreenOrientation()
     var fullscreenRequested by remember { mutableStateOf(false) }
@@ -866,7 +868,7 @@ fun NowPlayingScreen(
         fullscreenRequested = false
         screenOrientation.portrait()
     }
-    val canvas = rememberCanvasArtwork(song)?.takeUnless { videoMode }
+    val canvas = rememberCanvasArtwork(song, enabled = !videoMode)?.takeUnless { videoMode }
     var canvasAspect by remember(canvas) { mutableFloatStateOf(0f) }
     // Whether the clip actually has a frame on screen right now, and one of
     // them — used to blow the sleeve out to the full-bleed hero treatment and
@@ -1289,7 +1291,7 @@ fun NowPlayingScreen(
     // still-art full-bleed preference. Other providers and static artwork keep
     // answering to that preference exactly as before.
     // A music video sits in the card's place at its own 16:9, or full bleed if toggled.
-    val videoHeroMode = videoMode && videoFullBleed && playerFillsWindow(windowWidth)
+    val videoHeroMode = videoMode && playerFillsWindow(windowWidth)
     val heroMode = videoHeroMode || (!videoMode && (
         spotifyCanvasOnPhone ||
             ((fullBleedArt || canvasAspect > 1.15f) && playerFillsWindow(windowWidth))
@@ -1771,6 +1773,26 @@ fun NowPlayingScreen(
         // look at and keeps the subtree drawing.
         .graphicsLayer { alpha = if (docking()) dockFade().coerceAtLeast(DOCK_FADE_FLOOR) else 1f }
 
+    if (inPip && videoMode) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!videoRendered) {
+                VideoLoadingBackdrop(Modifier.fillMaxSize())
+            }
+            MusicVideoSurface(
+                videoId = song.videoId,
+                fit = true,
+                onRenderedChanged = { videoRendered = it },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        return
+    }
+
     if (landscape && videoMode) {
         CompositionLocalProvider(
             LocalLikeBurstState provides likeBurstState,
@@ -2039,22 +2061,7 @@ fun NowPlayingScreen(
                         Box(
                             modifier = Modifier
                                 .size(38.dp)
-                                .clip(CircleShape)
-                                .optimizedHazeEffect(
-                                    state = playerHaze,
-                                    style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
-                                )
-                                .background(Color.White.copy(alpha = 0.10f))
-                                .border(
-                                    width = 0.6.dp,
-                                    brush = Brush.verticalGradient(
-                                        listOf(
-                                            Color.White.copy(alpha = 0.25f),
-                                            Color.White.copy(alpha = 0.08f),
-                                        ),
-                                    ),
-                                    shape = CircleShape,
-                                )
+                                .videoDockGlassPill(hazeState = playerHaze)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -2340,9 +2347,26 @@ fun NowPlayingScreen(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { videoControlsVisible = !videoControlsVisible },
-                    ),
+                    ) { videoControlsVisible = !videoControlsVisible },
             ) {
+                if (!videoRendered) {
+                    VideoLoadingBackdrop(
+                        Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.Black, Color.Transparent),
+                                        startY = size.height * (1f - HERO_FADE_FRACTION),
+                                        endY = size.height,
+                                    ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            },
+                    )
+                }
                 MusicVideoSurface(
                     videoId = song.videoId,
                     fit = !videoFill,
@@ -2350,28 +2374,6 @@ fun NowPlayingScreen(
                     onRenderedChanged = { videoRendered = it },
                     modifier = Modifier.fillMaxSize(),
                 )
-                if (videoControlsVisible || videoControlsAlpha > 0f) {
-                    VideoControlsDock(
-                        videoFill = videoFill,
-                        onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },
-                        videoFullBleed = videoFullBleed,
-                        onToggleVideoFullBleed = { PlayerSettings.setVideoFullBleed(!videoFullBleed) },
-                        fullscreen = false,
-                        onToggleFullscreen = {
-                            fullscreenRequested = true
-                            screenOrientation.landscape()
-                        },
-                        onOpenQuality = { showVideoQualitySheet = true },
-                        onEnterPip = { PlayerPlatform.host.enterPip() },
-                        pipSupported = PlayerPlatform.host.pipSupported,
-                        showFullBleedToggle = true,
-                        hazeState = playerHaze,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .graphicsLayer { alpha = videoControlsAlpha }
-                            .padding(end = 16.dp, bottom = 14.dp),
-                    )
-                }
             }
         }
 
@@ -2985,7 +2987,7 @@ fun NowPlayingScreen(
                 }
 
                 // Breathing artwork aura for ChordPlay Modern mode
-                if (isModernAmbient && enableBreathingAura && art.loaded && dockT() > 0.8f && !heroMode && bannerShare() == 0f) {
+                if (isModernAmbient && enableBreathingAura && art.loaded && dockT() > 0.8f && !heroMode && !videoMode && bannerShare() == 0f) {
                     ChordPlayAmbientAura(
                         model = art.request,
                         isPlaying = isPlaying,
@@ -3003,7 +3005,7 @@ fun NowPlayingScreen(
                 }
 
                 // Vinyl turntable record sliding out from sleeve
-                if (isVinylRecord && art.loaded && dockT() > 0.8f && !heroMode && bannerShare() == 0f) {
+                if (isVinylRecord && art.loaded && dockT() > 0.8f && !heroMode && !videoMode && bannerShare() == 0f) {
                     ChordPlayVinylRecord(
                         model = art.request,
                         isPlaying = isPlaying,
@@ -3092,12 +3094,14 @@ fun NowPlayingScreen(
                         // only captured its mesh backdrop.
                         .hazeSource(playerHaze)
                         .graphicsLayer {
-                            // Hands its opacity to a full-bleed clip as the clip
-                            // takes over, and takes it straight back if there
-                            // is no clip mounted to hand it to. The clip is gone
-                            // by the collapse's half, so the sleeve is whole
-                            // again by the time it unmounts.
-                            alpha = if (heroClip != null) 1f - canvasCover.floatValue else 1f
+                            // A music video has no square or full-bleed sleeve while playing:
+                            // the video surface stands in for it, and the sleeve only reveals
+                            // on collapse toward the header thumbnail or while docking.
+                            alpha = when {
+                                videoMode && !docking() -> (p() * 2f - 1f).coerceIn(0f, 1f)
+                                heroClip != null -> 1f - canvasCover.floatValue
+                                else -> 1f
+                            }.coerceIn(0f, 1f)
                         }
                         .graphicsLayer {
                             val shown = sleeveShown()
@@ -3199,7 +3203,7 @@ fun NowPlayingScreen(
                             .background(Color.Black.copy(alpha = 0.18f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (!art.loaded && !canvasRendered) {
+                        if (!art.loaded && !canvasRendered && (!videoMode || docking() || collapsePastHalf)) {
                             Icon(
                                 imageVector = BitChordIcons.MusicNote,
                                 contentDescription = null,
@@ -3251,7 +3255,11 @@ fun NowPlayingScreen(
                         // [PlayerArtwork.loaded] still flips the moment it does.
                         modifier = Modifier
                             .fillMaxSize()
-                            .drawWithContent { if (art.loaded || !canvasRendered) drawContent() },
+                            .drawWithContent {
+                                if ((art.loaded || !canvasRendered) && (!videoMode || docking() || collapsePastHalf)) {
+                                    drawContent()
+                                }
+                            },
                     )
 
                     // Where the clip plays when it can't have the banner:
@@ -3323,13 +3331,17 @@ fun NowPlayingScreen(
                         // Collapsed, the sleeve is the way back: tapping the
                         // thumbnail puts the queue or the lyrics away again.
                         .then(
-                            if (queueOpen || lyricsOpen) {
-                                Modifier.clickable {
+                            when {
+                                queueOpen || lyricsOpen -> Modifier.clickable {
                                     queueOpen = false
                                     closeLyrics()
                                 }
-                            } else {
-                                Modifier
+                                videoHeroMode -> Modifier.clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { videoControlsVisible = !videoControlsVisible },
+                                )
+                                else -> Modifier
                             },
                         ),
                     contentAlignment = Alignment.Center,
@@ -3361,13 +3373,30 @@ fun NowPlayingScreen(
                         Box(
                             modifier = Modifier
                                 .offset {
-                                    val height = (boxWidthPx / aspect).roundToInt()
+                                    val width = if (videoFill && playerBounds.width > boxWidthPx) {
+                                        playerBounds.width
+                                    } else {
+                                        boxWidthPx
+                                    }
+                                    val height = if (videoFill) {
+                                        artSize().roundToPx().coerceAtLeast((width / aspect).roundToInt())
+                                    } else {
+                                        (boxWidthPx / aspect).roundToInt()
+                                    }
                                     val centre = (artTop() + artSize() / 2).roundToPx()
-                                    IntOffset(0, centre - height / 2)
+                                    IntOffset(-((width - boxWidthPx) / 2), centre - height / 2)
                                 }
                                 .layout { measurable, _ ->
-                                    val width = boxWidthPx
-                                    val height = (boxWidthPx / aspect).roundToInt()
+                                    val width = if (videoFill && playerBounds.width > boxWidthPx) {
+                                        playerBounds.width
+                                    } else {
+                                        boxWidthPx
+                                    }
+                                    val height = if (videoFill) {
+                                        artSize().roundToPx().coerceAtLeast((width / aspect).roundToInt())
+                                    } else {
+                                        (boxWidthPx / aspect).roundToInt()
+                                    }
                                     val placeable = measurable.measure(Constraints.fixed(width, height))
                                     layout(width, height) { placeable.placeRelative(0, 0) }
                                 }
@@ -3411,7 +3440,7 @@ fun NowPlayingScreen(
                                     onEnterPip = { PlayerPlatform.host.enterPip() },
                                     pipSupported = PlayerPlatform.host.pipSupported,
                                     showFullBleedToggle = true,
-                                    hazeState = playerHaze,
+                                    hazeState = null,
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .graphicsLayer { alpha = videoControlsAlpha }
@@ -3648,52 +3677,10 @@ fun NowPlayingScreen(
                     // there's no account to record it against — and neither
                     // does a local file or a finished download, which carries
                     // no YouTube identity to rate.
-                    val pc1 = synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
-                    val pc2 = synesthesiaPalette.colors.getOrNull(1) ?: synesthesiaPalette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
-                    val pc3 = synesthesiaPalette.colors.getOrNull(2) ?: Color.Black
-
-                    val animPc1 by animateColorAsState(targetValue = pc1, animationSpec = tween(650), label = "ptActionC1")
-                    val animPc2 by animateColorAsState(targetValue = pc2, animationSpec = tween(650), label = "ptActionC2")
-                    val animPc3 by animateColorAsState(targetValue = pc3, animationSpec = tween(650), label = "ptActionC3")
-
-                    val portraitDockAdaptiveGradient = remember(animPc1, animPc2, animPc3) {
-                        Brush.horizontalGradient(
-                            0.0f to animPc1.copy(alpha = 0.12f),
-                            0.48f to animPc2.copy(alpha = 0.06f),
-                            1.0f to animPc3.copy(alpha = 0.14f),
-                        )
-                    }
-                    val portraitDockGlassSheen = remember {
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.White.copy(alpha = 0.16f),
-                                Color.White.copy(alpha = 0.04f),
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.04f),
-                            ),
-                        )
-                    }
-
                     // Unified Frosted Glass Capsule for Player Header Actions
                     Row(
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .optimizedHazeEffect(
-                                state = playerHaze,
-                                style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
-                            )
-                            .background(portraitDockAdaptiveGradient)
-                            .background(portraitDockGlassSheen)
-                            .border(
-                                width = 0.6.dp,
-                                brush = Brush.verticalGradient(
-                                    listOf(
-                                        Color.White.copy(alpha = 0.22f),
-                                        Color.White.copy(alpha = 0.06f),
-                                    ),
-                                ),
-                                shape = CircleShape,
-                            )
+                            .videoDockGlassPill(hazeState = playerHaze)
                             .padding(horizontal = 4.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -4099,6 +4086,37 @@ fun NowPlayingScreen(
             }
             }
             }
+            }
+        }
+        if (videoHeroMode && heroHeight > 0.dp && !collapsePastHalf && !lyricsOpen && !queueOpen &&
+            (videoControlsVisible || videoControlsAlpha > 0f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heroHeight)
+                    .align(Alignment.TopStart),
+            ) {
+                VideoControlsDock(
+                    videoFill = videoFill,
+                    onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },
+                    videoFullBleed = videoFullBleed,
+                    onToggleVideoFullBleed = { PlayerSettings.setVideoFullBleed(!videoFullBleed) },
+                    fullscreen = false,
+                    onToggleFullscreen = {
+                        fullscreenRequested = true
+                        screenOrientation.landscape()
+                    },
+                    onOpenQuality = { showVideoQualitySheet = true },
+                    onEnterPip = { PlayerPlatform.host.enterPip() },
+                    pipSupported = PlayerPlatform.host.pipSupported,
+                    showFullBleedToggle = true,
+                    hazeState = null,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .graphicsLayer { alpha = videoControlsAlpha }
+                        .padding(end = 16.dp, bottom = 14.dp),
+                )
             }
         }
         playerOverlays()

@@ -698,7 +698,6 @@ internal fun LandscapeCredits(
  * Houses: Spotify Canvas toggle, Heart (Like), Add to Playlist, Three Dots menu,
  * and dynamically adds Shuffle & Repeat (when not on Main pane) and Autoplay (when on Queue pane).
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun LandscapeArtworkActions(
     song: Song,
@@ -724,59 +723,12 @@ internal fun LandscapeArtworkActions(
     val haptics = rememberHaptics()
     val haze = hazeState ?: LocalPlayerHazeState.current
 
-    val c1 = palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
-    val accentColor = c1
-    val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
-    val c3 = palette.colors.getOrNull(2) ?: Color.Black
-
-    val animC1 by animateColorAsState(targetValue = c1, animationSpec = tween(650), label = "artActionsC1")
-    val animC2 by animateColorAsState(targetValue = c2, animationSpec = tween(650), label = "artActionsC2")
-    val animC3 by animateColorAsState(targetValue = c3, animationSpec = tween(650), label = "artActionsC3")
-
-    val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
-        Brush.horizontalGradient(
-            0.0f to animC1.copy(alpha = 0.12f),
-            0.48f to animC2.copy(alpha = 0.06f),
-            1.0f to animC3.copy(alpha = 0.14f),
-        )
-    }
-    val dockGlassSheen = remember {
-        Brush.verticalGradient(
-            listOf(
-                Color.White.copy(alpha = 0.16f),
-                Color.White.copy(alpha = 0.04f),
-                Color.Transparent,
-                Color.White.copy(alpha = 0.04f),
-            ),
-        )
-    }
+    val accentColor = palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.primary
 
     Row(
         modifier = modifier
             .animateContentSize()
-            .clip(CircleShape)
-            .then(
-                if (haze != null) {
-                    Modifier.optimizedHazeEffect(
-                        state = haze,
-                        style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .background(dockAdaptiveGradient)
-            .background(dockGlassSheen)
-            .border(
-                width = 0.6.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = 0.22f),
-                        Color.White.copy(alpha = 0.06f),
-                    ),
-                ),
-                shape = CircleShape,
-            )
+            .videoDockGlassPill(hazeState = haze)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,

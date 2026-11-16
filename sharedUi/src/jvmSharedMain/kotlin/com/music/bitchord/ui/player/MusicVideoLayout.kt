@@ -218,21 +218,14 @@ internal fun VideoLoadingBackdrop(modifier: Modifier = Modifier) {
  * Edge-to-Edge full-bleed toggle, Picture-in-Picture, and Landscape Fullscreen into one
  * cohesive translucent UI matching ChordPlay's glass design language.
  */
+/**
+ * Shared frosted glass pill styling used by [VideoControlsDock], [GlassyLyricsActions],
+ * player header action capsules, and the landscape minimize button.
+ */
 @Composable
-internal fun VideoControlsDock(
-    videoFill: Boolean = false,
-    onToggleVideoFill: (() -> Unit)? = null,
-    videoFullBleed: Boolean = false,
-    onToggleVideoFullBleed: (() -> Unit)? = null,
-    fullscreen: Boolean = false,
-    onToggleFullscreen: () -> Unit = {},
-    onOpenQuality: () -> Unit = {},
-    onEnterPip: (() -> Unit)? = null,
-    pipSupported: Boolean = false,
-    showFullBleedToggle: Boolean = true,
+internal fun Modifier.videoDockGlassPill(
     hazeState: HazeState? = null,
-    modifier: Modifier = Modifier,
-) {
+): Modifier {
     val dockGradient = remember {
         Brush.horizontalGradient(
             0.0f to Color.White.copy(alpha = 0.12f),
@@ -250,32 +243,53 @@ internal fun VideoControlsDock(
             ),
         )
     }
+    val borderBrush = remember {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.25f),
+                Color.White.copy(alpha = 0.08f),
+            ),
+        )
+    }
+    return this
+        .clip(CircleShape)
+        .then(
+            if (hazeState != null) {
+                Modifier.optimizedHazeEffect(
+                    state = hazeState,
+                    style = HazeMaterials.ultraThin(),
+                )
+            } else {
+                Modifier.background(Color.Black.copy(alpha = 0.42f), CircleShape)
+            },
+        )
+        .background(dockGradient)
+        .background(dockSheen)
+        .border(
+            width = 0.6.dp,
+            brush = borderBrush,
+            shape = CircleShape,
+        )
+}
 
+@Composable
+internal fun VideoControlsDock(
+    videoFill: Boolean = false,
+    onToggleVideoFill: (() -> Unit)? = null,
+    videoFullBleed: Boolean = false,
+    onToggleVideoFullBleed: (() -> Unit)? = null,
+    fullscreen: Boolean = false,
+    onToggleFullscreen: () -> Unit = {},
+    onOpenQuality: () -> Unit = {},
+    onEnterPip: (() -> Unit)? = null,
+    pipSupported: Boolean = false,
+    showFullBleedToggle: Boolean = true,
+    hazeState: HazeState? = null,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier
-            .clip(CircleShape)
-            .then(
-                if (hazeState != null) {
-                    Modifier.optimizedHazeEffect(
-                        state = hazeState,
-                        style = HazeMaterials.ultraThin(),
-                    )
-                } else {
-                    Modifier.background(Color.Black.copy(alpha = 0.42f), CircleShape)
-                },
-            )
-            .background(dockGradient)
-            .background(dockSheen)
-            .border(
-                width = 0.6.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = 0.25f),
-                        Color.White.copy(alpha = 0.08f),
-                    ),
-                ),
-                shape = CircleShape,
-            )
+            .videoDockGlassPill(hazeState = hazeState)
             .padding(horizontal = 6.dp, vertical = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -291,8 +305,8 @@ internal fun VideoControlsDock(
                 .background(Color.White.copy(alpha = 0.22f)),
         )
 
-        // 2. Aspect Ratio (Fit / Zoom)
-        if (onToggleVideoFill != null) {
+        // 2. Edge-to-Edge / Fill Video Toggle
+        if (showFullBleedToggle && onToggleVideoFill != null) {
             Box(
                 modifier = Modifier
                     .size(28.dp)
@@ -308,28 +322,6 @@ internal fun VideoControlsDock(
                     imageVector = BitChordIcons.AspectRatio,
                     contentDescription = if (videoFill) "Fit Video" else "Fill Video",
                     tint = if (videoFill) Color.White else Color.White.copy(alpha = 0.65f),
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-        }
-
-        // 3. Edge-to-Edge Full-Bleed Video Toggle (↖ arrow)
-        if (showFullBleedToggle && onToggleVideoFullBleed != null) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onToggleVideoFullBleed,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = BitChordIcons.FillIn,
-                    contentDescription = if (videoFullBleed) "Box Video" else "Edge-to-Edge Video",
-                    tint = if (videoFullBleed) Color.White else Color.White.copy(alpha = 0.65f),
                     modifier = Modifier.size(19.dp),
                 )
             }
@@ -422,15 +414,15 @@ private fun MusicVideoQualityUi.selected(): Int? =
  */
 @Composable
 private fun VideoQualityBox(onClick: () -> Unit) {
+    val selectedQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     val quality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
-    val label = quality.selected()?.let(::videoQualityLabel) ?: "Auto"
-    val enabled = quality.heights.size >= 2
+    val label = quality.held?.let { "${it}p" } ?: "${selectedQuality.maxHeight}p"
     Box(
         modifier = Modifier
             .height(28.dp)
             .widthIn(min = 38.dp)
             .clip(CircleShape)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .clickable(onClick = onClick)
             .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -441,7 +433,7 @@ private fun VideoQualityBox(onClick: () -> Unit) {
         ) { text ->
             Text(
                 text = text,
-                color = Color.White.copy(alpha = if (enabled) 0.92f else 0.70f),
+                color = Color.White.copy(alpha = 0.92f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.4.sp,

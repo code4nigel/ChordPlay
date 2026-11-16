@@ -13,6 +13,11 @@ import com.metrolist.innertubex.extraction.InnerTubeExtractor
 import com.metrolist.innertubex.extraction.PoTokenResult
 import com.metrolist.innertubex.extraction.TokenProvider
 import com.metrolist.innertubex.extraction.TokenProviderCapabilities
+import com.metrolist.innertubex.sabr.ExperimentalSabrApi
+import com.metrolist.innertubex.sabr.SabrBootstrap
+import com.metrolist.innertubex.sabr.SabrChunk
+import com.metrolist.innertubex.sabr.SabrVideoStream
+import kotlinx.coroutines.flow.Flow
 
 import com.metrolist.innertubex.extraction.strategy.PoTokenProviderKind
 import com.metrolist.innertubex.extraction.YtConfigParserImpl
@@ -256,7 +261,7 @@ object InnerTubeXResolver {
         return extracted
     }
 
-    /** A music video's picture: a video-only stream, and the identity its fetch has to wear. */
+    /** A music video's picture: a video-only stream (SABR, direct, or HLS), and the identity its fetch has to wear. */
     class VideoStream(
         val videoId: String,
         val url: String,
@@ -268,9 +273,30 @@ object InnerTubeXResolver {
         val heights: List<Int>,
         /** InnerTubeX's catalog id for the client that minted [url]; what a refusal skips. */
         val profileId: String,
+        val isHls: Boolean = false,
+        val fallbackUrl: String? = null,
+        val sabrBootstrap: SabrBootstrap? = null,
+        val contentLengthBytes: Long? = null,
+        val bitrate: Int? = null,
+        val rangeChunkSizeBytes: Long = 1_048_576L,
     ) {
         val aspect: Float get() = if (height > 0) width.toFloat() / height else 0f
+        val isSabr: Boolean get() = sabrBootstrap != null
     }
+
+    /** Opens a SABR/UMP video chunk stream for [bootstrap] using InnerTubeX's shared HTTP stack. */
+    @OptIn(ExperimentalSabrApi::class)
+    fun openSabrVideoChunks(
+        bootstrap: SabrBootstrap,
+        initialPlayerTimeMs: Long = 0L,
+        playbackPositionMs: () -> Long,
+    ): Flow<SabrChunk> = SabrVideoStream(
+        httpClient = http,
+        bootstrap = bootstrap,
+        playbackPositionMs = playbackPositionMs,
+        initialPlayerTimeMs = initialPlayerTimeMs,
+        logger = logger,
+    ).chunks()
 
     /**
      * The picture for [videoId], at most [maxHeight] tall, for the player to
@@ -295,6 +321,8 @@ object InnerTubeXResolver {
         maxHeight: Int,
         skipClients: Set<String> = emptySet(),
         ageRestricted: Boolean = false,
+        allowHls: Boolean = false,
+        allowSabr: Boolean = true,
     ): VideoStream? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
@@ -305,21 +333,80 @@ object InnerTubeXResolver {
                 isAgeRestricted = true.takeIf { ageRestricted },
                 wantVideo = true,
                 maxVideoHeight = maxHeight,
-            ).withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
+            ).withStreamCapabilities(allowHls = allowHls, allowSabr = allowSabr, allowBoundedRange = true),
             excludedClients = excludedFor(videoId) + skipClients,
             audioQuality = AudioQuality.LOW,
             clientPlaybackNonce = generateClientPlaybackNonce(),
-        ) ?: return null
+        )
+        if (stream == null) {
+            TrackLog.d(
+                TAG,
+                "video: InnerTubeX extract returned null (allowHls=$allowHls, allowSabr=$allowSabr, ageRestricted=$ageRestricted)",
+                about = videoId,
+            )
+            return null
+        }
+        val sabrBootstrap = stream.sabrVideoBootstrap?.takeIf { it.selectedVideoFormat != null }
+        if (sabrBootstrap != null) {
+            val width = sabrBootstrap.selectedVideoWidth ?: stream.videoWidth ?: 0
+            val height = sabrBootstrap.selectedVideoHeight ?: stream.videoHeight ?: 0
+            val mime = sabrBootstrap.selectedVideoMimeType ?: stream.videoMimeType.orEmpty()
+            val contentLength = sabrBootstrap.selectedVideoContentLengthBytes ?: stream.videoContentLengthBytes
+            val bitrate = sabrBootstrap.selectedVideoBitrate ?: stream.videoBitrate
+            val heights = (
+                sabrBootstrap.videoVariants.map { it.height } +
+                    stream.availableVideoHeights +
+                    height
+                )
+                .filter { it > 0 }
+                .distinct()
+                .sortedDescending()
+            TrackLog.d(
+                TAG,
+                "video: ${width}x$height $mime ${stream.videoCodecs.orEmpty()} via ${stream.profileId} (sabr)",
+                about = videoId,
+            )
+            return VideoStream(
+                videoId = videoId,
+                url = stream.videoUrl ?: "sabr-video://$videoId",
+                width = width,
+                height = height,
+                mimeType = mime,
+                headers = emptyMap(),
+                heights = heights,
+                profileId = stream.profileId,
+                isHls = false,
+                sabrBootstrap = sabrBootstrap,
+                contentLengthBytes = contentLength,
+                bitrate = bitrate,
+                rangeChunkSizeBytes = stream.rangeChunkSizeBytes,
+            )
+        }
         // A live broadcast's video-only URL is a window that ends in seconds,
         // like its audio one; no picture beats a frozen one.
-        val url = stream.videoUrl?.takeUnless(StreamResolver::isLiveUrl) ?: return null
+        val rawUrl = stream.videoUrl
+        val url = rawUrl?.takeUnless(StreamResolver::isLiveUrl)
+        if (url == null) {
+            TrackLog.d(
+                TAG,
+                "video: InnerTubeX ${stream.profileId} returned no usable videoUrl (rawPresent=${rawUrl != null})",
+                about = videoId,
+            )
+            return null
+        }
         val width = stream.videoWidth ?: 0
         val height = stream.videoHeight ?: 0
         val mime = stream.videoMimeType.orEmpty()
+        val isHls = allowHls && (
+            "mpegurl" in mime.lowercase() ||
+                ".m3u8" in url.lowercase() ||
+                "/manifest/hls" in url.lowercase()
+            )
         TrackLog.d(
             TAG,
             "video: ${width}x$height $mime ${stream.videoCodecs.orEmpty()} via ${stream.profileId}" +
-                if (ageRestricted) " (age-restricted)" else "",
+                (if (ageRestricted) " (age-restricted)" else "") +
+                (if (isHls) " (hls)" else ""),
             about = videoId,
         )
         return VideoStream(
@@ -329,11 +416,15 @@ object InnerTubeXResolver {
             height = height,
             mimeType = mime,
             headers = stream.headers,
-            heights = (stream.availableVideoHeights.orEmpty() + height)
+            heights = (stream.availableVideoHeights + height)
                 .filter { it > 0 }
                 .distinct()
                 .sortedDescending(),
             profileId = stream.profileId,
+            isHls = isHls,
+            contentLengthBytes = stream.videoContentLengthBytes,
+            bitrate = stream.videoBitrate,
+            rangeChunkSizeBytes = stream.rangeChunkSizeBytes,
         )
     }
 

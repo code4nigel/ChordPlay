@@ -254,10 +254,11 @@ private fun FastScrollOverlay(
         val visibleItems = adapter.visibleItemsCount
 
         val thumbHeightPx = remember(totalItems, visibleItems, trackHeightPx, minThumbHeightPx) {
-            if (totalItems <= 0) minThumbHeightPx
+            val effectiveMinThumb = minThumbHeightPx.coerceAtMost(trackHeightPx)
+            if (totalItems <= 0) effectiveMinThumb
             else {
                 val ratio = (visibleItems.toFloat() / totalItems.toFloat()).coerceIn(0f, 1f)
-                (trackHeightPx * ratio).coerceIn(minThumbHeightPx, trackHeightPx)
+                (trackHeightPx * ratio).coerceIn(effectiveMinThumb, trackHeightPx)
             }
         }
 

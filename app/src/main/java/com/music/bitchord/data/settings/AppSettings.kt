@@ -522,7 +522,7 @@ object AppSettings {
     val preferMusicOnly = MutableStateFlow(false)
 
     /** Edge-to-edge full-bleed video banner with soft bottom fade (like full-screen artwork). */
-    val videoFullBleed = MutableStateFlow(false)
+    val videoFullBleed = MutableStateFlow(true)
 
     /** Video scaling: false = Fit (letterboxed to keep full frame), true = Fill/Zoom (crop to fill). */
     val videoFill = MutableStateFlow(false)
@@ -1024,7 +1024,7 @@ object AppSettings {
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
-        videoFullBleed.value = prefs.getBoolean(KEY_VIDEO_FULL_BLEED, false)
+        videoFullBleed.value = prefs.getBoolean(KEY_VIDEO_FULL_BLEED, true)
         videoFill.value = prefs.getBoolean(KEY_VIDEO_FILL, false)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)

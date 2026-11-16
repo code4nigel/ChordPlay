@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -54,6 +55,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import java.util.concurrent.ConcurrentHashMap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import com.music.bitchord.data.YtMusicRepository
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +63,8 @@ import kotlinx.coroutines.withContext
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -104,8 +108,8 @@ private fun UserPlaylist.isPinned(pinned: List<String>): Boolean =
     id in pinned || browseId in pinned || "VL$id" in pinned || (id.removePrefix("VL") in pinned)
 
 enum class PlaylistSortOrder(val label: String) {
-    A_TO_Z("A-Z"),
-    Z_TO_A("Z-A"),
+    A_TO_Z("Alphabetical (A–Z)"),
+    Z_TO_A("Alphabetical (Z–A)"),
     DEFAULT("Default");
 
     fun next(): PlaylistSortOrder = when (this) {
@@ -150,6 +154,7 @@ fun PlaylistPickerSheet(
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
     var sortOrder by remember { mutableStateOf(PlaylistSortOrder.DEFAULT) }
+    var sortMenuOpen by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
     var isCheckingMembership by remember(song?.videoId, collectionTitle) {
@@ -302,6 +307,9 @@ fun PlaylistPickerSheet(
         }
     }
 
+    val doneContainerColor = MaterialTheme.colorScheme.primary
+    val doneContentColor = if (doneContainerColor.luminance() > 0.5f) Color.Black else Color.White
+
     if (creating) {
         NewPlaylistForm(
             onBack = if (startCreating) null else ({ creating = false }),
@@ -309,12 +317,7 @@ fun PlaylistPickerSheet(
             onDismiss = onDismiss,
             modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                ),
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
         )
         return
     }
@@ -325,11 +328,6 @@ fun PlaylistPickerSheet(
                 .fillMaxWidth()
                 .heightIn(max = 310.dp)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                )
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -434,9 +432,7 @@ fun PlaylistPickerSheet(
                                             fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                                         )
                                     } else {
-                                        Modifier
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), CircleShape)
+                                        Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
                                     }
                                 )
                                 .clickable {
@@ -466,9 +462,7 @@ fun PlaylistPickerSheet(
                                             fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                         )
                                     } else {
-                                        Modifier
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                            .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                                     }
                                 )
                                 .padding(horizontal = 12.dp),
@@ -530,15 +524,16 @@ fun PlaylistPickerSheet(
                         onClick = commitAction,
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = doneContainerColor,
+                            contentColor = doneContentColor,
                         ),
                         elevation = ButtonDefaults.buttonElevation(
                             defaultElevation = 4.dp,
                             pressedElevation = 2.dp,
                         ),
+                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .widthIn(min = 128.dp, max = 200.dp)
                             .height(42.dp),
                     ) {
                         Text(
@@ -604,34 +599,62 @@ fun PlaylistPickerSheet(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        // Circular Sort Button
+                        // Circular Sort Button + Menu
                         val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                    )
+                                    .clickable {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        sortMenuOpen = true
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                    contentDescription = "Sort (${sortOrder.label})",
+                                    tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
                                 )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-                                    else Color.White.copy(alpha = 0.08f),
-                                    shape = CircleShape,
-                                )
-                                .clickable {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    sortOrder = sortOrder.next()
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.Sort,
-                                contentDescription = "Sort (${sortOrder.label})",
-                                tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp),
-                            )
+                            }
+                            DropdownMenu(
+                                expanded = sortMenuOpen,
+                                onDismissRequest = { sortMenuOpen = false },
+                            ) {
+                                PlaylistSortOrder.entries.forEach { option ->
+                                    val optionSelected = option == sortOrder
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = option.label,
+                                                fontWeight = if (optionSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (optionSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        },
+                                        trailingIcon = if (optionSelected) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            }
+                                        } else null,
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            sortOrder = option
+                                            sortMenuOpen = false
+                                        },
+                                    )
+                                }
+                            }
                         }
 
                         // Close button
@@ -641,7 +664,6 @@ fun PlaylistPickerSheet(
                                     .size(34.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
                                     .clickable(onClick = onDismiss),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -696,12 +718,7 @@ fun PlaylistPickerSheet(
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.08f),
-                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                ),
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
         ) {
             // Track Header or Sheet Header with Circular Cross button at top right
             Row(
@@ -794,9 +811,7 @@ fun PlaylistPickerSheet(
                                         fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
                                     )
                                 } else {
-                                    Modifier
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-                                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                    Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
                                 }
                             )
                             .clickable(onClick = onDismiss),
@@ -870,9 +885,7 @@ fun PlaylistPickerSheet(
                                     fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
                                 )
                             } else {
-                                Modifier
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), CircleShape)
+                                Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
                             }
                         )
                         .clickable {
@@ -902,9 +915,7 @@ fun PlaylistPickerSheet(
                                     fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                 )
                             } else {
-                                Modifier
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                                Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                             }
                         )
                         .padding(horizontal = 14.dp),
@@ -953,45 +964,72 @@ fun PlaylistPickerSheet(
                     }
                 }
 
-                // Right: Circular Sort / Filter Icon Button
+                // Right: Circular Sort / Filter Icon Button + Menu
                 val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (liquidGlass && glassSupported) {
-                                Modifier.lightweightLiquidGlass(
-                                    shape = CircleShape,
-                                    fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                                )
-                            } else {
-                                Modifier
-                                    .background(
-                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
-                                        else Color.White.copy(alpha = 0.08f),
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (liquidGlass && glassSupported) {
+                                    Modifier.lightweightLiquidGlass(
                                         shape = CircleShape,
+                                        fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
                                     )
-                            }
+                                } else {
+                                    Modifier.background(
+                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                    )
+                                }
+                            )
+                            .clickable {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                sortMenuOpen = true
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.Sort,
+                            contentDescription = "Sort (${sortOrder.label})",
+                            tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
                         )
-                        .clickable {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            sortOrder = sortOrder.next()
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = "Sort (${sortOrder.label})",
-                        tint = if (isSorted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
-                    )
+                    }
+                    DropdownMenu(
+                        expanded = sortMenuOpen,
+                        onDismissRequest = { sortMenuOpen = false },
+                    ) {
+                        PlaylistSortOrder.entries.forEach { option ->
+                            val optionSelected = option == sortOrder
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = option.label,
+                                        fontWeight = if (optionSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (optionSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                },
+                                trailingIcon = if (optionSelected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    }
+                                } else null,
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    sortOrder = option
+                                    sortMenuOpen = false
+                                },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1018,78 +1056,85 @@ fun PlaylistPickerSheet(
                 else -> {
                     Spacer(Modifier.height(4.dp))
 
-                    LazyColumn(
-                        state = listState,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false),
                     ) {
-                        items(sortedPlaylists, key = { it.playlistId }) { playlist ->
-                            val isTicked = playlist.playlistId in selected
-                            val wasPresent = playlist.playlistId in initiallyPresent
-                            val isChordplay = playlist.playlistId in chordplayPlaylistIds
-                            val isPinned = playlist.isPinned(pinnedPlaylists)
-                            PlaylistRow(
-                                playlist = playlist,
-                                selected = isTicked,
-                                wasInitiallyThere = wasPresent,
-                                isChordPlayPlaylist = isChordplay,
-                                isPinned = isPinned,
-                                onClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    userToggledPlaylists.add(playlist.playlistId)
-                                    selected = if (isTicked) {
-                                        selected - playlist.playlistId
-                                    } else {
-                                        selected + playlist.playlistId
-                                    }
-                                },
-                            )
-                        }
-                    }
-
-                    // Centered Floating Pill Done Button (no tick icon)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 12.dp)
-                            .navigationBarsPadding(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Button(
-                            onClick = commitAction,
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(
-                                defaultElevation = 4.dp,
-                                pressedElevation = 2.dp,
-                            ),
-                            modifier = Modifier
-                                .height(46.dp)
-                                .widthIn(min = 160.dp, max = 260.dp)
-                                .animateContentSize(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow,
-                                    ),
-                                ),
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(bottom = 84.dp),
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(
-                                text = when {
-                                    hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
-                                        "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
-                                    hasChanges && toAdd.isNotEmpty() ->
-                                        "${stringResource(R.string.done)} (+${toAdd.size})"
-                                    hasChanges && toRemove.isNotEmpty() ->
-                                        "${stringResource(R.string.done)} (-${toRemove.size})"
-                                    else -> stringResource(R.string.done)
-                                },
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
+                            items(sortedPlaylists, key = { it.playlistId }) { playlist ->
+                                val isTicked = playlist.playlistId in selected
+                                val wasPresent = playlist.playlistId in initiallyPresent
+                                val isChordplay = playlist.playlistId in chordplayPlaylistIds
+                                val isPinned = playlist.isPinned(pinnedPlaylists)
+                                PlaylistRow(
+                                    playlist = playlist,
+                                    selected = isTicked,
+                                    wasInitiallyThere = wasPresent,
+                                    isChordPlayPlaylist = isChordplay,
+                                    isPinned = isPinned,
+                                    onClick = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        userToggledPlaylists.add(playlist.playlistId)
+                                        selected = if (isTicked) {
+                                            selected - playlist.playlistId
+                                        } else {
+                                            selected + playlist.playlistId
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        // Centered Floating Pill Done Button (no solid bottom bar behind it)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 14.dp)
+                                .navigationBarsPadding(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Button(
+                                onClick = commitAction,
+                                shape = CircleShape,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = doneContainerColor,
+                                    contentColor = doneContentColor,
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 6.dp,
+                                    pressedElevation = 2.dp,
+                                ),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 0.dp),
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .widthIn(min = 128.dp, max = 200.dp)
+                                    .animateContentSize(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessLow,
+                                        ),
+                                    ),
+                            ) {
+                                Text(
+                                    text = when {
+                                        hasChanges && toAdd.isNotEmpty() && toRemove.isNotEmpty() ->
+                                            "${stringResource(R.string.done)} (+${toAdd.size}, -${toRemove.size})"
+                                        hasChanges && toAdd.isNotEmpty() ->
+                                            "${stringResource(R.string.done)} (+${toAdd.size})"
+                                        hasChanges && toRemove.isNotEmpty() ->
+                                            "${stringResource(R.string.done)} (-${toRemove.size})"
+                                        else -> stringResource(R.string.done)
+                                    },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                     }
                 }
@@ -1136,32 +1181,12 @@ private fun PlaylistRow(
                 )
                 if (isPinned) {
                     Spacer(Modifier.width(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                            .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), RoundedCornerShape(6.dp))
-                            .padding(horizontal = 5.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PushPin,
-                                contentDescription = "Pinned",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(11.dp),
-                            )
-                            Text(
-                                text = "PINNED",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.5.sp, letterSpacing = 0.5.sp),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.PushPin,
+                        contentDescription = "Pinned",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
                 }
                 if (isChordPlayPlaylist) {
                     Spacer(Modifier.width(6.dp))
@@ -1169,7 +1194,6 @@ private fun PlaylistRow(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                            .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), RoundedCornerShape(6.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         Text(
@@ -1199,7 +1223,6 @@ private fun PlaylistRow(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(Color(0xFF34C759).copy(alpha = 0.16f))
-                        .border(0.5.dp, Color(0xFF34C759).copy(alpha = 0.35f), CircleShape)
                         .padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
                     Icon(
@@ -1224,7 +1247,6 @@ private fun PlaylistRow(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.error.copy(alpha = 0.16f))
-                        .border(0.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f), CircleShape)
                         .padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
                     Icon(
@@ -1249,7 +1271,6 @@ private fun PlaylistRow(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                        .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), CircleShape)
                         .padding(horizontal = 9.dp, vertical = 4.dp),
                 ) {
                     Icon(

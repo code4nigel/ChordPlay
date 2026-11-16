@@ -52,7 +52,11 @@ interface PlayerHost {
     val musicVideoSupported: Boolean get() = false
 
     /** Whether this platform supports Picture-in-Picture. */
+    /** Whether this platform supports Picture-in-Picture for music videos. */
     val pipSupported: Boolean get() = false
+
+    /** Whether the host window is currently presented in Picture-in-Picture mode. */
+    val inPictureInPicture: StateFlow<Boolean> get() = NotInPictureInPicture
 
     /** Enters Picture-in-Picture mode for music video. Returns true if successful. */
     fun enterPip(): Boolean = false
@@ -69,11 +73,14 @@ interface PlayerHost {
         fit: Boolean,
         onRenderedChanged: (Boolean) -> Unit,
         modifier: Modifier,
-        bottomFade: Float = 0f,
+        bottomFade: Float,
     ) = Unit
 
     /** Whether [videoId] shows its picture, rather than playing as audio by the listener's choice. */
     fun showsMusicVideoPicture(videoId: String): Boolean = true
+
+    /** Videos known to have no playable picture in this session (reactive for UI fallback). */
+    val musicVideoNoPictureIds: StateFlow<Set<String>> get() = EmptyStringSet
 
     /** The playing music video's width over its height. */
     val musicVideoAspect: StateFlow<Float> get() = DefaultVideoAspect
@@ -154,6 +161,7 @@ interface PlayerHost {
 }
 
 private val NoCast = MutableStateFlow(CastUi())
+private val NotInPictureInPicture = MutableStateFlow(false)
 
 /** What the output drawer needs to know about casting to draw its row. */
 data class CastUi(
@@ -215,7 +223,7 @@ interface PlayerSettingsSource {
     val enableBreathingAura: StateFlow<Boolean>
     val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.Q_720P)
     val landscapeFontScale: StateFlow<com.music.bitchord.data.settings.LandscapeFontScale> get() = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
-    val videoFullBleed: StateFlow<Boolean> get() = MutableStateFlow(false)
+    val videoFullBleed: StateFlow<Boolean> get() = MutableStateFlow(true)
     val videoFill: StateFlow<Boolean> get() = MutableStateFlow(false)
 
     fun setVideoQuality(value: com.music.bitchord.data.settings.VideoQuality) {}
@@ -288,6 +296,7 @@ sealed interface LyricsRomanizationResult {
 }
 
 private val DefaultVideoAspect = MutableStateFlow(16f / 9f)
+private val EmptyStringSet = MutableStateFlow<Set<String>>(emptySet())
 private val NoVideoQuality = MutableStateFlow(MusicVideoQualityUi())
 
 data class MusicVideoQualityUi(

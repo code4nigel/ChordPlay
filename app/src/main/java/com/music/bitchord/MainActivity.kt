@@ -238,6 +238,10 @@ import com.music.bitchord.ui.components.ReorderPlaylistSheet
 import com.music.bitchord.ui.components.LongPressOrigin
 import com.music.bitchord.ui.components.MenuAnchor
 import com.music.bitchord.ui.components.IosMenuPopover
+import com.music.bitchord.ui.components.iosMenuPanel
+import com.music.bitchord.ui.theme.rememberArtworkPalette
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.input.pointer.pointerInput
 import com.music.bitchord.ui.components.SongActionsMenu
 import com.music.bitchord.ui.components.SongActionsPresentation
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -385,7 +389,7 @@ class MainActivity : AppCompatActivity() {
             .setAspectRatio(rational)
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    setAutoEnterEnabled(true)
+                    setAutoEnterEnabled(false)
                     setSeamlessResizeEnabled(true)
                 }
             }
@@ -393,14 +397,24 @@ class MainActivity : AppCompatActivity() {
         return runCatching { enterPictureInPictureMode(params) }.getOrDefault(false)
     }
 
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        AndroidPlayerHost.setInPipMode(isInPictureInPictureMode)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        AndroidPlayerHost.setInPipMode(false)
         AndroidPlayerHost.onEnterPip = null
         AndroidPlayerHost.pipSupportedProvider = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AndroidPlayerHost.setInPipMode(isInPictureInPictureMode)
         AndroidPlayerHost.pipSupportedProvider = {
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
         }
@@ -4591,6 +4605,234 @@ private fun BitChordApp(
 
         val playerRaised = showNowPlaying && playerSong != null
 
+        val renderPlaylistOverlays: @Composable (com.music.bitchord.ui.components.backdrop.Backdrop, HazeState?) -> Unit = { overlayBackdrop, overlayHaze ->
+            if (playlistTarget != null || creatingPlaylist) {
+                val target = playlistTarget
+                val dismiss = {
+                    playlistTarget = null
+                    creatingPlaylist = false
+                }
+                val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+                val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
+                val artworkPalette = target?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
+                    rememberArtworkPalette(imageUrl = it)
+                }
+                BackHandler(onBack = dismiss)
+                CompositionLocalProvider(LocalAppBackdrop provides overlayBackdrop) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(100f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.42f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = dismiss,
+                                ),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .heightIn(max = 620.dp)
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .navigationBarsPadding()
+                                .iosMenuPanel(
+                                    translucent = true,
+                                    backdrop = overlayBackdrop,
+                                    hazeState = overlayHaze,
+                                    palette = artworkPalette,
+                                    isLiquidGlass = isLiquidGlassActive,
+                                    castsShadow = true,
+                                )
+                                .pointerInput(Unit) {},
+                        ) {
+                            PlaylistPickerSheet(
+                                playlists = playlists,
+                                loading = playlistsLoading,
+                                song = target,
+                                startCreating = target == null,
+                                pinnedPlaylists = pinnedPlaylists,
+                                onDismiss = dismiss,
+                                onCommit = { toAdd, toRemove ->
+                                    target?.let { song ->
+                                        viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
+                                            showQueueNotice(
+                                                when {
+                                                    added > 0 && removed > 0 -> context.getString(R.string.playlists_updated)
+                                                    added > 1 -> context.resources.getQuantityString(
+                                                        R.plurals.added_to_playlists_notice, added, added,
+                                                    )
+                                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                                    removed > 0 -> context.getString(R.string.song_removed_from_playlist)
+                                                    else -> context.getString(R.string.song_already_in_playlist)
+                                                },
+                                            )
+                                        }
+                                    }
+                                    dismiss()
+                                },
+                                onAdd = { picked ->
+                                    target?.let { song ->
+                                        viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                                            showQueueNotice(
+                                                when {
+                                                    added > 1 -> context.resources.getQuantityString(
+                                                        R.plurals.added_to_playlists_notice, added, added,
+                                                    )
+                                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                                    alreadyThere > 0 && failed == 0 ->
+                                                        context.getString(R.string.song_already_in_playlist)
+                                                    else -> context.getString(R.string.failed)
+                                                },
+                                            )
+                                        }
+                                    }
+                                    dismiss()
+                                },
+                                onCreate = { title, privacy ->
+                                    viewModel.createPlaylist(title, privacy, target)
+                                    dismiss()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (collectionPlaylistTarget != null) {
+                val target = collectionPlaylistTarget
+                val dismiss = { collectionPlaylistTarget = null }
+                val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+                val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
+                val artworkPalette = target?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
+                    rememberArtworkPalette(imageUrl = it)
+                }
+                BackHandler(onBack = dismiss)
+                CompositionLocalProvider(LocalAppBackdrop provides overlayBackdrop) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(100f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.42f))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = dismiss,
+                                ),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .heightIn(max = 620.dp)
+                                .padding(horizontal = 8.dp, vertical = 8.dp)
+                                .navigationBarsPadding()
+                                .iosMenuPanel(
+                                    translucent = true,
+                                    backdrop = overlayBackdrop,
+                                    hazeState = overlayHaze,
+                                    palette = artworkPalette,
+                                    isLiquidGlass = isLiquidGlassActive,
+                                    castsShadow = true,
+                                )
+                                .pointerInput(Unit) {},
+                        ) {
+                            target?.let { col ->
+                                PlaylistPickerSheet(
+                                    playlists = playlists,
+                                    loading = playlistsLoading,
+                                    song = null,
+                                    collectionTitle = col.title,
+                                    collectionSubtitle = col.subtitle,
+                                    collectionArtworkUrl = col.thumbnailUrl,
+                                    collectionSongs = col.songs,
+                                    excludePlaylistId = col.sourceBrowseId,
+                                    startCreating = false,
+                                    pinnedPlaylists = pinnedPlaylists,
+                                    onDismiss = dismiss,
+                                    onAdd = { picked ->
+                                        dismiss()
+                                        if (picked.isNotEmpty() && col.songs.isNotEmpty()) {
+                                            viewModel.addSongsToPlaylists(
+                                                playlists = picked,
+                                                songs = col.songs,
+                                                onProgress = { p -> bulkAddProgress = p },
+                                                onResult = { added, alreadyThere, failed ->
+                                                    showQueueNotice(
+                                                        when {
+                                                            added > 0 -> context.getString(
+                                                                R.string.songs_added_to_playlist,
+                                                                added,
+                                                                picked.joinToString(", ") { it.title },
+                                                            )
+                                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                                            else -> context.getString(R.string.failed)
+                                                        }
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    },
+                                    onCommit = { toAdd, _ ->
+                                        dismiss()
+                                        if (toAdd.isNotEmpty() && col.songs.isNotEmpty()) {
+                                            viewModel.addSongsToPlaylists(
+                                                playlists = toAdd,
+                                                songs = col.songs,
+                                                onProgress = { p -> bulkAddProgress = p },
+                                                onResult = { added, alreadyThere, failed ->
+                                                    showQueueNotice(
+                                                        when {
+                                                            added > 0 -> context.getString(
+                                                                R.string.songs_added_to_playlist,
+                                                                added,
+                                                                toAdd.joinToString(", ") { it.title },
+                                                            )
+                                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                                            else -> context.getString(R.string.failed)
+                                                        }
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    },
+                                    onCreate = { title, privacy ->
+                                        dismiss()
+                                        val videoIds = col.songs.map { it.videoId }.filter { it.isNotBlank() && !it.startsWith("local:") }
+                                        viewModel.createPlaylistWithVideoIds(
+                                            title = title,
+                                            privacy = privacy,
+                                            videoIds = videoIds,
+                                            songs = col.songs,
+                                            onProgress = { p -> bulkAddProgress = p },
+                                            onResult = { browseId, createdTitle, savedLocally ->
+                                                showQueueNotice(
+                                                    context.getString(
+                                                        R.string.songs_added_to_playlist,
+                                                        col.songs.size,
+                                                        createdTitle,
+                                                    )
+                                                )
+                                            }
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ---- Now Playing ----
         if (playerRaised) {
             // What rememberModalBottomSheetState builds, but able to start open,
@@ -4634,6 +4876,7 @@ private fun BitChordApp(
                     playerSheetMotion.onSheetGone()
                 }
             }
+            val activityLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
             ModalBottomSheet(
                 onDismissRequest = {
                     if (playerSheetMotion.closing) {
@@ -4722,6 +4965,7 @@ private fun BitChordApp(
                             .layerBackdrop(playerBackdrop),
                     ) {
                         CompositionLocalProvider(
+                            androidx.lifecycle.compose.LocalLifecycleOwner provides activityLifecycleOwner,
                             LocalPlayerDock provides activeDock,
                             LocalAppBackdrop provides playerBackdrop,
                         ) {
@@ -4741,6 +4985,7 @@ private fun BitChordApp(
                             songMenuBody(song)
                         }
                     }
+                    renderPlaylistOverlays(playerBackdrop, null)
                 }
             }
         }
@@ -4849,174 +5094,8 @@ private fun BitChordApp(
         // One sheet for both, because they are one decision: the list of
         // playlists with a way to make another. `creatingPlaylist` opens it
         // straight onto the form, which is what the Library tile means.
-        if (playlistTarget != null || creatingPlaylist) {
-            val target = playlistTarget
-            val dismiss = {
-                playlistTarget = null
-                creatingPlaylist = false
-            }
-            val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
-            val playlistSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-            val activeBackdrop = if (playerRaised) playerBackdrop else effectiveAppBackdrop
-            CompositionLocalProvider(LocalAppBackdrop provides activeBackdrop) {
-                ModalBottomSheet(
-                onDismissRequest = dismiss,
-                sheetState = playlistSheetState,
-                containerColor = MaterialTheme.colorScheme.surface.copy(
-                    alpha = if (isLiquidGlassActive) 0.88f else 0.96f
-                ),
-            ) {
-                PlaylistPickerSheet(
-                    playlists = playlists,
-                    loading = playlistsLoading,
-                    song = target,
-                    startCreating = target == null,
-                    pinnedPlaylists = pinnedPlaylists,
-                    onDismiss = dismiss,
-                    onCommit = { toAdd, toRemove ->
-                        target?.let { song ->
-                            viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
-                                showQueueNotice(
-                                    when {
-                                        added > 0 && removed > 0 -> context.getString(R.string.playlists_updated)
-                                        added > 1 -> context.resources.getQuantityString(
-                                            R.plurals.added_to_playlists_notice, added, added,
-                                        )
-                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                        removed > 0 -> context.getString(R.string.song_removed_from_playlist)
-                                        else -> context.getString(R.string.song_already_in_playlist)
-                                    },
-                                )
-                            }
-                        }
-                        dismiss()
-                    },
-                    onAdd = { picked ->
-                        target?.let { song ->
-                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                                showQueueNotice(
-                                    when {
-                                        added > 1 -> context.resources.getQuantityString(
-                                            R.plurals.added_to_playlists_notice, added, added,
-                                        )
-                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                        alreadyThere > 0 && failed == 0 ->
-                                            context.getString(R.string.song_already_in_playlist)
-                                        else -> context.getString(R.string.failed)
-                                    },
-                                )
-                            }
-                        }
-                        dismiss()
-                    },
-                    onCreate = { title, privacy ->
-                        viewModel.createPlaylist(title, privacy, target)
-                        dismiss()
-                    },
-                )
-            }
-            }
-        }
-
-        if (collectionPlaylistTarget != null) {
-            val target = collectionPlaylistTarget
-            val dismiss = { collectionPlaylistTarget = null }
-            val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
-            val collectionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-            val activeBackdrop = if (playerRaised) playerBackdrop else effectiveAppBackdrop
-            CompositionLocalProvider(LocalAppBackdrop provides activeBackdrop) {
-                ModalBottomSheet(
-                onDismissRequest = dismiss,
-                sheetState = collectionSheetState,
-                containerColor = MaterialTheme.colorScheme.surface.copy(
-                    alpha = if (isLiquidGlassActive) 0.88f else 0.96f
-                ),
-            ) {
-                target?.let { col ->
-                    PlaylistPickerSheet(
-                        playlists = playlists,
-                        loading = playlistsLoading,
-                        song = null,
-                        collectionTitle = col.title,
-                        collectionSubtitle = col.subtitle,
-                        collectionArtworkUrl = col.thumbnailUrl,
-                        collectionSongs = col.songs,
-                        excludePlaylistId = col.sourceBrowseId,
-                        startCreating = false,
-                        pinnedPlaylists = pinnedPlaylists,
-                        onDismiss = dismiss,
-                        onAdd = { picked ->
-                            dismiss()
-                            if (picked.isNotEmpty() && col.songs.isNotEmpty()) {
-                                viewModel.addSongsToPlaylists(
-                                    playlists = picked,
-                                    songs = col.songs,
-                                    onProgress = { p -> bulkAddProgress = p },
-                                    onResult = { added, alreadyThere, failed ->
-                                        showQueueNotice(
-                                            when {
-                                                added > 0 -> context.getString(
-                                                    R.string.songs_added_to_playlist,
-                                                    added,
-                                                    picked.joinToString(", ") { it.title },
-                                                )
-                                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
-                                                else -> context.getString(R.string.failed)
-                                            }
-                                        )
-                                    }
-                                )
-                            }
-                        },
-                        onCommit = { toAdd, _ ->
-                            dismiss()
-                            if (toAdd.isNotEmpty() && col.songs.isNotEmpty()) {
-                                viewModel.addSongsToPlaylists(
-                                    playlists = toAdd,
-                                    songs = col.songs,
-                                    onProgress = { p -> bulkAddProgress = p },
-                                    onResult = { added, alreadyThere, failed ->
-                                        showQueueNotice(
-                                            when {
-                                                added > 0 -> context.getString(
-                                                    R.string.songs_added_to_playlist,
-                                                    added,
-                                                    toAdd.joinToString(", ") { it.title },
-                                                )
-                                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
-                                                else -> context.getString(R.string.failed)
-                                            }
-                                        )
-                                    }
-                                )
-                            }
-                        },
-                        onCreate = { title, privacy ->
-                            dismiss()
-                            val videoIds = col.songs.map { it.videoId }.filter { it.isNotBlank() && !it.startsWith("local:") }
-                            viewModel.createPlaylistWithVideoIds(
-                                title = title,
-                                privacy = privacy,
-                                videoIds = videoIds,
-                                songs = col.songs,
-                                onProgress = { p -> bulkAddProgress = p },
-                                onResult = { browseId, createdTitle, savedLocally ->
-                                    showQueueNotice(
-                                        context.getString(
-                                            R.string.songs_added_to_playlist,
-                                            col.songs.size,
-                                            createdTitle,
-                                        )
-                                    )
-                                }
-                            )
-                        },
-                    )
-                }
-            }
-            }
+        if (!playerRaised) {
+            renderPlaylistOverlays(effectiveAppBackdrop, hazeState)
         }
 
         if (showSpotifyImportDialog) {

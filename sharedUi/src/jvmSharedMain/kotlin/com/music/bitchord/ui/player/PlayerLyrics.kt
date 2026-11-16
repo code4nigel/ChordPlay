@@ -1391,7 +1391,6 @@ internal fun LyricsStyleToggleButton(
  * Unified Frosted Glass Lyrics Actions Pill.
  * Houses: Font Style (TT), Translation (文A), and Romanization (Globe) in a cohesive glassy capsule.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun GlassyLyricsActions(
     showingRomanization: Boolean,
@@ -1410,47 +1409,10 @@ internal fun GlassyLyricsActions(
     val haze = hazeState ?: LocalPlayerHazeState.current
 
     val primary = MaterialTheme.colorScheme.primary
-    val c1 = palette.colors.getOrNull(0) ?: primary
-    val c2 = palette.colors.getOrNull(1) ?: palette.colors.getOrNull(0) ?: MaterialTheme.colorScheme.secondary
-    val c3 = palette.colors.getOrNull(2) ?: Color.Black
-
-    val animC1 by animateColorAsState(targetValue = c1, animationSpec = tween(650), label = "lyricsActionsC1")
-    val animC2 by animateColorAsState(targetValue = c2, animationSpec = tween(650), label = "lyricsActionsC2")
-    val animC3 by animateColorAsState(targetValue = c3, animationSpec = tween(650), label = "lyricsActionsC3")
-
-    val dockAdaptiveGradient = remember(animC1, animC2, animC3) {
-        Brush.horizontalGradient(
-            0.0f to animC1.copy(alpha = 0.40f),
-            0.48f to animC2.copy(alpha = 0.22f),
-            1.0f to animC3.copy(alpha = 0.45f),
-        )
-    }
-    val dockGlassSheen = remember {
-        Brush.verticalGradient(
-            listOf(
-                Color.White.copy(alpha = 0.22f),
-                Color.White.copy(alpha = 0.08f),
-                Color.White.copy(alpha = 0.02f),
-                Color.Black.copy(alpha = 0.16f),
-            ),
-        )
-    }
 
     Row(
         modifier = modifier
-            .clip(CircleShape)
-            .then(
-                if (haze != null) {
-                    Modifier.optimizedHazeEffect(
-                        state = haze,
-                        style = HazeMaterials.ultraThin(Color.White.copy(alpha = 0.04f)),
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .background(dockAdaptiveGradient)
-            .background(dockGlassSheen)
+            .videoDockGlassPill(hazeState = haze)
             .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),

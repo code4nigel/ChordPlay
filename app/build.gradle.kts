@@ -80,8 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 73
-        versionName = "2.2.0"
+        versionCode = 81
+        versionName = "2.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -371,7 +371,7 @@ dependencies {
     implementation("io.ktor:ktor-client-websockets:3.5.2")
 
     // ---- YouTube stream extraction: live-benchmarked client catalog + cipher tiers ----
-    implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
+    implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.11.7")
 
     // ---- Stream resolution: NewPipe solves YouTube's signature + `n` throttling ----
     // Pinned to v0.26.3, not the newer v0.26.4: v0.26.4's player-JS parser fails with

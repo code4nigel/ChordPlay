@@ -109,6 +109,7 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:supportsPictureInPicture="true"
             android:theme="@style/Theme.BitChord">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

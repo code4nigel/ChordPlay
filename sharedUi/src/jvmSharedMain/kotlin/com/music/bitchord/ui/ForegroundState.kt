@@ -34,17 +34,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * precisely so that it goes on running when this does not.
  */
 @Composable
-fun rememberIsForeground(): Boolean {
+fun rememberIsForeground(allowStarted: Boolean = true): Boolean {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    var foreground by remember(lifecycle) {
-        mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    val minState = if (allowStarted) Lifecycle.State.STARTED else Lifecycle.State.RESUMED
+    var foreground by remember(lifecycle, minState) {
+        mutableStateOf(lifecycle.currentState.isAtLeast(minState))
     }
-    DisposableEffect(lifecycle) {
+    DisposableEffect(lifecycle, minState) {
         // Every event rather than ON_RESUME/ON_PAUSE alone: the state is read
         // back off the lifecycle instead of inferred from which event arrived,
         // so there is no transition this can be left out of step by.
         val observer = LifecycleEventObserver { owner, _ ->
-            foreground = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            foreground = owner.lifecycle.currentState.isAtLeast(minState)
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }

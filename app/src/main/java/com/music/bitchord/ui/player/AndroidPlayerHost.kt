@@ -111,12 +111,19 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     override val pipSupported: Boolean
         get() = pipSupportedProvider?.invoke() ?: false
 
+    override val inPictureInPicture: StateFlow<Boolean> get() = pipState.asStateFlow()
+
     override fun enterPip(): Boolean =
         onEnterPip?.invoke() ?: false
 
     companion object {
         var onEnterPip: (() -> Boolean)? = null
         var pipSupportedProvider: (() -> Boolean)? = null
+        private val pipState = MutableStateFlow(false)
+
+        fun setInPipMode(active: Boolean) {
+            pipState.value = active
+        }
     }
 
     @Composable
@@ -128,7 +135,11 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         bottomFade: Float,
     ) = AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier, bottomFade = bottomFade)
 
-    override fun showsMusicVideoPicture(videoId: String): Boolean = !AppSettings.preferMusicOnly.value
+    override fun showsMusicVideoPicture(videoId: String): Boolean =
+        !AppSettings.preferMusicOnly.value && !MusicVideoEngine.isPictureless(videoId)
+
+    override val musicVideoNoPictureIds: StateFlow<Set<String>>
+        get() = MusicVideoEngine.noPictureIds
 
     override val musicVideoAspect: StateFlow<Float> get() = MusicVideoEngine.aspect
 

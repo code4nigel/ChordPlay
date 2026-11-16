@@ -160,72 +160,16 @@ fun SongActionsMenu(
     }
 
     if (pickingVideoQuality) {
-        val scope = rememberCoroutineScope()
-        AlertDialog(
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { pickingVideoQuality = false },
-            title = {
-                Text(
-                    text = "Video Playback Quality",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = "Select preferred maximum video resolution for playback:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    VideoQuality.entries.forEach { q ->
-                        val selected = q == currentVideoQuality
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                    else Color.White.copy(alpha = 0.05f),
-                                )
-                                .clickable {
-                                    scope.launch {
-                                        AppSettings.setVideoQuality(q)
-                                        pickingVideoQuality = false
-                                    }
-                                }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = q.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f),
-                            )
-                            if (selected) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { pickingVideoQuality = false }) {
-                    Text(text = stringResource(R.string.close))
-                }
-            },
-        )
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            com.music.bitchord.ui.player.VideoQualitySheet(
+                hazeState = null,
+                onDismiss = { pickingVideoQuality = false },
+                accentColor = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 
     val artworkPalette = rememberArtworkPalette(imageUrl = song.thumbnailUrl)

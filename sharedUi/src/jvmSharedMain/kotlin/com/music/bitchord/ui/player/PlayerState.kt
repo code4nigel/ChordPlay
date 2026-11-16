@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
  * null — a miss is the normal answer.
  */
 @Composable
-internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
+internal fun rememberCanvasArtwork(song: Song, enabled: Boolean = true): CanvasArtwork? {
     val canvasEnabled by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by PlayerSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val prioritizeSpotifyCanvas by PlayerSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
@@ -56,8 +56,8 @@ internal fun rememberCanvasArtwork(song: Song): CanvasArtwork? {
     // clean; the same-titled-impostor case is guarded where the clip is
     // adopted, by [CanvasArtwork.matches].
     var canvas by remember(song.videoId, song.isVideo) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, song.isVideo, videoQuality) {
-        if (!canvasAllowedNow && !song.isVideo) {
+    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, song.isVideo, videoQuality, enabled) {
+        if (!enabled || (!canvasAllowedNow && !song.isVideo)) {
             canvas = null
             return@LaunchedEffect
         }

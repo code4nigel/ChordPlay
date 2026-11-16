@@ -429,92 +429,16 @@ fun SongActionsSheet(
     }
 
     if (pickingVideoQuality) {
-        AlertDialog(
+        androidx.compose.ui.window.Dialog(
             onDismissRequest = { pickingVideoQuality = false },
-            containerColor = Color(0xFF18181B),
-            titleContentColor = Color.White,
-            textContentColor = Color.White.copy(alpha = 0.85f),
-            title = {
-                Text(
-                    text = "Video Streaming Quality",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VideoQuality.entries.forEach { q ->
-                        val selected = q == currentVideoQuality
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (selected) palette.accent.copy(alpha = 0.16f)
-                                    else Color.White.copy(alpha = 0.05f)
-                                )
-                                .then(
-                                    if (selected) {
-                                        Modifier.border(
-                                            width = 1.dp,
-                                            color = palette.accent.copy(alpha = 0.45f),
-                                            shape = RoundedCornerShape(12.dp),
-                                        )
-                                    } else Modifier
-                                )
-                                .clickable {
-                                    AppSettings.setVideoQuality(q)
-                                    pickingVideoQuality = false
-                                }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = q.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) Color.White else Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.weight(1f),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(
-                                        if (selected) palette.accent.copy(alpha = 0.28f)
-                                        else Color.White.copy(alpha = 0.10f)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = q.badge,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) palette.accent else Color.White.copy(alpha = 0.65f),
-                                )
-                            }
-                            if (selected) {
-                                Spacer(Modifier.width(8.dp))
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = "Selected",
-                                    tint = palette.accent,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { pickingVideoQuality = false }) {
-                    Text(
-                        text = stringResource(R.string.close),
-                        color = palette.accent,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            },
-        )
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            com.music.bitchord.ui.player.VideoQualitySheet(
+                hazeState = null,
+                onDismiss = { pickingVideoQuality = false },
+                accentColor = palette.accent,
+            )
+        }
     }
 }
 

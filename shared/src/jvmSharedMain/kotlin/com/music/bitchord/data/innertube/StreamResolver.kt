@@ -800,6 +800,61 @@ object StreamResolver {
     private val REFUSAL_CODES = setOf(403, 404, 410)
 
     /**
+     * Checks whether a resolved video stream URL actually serves readable video bytes
+     * (and not a 403 past 1 MiB, an HTML interstitial, or a stalled socket) before
+     * handing it to ExoPlayer. Mirrors [probe] for audio streams.
+     */
+    fun probeVideo(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        isHls: Boolean = false,
+    ): Boolean {
+        val sentHeaders = if (headers.isNotEmpty()) headers else mediaHeadersFor(url)
+        val builder = okhttp3.Request.Builder().url(url)
+        sentHeaders.forEach { (name, value) -> builder.header(name, value) }
+        val rangeLabel: String
+        if (!isHls) {
+            val length = url.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
+            val start = if (length != null && length > AUTH_BOUNDARY_BYTES + PROBE_READ_BYTES) AUTH_BOUNDARY_BYTES else 0L
+            val window = PlayerClient.rangeBytesFor(url)
+            val range = when {
+                window != Long.MAX_VALUE -> "bytes=$start-${minOf(start + window, length ?: Long.MAX_VALUE) - 1}"
+                length != null -> "bytes=$start-${length - 1}"
+                else -> "bytes=$start-"
+            }
+            builder.header("Range", range)
+            rangeLabel = range
+        } else {
+            rangeLabel = "hls-manifest"
+        }
+        return try {
+            prober.newCall(builder.build()).execute().use { response ->
+                val contentType = response.header("Content-Type")
+                val ok = when {
+                    response.code in REFUSAL_CODES -> false
+                    response.code !in 200..299 && response.code != 416 -> false
+                    isHls -> response.body?.source()?.request(256L) == true
+                    else -> (
+                        contentType?.startsWith("video/", ignoreCase = true) == true ||
+                            contentType?.startsWith("application/octet-stream", ignoreCase = true) == true
+                        ) &&
+                        response.body?.source()?.request(PROBE_READ_BYTES) == true
+                }
+                if (!ok) {
+                    TrackLog.w(
+                        TAG,
+                        "video probe failed: HTTP ${response.code} type=$contentType range=$rangeLabel host=${url.toHttpUrlOrNull()?.host}",
+                    )
+                }
+                ok
+            }
+        } catch (e: Exception) {
+            TrackLog.w(TAG, "video probe exception ($rangeLabel): ${e.message}")
+            false
+        }
+    }
+
+    /**
      * The probe's own client: the app's, but on a short leash.
      *
      * [Http.client]'s 30-second read timeout is right for a stream being
@@ -1038,6 +1093,7 @@ object StreamResolver {
         val height: Int,
         val mimeType: String = "video/mp4",
         val fallbackUrl: String? = null,
+        val heights: List<Int> = emptyList(),
     )
 
     data class CandidateVideoStream(
@@ -1076,11 +1132,12 @@ object StreamResolver {
             height = picked.height,
             mimeType = picked.mimeType,
             fallbackUrl = fallback,
+            heights = candidates.map { it.height }.filter { it > 0 }.distinct().sortedDescending(),
         )
     }
 
     suspend fun resolveVideoStream(videoId: String, maxHeight: Int): ResolvedVideoStream? =
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + TrackLog.about(videoId)) {
             init
             val cacheKey = "$videoId:$maxHeight"
             videoStreamCache[cacheKey]?.let { return@withContext it }
@@ -1128,12 +1185,17 @@ object StreamResolver {
                                 )
                             }
                         val candidates = (muxed + videoOnly)
-                            .filter { it.height >= 240 && it.url.isNotBlank() }
+                            .filter { it.height >= 240 && it.url.isNotBlank() && !isLiveUrl(it.url) }
                         if (candidates.isNotEmpty()) {
                             candidateVideoStreamsByVideoId[videoId] = candidates
+                            TrackLog.d(TAG, "NewPipe video candidates for $videoId: ${candidates.map { it.height }.distinct().sortedDescending()}")
+                        } else {
+                            TrackLog.w(TAG, "NewPipe found 0 progressive video candidates for $videoId (muxed=${muxed.size}, videoOnly=${videoOnly.size})")
                         }
                         selectVideoCandidate(candidates, maxHeight)
                     }
+                }.onFailure { err ->
+                    TrackLog.w(TAG, "NewPipe video extract attempt ${attempt + 1} failed for $videoId: ${err.message}")
                 }.getOrNull()
 
                 if (extracted != null) {

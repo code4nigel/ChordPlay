@@ -7762,11 +7762,11 @@ class PlaybackService : MediaLibraryService() {
                         local.forEach { songCache[it.videoId] = it }
                         resolved.addAll(local.map { it.toMediaItem() })
                     }
-                    songCache.containsKey(id) -> {
-                        resolved.add(songCache[id]!!.toMediaItem())
-                    }
                     item.localConfiguration != null -> {
                         resolved.add(item)
+                    }
+                    songCache.containsKey(id) -> {
+                        resolved.add(songCache[id]!!.toMediaItem())
                     }
                     item.requestMetadata.mediaUri != null -> {
                         val uri = item.requestMetadata.mediaUri!!
@@ -7956,6 +7956,7 @@ class PlaybackService : MediaLibraryService() {
                 title = title,
                 artist = InnertubeParser.artistFromSubtitle(subtitle),
                 thumbnailUrl = thumbnailUrl,
+                isVideo = isVideo,
             )
             songCache[vid] = song
             return song.toMediaItem()
@@ -7986,6 +7987,7 @@ class PlaybackService : MediaLibraryService() {
             title = title,
             artist = InnertubeParser.artistFromSubtitle(subtitle),
             thumbnailUrl = thumbnailUrl,
+            isVideo = isVideo,
         )
     }
 
