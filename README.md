@@ -66,26 +66,29 @@ ChordPlay is a modern, high-performance music client designed for listeners who 
     <tr>
       <td align="center" width="25%"><b>Synced Lyrics</b></td>
       <td align="center" width="25%"><b>Album &amp; Playlist View</b></td>
-      <td align="center" width="25%"><b>Car Mode</b></td>
-      <td align="center" width="25%"><b>Car Mode Lyrics</b></td>
+      <td align="center" width="25%"><b>Settings &amp; Customization</b></td>
+      <td align="center" width="25%"><b>Canvas Waveform Player</b></td>
     </tr>
     <tr>
       <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_LyricsUI.jpg" width="220" alt="Synced Lyrics UI" /></td>
       <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Album%26PlaylistView.jpg" width="220" alt="Album and Playlist View" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Carplay.jpg" width="220" alt="Car Mode UI" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_CarPlayLyricsUI.jpg" width="220" alt="Car Mode Lyrics UI" /></td>
-    </tr>
-    <tr>
-      <td align="center" width="25%"><b>Settings &amp; Customization</b></td>
-      <td align="center" width="25%"><b>Canvas Waveform Player</b></td>
-      <td align="center" width="25%"><b>Transport Controls</b></td>
-      <td align="center" width="25%"></td>
-    </tr>
-    <tr>
       <td valign="top"><img src="Images/UI%20demo%20v3/ChordPlay_settings.jpg" width="220" alt="Settings and Customization" /></td>
       <td valign="top"><img src="Images/UI%20demo%20v3/Screenshot_20261116_180633_ChordPlay.jpg" width="220" alt="Canvas Waveform Player" /></td>
-      <td valign="top"><img src="Images/UI%20demo%20v3/Screenshot_20261104_221825%20(2).jpg" width="220" alt="Morphing Transport Controls" /></td>
-      <td valign="top"></td>
+    </tr>
+  </table>
+</div>
+
+### Car Mode (Landscape)
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" width="50%"><b>Car Mode</b></td>
+      <td align="center" width="50%"><b>Car Mode Lyrics</b></td>
+    </tr>
+    <tr>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_Carplay.jpg" width="440" alt="Car Mode UI" /></td>
+      <td valign="top"><img src="Images/UI%20demo%20v3/Chordplay_CarPlayLyricsUI.jpg" width="440" alt="Car Mode Lyrics UI" /></td>
     </tr>
   </table>
 </div>
