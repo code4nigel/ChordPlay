@@ -292,6 +292,7 @@ class FloatingTabBarScrollConnection(
         }
 
         val scrollDelta = available.y
+        if (scrollDelta != 0f) com.music.bitchord.ui.components.GlassMotion.scroll.moved()
 
         // Reset accumulated scroll if changing direction
         if ((accumulatedScroll > 0 && scrollDelta < 0) || (accumulatedScroll < 0 && scrollDelta > 0)) {

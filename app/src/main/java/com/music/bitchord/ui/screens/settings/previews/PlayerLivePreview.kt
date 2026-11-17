@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
@@ -480,10 +479,10 @@ fun PlayerLivePreview(
                         modifier = Modifier.size(19.dp),
                     )
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        imageVector = BitChordIcons.PlaylistAdd,
                         contentDescription = null,
                         tint = subtextColor,
-                        modifier = Modifier.size(19.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -682,7 +681,7 @@ fun PlayerLivePreview(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Icon(
-                    imageVector = BitChordIcons.LyricsQuote,
+                    imageVector = BitChordIcons.LyricsQuoteMarks,
                     contentDescription = null,
                     tint = subtextColor,
                     modifier = Modifier.size(18.dp),

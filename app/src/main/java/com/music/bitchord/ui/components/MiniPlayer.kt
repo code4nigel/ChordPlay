@@ -34,9 +34,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +59,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -83,6 +87,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
+import kotlin.math.roundToLong
 import kotlin.math.sqrt
 
 /**
@@ -228,6 +233,13 @@ internal fun Modifier.miniPlayerGestures(
     enableSwipeToSkip: Boolean = true,
     onHorizontalDrag: ((Float) -> Unit)? = null,
     onHorizontalDragEnd: (() -> Unit)? = null,
+    durationMs: Long = 0L,
+    currentPositionMs: () -> Long = { 0L },
+    onScrubStart: (() -> Unit)? = null,
+    onScrubMove: ((Float) -> Unit)? = null,
+    onScrubSeek: ((Long) -> Unit)? = null,
+    onScrubEnd: ((Long) -> Unit)? = null,
+    onScrubCancel: (() -> Unit)? = null,
 ): Modifier {
     // Playback state updates can recompose the bar while a finger is down.
     // Keep the gesture coroutine alive through those updates while still
@@ -240,6 +252,13 @@ internal fun Modifier.miniPlayerGestures(
     val currentEnableSwipe by rememberUpdatedState(enableSwipeToSkip)
     val currentOnDrag by rememberUpdatedState(onHorizontalDrag)
     val currentOnDragEnd by rememberUpdatedState(onHorizontalDragEnd)
+    val currentDurationMs by rememberUpdatedState(durationMs)
+    val currentPosProvider by rememberUpdatedState(currentPositionMs)
+    val currentOnScrubStart by rememberUpdatedState(onScrubStart)
+    val currentOnScrubMove by rememberUpdatedState(onScrubMove)
+    val currentOnScrubSeek by rememberUpdatedState(onScrubSeek)
+    val currentOnScrubEnd by rememberUpdatedState(onScrubEnd)
+    val currentOnScrubCancel by rememberUpdatedState(onScrubCancel)
     val haptics = rememberHaptics()
     val view = LocalView.current
     val scope = rememberCoroutineScope()
@@ -251,28 +270,115 @@ internal fun Modifier.miniPlayerGestures(
         val trackThreshold = TRACK_SWIPE_THRESHOLD.toPx()
         val liftEase = PULL_LIFT_EASE.toPx()
         val maxVelocity = viewConfiguration.maximumFlingVelocity
+        val holdTimeoutMs = viewConfiguration.longPressTimeoutMillis.coerceAtLeast(350L)
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val pointer = down.id
-            // Up to the slop: which way this is heading, or nothing at all.
+            // Up to the slop or hold timeout: which way this is heading, scrub, or tap.
             var start: PointerInputChange? = null
             var vertical = false
-            while (start == null) {
-                val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
-                    ?: return@awaitEachGesture
-                // Lifted inside the slop is a tap, and the tap is the clickable's.
-                if (!change.pressed || change.isConsumed) return@awaitEachGesture
-                val moved = change.position - down.position
-                if (moved.getDistance() < viewConfiguration.touchSlop) continue
-                vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
-                // Downwards has nothing to do on the bar, and nor has a pull
-                // with no player to pull: left as they always were, a drag that
-                // ends inside the bar still counts as its tap.
-                if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
-                if (vertical && currentPull == null) return@awaitEachGesture
-                change.consume()
-                start = change
+            var enteredScrub = false
+            val canScrubNow = currentDurationMs > 0L && !currentLocked &&
+                (currentOnScrubEnd != null || currentOnScrubSeek != null)
+
+            if (canScrubNow) {
+                var aborted = false
+                val movedBeforeTimeout: PointerInputChange? = withTimeoutOrNull<PointerInputChange?>(holdTimeoutMs) {
+                    var found: PointerInputChange? = null
+                    while (found == null) {
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
+                        if (change == null || !change.pressed || change.isConsumed) {
+                            aborted = true
+                            break
+                        }
+                        val moved = change.position - down.position
+                        if (moved.getDistance() >= viewConfiguration.touchSlop) {
+                            found = change
+                        }
+                    }
+                    found
+                }
+                if (aborted) return@awaitEachGesture
+                if (movedBeforeTimeout != null) {
+                    val moved = movedBeforeTimeout.position - down.position
+                    vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
+                    if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
+                    if (vertical && currentPull == null) return@awaitEachGesture
+                    movedBeforeTimeout.consume()
+                    start = movedBeforeTimeout
+                } else {
+                    enteredScrub = true
+                }
+            } else {
+                while (start == null) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == pointer }
+                        ?: return@awaitEachGesture
+                    // Lifted inside the slop is a tap, and the tap is the clickable's.
+                    if (!change.pressed || change.isConsumed) return@awaitEachGesture
+                    val moved = change.position - down.position
+                    if (moved.getDistance() < viewConfiguration.touchSlop) continue
+                    vertical = moved.y < 0f && abs(moved.x) < -moved.y * PULL_BIAS
+                    // Downwards has nothing to do on the bar, and nor has a pull
+                    // with no player to pull: left as they always were, a drag that
+                    // ends inside the bar still counts as its tap.
+                    if (!vertical && abs(moved.x) < abs(moved.y)) return@awaitEachGesture
+                    if (vertical && currentPull == null) return@awaitEachGesture
+                    change.consume()
+                    start = change
+                }
             }
+
+            if (enteredScrub) {
+                val activeDuration = currentDurationMs.coerceAtLeast(1L)
+                val startFraction = (currentPosProvider().toFloat() / activeDuration.toFloat()).coerceIn(0f, 1f)
+                var currentFraction = startFraction
+                var totalDragX = 0f
+                var lastSeekNanos = 0L
+                var lastDispatchedMs = -1L
+
+                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                haptics.play(Haptic.Select)
+                currentOnScrubStart?.invoke()
+                currentOnScrubMove?.invoke(currentFraction)
+
+                var completed = false
+                try {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == pointer } ?: break
+                        change.consume()
+                        if (!change.pressed) {
+                            completed = true
+                            break
+                        }
+                        val deltaX = change.positionChange().x
+                        if (deltaX != 0f) {
+                            totalDragX += deltaX
+                            val widthPx = size.width.coerceAtLeast(1).toFloat()
+                            currentFraction = (startFraction + totalDragX / widthPx).coerceIn(0f, 1f)
+                            currentOnScrubMove?.invoke(currentFraction)
+
+                            val targetMs = (currentFraction * activeDuration).roundToLong().coerceIn(0L, activeDuration)
+                            val now = System.nanoTime()
+                            if (now - lastSeekNanos >= 100_000_000L && abs(targetMs - lastDispatchedMs) >= 250L) {
+                                lastSeekNanos = now
+                                lastDispatchedMs = targetMs
+                                currentOnScrubSeek?.invoke(targetMs)
+                            }
+                        }
+                    }
+                    if (completed) {
+                        val finalMs = (currentFraction * activeDuration).roundToLong().coerceIn(0L, activeDuration)
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                        haptics.play(Haptic.Tick)
+                        currentOnScrubEnd?.invoke(finalMs)
+                    }
+                } finally {
+                    if (!completed) currentOnScrubCancel?.invoke()
+                }
+                return@awaitEachGesture
+            }
+
             val slopped = start ?: return@awaitEachGesture
 
             if (!vertical) {
@@ -371,6 +477,51 @@ internal fun Modifier.playerDockArt(dock: PlayerDock?, corner: Dp): Modifier {
         .graphicsLayer { alpha = if (dock.coversMiniArt) 0f else 1f }
 }
 
+/**
+ * Reports where the mini player's pill stands so the player's panel grows out
+ * of it and shrinks back into it — see [PlayerDock.panelBounds]. Placed ahead
+ * of the pull lift on purpose, so it reports the pill at rest rather than the
+ * bar rising under the finger.
+ *
+ * Ported from Zenith (rezapranata089-bit/Zenith, GPL-3.0).
+ */
+@Composable
+internal fun Modifier.playerDockPill(dock: PlayerDock?): Modifier {
+    if (dock == null) return this
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    DisposableEffect(dock) {
+        onDispose { placed[0]?.let(dock::releaseMiniPill) }
+    }
+    return this
+        .onPlaced { coordinates ->
+            placed[0] = coordinates
+            dock.reportMiniPill(coordinates)
+        }
+        // The player's panel is standing where this pill is: it is one surface
+        // with it, so the pill stands aside rather than show under it.
+        .graphicsLayer { alpha = if (dock.panelShown) 0f else 1f }
+}
+
+/**
+ * The mini player's title and artist as the other end of the player's own
+ * credits — see [PlayerDock].
+ *
+ * Reports where the text is and how big its title is, so the full player's
+ * title can fly into the bar and land on it rather than beside it.
+ */
+@Composable
+internal fun Modifier.playerDockText(dock: PlayerDock?, titleSizePx: Float): Modifier {
+    if (dock == null) return this
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    DisposableEffect(dock) {
+        onDispose { placed[0]?.let(dock::releaseMiniText) }
+    }
+    return this.onPlaced { coordinates ->
+        placed[0] = coordinates
+        dock.reportMiniText(coordinates, titleSizePx)
+    }
+}
+
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -385,6 +536,7 @@ fun MiniPlayer(
     onExpand: () -> Unit,
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
+    onSeek: ((Long) -> Unit)? = null,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -400,6 +552,12 @@ fun MiniPlayer(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
+
+    var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
+    var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
+    val currentDurationMs by rememberUpdatedState(durationMs)
+    val currentPlaybackPosition by rememberUpdatedState(playbackPosition)
+    val currentOnSeek by rememberUpdatedState(onSeek)
 
     // Sample artwork accent color for dynamic perimeter progress glow
     val artworkPalette = rememberArtworkPalette(song.thumbnailUrl, artPx = ROW_ART_PX)
@@ -422,6 +580,7 @@ fun MiniPlayer(
         modifier = modifier
             .padding(horizontal = BAR_GUTTER)
             // Ahead of the surface, so a pull lifts the whole of it, frost and all.
+            .playerDockPill(dock)
             .miniPlayerGestures(
                 pull = pull,
                 onNext = {
@@ -451,6 +610,29 @@ fun MiniPlayer(
                         )
                     }
                 },
+                durationMs = durationMs,
+                currentPositionMs = { currentPlaybackPosition?.positionMs ?: 0L },
+                onScrubStart = {
+                    suppressExpandUntilNanos = Long.MAX_VALUE
+                    scrubFraction = if (currentDurationMs > 0L) {
+                        ((currentPlaybackPosition?.positionMs ?: 0L).toFloat() / currentDurationMs.toFloat()).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                },
+                onScrubMove = { fraction -> scrubFraction = fraction },
+                onScrubSeek = { ms -> currentOnSeek?.invoke(ms) },
+                onScrubEnd = { ms ->
+                    currentOnSeek?.invoke(ms)
+                    scrubFraction = null
+                    suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
+                },
+                onScrubCancel = {
+                    if (scrubFraction != null) {
+                        scrubFraction = null
+                        suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
+                    }
+                },
             )
             .clip(shape)
             .then(
@@ -467,8 +649,9 @@ fun MiniPlayer(
             .drawWithContent {
                 drawContent()
                 if (durationMs > 0L) {
+                    val activeScrub = scrubFraction
                     val currentMs = playbackPosition?.positionMs ?: 0L
-                    val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    val progress = activeScrub ?: (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     if (progress > 0.0005f) {
                         val strokeInset = 1.dp.toPx()
                         val h = size.height - 2 * strokeInset
@@ -486,6 +669,7 @@ fun MiniPlayer(
                         pathMeasure.setPath(fullBorderPath, forceClosed = true)
                         val totalLen = pathMeasure.length
                         val segmentLen = progress * totalLen
+                        val scrubbing = activeScrub != null
 
                         progressSegmentPath.reset()
                         if (segmentLen > 0f) {
@@ -493,20 +677,20 @@ fun MiniPlayer(
                             // 1. Subtle ambient outer glow
                             drawPath(
                                 path = progressSegmentPath,
-                                color = glowColor.copy(alpha = 0.35f),
-                                style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round),
+                                color = glowColor.copy(alpha = if (scrubbing) 0.50f else 0.35f),
+                                style = Stroke(width = (if (scrubbing) 5.dp else 4.dp).toPx(), cap = StrokeCap.Round),
                             )
                             // 2. Focused vibrant glow
                             drawPath(
                                 path = progressSegmentPath,
-                                color = glowColor.copy(alpha = 0.75f),
-                                style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round),
+                                color = glowColor.copy(alpha = if (scrubbing) 0.90f else 0.75f),
+                                style = Stroke(width = (if (scrubbing) 2.8.dp else 2.2.dp).toPx(), cap = StrokeCap.Round),
                             )
                             // 3. Crisp luminous core
                             drawPath(
                                 path = progressSegmentPath,
-                                color = Color.White.copy(alpha = 0.90f),
-                                style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
+                                color = Color.White.copy(alpha = if (scrubbing) 1f else 0.90f),
+                                style = Stroke(width = (if (scrubbing) 1.5.dp else 1.2.dp).toPx(), cap = StrokeCap.Round),
                             )
                         }
                     }
@@ -515,7 +699,11 @@ fun MiniPlayer(
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
-            .clickable(onClick = onExpand),
+            .clickable {
+                if (scrubFraction == null && System.nanoTime() >= suppressExpandUntilNanos) {
+                    onExpand()
+                }
+            },
     ) {
         Row(
             modifier = Modifier
@@ -540,25 +728,40 @@ fun MiniPlayer(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.width(10.dp))
+            val titleStyle = MaterialTheme.typography.titleMedium
+            val titlePx = with(LocalDensity.current) { titleStyle.fontSize.toPx() }
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .graphicsLayer {
                         translationX = horizontalDragOffset.value * 0.35f
-                    },
+                    }
+                    .playerDockText(dock, titlePx),
             ) {
                 ExplicitSongTitle(
                     song = song,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = titleStyle,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val activeScrub = scrubFraction
+                if (activeScrub != null && durationMs > 0L) {
+                    val previewMs = (activeScrub * durationMs).roundToLong().coerceIn(0L, durationMs)
+                    Text(
+                        text = "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(durationMs)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = glowColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Text(
+                        text = song.artist,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             if (isLoading) {
                 Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
@@ -624,6 +827,19 @@ internal fun MiniPlayerNextGlyph(tint: Color) {
             .size(NEXT_GLYPH_SIZE)
             .graphicsLayer { scaleY = 0.85f },
     )
+}
+
+internal fun formatMiniScrubTime(ms: Long): String {
+    val totalSeconds = ms.coerceAtLeast(0L) / 1000L
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    val secStr = seconds.toString().padStart(2, '0')
+    return if (hours > 0L) {
+        "$hours:${minutes.toString().padStart(2, '0')}:$secStr"
+    } else {
+        "$minutes:$secStr"
+    }
 }
 
 private val NEXT_GLYPH_SIZE = 25.dp

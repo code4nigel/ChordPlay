@@ -5158,10 +5158,11 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val range = LastPlayed.window(player.mediaItemCount, player.currentMediaItemIndex)
+        if (range.isEmpty()) return
         persistedQueueStart = range.first
         LastPlayed.saveQueueImmediately(
-            songs = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).toSong() },
-            index = player.currentMediaItemIndex,
+            songs = range.map { player.getMediaItemAt(it).toSong() },
+            index = player.currentMediaItemIndex - range.first,
             positionMs = player.currentPosition,
         )
     }

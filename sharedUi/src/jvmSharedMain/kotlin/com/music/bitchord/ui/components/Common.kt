@@ -22,9 +22,8 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.PlaylistRemove
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.data.settings.SongSwipeAction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -484,13 +483,13 @@ private fun SwipeActionLabel(action: SongSwipeAction) {
         return
     }
     val icon = when (action) {
-        SongSwipeAction.PLAY_NEXT -> Icons.Rounded.PlaylistPlay
-        SongSwipeAction.ADD_TO_QUEUE -> Icons.Rounded.PlaylistAdd
+        SongSwipeAction.PLAY_NEXT -> BitChordIcons.PlayNext
+        SongSwipeAction.ADD_TO_QUEUE -> BitChordIcons.AddToQueue
         SongSwipeAction.TOGGLE_LIKE -> Icons.Rounded.Favorite
         SongSwipeAction.DOWNLOAD -> Icons.Rounded.Download
         SongSwipeAction.REMOVE_FROM_PLAYLIST -> Icons.Rounded.PlaylistRemove
         SongSwipeAction.OPEN_MENU -> Icons.Rounded.MoreVert
-        SongSwipeAction.NONE -> Icons.Rounded.PlaylistAdd
+        SongSwipeAction.NONE -> BitChordIcons.PlaylistAdd
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(

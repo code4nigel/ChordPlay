@@ -42,9 +42,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +61,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -78,6 +82,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -113,6 +118,7 @@ fun GlassNavBar(
     onExpand: () -> Unit,
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
+    onSeek: ((Long) -> Unit)? = null,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -167,6 +173,7 @@ fun GlassNavBar(
                     contentColor = contentColor,
                     playbackPosition = playbackPosition,
                     durationMs = durationMs,
+                    onSeek = onSeek,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -189,6 +196,7 @@ fun GlassNavBar(
                     contentColor = contentColor,
                     playbackPosition = playbackPosition,
                     durationMs = durationMs,
+                    onSeek = onSeek,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -318,6 +326,7 @@ private fun GlassNowPlaying(
     pull: MiniPlayerPull?,
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
+    onSeek: ((Long) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -325,6 +334,12 @@ private fun GlassNowPlaying(
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+
+    var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
+    var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
+    val currentDurationMs by rememberUpdatedState(durationMs)
+    val currentPlaybackPosition by rememberUpdatedState(playbackPosition)
+    val currentOnSeek by rememberUpdatedState(onSeek)
 
     val pathMeasure = remember { PathMeasure() }
     val fullBorderPath = remember { Path() }
@@ -356,6 +371,8 @@ private fun GlassNowPlaying(
         // in, and a pull started in the strip above or below it went nowhere —
         // on a bar only 45dp tall to begin with.
         modifier = Modifier
+            // Ahead of the pull lift, so the dock grows from the pill at rest.
+            .playerDockPill(dock)
             // Outside the press scale, which it lifts along with everything else.
             .miniPlayerGestures(
                 pull = pull,
@@ -386,17 +403,42 @@ private fun GlassNowPlaying(
                         )
                     }
                 },
+                durationMs = durationMs,
+                currentPositionMs = { currentPlaybackPosition?.positionMs ?: 0L },
+                onScrubStart = {
+                    suppressExpandUntilNanos = Long.MAX_VALUE
+                    scrubFraction = if (currentDurationMs > 0L) {
+                        ((currentPlaybackPosition?.positionMs ?: 0L).toFloat() / currentDurationMs.toFloat()).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                },
+                onScrubMove = { fraction -> scrubFraction = fraction },
+                onScrubSeek = { ms -> currentOnSeek?.invoke(ms) },
+                onScrubEnd = { ms ->
+                    currentOnSeek?.invoke(ms)
+                    scrubFraction = null
+                    suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
+                },
+                onScrubCancel = {
+                    if (scrubFraction != null) {
+                        scrubFraction = null
+                        suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
+                    }
+                },
             )
             .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
+                val factor = if (dock?.panelShown == true) 1f else pressScale
+                scaleX = factor
+                scaleY = factor
             }
             .then(modifier)
             .drawWithContent {
                 drawContent()
                 if (durationMs > 0L) {
+                    val activeScrub = scrubFraction
                     val currentMs = playbackPosition?.positionMs ?: 0L
-                    val progress = (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    val progress = activeScrub ?: (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
                     if (progress > 0.0005f) {
                         val strokeInset = 1.dp.toPx()
                         val h = size.height - 2 * strokeInset
@@ -414,19 +456,20 @@ private fun GlassNowPlaying(
                         pathMeasure.setPath(fullBorderPath, forceClosed = true)
                         val totalLen = pathMeasure.length
                         val segmentLen = progress * totalLen
+                        val scrubbing = activeScrub != null
 
                         progressSegmentPath.reset()
                         if (segmentLen > 0f) {
                             pathMeasure.getSegment(0f, segmentLen, progressSegmentPath, startWithMoveTo = true)
                             drawPath(
                                 path = progressSegmentPath,
-                                color = contentColor.copy(alpha = 0.35f),
-                                style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round),
+                                color = contentColor.copy(alpha = if (scrubbing) 0.50f else 0.35f),
+                                style = Stroke(width = (if (scrubbing) 4.5.dp else 3.5.dp).toPx(), cap = StrokeCap.Round),
                             )
                             drawPath(
                                 path = progressSegmentPath,
-                                color = contentColor.copy(alpha = 0.85f),
-                                style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round),
+                                color = contentColor.copy(alpha = if (scrubbing) 1f else 0.85f),
+                                style = Stroke(width = (if (scrubbing) 2.0.dp else 1.5.dp).toPx(), cap = StrokeCap.Round),
                             )
                         }
                     }
@@ -435,7 +478,11 @@ private fun GlassNowPlaying(
             .clickable(
                 interactionSource = pressSource,
                 indication = null,
-                onClick = onExpand,
+                onClick = {
+                    if (scrubFraction == null && System.nanoTime() >= suppressExpandUntilNanos) {
+                        onExpand()
+                    }
+                },
             ),
     ) {
         Row(
@@ -462,9 +509,16 @@ private fun GlassNowPlaying(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             Spacer(Modifier.width(if (isInline) 8.dp else 10.dp))
+            val activeScrub = scrubFraction
+            val scrubTimeText = if (activeScrub != null && durationMs > 0L) {
+                val previewMs = (activeScrub * durationMs).roundToLong().coerceIn(0L, durationMs)
+                "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(durationMs)}"
+            } else {
+                null
+            }
             if (isInline) {
                 Text(
-                    text = song.title,
+                    text = scrubTimeText ?: song.title,
                     // The same size the expanded row sets it in. Collapsing the
                     // bar drops the artist line and the skip button, not the
                     // title's weight in the row — a title that shrank as well
@@ -485,22 +539,25 @@ private fun GlassNowPlaying(
                     modifier = Modifier.weight(1f),
                 )
             } else {
+                val titleStyle = MaterialTheme.typography.titleMedium
+                val titlePx = with(LocalDensity.current) { titleStyle.fontSize.toPx() }
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
                             translationX = horizontalDragOffset.value * 0.35f
-                        },
+                        }
+                        .playerDockText(dock, titlePx),
                 ) {
                     ExplicitSongTitle(
                         song = song,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = titleStyle,
                         color = contentColor,
                     )
                     Text(
-                        text = song.artist,
+                        text = scrubTimeText ?: song.artist,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.7f),
+                        color = if (scrubTimeText != null) contentColor else contentColor.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

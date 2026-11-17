@@ -251,4 +251,18 @@
     <string name="shelf_new_albums_singles">New albums &amp; singles</string>
     <string name="shelf_top_songs">Top songs</string>
     <string name="shelf_top_picks_desc">Artist stations, mixes &amp; spotlight cards</string>
+
+    <!-- Radio & ChordPlay Melody -->
+    <string name="radio">Radio</string>
+    <string name="explore_hint">Moods and genres</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">Endless music picked for you</string>
+    <string name="radio_recent_seeds">Recently played</string>
+    <string name="radio_start_station">Start a station</string>
+    <string name="radio_start_hint">Search for an artist, song or album</string>
+    <string name="radio_stations">Stations for You</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Endless personal mix</string>
+    <string name="replay">Replay</string>
 </resources>

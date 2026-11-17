@@ -35,7 +35,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DragHandle
@@ -809,7 +808,7 @@ private fun QueueSwipeBackground(
     ) {
         if (direction == SwipeToDismissBoxValue.StartToEnd) {
             Icon(
-                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                imageVector = BitChordIcons.PlayNext,
                 contentDescription = "Play Next",
                 tint = Color.White,
                 modifier = Modifier.size(24.dp),

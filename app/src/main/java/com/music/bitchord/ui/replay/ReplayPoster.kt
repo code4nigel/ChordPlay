@@ -757,6 +757,7 @@ internal suspend fun loadBitmap(context: Context, url: String): Bitmap? = runCat
         // Palette needs pixel access, and a hardware bitmap cannot be drawn
         // into a software canvas at all — which is the whole of this file.
         .allowHardware(false)
+        .size(CARD_ART_PX)
         .build()
     (SingletonImageLoader.get(context).execute(request) as? SuccessResult)?.image?.toBitmap()
 }.getOrNull()

@@ -6,12 +6,16 @@ import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -35,6 +39,7 @@ import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -371,6 +376,138 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
         }
     }
     return state
+}
+
+/**
+ * Per-field snapshot view over [PlayerState]. A composable that reads
+ * [song] or [isPlaying] subscribes only to that derived field instead of
+ * recomposing on every unrelated [PlayerState] copy (buffering, duration, queue).
+ */
+@Stable
+class PlayerReads internal constructor(
+    private val source: State<PlayerState>,
+    /** The playhead. Its identity never changes — see [PlaybackPosition]. */
+    val position: PlaybackPosition,
+) {
+    private fun <T> derived(read: (PlayerState) -> T): State<T> =
+        derivedStateOf(structuralEqualityPolicy()) { read(source.value) }
+
+    val snapshot: PlayerState get() = source.value
+
+    val song: Song? by derived { it.song }
+    val isPlaying: Boolean by derived { it.isPlaying }
+    val durationMs: Long by derived { it.durationMs }
+    val error: String? by derived { it.error }
+    val isLoading: Boolean by derived { it.isLoading }
+    val repeatMode: Int by derived { it.repeatMode }
+    val queue: List<Song> by derived { it.queue }
+    val queueIndex: Int by derived { it.queueIndex }
+    val hasPrevious: Boolean by derived { it.hasPrevious }
+    val hasNext: Boolean by derived { it.hasNext }
+    val isQualityUpgraded: Boolean by derived { it.isQualityUpgraded }
+}
+
+/**
+ * Mirrors the controller into Compose state, polling position while playing,
+ * and hands it out as [PlayerReads].
+ */
+@Composable
+fun rememberPlayerReads(controller: MediaController?): PlayerReads {
+    val position = remember { PlaybackPosition() }
+    val stateHolder = remember { mutableStateOf(PlayerState(position = position)) }
+    var state by stateHolder
+    val reads = remember { PlayerReads(stateHolder, position) }
+
+    DisposableEffect(controller) {
+        val player = controller ?: return@DisposableEffect onDispose {}
+        var queueSnapshot = emptyList<Song>()
+        var queueChanged = false
+
+        fun sync(
+            error: String? = null,
+            rebuildQueue: Boolean = false,
+            refreshCurrentQueueItem: Boolean = false,
+        ) {
+            val item = player.currentMediaItem
+            if (rebuildQueue) {
+                queueSnapshot = (0 until player.mediaItemCount)
+                    .map { player.getMediaItemAt(it).toSong() }
+            } else if (refreshCurrentQueueItem && item != null) {
+                val index = player.currentMediaItemIndex
+                val refreshed = item.toSong()
+                if (index in queueSnapshot.indices && queueSnapshot[index] != refreshed) {
+                    queueSnapshot = queueSnapshot.toMutableList().also { it[index] = refreshed }
+                }
+            }
+            position.report(player.currentPosition.coerceAtLeast(0L))
+            state = state.copy(
+                song = item?.toSong(),
+                isPlaying = player.isPlaying,
+                durationMs = player.duration.coerceAtLeast(0L),
+                error = error,
+                isLoading = player.playbackState == Player.STATE_BUFFERING,
+                repeatMode = player.repeatMode,
+                queue = queueSnapshot,
+                queueIndex = player.currentMediaItemIndex,
+                hasPrevious = player.hasPreviousMediaItem(),
+                hasNext = player.hasNextMediaItem(),
+                isQualityUpgraded = item?.mediaMetadata?.extras
+                    ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
+            )
+        }
+
+        val listener = object : Player.Listener {
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED ||
+                    timeline.windowCount != queueSnapshot.size
+                ) {
+                    queueChanged = true
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                position.seeks++
+            }
+
+            override fun onEvents(p: Player, events: Player.Events) = sync(
+                error = state.error,
+                rebuildQueue = queueChanged.also { queueChanged = false },
+                refreshCurrentQueueItem = events.contains(Player.EVENT_MEDIA_METADATA_CHANGED),
+            )
+
+            override fun onPlayerErrorChanged(error: androidx.media3.common.PlaybackException?) {
+                sync(error?.let { "Playback failed: ${it.errorCodeName}" })
+            }
+        }
+        player.addListener(listener)
+        sync(rebuildQueue = true)
+        onDispose { player.removeListener(listener) }
+    }
+
+    val foreground = rememberIsForeground()
+    LaunchedEffect(controller, foreground) {
+        if (controller == null || !foreground) return@LaunchedEffect
+        pollWhilePlaying(isPlaying = { state.isPlaying }, intervalMs = 500) {
+            position.report(controller.currentPosition.coerceAtLeast(0L))
+            val duration = controller.duration.coerceAtLeast(0L)
+            if (duration != state.durationMs) state = state.copy(durationMs = duration)
+        }
+    }
+    return reads
+}
+
+internal suspend fun pollWhilePlaying(isPlaying: () -> Boolean, intervalMs: Long, tick: () -> Unit) {
+    snapshotFlow(isPlaying).collectLatest { playing ->
+        if (!playing) return@collectLatest
+        while (true) {
+            tick()
+            delay(intervalMs)
+        }
+    }
 }
 
 /**

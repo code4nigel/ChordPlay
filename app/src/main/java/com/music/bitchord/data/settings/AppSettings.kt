@@ -20,6 +20,7 @@ import com.music.bitchord.ui.player.LyricsFontChoice
 import com.music.bitchord.ui.player.LyricsSizeScale
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.player.LyricsWeightChoice
+import com.music.bitchord.data.model.HomeShelfSlot
 import com.music.bitchord.data.model.ShelfItem
 import org.json.JSONArray
 import org.json.JSONObject
@@ -533,6 +534,9 @@ object AppSettings {
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
 
+    /** Live backdrop blur behind animated artwork clips. Opt-in because continuous blur costs GPU work. */
+    val liveBlur = MutableStateFlow(false)
+
     /** Navigation dock style. Defaults to [DockStyle.ADAPTIVE]. */
     val dockStyle = MutableStateFlow(DockStyle.ADAPTIVE)
     val liquidGlass = MutableStateFlow(false)
@@ -720,8 +724,16 @@ object AppSettings {
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
     val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
     val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
-    val homeShelfOrder = MutableStateFlow<List<HomeShelfKey>>(HomeShelfKey.DEFAULT_ORDER)
-    val disabledHomeShelves = MutableStateFlow<Set<HomeShelfKey>>(emptySet())
+    /** Saved Home section order by real feed title or [HomeShelfSlot] token; empty means feed default. */
+    val homeShelfOrder = MutableStateFlow<List<String>>(emptyList())
+    /** Home sections hidden by title or [HomeShelfSlot] token; kept in order list so they can be re-enabled. */
+    val hiddenHomeShelves = MutableStateFlow<Set<String>>(emptySet())
+    /** Whether the ChordPlay Melody entry card is shown on Home. */
+    val homeMelodyVisible = MutableStateFlow(true)
+    /** Whether the Replay entry card is shown on Home. */
+    val homeReplayVisible = MutableStateFlow(true)
+    /** Whether the Replay stat cards are shown at the top of Library. */
+    val libraryReplayVisible = MutableStateFlow(true)
 
     /**
      * Each album/playlist page's track-list order, keyed by browse id —
@@ -1047,6 +1059,7 @@ object AppSettings {
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, true)
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
+        liveBlur.value = prefs.getBoolean(KEY_LIVE_BLUR, false)
 
         playerInterfaceStyle.value = runCatching {
             PlayerInterfaceStyle.valueOf(prefs.getString(KEY_PLAYER_INTERFACE_STYLE, null) ?: PlayerInterfaceStyle.WAVEPLAY.name)
@@ -1167,23 +1180,31 @@ object AppSettings {
             ?.let { s -> AppFontChoice.entries.firstOrNull { it.name == s } } ?: AppFontChoice.APPLE_SF_PRO
         videoQuality.value = prefs.getString("video_quality", null)
             ?.let { s -> VideoQuality.entries.firstOrNull { it.name == s } } ?: VideoQuality.Q_720P
-        val savedHomeOrder = prefs.getString("home_shelf_order", null)
-        if (savedHomeOrder != null) {
-            val parsed = savedHomeOrder.split(",")
-                .mapNotNull { name -> HomeShelfKey.entries.firstOrNull { it.name == name.trim() } }
-            val missing = HomeShelfKey.entries.filter { it !in parsed }
-            homeShelfOrder.value = parsed + missing
+        val savedTitleOrder = prefs.getString(KEY_HOME_SHELF_ORDER, null)
+        homeShelfOrder.value = if (savedTitleOrder.isNullOrEmpty()) {
+            emptyList()
         } else {
-            homeShelfOrder.value = HomeShelfKey.DEFAULT_ORDER
+            savedTitleOrder.split("\u001F").map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         }
-        val savedDisabledShelves = prefs.getStringSet("disabled_home_shelves", null)
-        if (savedDisabledShelves != null) {
-            disabledHomeShelves.value = savedDisabledShelves
-                .mapNotNull { name -> HomeShelfKey.entries.firstOrNull { it.name == name } }
-                .toSet()
+        val savedHiddenTitles = prefs.getStringSet(KEY_HIDDEN_HOME_SHELVES, null)
+        val resolvedHidden = if (savedHiddenTitles != null) {
+            savedHiddenTitles.toSet()
         } else {
-            disabledHomeShelves.value = emptySet()
+            // Preserve Speed Dial hide preference from earlier enum-based builds without
+            // pulling coarse HomeShelfKey enum names into title-based ordering.
+            val legacyDisabled = prefs.getStringSet("disabled_home_shelves", null).orEmpty()
+            if (HomeShelfKey.SPEED_DIAL.name in legacyDisabled) {
+                setOf(HomeShelfSlot.SPEED_DIAL)
+            } else {
+                emptySet()
+            }
         }
+        hiddenHomeShelves.value = resolvedHidden
+        homeMelodyVisible.value = prefs.getBoolean(KEY_HOME_MELODY_VISIBLE, true) &&
+            HomeShelfSlot.MELODY !in resolvedHidden
+        homeReplayVisible.value = prefs.getBoolean(KEY_HOME_REPLAY_VISIBLE, true) &&
+            HomeShelfSlot.REPLAY !in resolvedHidden
+        libraryReplayVisible.value = prefs.getBoolean(KEY_LIBRARY_REPLAY_VISIBLE, true)
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
         webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
@@ -1691,26 +1712,34 @@ object AppSettings {
 
     fun setDockStyle(value: DockStyle) {
         dockStyle.value = value
-        prefs.edit().putString(KEY_DOCK_STYLE, value.name).apply()
-        if (value == DockStyle.LIQUID) {
-            liquidGlass.value = true
-            prefs.edit().putBoolean(KEY_LIQUID_GLASS, true).apply()
-        } else {
+        val editor = prefs.edit().putString(KEY_DOCK_STYLE, value.name)
+        if (value != DockStyle.LIQUID) {
+            editor.putString(KEY_PREVIOUS_DOCK_STYLE, value.name)
             liquidGlass.value = false
-            prefs.edit().putBoolean(KEY_LIQUID_GLASS, false).apply()
+            editor.putBoolean(KEY_LIQUID_GLASS, false)
+        } else {
+            liquidGlass.value = true
+            editor.putBoolean(KEY_LIQUID_GLASS, true)
         }
+        editor.apply()
     }
 
     fun setLiquidGlass(value: Boolean) {
         liquidGlass.value = value
-        prefs.edit().putBoolean(KEY_LIQUID_GLASS, value).apply()
+        val editor = prefs.edit().putBoolean(KEY_LIQUID_GLASS, value)
         if (value && dockStyle.value != DockStyle.LIQUID) {
+            editor.putString(KEY_PREVIOUS_DOCK_STYLE, dockStyle.value.name)
             dockStyle.value = DockStyle.LIQUID
-            prefs.edit().putString(KEY_DOCK_STYLE, DockStyle.LIQUID.name).apply()
+            editor.putString(KEY_DOCK_STYLE, DockStyle.LIQUID.name)
         } else if (!value && dockStyle.value == DockStyle.LIQUID) {
-            dockStyle.value = DockStyle.NORMAL
-            prefs.edit().putString(KEY_DOCK_STYLE, DockStyle.NORMAL.name).apply()
+            val restored = prefs.getString(KEY_PREVIOUS_DOCK_STYLE, null)
+                ?.let { runCatching { DockStyle.valueOf(it) }.getOrNull() }
+                ?.takeIf { it != DockStyle.LIQUID }
+                ?: DockStyle.ADAPTIVE
+            dockStyle.value = restored
+            editor.putString(KEY_DOCK_STYLE, restored.name)
         }
+        editor.apply()
     }
 
     fun setLiquidGlassIntensity(value: Float) {
@@ -1895,6 +1924,11 @@ object AppSettings {
     fun setLegacyMeshGradient(value: Boolean) {
         legacyMeshGradient.value = value
         prefs.edit().putBoolean(KEY_LEGACY_MESH_GRADIENT, value).apply()
+    }
+
+    fun setLiveBlur(value: Boolean) {
+        liveBlur.value = value
+        prefs.edit().putBoolean(KEY_LIVE_BLUR, value).apply()
     }
 
 
@@ -2206,35 +2240,82 @@ object AppSettings {
         prefs.edit().putString(KEY_DOWNLOADED_MUSIC_SORT, value.name).apply()
     }
 
-    fun moveHomeShelf(key: HomeShelfKey, delta: Int) {
-        val current = homeShelfOrder.value.toMutableList()
-        val index = current.indexOf(key)
-        if (index == -1) return
-        val newIndex = (index + delta).coerceIn(0, current.lastIndex)
-        if (newIndex == index) return
-        current.removeAt(index)
-        current.add(newIndex, key)
-        homeShelfOrder.value = current
-        prefs.edit().putString("home_shelf_order", current.joinToString(",") { it.name }).apply()
+    fun setHomeShelfOrder(ids: List<String>) {
+        val clean = ids.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        homeShelfOrder.value = clean
+        prefs.edit().putString(KEY_HOME_SHELF_ORDER, clean.joinToString("\u001F")).apply()
     }
 
-    fun setHomeShelfEnabled(key: HomeShelfKey, enabled: Boolean) {
-        val current = disabledHomeShelves.value.toMutableSet()
-        if (enabled) {
-            current.remove(key)
-        } else {
-            current.add(key)
+    fun setHomeShelfHidden(id: String, hidden: Boolean) {
+        val current = hiddenHomeShelves.value.toMutableSet()
+        if (hidden) current.add(id) else current.remove(id)
+        hiddenHomeShelves.value = current
+        val editor = prefs.edit().putStringSet(KEY_HIDDEN_HOME_SHELVES, current)
+        when (id) {
+            HomeShelfSlot.MELODY -> {
+                homeMelodyVisible.value = !hidden
+                editor.putBoolean(KEY_HOME_MELODY_VISIBLE, !hidden)
+            }
+            HomeShelfSlot.REPLAY -> {
+                homeReplayVisible.value = !hidden
+                editor.putBoolean(KEY_HOME_REPLAY_VISIBLE, !hidden)
+            }
         }
-        disabledHomeShelves.value = current
-        prefs.edit().putStringSet("disabled_home_shelves", current.map { it.name }.toSet()).apply()
+        editor.apply()
+    }
+
+    fun setHomeMelodyVisible(visible: Boolean) {
+        homeMelodyVisible.value = visible
+        val currentHidden = hiddenHomeShelves.value.toMutableSet()
+        if (visible) currentHidden.remove(HomeShelfSlot.MELODY) else currentHidden.add(HomeShelfSlot.MELODY)
+        hiddenHomeShelves.value = currentHidden
+        prefs.edit()
+            .putBoolean(KEY_HOME_MELODY_VISIBLE, visible)
+            .putStringSet(KEY_HIDDEN_HOME_SHELVES, currentHidden)
+            .apply()
+    }
+
+    fun setHomeReplayVisible(visible: Boolean) {
+        homeReplayVisible.value = visible
+        val currentHidden = hiddenHomeShelves.value.toMutableSet()
+        if (visible) currentHidden.remove(HomeShelfSlot.REPLAY) else currentHidden.add(HomeShelfSlot.REPLAY)
+        hiddenHomeShelves.value = currentHidden
+        prefs.edit()
+            .putBoolean(KEY_HOME_REPLAY_VISIBLE, visible)
+            .putStringSet(KEY_HIDDEN_HOME_SHELVES, currentHidden)
+            .apply()
+    }
+
+    fun setLibraryReplayVisible(visible: Boolean) {
+        libraryReplayVisible.value = visible
+        prefs.edit().putBoolean(KEY_LIBRARY_REPLAY_VISIBLE, visible).apply()
+    }
+
+    fun showAllHomeShelves() {
+        hiddenHomeShelves.value = emptySet()
+        homeMelodyVisible.value = true
+        homeReplayVisible.value = true
+        prefs.edit()
+            .putStringSet(KEY_HIDDEN_HOME_SHELVES, emptySet())
+            .putBoolean(KEY_HOME_MELODY_VISIBLE, true)
+            .putBoolean(KEY_HOME_REPLAY_VISIBLE, true)
+            .apply()
     }
 
     fun resetHomeShelves() {
-        homeShelfOrder.value = HomeShelfKey.DEFAULT_ORDER
-        disabledHomeShelves.value = emptySet()
+        homeShelfOrder.value = emptyList()
+        hiddenHomeShelves.value = emptySet()
+        homeMelodyVisible.value = true
+        homeReplayVisible.value = true
+        libraryReplayVisible.value = true
         prefs.edit()
+            .remove(KEY_HOME_SHELF_ORDER)
+            .remove(KEY_HIDDEN_HOME_SHELVES)
             .remove("home_shelf_order")
             .remove("disabled_home_shelves")
+            .putBoolean(KEY_HOME_MELODY_VISIBLE, true)
+            .putBoolean(KEY_HOME_REPLAY_VISIBLE, true)
+            .putBoolean(KEY_LIBRARY_REPLAY_VISIBLE, true)
             .apply()
     }
 
@@ -2682,6 +2763,7 @@ object AppSettings {
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_DOCK_STYLE = "dock_style"
+    private const val KEY_PREVIOUS_DOCK_STYLE = "previous_non_liquid_dock_style"
     private const val KEY_LIQUID_GLASS_INTENSITY = "liquid_glass_intensity"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
@@ -2692,6 +2774,7 @@ object AppSettings {
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
+    private const val KEY_LIVE_BLUR = "live_blur"
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"
     private const val KEY_PLAYER_INTERFACE_STYLE = "player_interface_style"
     private const val KEY_FULLSCREEN_ARTWORK_LYRICS_STYLE = "fullscreen_artwork_lyrics_style"
@@ -2722,6 +2805,11 @@ object AppSettings {
     private const val KEY_LIBRARY_SORT = "library_sort"
     private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
     private const val KEY_SPEED_DIAL_LAYOUT_MODE = "speed_dial_layout_mode"
+    private const val KEY_HOME_SHELF_ORDER = "home_shelf_title_order"
+    private const val KEY_HIDDEN_HOME_SHELVES = "hidden_home_shelf_titles"
+    private const val KEY_HOME_MELODY_VISIBLE = "home_melody_visible"
+    private const val KEY_HOME_REPLAY_VISIBLE = "home_replay_visible"
+    private const val KEY_LIBRARY_REPLAY_VISIBLE = "library_replay_visible"
     private const val KEY_DETAIL_SONG_SORTS = "detail_song_sorts"
     private const val KEY_LOCAL_MUSIC_VIEW_TYPE = "local_music_view_type"
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"

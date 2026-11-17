@@ -50,6 +50,38 @@ class LayerBackdrop internal constructor(
 
     internal var layerCoordinates: LayoutCoordinates? by mutableStateOf(null)
 
+    /**
+     * Changes after the source layer is recorded. Samplers can read this plain
+     * field during drawing without creating a snapshot invalidation loop.
+     * Their recorded layers reference the source RenderNode, so content updates
+     * appear without re-recording each sampler.
+     */
+    internal var contentVersion: Int = 0
+        private set
+
+    /** Called by the recording node after a successful record. */
+    internal fun contentRecorded() {
+        if (contentVersion == 0) geometryChanged()
+        contentVersion++
+    }
+
+    /**
+     * Changes when a sampler's source geometry changes, so its layer must be
+     * recorded again. Content redraws update the referenced RenderNode directly.
+     */
+    internal var geometryVersion: Int = 0
+        private set
+
+    internal fun geometryChanged() {
+        geometryVersion++
+    }
+
+    /**
+     * True once the source has been recorded at least once. Freezing before that would
+     * leave sampling surfaces replaying an empty layer.
+     */
+    internal val hasRecording: Boolean get() = contentVersion > 0
+
     private var inverseLayerScope: InverseLayerScope? = null
 
     override fun DrawScope.drawBackdrop(
@@ -67,7 +99,7 @@ class LayerBackdrop internal constructor(
                 try {
                     layerCoordinates.localPositionOf(coordinates)
                 } catch (_: Exception) {
-                    // TODO: outer transformations lead to wrong position calculation
+                    // TODO: Account for outer transforms in this fallback calculation.
                     coordinates.positionInWindow() - layerCoordinates.positionInWindow()
                 }
             translate(-offset.x, -offset.y)

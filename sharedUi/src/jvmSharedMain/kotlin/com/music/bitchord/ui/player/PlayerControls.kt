@@ -581,13 +581,18 @@ internal fun PlayerActionRow(
             colors.map { it.luminance() }.average().toFloat()
         } ?: 0f
         val isDarkBg = avgLuminance < 0.40f
+        val queueIcon = playerQueueIcon(
+            repeatMode = repeatMode,
+            shuffleEnabled = shuffleEnabled,
+            autoplayEnabled = autoplayEnabled,
+        )
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = edgeInset),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BottomGlyph(
-                icon = BitChordIcons.LyricsQuote,
+                icon = BitChordIcons.LyricsQuoteMarks,
                 contentDescription = stringResource(if (lyricsOpen) Res.string.close_lyrics else Res.string.open_lyrics),
                 // Lyrics and the queue are two things to show in one place, so
                 // opening either closes the other; lit to say which is up.
@@ -691,7 +696,7 @@ internal fun PlayerActionRow(
                 }
             }
             BottomGlyph(
-                icon = BitChordIcons.Queue,
+                icon = queueIcon,
                 contentDescription = stringResource(Res.string.up_next),
                 onClick = onToggleQueue,
                 highlighted = queueOpen,
@@ -701,6 +706,22 @@ internal fun PlayerActionRow(
             )
         }
     }
+}
+
+/**
+ * Picks the 3-dot + 3-line queue glyph carrying the highest-priority active
+ * mode badge (Repeat One > Repeat All > Shuffle > Autoplay > plain Queue).
+ */
+internal fun playerQueueIcon(
+    repeatMode: Int,
+    shuffleEnabled: Boolean,
+    autoplayEnabled: Boolean,
+): ImageVector = when {
+    repeatMode == RepeatModes.ONE -> BitChordIcons.PlayerQueueRepeatOne
+    repeatMode != RepeatModes.OFF -> BitChordIcons.PlayerQueueRepeat
+    shuffleEnabled -> BitChordIcons.PlayerQueueShuffle
+    autoplayEnabled -> BitChordIcons.PlayerQueueAutoplay
+    else -> BitChordIcons.Queue
 }
 
 /**

@@ -18,9 +18,12 @@ import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +31,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -73,6 +78,25 @@ object Downloads {
     private const val TAG = "BitChord"
     private const val KEY_SAVED_METADATA = "downloaded_tracks_metadata"
     private const val KEY_SAVED_COLLECTIONS = "downloaded_collections"
+
+    /**
+     * The index lives here, not in the settings file.
+     *
+     * See [migrateLegacy]. The only thing worth keeping on disk that is not
+     * rewritten on every download is the record of which downloads exist.
+     */
+    private const val PREFS_FILE = "bitchord_downloads"
+
+    /** Where it lived until this release; read once, then cleared. */
+    private const val LEGACY_PREFS_FILE = "bitchord_settings"
+
+    /**
+     * Bumped when a blob's shape changes. A future field that cannot be
+     * defaulted should refuse to load loudly rather than silently emptying a
+     * library that exists on disk.
+     */
+    private const val INDEX_VERSION = 1
+    private const val KEY_INDEX_VERSION = "downloaded_index_version"
 
     private lateinit var prefs: SharedPreferences
     private val json = Json { ignoreUnknownKeys = true }
@@ -144,17 +168,68 @@ object Downloads {
      */
     private val running = LinkedHashMap<String, Job?>()
 
+    private val indexReady = CompletableDeferred<Unit>()
+
+    /** Suspends until the download index has been read off disk. */
+    suspend fun awaitIndexReady() {
+        indexReady.await()
+    }
+
     fun init(context: Context) {
-        prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
-        _saved.value = runCatching {
-            json.decodeFromString(serializer, prefs.getString(KEY_SAVED, null) ?: "{}")
-        }.getOrDefault(emptyMap())
-        _savedMetadata.value = runCatching {
-            json.decodeFromString(metadataSerializer, prefs.getString(KEY_SAVED_METADATA, null) ?: "{}")
-        }.getOrDefault(emptyMap())
-        _collections.value = runCatching {
-            json.decodeFromString(collectionSerializer, prefs.getString(KEY_SAVED_COLLECTIONS, null) ?: "{}")
-        }.getOrDefault(emptyMap())
+        prefs = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        val legacy = context.getSharedPreferences(LEGACY_PREFS_FILE, Context.MODE_PRIVATE)
+        migrateLegacy(legacy)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            val saved = decode(KEY_SAVED, serializer) { prefs.getString(it, null) }
+            val metadata = decode(KEY_SAVED_METADATA, metadataSerializer) { prefs.getString(it, null) }
+            val collections = decode(KEY_SAVED_COLLECTIONS, collectionSerializer) { prefs.getString(it, null) }
+            _saved.updateAndGet { saved + it }
+            _savedMetadata.updateAndGet { metadata + it }
+            _collections.updateAndGet { collections + it }
+            indexReady.complete(Unit)
+        }
+    }
+
+    private fun migrateLegacy(legacy: SharedPreferences) {
+        if (prefs.getString(KEY_INDEX_VERSION, null) != null) return
+        val moves: List<Pair<String, (String) -> Map<String, *>>> = listOf(
+            KEY_SAVED to { raw: String -> json.decodeFromString(serializer, raw) },
+            KEY_SAVED_METADATA to { raw: String -> json.decodeFromString(metadataSerializer, raw) },
+            KEY_SAVED_COLLECTIONS to { raw: String -> json.decodeFromString(collectionSerializer, raw) },
+        )
+        val editor = prefs.edit()
+        var moved = 0
+        for ((key, decodeFn) in moves) {
+            val raw = legacy.getString(key, null) ?: continue
+            editor.putString(key, raw)
+            moved++
+            runCatching { decodeFn(raw) }.onFailure {
+                Log.w(TAG, "legacy $key unreadable, left in place: ${it.message}")
+            }
+        }
+        if (moved == 0) {
+            editor.putString(KEY_INDEX_VERSION, INDEX_VERSION.toString())
+            editor.commit()
+            return
+        }
+        if (!editor.commit()) {
+            Log.w(TAG, "download index migration did not commit; keeping the legacy keys")
+            return
+        }
+        val clear = legacy.edit()
+        moves.forEach { (key, _) -> clear.remove(key) }
+        clear.commit()
+        editor.putString(KEY_INDEX_VERSION, INDEX_VERSION.toString()).commit()
+        Log.i(TAG, "moved $moved download index blobs into $PREFS_FILE")
+    }
+
+    private fun <T> decode(key: String, serializer: KSerializer<Map<String, T>>, read: (String) -> String?): Map<String, T> {
+        val raw = read(key) ?: return emptyMap()
+        return runCatching { json.decodeFromString(serializer, raw) }
+            .getOrElse {
+                Log.w(TAG, "download index '$key' unreadable (${it.message}); treating as empty")
+                emptyMap()
+            }
     }
 
     // ---- Asking -------------------------------------------------------------
@@ -534,9 +609,11 @@ object Downloads {
             val map = update(_collections.value)
             _collections.value = map
             if (::prefs.isInitialized) {
-                prefs.edit()
-                    .putString(KEY_SAVED_COLLECTIONS, json.encodeToString(collectionSerializer, map))
-                    .apply()
+                synchronized(recordLock) {
+                    persistLocked(
+                        mapOf(KEY_SAVED_COLLECTIONS to json.encodeToString(collectionSerializer, map)),
+                    )
+                }
             }
         }
     }
@@ -630,16 +707,34 @@ object Downloads {
         saved: (Map<String, String>) -> Map<String, String>,
         meta: (Map<String, SavedSongMetadata>) -> Map<String, SavedSongMetadata>,
     ) {
-        val savedMap = _saved.updateAndGet(saved)
-        val metaMap = _savedMetadata.updateAndGet(meta)
-        if (!::prefs.isInitialized) return
+        if (!::prefs.isInitialized) {
+            _saved.updateAndGet(saved)
+            _savedMetadata.updateAndGet(meta)
+            return
+        }
         synchronized(recordLock) {
-            prefs.edit()
-                .putString(KEY_SAVED, json.encodeToString(serializer, savedMap))
-                .putString(KEY_SAVED_METADATA, json.encodeToString(metadataSerializer, metaMap))
-                .apply()
+            val savedMap = _saved.updateAndGet(saved)
+            val metaMap = _savedMetadata.updateAndGet(meta)
+            persistLocked(
+                buildMap {
+                    put(KEY_SAVED, json.encodeToString(serializer, savedMap))
+                    put(KEY_SAVED_METADATA, json.encodeToString(metadataSerializer, metaMap))
+                },
+            )
         }
     }
+
+    /**
+     * The single write path. Coalesced and committed off the caller's thread
+     * via [CoalescingWriter] so batch completions cost one atomic disk write.
+     */
+    private val indexWriter = CoalescingWriter { payload ->
+        prefs.edit().apply {
+            payload.forEach { (key, value) -> putString(key, value) }
+        }.commit()
+    }
+
+    private fun persistLocked(payload: Map<String, String>) = indexWriter.submit(payload)
 
     private val recordLock = Any()
 
@@ -1518,3 +1613,43 @@ data class DownloadedCollection(
     val playlist: Boolean,
     val songs: List<Song>,
 )
+
+/**
+ * The one write path for the download index.
+ *
+ * Calls are serialised on [lock] and never block the caller; the sink runs on
+ * [scope], coalescing bursts down to the final state.
+ */
+internal class CoalescingWriter(
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val sink: (Map<String, String>) -> Unit,
+) {
+    private val lock = Any()
+    private var pending: Map<String, String>? = null
+    private var draining = false
+
+    fun submit(payload: Map<String, String>) {
+        val start = synchronized(lock) {
+            pending = payload
+            if (draining) return
+            draining = true
+            true
+        }
+        if (start) scope.launch { drain() }
+    }
+
+    private suspend fun drain() {
+        try {
+            while (true) {
+                val next = synchronized(lock) { pending.also { pending = null } } ?: break
+                sink(next)
+            }
+        } finally {
+            val missed = synchronized(lock) {
+                if (pending == null) draining = false
+                pending != null
+            }
+            if (missed) scope.launch { drain() }
+        }
+    }
+}

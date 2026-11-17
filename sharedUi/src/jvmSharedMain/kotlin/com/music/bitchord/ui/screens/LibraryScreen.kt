@@ -1,8 +1,5 @@
 package com.music.bitchord.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,12 +21,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,11 +63,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -106,15 +102,21 @@ import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.components.FastScroller
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
+import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.PullToRefresh
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.ShelfRow
+import com.music.bitchord.ui.components.SquirclePillShape
 import com.music.bitchord.ui.components.contextClick
+import com.music.bitchord.ui.components.lazyKey
 import com.music.bitchord.ui.components.libraryGrid
 import com.music.bitchord.ui.components.librarySkeleton
 import com.music.bitchord.ui.components.longPressMenuClickable
+import com.music.bitchord.ui.components.rememberShelfKeys
+import com.music.bitchord.ui.components.uniqueKeys
 import com.music.bitchord.ui.icons.BitChordIcons
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -193,7 +195,7 @@ fun LibraryScreen(
                 contentPadding = contentPadding,
             ) {
                 if (showTitle) {
-                    item(key = "title") {
+                    item(key = "title", contentType = LazyContent.HEADER) {
                         Text(
                             text = stringResource(Res.string.library),
                             style = MaterialTheme.typography.displayLarge,
@@ -205,11 +207,11 @@ fun LibraryScreen(
 
                 // 1. Preserved Replay / Stats header card on top (when not actively searching)
                 if (searchQuery.isBlank()) {
-                    item(key = "replay") { replay() }
+                    item(key = "replay", contentType = LazyContent.HEADER) { replay() }
                 }
 
                 // 2. Search Bar with real-time text filtering, view mode switcher, and sorting
-                item(key = "search_field") {
+                item(key = "search_field", contentType = LazyContent.HEADER) {
                     LibrarySearchField(
                         query = searchQuery,
                         onQueryChange = { searchQuery = it },
@@ -228,7 +230,7 @@ fun LibraryScreen(
                 }
 
                 // 3. Top Selector Tabs / Filter Chips
-                item(key = "filter_chips") {
+                item(key = "filter_chips", contentType = LazyContent.HEADER) {
                     LibraryFilterChips(
                         selectedFilter = selectedFilter,
                         onFilterSelect = { selectedFilter = it },
@@ -252,7 +254,7 @@ fun LibraryScreen(
                         .distinctBy { it.browseId ?: it.title }
                         .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
                     if (downloadItems.isEmpty()) {
-                        item(key = "empty_downloads") {
+                        item(key = "empty_downloads", contentType = LazyContent.MESSAGE) {
                             MessageState(
                                 message = if (searchQuery.isNotBlank()) "No downloads match your search" else "No downloaded music on this device",
                             )
@@ -264,6 +266,7 @@ fun LibraryScreen(
                             pinnedPlaylists = pinnedPlaylists.toSet(),
                             onShelfItemClick = onShelfItemClick,
                             onShelfItemLongPress = onShelfItemLongPress,
+                            keyPrefix = "dl:",
                         )
                     }
                     return@LazyColumn
@@ -515,6 +518,7 @@ fun LibraryScreen(
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
                                         onShelfItemClick = onShelfItemClick,
                                         onShelfItemLongPress = onShelfItemLongPress,
+                                        keyPrefix = "quick:",
                                     )
                                 }
 
@@ -539,6 +543,7 @@ fun LibraryScreen(
                                     pinnedPlaylists = pinnedPlaylists.toSet(),
                                     onShelfItemClick = onShelfItemClick,
                                     onShelfItemLongPress = onShelfItemLongPress,
+                                    keyPrefix = "recent:",
                                 )
                             }
 
@@ -692,9 +697,12 @@ private fun LibrarySearchField(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PAGE_GUTTER, vertical = 4.dp)
-            .height(44.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp),
+            .height(46.dp)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                remember { SquirclePillShape() },
+            )
+            .padding(start = 12.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -708,7 +716,7 @@ private fun LibrarySearchField(
             if (query.isEmpty()) {
                 Text(
                     text = "Search library",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -716,7 +724,7 @@ private fun LibrarySearchField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
                     color = MaterialTheme.colorScheme.onBackground,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -838,12 +846,18 @@ private fun LazyListScope.renderLibraryItems(
     pinnedPlaylists: Set<String>,
     onShelfItemClick: (ShelfItem) -> Unit,
     onShelfItemLongPress: (ShelfItem) -> Unit,
+    keyPrefix: String = "",
 ) {
     if (viewMode == LibraryViewMode.GRID) {
-        items(
-            items.chunked(2),
-            key = { pair -> "grid_" + (pair.firstOrNull()?.let { it.browseId ?: it.title } ?: "") },
-        ) { rowItems ->
+        val pairs = items.chunked(2)
+        val pairKeys = uniqueKeys(pairs) { pair ->
+            keyPrefix + "grid:" + (pair.firstOrNull()?.lazyKey() ?: "")
+        }
+        itemsIndexed(
+            pairs,
+            key = { index, _ -> pairKeys[index] },
+            contentType = { _, _ -> LazyContent.CARD },
+        ) { _, rowItems ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -866,7 +880,12 @@ private fun LazyListScope.renderLibraryItems(
             }
         }
     } else {
-        items(items, key = { it.browseId ?: it.title }) { item ->
+        val keys = uniqueKeys(items) { keyPrefix + it.lazyKey() }
+        itemsIndexed(
+            items,
+            key = { index, _ -> keys[index] },
+            contentType = { _, _ -> LazyContent.BROWSE_ROW },
+        ) { _, item ->
             val isPinned = item.browseId != null && item.browseId in pinnedPlaylists
             val isArtist = isArtistItem(item)
             LibraryItemRow(
@@ -889,97 +908,19 @@ private fun LibraryFilterChips(
     onFilterSelect: (LibraryFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyRow(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = PAGE_GUTTER, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        items(LibraryFilter.entries, key = { it.name }) { filter ->
-            LibraryFilterChip(
-                filter = filter,
-                isSelected = filter == selectedFilter,
-                onClick = { onFilterSelect(filter) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun LibraryFilterChip(
-    filter: LibraryFilter,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val isLightPrimary = primaryColor.luminance() > 0.5f
-
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) primaryColor else surfaceVariant.copy(alpha = 0.55f),
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "libraryFilterBackground",
+    val labels = listOf(
+        LibraryFilter.ALL.label,
+        stringResource(Res.string.playlists),
+        stringResource(Res.string.albums),
+        stringResource(Res.string.artists),
+        LibraryFilter.DOWNLOADS.label,
     )
-
-    val selectedContentColor = if (isLightPrimary) Color(0xFF0F080B) else MaterialTheme.colorScheme.onPrimary
-    val contentColor by animateColorAsState(
-        targetValue = if (isSelected) selectedContentColor else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "libraryFilterContent",
+    PillSegmentedControl(
+        options = labels,
+        selectedIndex = LibraryFilter.entries.indexOf(selectedFilter).coerceAtLeast(0),
+        onSelect = { index -> onFilterSelect(LibraryFilter.entries[index]) },
+        modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
     )
-
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            if (isLightPrimary) Color.Black.copy(alpha = 0.15f) else primaryColor.copy(alpha = 0.8f)
-        } else {
-            Color.White.copy(alpha = 0.08f)
-        },
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "libraryFilterBorder",
-    )
-
-    val interactionSource = remember { MutableInteractionSource() }
-
-    Box(
-        modifier = Modifier
-            .then(
-                if (isSelected) {
-                    Modifier.shadow(
-                        elevation = if (isLightPrimary) 4.dp else 8.dp,
-                        shape = CircleShape,
-                        spotColor = if (isLightPrimary) Color.Black.copy(alpha = 0.25f) else primaryColor.copy(alpha = 0.5f),
-                        ambientColor = if (isLightPrimary) Color.Black.copy(alpha = 0.12f) else primaryColor.copy(alpha = 0.25f),
-                    )
-                } else {
-                    Modifier
-                },
-            )
-            .clip(CircleShape)
-            .background(backgroundColor)
-            .border(width = 1.dp, color = borderColor, shape = CircleShape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            )
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        val label = when (filter) {
-            LibraryFilter.ALL -> filter.label
-            LibraryFilter.PLAYLISTS -> stringResource(Res.string.playlists)
-            LibraryFilter.ALBUMS -> stringResource(Res.string.albums)
-            LibraryFilter.ARTISTS -> stringResource(Res.string.artists)
-            LibraryFilter.DOWNLOADS -> filter.label
-        }
-        Text(
-            text = label,
-            color = contentColor,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            letterSpacing = 0.2.sp,
-        )
-    }
 }
 
 /**
@@ -1163,6 +1104,10 @@ private fun ThumbnailContent(item: ShelfItem) {
         item.browseId == "local:smb" ||
         item.browseId?.startsWith("local:") == true ||
         item.title.equals("Local Music", ignoreCase = true)
+    val isPlaylist = item.browseId?.startsWith("local:playlist") == true ||
+        item.browseId?.startsWith("VL") == true ||
+        item.browseId?.startsWith("PL") == true ||
+        item.subtitle.contains("playlist", ignoreCase = true)
 
     when {
         isLikedSongs -> {
@@ -1235,7 +1180,7 @@ private fun ThumbnailContent(item: ShelfItem) {
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
         }
@@ -1255,10 +1200,10 @@ private fun ThumbnailContent(item: ShelfItem) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.LibraryMusic,
+                    imageVector = if (isPlaylist) BitChordIcons.Playlist else Icons.Rounded.LibraryMusic,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(26.dp),
                 )
             }
         }
@@ -1533,7 +1478,9 @@ internal fun LibraryGridShelf(
     leadingCard: (@Composable () -> Unit)? = null,
     pinnedPlaylists: List<String> = emptyList(),
 ) {
-    val visibleItems = shelf.items.take(5)
+    val visibleItems = remember(shelf.items) { shelf.items.take(5) }
+    val keys = rememberShelfKeys(visibleItems)
+    val pinned = remember(pinnedPlaylists) { pinnedPlaylists.toHashSet() }
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(
             title = shelf.title,
@@ -1544,13 +1491,19 @@ internal fun LibraryGridShelf(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
         ) {
-            leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(visibleItems) { item ->
+            leadingCard?.let { card ->
+                item(key = "leading", contentType = LazyContent.LEADING_CARD) { card() }
+            }
+            itemsIndexed(
+                visibleItems,
+                key = { index, _ -> keys[index] },
+                contentType = { _, _ -> LazyContent.CARD },
+            ) { _, item ->
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
                     onLongPress = { onItemLongPress(item) },
-                    isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                    isPinned = item.browseId != null && item.browseId in pinned,
                 )
             }
         }
@@ -1574,7 +1527,11 @@ fun LibraryGridPage(
     val librarySort by AppUi.host.librarySort.collectAsStateWithLifecycle()
     val libraryViewMode by AppUi.host.libraryViewMode.collectAsStateWithLifecycle()
 
-    val sortedShelf = shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
+    val sortedShelf = remember(shelf, pinnedPlaylists, librarySort) {
+        shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
+    }
+    val pinned = remember(pinnedPlaylists) { pinnedPlaylists.toHashSet() }
+    val keys = rememberShelfKeys(sortedShelf.items)
     val listState = rememberLazyListState()
 
     LaunchedEffect(libraryViewMode) {
@@ -1608,7 +1565,7 @@ fun LibraryGridPage(
                         modifier = Modifier.padding(horizontal = PAGE_GUTTER),
                     ) {
                         if (onNewPlaylist != null) {
-                            item(key = "leading") {
+                            item(key = "leading", contentType = LazyContent.LEADING_CARD) {
                                 NewShelfCard(
                                     icon = BitChordIcons.Plus,
                                     label = stringResource(Res.string.new_playlist),
@@ -1618,13 +1575,17 @@ fun LibraryGridPage(
                                 )
                             }
                         }
-                        items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
+                        gridItemsIndexed(
+                            sortedShelf.items,
+                            key = { index, _ -> keys[index] },
+                            contentType = { _, _ -> LazyContent.CARD },
+                        ) { _, item ->
                             ShelfCard(
                                 item = item,
                                 onClick = { onItemClick(item) },
                                 onLongPress = { onItemLongPress(item) },
                                 modifier = Modifier.fillMaxWidth(),
-                                isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                                isPinned = item.browseId != null && item.browseId in pinned,
                             )
                         }
                     }
@@ -1644,14 +1605,18 @@ fun LibraryGridPage(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     if (onNewPlaylist != null) {
-                        item(key = "leading") {
+                        item(key = "leading", contentType = LazyContent.LEADING_CARD) {
                             NewPlaylistActionRow(onClick = onNewPlaylist)
                         }
                     }
-                    items(sortedShelf.items, key = { it.browseId ?: it.title }) { item ->
+                    itemsIndexed(
+                        sortedShelf.items,
+                        key = { index, _ -> keys[index] },
+                        contentType = { _, _ -> LazyContent.BROWSE_ROW },
+                    ) { _, item ->
                         LibraryItemRow(
                             item = item,
-                            isPinned = item.browseId != null && item.browseId in pinnedPlaylists,
+                            isPinned = item.browseId != null && item.browseId in pinned,
                             isArtist = isArtistItem(item),
                             onClick = { onItemClick(item) },
                             onLongPress = { onItemLongPress(item) },

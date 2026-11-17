@@ -12,13 +12,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -88,8 +86,7 @@ fun ChordPlayAmbientAura(
                 scaleY = animatedScale
                 alpha = animatedAlpha
             }
-            .blur(38.dp, BlurredEdgeTreatment.Unbounded)
-            .clip(RoundedCornerShape(32.dp)),
+            .blur(38.dp, BlurredEdgeTreatment.Unbounded),
     ) {
         AsyncImage(
             model = model,

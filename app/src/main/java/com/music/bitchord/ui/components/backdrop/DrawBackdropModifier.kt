@@ -9,6 +9,7 @@
  */
 package com.music.bitchord.ui.components.backdrop
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,8 @@ import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.ObserverModifierNode
+import androidx.compose.ui.node.invalidateDraw
+import kotlinx.coroutines.launch
 import androidx.compose.ui.node.observeReads
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
@@ -52,6 +55,7 @@ import com.music.bitchord.ui.components.backdrop.shadow.ShadowElement
 private val DefaultHighlight = { Highlight.Default }
 private val DefaultShadow = { Shadow.Default }
 private val DefaultOnDrawBackdrop: DrawScope.(DrawScope.() -> Unit) -> Unit = { it() }
+private val NeverFrozen: () -> Boolean = { false }
 
 fun Modifier.drawPlainBackdrop(
     backdrop: Backdrop,
@@ -62,7 +66,11 @@ fun Modifier.drawPlainBackdrop(
     onDrawBehind: (DrawScope.() -> Unit)? = null,
     onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit = DefaultOnDrawBackdrop,
     onDrawSurface: (DrawScope.() -> Unit)? = null,
-    onDrawFront: (DrawScope.() -> Unit)? = null
+    onDrawFront: (DrawScope.() -> Unit)? = null,
+    // Capture at a lower resolution to reduce effect cost; scale pixel-sized effects by the same factor.
+    backdropScale: Float = 1f,
+    // Reuse the last capture while the surface moves during a transition.
+    frozen: () -> Boolean = NeverFrozen
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -84,7 +92,8 @@ fun Modifier.drawPlainBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = 1f
+                backdropScale = backdropScale.coerceIn(0.05f, 1f),
+                frozen = frozen
             )
         )
 }
@@ -102,12 +111,10 @@ fun Modifier.drawBackdrop(
     onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit = DefaultOnDrawBackdrop,
     onDrawSurface: (DrawScope.() -> Unit)? = null,
     onDrawFront: (DrawScope.() -> Unit)? = null,
-    // Vendored addition: records the backdrop into a layer at this fraction of the
-    // surface resolution and draws it scaled back up, so the RenderEffect chain
-    // processes far fewer pixels. Pixel-sized effect parameters (blur radius, lens
-    // refraction) must be pre-multiplied by the same factor by the caller; the blur
-    // hides the upscaling. 1f keeps the original full resolution behavior.
-    backdropScale: Float = 1f
+    // Capture at a lower resolution to reduce effect cost; scale pixel-sized effects by the same factor.
+    backdropScale: Float = 1f,
+    // Reuse the last capture while the surface moves during a transition.
+    frozen: () -> Boolean = NeverFrozen
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -159,7 +166,8 @@ fun Modifier.drawBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = backdropScale.coerceIn(0.05f, 1f)
+                backdropScale = backdropScale.coerceIn(0.05f, 1f),
+                frozen = frozen
             )
         )
 }
@@ -174,7 +182,8 @@ private class DrawBackdropElement(
     val onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     val onDrawSurface: (DrawScope.() -> Unit)?,
     val onDrawFront: (DrawScope.() -> Unit)?,
-    val backdropScale: Float
+    val backdropScale: Float,
+    val frozen: () -> Boolean
 ) : ModifierNodeElement<DrawBackdropNode>() {
 
     override fun create(): DrawBackdropNode {
@@ -188,25 +197,57 @@ private class DrawBackdropElement(
             onDrawBackdrop = onDrawBackdrop,
             onDrawSurface = onDrawSurface,
             onDrawFront = onDrawFront,
-            backdropScale = backdropScale
+            backdropScale = backdropScale,
+            frozen = frozen
         )
     }
 
     override fun update(node: DrawBackdropNode) {
+        // Only capture inputs require a new recording; overlay changes need a redraw only.
+        val shapeChanged = node.shapeProvider != shapeProvider
+        val effectsChanged = node.effects !== effects
+        val scaleChanged = node.backdropScale != backdropScale
+        val captureChanged =
+            node.backdrop !== backdrop ||
+                shapeChanged ||
+                effectsChanged ||
+                node.layerBlock !== layerBlock ||
+                node.onDrawBackdrop !== onDrawBackdrop ||
+                scaleChanged
+
         node.backdrop = backdrop
-        node.shapeProvider = shapeProvider
+        // An equal provider keeps the node's own, and with it the cached outline.
+        if (shapeChanged) node.shapeProvider = shapeProvider
         node.effects = effects
         node.layerBlock = layerBlock
         if (node.exportedBackdrop != exportedBackdrop) {
             node.exportedBackdrop?.layerCoordinates = null
             node.exportedBackdrop = exportedBackdrop
+            node.exportDirty = true
+        }
+        // Overlay callbacks only feed the exported copy: re-record that, not the source.
+        if (node.onDrawBehind !== onDrawBehind ||
+            node.onDrawSurface !== onDrawSurface ||
+            node.onDrawFront !== onDrawFront
+        ) {
+            node.exportDirty = true
         }
         node.onDrawBehind = onDrawBehind
         node.onDrawBackdrop = onDrawBackdrop
         node.onDrawSurface = onDrawSurface
         node.onDrawFront = onDrawFront
         node.backdropScale = backdropScale
-        node.invalidateDrawCache()
+        node.frozen = frozen
+        if (captureChanged) {
+            node.surfaceDirty = true
+        }
+        if (effectsChanged || shapeChanged || scaleChanged) {
+            // The effect chain depends on these: run it again and re-observe its reads.
+            node.invalidateDrawCache()
+        } else {
+            // Overlays only: redraw with the RenderEffect chain already built.
+            node.invalidateDraw()
+        }
     }
 
     override fun InspectorInfo.inspectableProperties() {
@@ -265,7 +306,8 @@ private class DrawBackdropNode(
     var onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     var onDrawSurface: (DrawScope.() -> Unit)?,
     var onDrawFront: (DrawScope.() -> Unit)?,
-    var backdropScale: Float
+    var backdropScale: Float,
+    var frozen: () -> Boolean
 ) : LayoutModifierNode, DrawModifierNode, GlobalPositionAwareModifierNode, ObserverModifierNode, Modifier.Node() {
 
     private val effectScope =
@@ -276,15 +318,53 @@ private class DrawBackdropNode(
 
     private var graphicsLayer: GraphicsLayer? = null
 
+    // Auto avoids an extra offscreen pass for opaque surfaces; Compose still uses one when alpha requires it.
     private val layoutLayerBlock: GraphicsLayerScope.() -> Unit = {
         clip = true
         shape = shapeProvider.shape
-        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Auto
     }
 
     private var layoutCoordinates: LayoutCoordinates? by mutableStateOf(null, neverEqualPolicy())
 
     private var padding by mutableFloatStateOf(0f)
+
+    // Re-record after element/effect changes; otherwise reuse until source content or geometry changes.
+    internal var surfaceDirty = true
+
+    // Set when the exported overlay changes; forces only the export recording, not a source re-capture.
+    internal var exportDirty = true
+
+    private var recordedBackdropVersion: Int? = null
+    private var recordedBackdropOffset: Offset? = null
+    private var recordedBackdropSize: IntSize = IntSize.Zero
+
+    // A plain frozen lambda does not invalidate drawing when it becomes false.
+    private var thawJob: kotlinx.coroutines.Job? = null
+
+    private fun scheduleThawRedraw() {
+        if (thawJob?.isActive == true) return
+        thawJob = coroutineScope.launch {
+            // Poll without requesting a frame on every display refresh.
+            while (frozen()) kotlinx.coroutines.delay(ThawPollMs)
+            invalidateDraw()
+        }
+    }
+
+    // LayerBackdrop content redraws live through its RenderNode reference; geometry changes invalidate it.
+    private fun currentBackdropVersion(): Int? = (backdrop as? LayerBackdrop)?.geometryVersion
+
+    /** Position of this surface within the backdrop source's coordinate space. */
+    private fun currentBackdropOffset(): Offset? {
+        val source = backdrop as? LayerBackdrop ?: return null
+        val sourceCoordinates = source.layerCoordinates ?: return null
+        val selfCoordinates = layoutCoordinates ?: return null
+        return try {
+            sourceCoordinates.localPositionOf(selfCoordinates)
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private val recordBackdropBlock: (DrawScope.() -> Unit) = {
         val canvas = drawContext.canvas
@@ -294,8 +374,7 @@ private class DrawBackdropNode(
         if (padding != 0f) {
             canvas.translate(padding, padding)
         }
-        // Vendored addition: draw the backdrop content downscaled so the recorded
-        // layer (and therefore the RenderEffect chain) covers fewer pixels.
+        // Downscale the captured layer to reduce RenderEffect work.
         if (scale != 1f) {
             canvas.scale(scale, scale)
         }
@@ -316,37 +395,53 @@ private class DrawBackdropNode(
         }
     }
 
-    private val drawBackdropLayer: DrawScope.() -> Unit = {
+    private val drawBackdropLayer: DrawScope.() -> Boolean = drawBackdropLayer@{
         val layer = graphicsLayer
         if (layer != null) {
             val padding = padding
             val scale = backdropScale
-
-            recordLayer(
-                this@DrawBackdropNode,
-                layer,
-                size = IntSize(
-                    ((size.width * scale).toInt() + padding.toInt() * 2).coerceAtLeast(1),
-                    ((size.height * scale).toInt() + padding.toInt() * 2).coerceAtLeast(1)
-                ),
-                block = recordBackdropBlock
+            val recordSize = IntSize(
+                ((size.width * scale).toInt() + padding.toInt() * 2).coerceAtLeast(1),
+                ((size.height * scale).toInt() + padding.toInt() * 2).coerceAtLeast(1)
             )
+            val version = currentBackdropVersion()
+            val offset = currentBackdropOffset()
+
+            // Re-record when source pixels or geometry change. Non-layer backdrops have no
+            // version, so they keep recording every draw. A frozen surface needs an existing
+            // capture to reuse; otherwise it would draw an empty layer.
+            val hasRecording = recordedBackdropSize != IntSize.Zero
+            val geometryChanged = surfaceDirty ||
+                offset != recordedBackdropOffset ||
+                recordSize != recordedBackdropSize
+            val versionChanged = version == null || version != recordedBackdropVersion
+            val needsRecord = if (frozen() && hasRecording) {
+                // The freeze only holds back source-content changes. A surface that moved or
+                // resized must re-capture now, or it shows the region it used to sit over.
+                if (geometryChanged) {
+                    true
+                } else {
+                    if (versionChanged) scheduleThawRedraw()
+                    false
+                }
+            } else {
+                geometryChanged || versionChanged
+            }
+            if (needsRecord) {
+                recordLayer(
+                    this@DrawBackdropNode,
+                    layer,
+                    size = recordSize,
+                    block = recordBackdropBlock
+                )
+                recordedBackdropVersion = version
+                recordedBackdropOffset = offset
+                recordedBackdropSize = recordSize
+            }
 
             layer.topLeft =
                 if (padding != 0f) IntOffset(-padding.toInt(), -padding.toInt())
                 else IntOffset.Zero
-            drawRecordedBackdrop()
-        }
-    }
-
-    // Vendored change: the export below draws the layer this frame already
-    // recorded, rather than recording the backdrop a second time. Upstream
-    // re-runs the whole capture and effect chain for the export, which doubles
-    // the surface's cost on every frame it is exported.
-    private val drawRecordedBackdrop: DrawScope.() -> Unit = {
-        val layer = graphicsLayer
-        if (layer != null) {
-            val scale = backdropScale
             if (scale != 1f) {
                 // Vendored addition: stretch the low resolution layer back over the
                 // full surface; the blur in the effect chain masks the upscaling.
@@ -356,6 +451,9 @@ private class DrawBackdropNode(
             } else {
                 drawLayer(layer)
             }
+            needsRecord
+        } else {
+            false
         }
     }
 
@@ -375,19 +473,23 @@ private class DrawBackdropNode(
         }
 
         onDrawBehind?.invoke(this)
-        drawBackdropLayer()
+        val contentRecorded = drawBackdropLayer()
         onDrawSurface?.invoke(this)
         drawContent()
         onDrawFront?.invoke(this)
 
         exportedBackdrop?.graphicsLayer?.let { layer ->
-            recordLayer(this@DrawBackdropNode, layer) {
-                onDrawBehind?.invoke(this)
-                drawRecordedBackdrop()
-                onDrawSurface?.invoke(this)
-                onDrawFront?.invoke(this)
+            if (surfaceDirty || exportDirty || contentRecorded) {
+                recordLayer(this@DrawBackdropNode, layer) {
+                    onDrawBehind?.invoke(this)
+                    drawBackdropLayer()
+                    onDrawSurface?.invoke(this)
+                    onDrawFront?.invoke(this)
+                }
+                exportDirty = false
             }
         }
+        surfaceDirty = false
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
@@ -404,6 +506,7 @@ private class DrawBackdropNode(
     }
 
     override fun onObservedReadsChanged() {
+        surfaceDirty = true
         invalidateDrawCache()
     }
 
@@ -420,13 +523,19 @@ private class DrawBackdropNode(
 
         effectScope.apply(effects)
         graphicsLayer?.renderEffect = effectScope.renderEffect
-        padding = effectScope.padding
+        graphicsLayer?.colorFilter = effectScope.compositeColorFilter
+        val newPadding = effectScope.padding
+        if (newPadding != padding) {
+            padding = newPadding
+            surfaceDirty = true
+        }
     }
 
     override fun onAttach() {
         val graphicsContext = requireGraphicsContext()
         graphicsLayer = graphicsContext.createGraphicsLayer()
 
+        surfaceDirty = true
         observeEffects()
     }
 
@@ -436,9 +545,14 @@ private class DrawBackdropNode(
             graphicsContext.releaseGraphicsLayer(layer)
             graphicsLayer = null
         }
-
         effectScope.reset()
         layoutCoordinates = null
         exportedBackdrop?.layerCoordinates = null
+        recordedBackdropVersion = null
+        recordedBackdropOffset = null
+        recordedBackdropSize = IntSize.Zero
     }
 }
+
+/** How often a frozen glass surface checks whether its freeze has lifted. */
+private const val ThawPollMs = 48L

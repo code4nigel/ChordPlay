@@ -723,6 +723,10 @@ internal object MediaWidgetArt {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
 
+    init {
+        com.music.bitchord.util.MemoryPressure.register { composites.evictAll() }
+    }
+
     /** When each cover last failed to load. @see isCoolingOff */
     private val failures = ConcurrentHashMap<String, Long>()
 

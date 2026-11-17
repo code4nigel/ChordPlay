@@ -241,32 +241,62 @@ Write-Host "`nGradle Build Succeeded in $([math]::Round($sw.Elapsed.TotalSeconds
 $flavor = if ($Variant.StartsWith("dev")) { "dev" } else { "prod" }
 $buildType = if ($Variant.EndsWith("Debug")) { "debug" } else { "release" }
 $outputDir = Join-Path $rootDir "app\build\outputs\apk\$flavor\$buildType"
+$intermediatesDir = Join-Path $rootDir "app\build\intermediates\apk\$flavor\$buildType"
 
-if (-not (Test-Path $outputDir)) {
-    Write-Error "Expected build outputs directory not found at: $outputDir"
-}
-
-$apkFiles = Get-ChildItem -Path $outputDir -Filter "*.apk"
-if ($apkFiles.Count -eq 0) {
-    $intermediatesDir = Join-Path $rootDir "app\build\intermediates\apk\$flavor\$buildType"
-    if (Test-Path $intermediatesDir) {
-        $apkFiles = Get-ChildItem -Path $intermediatesDir -Filter "*.apk"
-    }
-}
-if ($Abi -and $apkFiles.Count -gt 0) {
+$resolvedAbiFilter = ""
+if ($Abi) {
     $resolvedAbiFilter = switch -Regex ($Abi.ToLower().Trim()) {
         "^(x8a|arm64|arm64-v8a|aarch64)$" { "arm64-v8a" }
         "^(v7a|arm|armeabi-v7a|armv7)$"    { "armeabi-v7a" }
         "^(x64|x86_64|amd64)$"             { "x86_64" }
         default { $Abi }
     }
-    $filtered = $apkFiles | Where-Object { $_.Name -like "*$resolvedAbiFilter*" }
-    if ($filtered) {
-        $apkFiles = @($filtered)
+}
+
+# When -Abi passes -Pandroid.injected.build.abi=..., AGP writes the targeted APK to
+# app\build\intermediates\apk\<flavor>\<buildType>\ rather than outputs\apk\. Prefer
+# intermediates when -Abi is set and match output-metadata.json to the target version
+# so stale APKs in the other directory are never copied by mistake.
+$candidateDirs = if ($Abi) { @($intermediatesDir, $outputDir) } else { @($outputDir, $intermediatesDir) }
+$apkFiles = @()
+foreach ($dir in $candidateDirs) {
+    if (-not (Test-Path $dir)) { continue }
+    $metaPath = Join-Path $dir "output-metadata.json"
+    if (Test-Path $metaPath) {
+        try {
+            $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
+            $metaHasVersion = $meta.elements | Where-Object {
+                [int]$_.versionCode -eq $newVersionCode -and $_.versionName -eq $newVersionName
+            }
+            if (-not $metaHasVersion) { continue }
+        } catch { }
+    }
+    $found = @(Get-ChildItem -Path $dir -Filter "*.apk")
+    if ($resolvedAbiFilter -and $found.Count -gt 0) {
+        $found = @($found | Where-Object { $_.Name -like "*$resolvedAbiFilter*" })
+    }
+    if ($found.Count -gt 0) {
+        $apkFiles = $found
+        break
     }
 }
+
 if ($apkFiles.Count -eq 0) {
-    Write-Error "No APK files found in $outputDir or intermediates"
+    foreach ($dir in $candidateDirs) {
+        if (-not (Test-Path $dir)) { continue }
+        $found = @(Get-ChildItem -Path $dir -Filter "*.apk")
+        if ($resolvedAbiFilter -and $found.Count -gt 0) {
+            $found = @($found | Where-Object { $_.Name -like "*$resolvedAbiFilter*" })
+        }
+        if ($found.Count -gt 0) {
+            $apkFiles = $found
+            break
+        }
+    }
+}
+
+if ($apkFiles.Count -eq 0) {
+    Write-Error "No APK files found in $outputDir or $intermediatesDir"
 }
 
 # --------------------------------------------------------------------------
