@@ -171,7 +171,7 @@ ChordPlay is an open-source project built with deep gratitude toward the develop
 | Project | Author | Role in ChordPlay |
 | :--- | :--- | :--- |
 | [BitChord](https://github.com/kushagrasinghx/BitChord) | Kushagra Singh ([@kushagrasinghx](https://github.com/kushagrasinghx)) | Foundational audio service, YouTube Music stream extraction, download pipeline, and baseline architecture |
-| [Auris](https://github.com/OreoMuncher45/Auris) | OreoMuncher45 ([@OreoMuncher45](https://github.com/OreoMuncher45)) | Inspiration for Radio & Melody (Flow) UI, and Compose stability optimizations |
+| [Auris](https://github.com/OreoMuncher45/Auris) | OreoMuncher45 ([@OreoMuncher45](https://github.com/OreoMuncher45)) | Inspiration for Radio & Melody (Flow) UI |
 | [Prism](https://github.com/Yigder/Prism) | Yigder ([@Yigder](https://github.com/Yigder)) | Inspiration for modular settings and interactive live preview cards |
 | [Metrolist](https://github.com/metrolistgroup/metrolist) | Metrolist Group | Inspiration for local playlist caching and indexing |
 | [Haze](https://github.com/chrisbanes/haze) | Chris Banes | High-performance blur and frosted glass rendering for Compose |
