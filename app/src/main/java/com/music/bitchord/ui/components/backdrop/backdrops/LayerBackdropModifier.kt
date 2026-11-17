@@ -85,10 +85,14 @@ private class LayerBackdropNode(
         }
         recordLayer(this@LayerBackdropNode, backdrop.graphicsLayer) { backdrop.onDraw(this@draw) }
         drawLayer(backdrop.graphicsLayer)
+        // Notify sampling glass surfaces that the source pixels changed, so they
+        // re-record their own layers. When the source is static they skip it.
+        backdrop.contentRecorded()
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         if (coordinates.isAttached) {
+            if (backdrop.layerCoordinates !== coordinates) backdrop.geometryChanged()
             backdrop.layerCoordinates = coordinates
         }
     }

@@ -3,8 +3,14 @@ package com.music.bitchord.data.spotify
 import android.content.Context
 import android.content.SharedPreferences
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.download.CoalescingWriter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -22,12 +28,14 @@ object LocalPlaylistStore {
 
     private lateinit var prefs: SharedPreferences
 
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val _playlists = MutableStateFlow<List<LocalPlaylist>>(emptyList())
     val playlists = _playlists.asStateFlow()
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        load()
+        ioScope.launch { load() }
     }
 
     private fun load() {
@@ -59,34 +67,36 @@ object LocalPlaylistStore {
                 }
                 list.add(LocalPlaylist(id, title, songs))
             }
-            _playlists.value = list
+            // Merge under any edit that somehow landed before the disk read completed.
+            _playlists.update { current -> (current + list).distinctBy { it.id } }
         }
     }
 
     fun savePlaylist(title: String, songs: List<Song>): LocalPlaylist {
         val id = "sp_local_" + System.currentTimeMillis()
         val playlist = LocalPlaylist(id = id, title = title, songs = songs)
-        val updated = listOf(playlist) + _playlists.value.filterNot { it.id == id }
-        _playlists.value = updated
-        persist(updated)
+        _playlists.update { current -> listOf(playlist) + current.filterNot { it.id == id } }
+        persist()
         return playlist
     }
 
     fun deletePlaylist(id: String) {
-        val updated = _playlists.value.filterNot { it.id == id || it.browseId == id || it.id == id.removePrefix("local:playlist:") }
-        _playlists.value = updated
-        persist(updated)
+        _playlists.update { current ->
+            current.filterNot { it.id == id || it.browseId == id || it.id == id.removePrefix("local:playlist:") }
+        }
+        persist()
     }
 
     fun renamePlaylist(id: String, newTitle: String) {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
-        val updated = _playlists.value.map {
-            if (it.id == cleanId || it.id == id || it.browseId == id) {
-                it.copy(title = newTitle)
-            } else it
+        _playlists.update { current ->
+            current.map {
+                if (it.id == cleanId || it.id == id || it.browseId == id) {
+                    it.copy(title = newTitle)
+                } else it
+            }
         }
-        _playlists.value = updated
-        persist(updated)
+        persist()
     }
 
     fun getPlaylist(id: String): LocalPlaylist? {
@@ -101,19 +111,21 @@ object LocalPlaylistStore {
     fun addSongs(id: String, songs: List<Song>): Int {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         var addedCount = 0
-        val updated = _playlists.value.map { pl ->
-            if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
-                val existingIds = pl.songs.map { it.videoId }.toSet()
-                val newSongs = songs.filter { it.videoId.isNotBlank() && it.videoId !in existingIds }
-                if (newSongs.isNotEmpty()) {
-                    addedCount += newSongs.size
-                    pl.copy(songs = pl.songs + newSongs)
+        _playlists.update { current ->
+            addedCount = 0
+            current.map { pl ->
+                if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
+                    val existingIds = pl.songs.map { it.videoId }.toSet()
+                    val newSongs = songs.filter { it.videoId.isNotBlank() && it.videoId !in existingIds }
+                    if (newSongs.isNotEmpty()) {
+                        addedCount += newSongs.size
+                        pl.copy(songs = pl.songs + newSongs)
+                    } else pl
                 } else pl
-            } else pl
+            }
         }
         if (addedCount > 0) {
-            _playlists.value = updated
-            persist(updated)
+            persist()
         }
         return addedCount
     }
@@ -121,24 +133,41 @@ object LocalPlaylistStore {
     fun removeSong(id: String, videoId: String): Boolean {
         val cleanId = id.removePrefix("local:playlist:").removePrefix("VL")
         var changed = false
-        val updated = _playlists.value.map { pl ->
-            if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
-                val filtered = pl.songs.filterNot { it.videoId == videoId }
-                if (filtered.size != pl.songs.size) {
-                    changed = true
-                    pl.copy(songs = filtered)
+        _playlists.update { current ->
+            changed = false
+            current.map { pl ->
+                if (pl.id == cleanId || pl.id == id || pl.browseId == id) {
+                    val filtered = pl.songs.filterNot { it.videoId == videoId }
+                    if (filtered.size != pl.songs.size) {
+                        changed = true
+                        pl.copy(songs = filtered)
+                    } else pl
                 } else pl
-            } else pl
+            }
         }
         if (changed) {
-            _playlists.value = updated
-            persist(updated)
+            persist()
         }
         return changed
     }
 
-    private fun persist(list: List<LocalPlaylist>) {
+    /**
+     * Encodes and writes off the caller's thread, coalesced to the latest list.
+     *
+     * Every edit re-serializes every playlist and every song in it, and those
+     * edits come from click handlers and ViewModel launches on Main. The edit
+     * itself is already in [_playlists] when this is called, so readers never
+     * wait on it; the sink always encodes the newest list, so a burst of edits
+     * costs one write.
+     */
+    private val writer = CoalescingWriter { _ -> writeNow(_playlists.value) }
+
+    private fun persist() {
         if (!this::prefs.isInitialized) return
+        writer.submit(emptyMap())
+    }
+
+    private fun writeNow(list: List<LocalPlaylist>) {
         runCatching {
             val jsonArray = JSONArray()
             for (playlist in list) {

@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
@@ -224,18 +221,18 @@ fun BrowseActionsSheet(
             onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, stringResource(R.string.play), onClick = it) }
             onShuffle?.let { ActionRow(BitChordIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
             ActionRow(
-                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                BitChordIcons.PlayNext,
                 stringResource(R.string.play_next),
                 onClick = onPlayNext,
             )
             ActionRow(
-                Icons.AutoMirrored.Rounded.QueueMusic,
+                BitChordIcons.AddToQueue,
                 stringResource(R.string.add_to_queue),
                 onClick = onAddToQueue,
             )
             onAddToOtherPlaylist?.let {
                 ActionRow(
-                    Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    BitChordIcons.PlaylistAdd,
                     stringResource(R.string.add_to_other_playlist),
                     onClick = it,
                 )

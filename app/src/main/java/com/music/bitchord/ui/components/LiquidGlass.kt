@@ -46,6 +46,9 @@ val LocalLiquidGlassEnabled = staticCompositionLocalOf { false }
 /** The backdrop content (app UI) that a liquid glass surface samples from. */
 val LocalAppBackdrop = staticCompositionLocalOf<Backdrop> { error("No AppBackdrop provided") }
 
+/** True while app-level motion is active so glass surfaces hold their last capture. */
+val LocalAppBackdropFrozen = staticCompositionLocalOf<() -> Boolean> { { false } }
+
 /**
  * Where a [liquidGlass] surface composed under it also records the glass it
  * draws — the sampled, blurred and tinted backdrop, without its rim or shadow —
@@ -176,6 +179,7 @@ fun Modifier.lightweightLiquidGlass(
 fun Modifier.liquidGlass(
     shape: CornerBasedShape,
     backdrop: Backdrop? = null,
+    frozen: () -> Boolean = LocalAppBackdropFrozen.current,
 ): Modifier {
     val isSupported = isGlassSupported()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -242,5 +246,11 @@ fun Modifier.liquidGlass(
         },
         exportedBackdrop = exportedBackdrop,
         backdropScale = GLASS_RESOLUTION_SCALE,
+        frozen = {
+            GlassMotion.sheet.frozen() ||
+                GlassMotion.nav.frozen() ||
+                GlassMotion.scroll.frozen() ||
+                frozen()
+        },
     )
 }

@@ -40,7 +40,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
@@ -359,7 +358,7 @@ fun LocalMusicScreen(
                         },
                     )
                     LOCAL_TAB_PLAYLISTS -> LocalTab(
-                        icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                        icon = BitChordIcons.Playlist,
                         label = stringResource(R.string.playlists),
                         selected = selectedTab == LOCAL_TAB_PLAYLISTS,
                         onClick = {
@@ -1143,7 +1142,7 @@ private fun AlbumGridCard(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (entry.playlist) Icons.AutoMirrored.Rounded.QueueMusic else Icons.Rounded.Album,
+                imageVector = if (entry.playlist) BitChordIcons.Playlist else Icons.Rounded.Album,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.size(36.dp),
@@ -1280,7 +1279,7 @@ private fun CollectionArtwork(url: String?, playlist: Boolean, size: Dp) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = if (playlist) Icons.AutoMirrored.Rounded.QueueMusic else Icons.Rounded.Album,
+            imageVector = if (playlist) BitChordIcons.Playlist else Icons.Rounded.Album,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.size(size * 0.54f),

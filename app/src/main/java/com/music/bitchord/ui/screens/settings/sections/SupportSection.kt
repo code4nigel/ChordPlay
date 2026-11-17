@@ -30,10 +30,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Favorite
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.CommunitySupportDialog
+import com.music.bitchord.ui.onboarding.OnboardingState
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Person
@@ -150,8 +152,14 @@ fun SupportSection(
             stringResource(R.string.bitchord_upstream_subtitle),
             "upstream", "bitchord", "kushagra",
         )
+        val showReplaySetup = matchesSearch(
+            searchQuery,
+            stringResource(R.string.replay_welcome_setup),
+            stringResource(R.string.replay_welcome_setup_subtitle),
+            "welcome", "setup", "onboarding", "pass", "wizard", "replay",
+        )
 
-        val anySupportMatch = showUpdateCheck || showReddit || showGithub || showDevProfile || showReleases || showUpstreamRepo
+        val anySupportMatch = showUpdateCheck || showReddit || showGithub || showDevProfile || showReleases || showUpstreamRepo || showReplaySetup
 
         // Hero Card: ChordPlay Branding (shown when not searching, or when update matches)
         if (searchQuery.isBlank() || showUpdateCheck) {
@@ -299,6 +307,17 @@ fun SupportSection(
         if (searchQuery.isNotBlank() && !anySupportMatch) {
             SettingsSearchEmpty(query = searchQuery)
         } else {
+            if (showReplaySetup) {
+                SettingsGroup(header = stringResource(R.string.onboarding_name_title)) {
+                    SettingsRow(
+                        icon = Icons.Rounded.AutoAwesome,
+                        title = stringResource(R.string.replay_welcome_setup),
+                        subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
+                        onClick = { OnboardingState.requestReplay() },
+                    )
+                }
+            }
+
             // Dedicated Developer Section
             if (showDevProfile) {
                 SettingsGroup(

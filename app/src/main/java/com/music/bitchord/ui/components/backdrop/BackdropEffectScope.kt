@@ -10,6 +10,7 @@
 package com.music.bitchord.ui.components.backdrop
 
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -27,6 +28,15 @@ sealed interface BackdropEffectScope : Density, RuntimeShaderCache {
     var padding: Float
 
     var renderEffect: RenderEffect?
+
+    /**
+     * A colour transform to apply when the recorded layer is COMPOSITED, rather than as
+     * another link in [renderEffect]'s chain. Each link is its own render pass, and a
+     * colour matrix is linear: it commutes with the blur's weighted average and with the
+     * lens's warp, so the pixels are the same either way. The layer is already drawn
+     * offscreen for its render effect, so compositing through a colour filter is free.
+     */
+    var compositeColorFilter: ColorFilter?
 }
 
 internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeShaderCache {
@@ -37,6 +47,7 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
     override var layoutDirection: LayoutDirection = LayoutDirection.Ltr
     override var padding: Float = 0f
     override var renderEffect: RenderEffect? = null
+    override var compositeColorFilter: ColorFilter? = null
 
     private val runtimeShaderCache = RuntimeShaderCacheImpl()
 
@@ -71,6 +82,7 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
     fun apply(effects: BackdropEffectScope.() -> Unit) {
         padding = 0f
         renderEffect = null
+        compositeColorFilter = null
         effects()
     }
 
@@ -81,6 +93,7 @@ internal abstract class BackdropEffectScopeImpl : BackdropEffectScope, RuntimeSh
         layoutDirection = LayoutDirection.Ltr
         padding = 0f
         renderEffect = null
+        compositeColorFilter = null
         runtimeShaderCache.clear()
     }
 }

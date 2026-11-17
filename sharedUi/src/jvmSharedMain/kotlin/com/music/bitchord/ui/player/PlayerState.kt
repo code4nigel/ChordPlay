@@ -24,6 +24,7 @@ import coil3.compose.LocalPlatformContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
+import coil3.size.Precision
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -94,7 +95,11 @@ internal fun rememberCanvasArtwork(song: Song, enabled: Boolean = true): CanvasA
  * Everything here is keyed on the cover's [url] — see [rememberPlayerArtwork].
  */
 @Stable
-internal class PlayerArtwork(val url: String?, private val context: PlatformContext) {
+internal class PlayerArtwork(
+    val url: String?,
+    private val context: PlatformContext,
+    private val artPx: Int,
+) {
     /**
      * Whether the cover is on screen. Keyed on the artwork rather than on the
      * track, because that is what it actually describes and because only Coil
@@ -142,7 +147,8 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
         val attempt = attempt
         ImageRequest.Builder(context)
             .data(url)
-            .size(ART_PX)
+            .size(artPx)
+            .precision(Precision.INEXACT)
             // What makes a retry a new request as far as Coil's model comparison
             // is concerned. Only from the second go onwards, so the ordinary
             // request stays byte-identical to the one the mesh and the palette
@@ -170,10 +176,10 @@ internal class PlayerArtwork(val url: String?, private val context: PlatformCont
 }
 
 @Composable
-internal fun rememberPlayerArtwork(remoteArt: String?): PlayerArtwork {
+internal fun rememberPlayerArtwork(remoteArt: String?, artPx: Int): PlayerArtwork {
     val context = LocalPlatformContext.current
-    val artUrl = remoteArt?.artworkAt(ART_PX)
-    val art = remember(artUrl) { PlayerArtwork(artUrl, context) }
+    val artUrl = remoteArt?.artworkAt(artPx)
+    val art = remember(artUrl, artPx) { PlayerArtwork(artUrl, context, artPx) }
     LaunchedEffect(artUrl, art.failed) {
         // A track with no artwork at all fails immediately and would fail
         // identically three more times: there is no request to make, so there is

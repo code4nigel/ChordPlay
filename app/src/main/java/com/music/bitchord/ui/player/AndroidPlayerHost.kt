@@ -59,6 +59,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val hideVolumeBar get() = AppSettings.hideVolumeBar
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
         override val legacyMeshGradient get() = AppSettings.legacyMeshGradient
+        override val liveBlur get() = AppSettings.liveBlur
         override val lyricsBlur get() = AppSettings.lyricsBlur
         override val lyricsOffsetMs get() = AppSettings.lyricsOffsetMs
         override val lyricsSourceOrder get() = AppSettings.lyricsSourceOrder
@@ -97,6 +98,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setFullscreenArtworkLyricsStyle(value: com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle) =
             AppSettings.setFullscreenArtworkLyricsStyle(value)
         override fun setAnimatedCanvas(value: Boolean) = AppSettings.setAnimatedCanvas(value)
+        override fun setFullBleedArtwork(value: Boolean) = AppSettings.setFullBleedArtwork(value)
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)

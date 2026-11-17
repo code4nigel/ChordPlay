@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -47,7 +48,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
@@ -145,6 +145,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
+import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.NUMBERED_ROW_DIVIDER_INSET
@@ -153,6 +154,8 @@ import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.SearchPlayingBars
+import com.music.bitchord.ui.components.rememberShelfKeys
+import com.music.bitchord.ui.components.uniqueKeys
 import com.music.bitchord.ui.components.libraryGrid
 import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.components.thumbnailBorder
@@ -583,7 +586,7 @@ fun DetailScreen(
 
             when (val state = page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
-                is UiState.Error -> item {
+                is UiState.Error -> item(key = "error", contentType = LazyContent.MESSAGE) {
                     val isMix = page.browseId.startsWith("RD") || page.browseId.startsWith("VLRD") ||
                         page.title.contains("Mix", ignoreCase = true) || page.subtitle.contains("Mix", ignoreCase = true) ||
                         page.title.contains("Radio", ignoreCase = true) || page.subtitle.contains("Radio", ignoreCase = true)
@@ -614,7 +617,7 @@ fun DetailScreen(
                                 ),
                                 shape = RoundedCornerShape(20.dp),
                             ) {
-                                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(BitChordIcons.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.add_songs_to_playlist))
                             }
@@ -626,8 +629,10 @@ fun DetailScreen(
                 is UiState.Success -> if (isArtist) {
                     // An artist's full song list would bury the album shelves, so
                     // it pages sideways four at a time and stops at twenty.
-                    item {
-                        val top = state.data.take(MAX_ARTIST_SONGS)
+                    item(key = "top-songs", contentType = LazyContent.SHELF) {
+                        val top = remember(state.data) { state.data.take(MAX_ARTIST_SONGS) }
+                        val topColumns = remember(top) { top.chunked(SONGS_PER_COLUMN) }
+                        val topKeys = remember(topColumns) { uniqueKeys(topColumns) { it.first().videoId } }
                         SectionHeading(
                             title = stringResource(R.string.top_songs),
                             palette = palette,
@@ -639,7 +644,11 @@ fun DetailScreen(
                                 contentPadding = PaddingValues(horizontal = ARTIST_CONTENT_GUTTER),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                items(top.chunked(SONGS_PER_COLUMN)) { column ->
+                                itemsIndexed(
+                                    topColumns,
+                                    key = { index, _ -> topKeys[index] },
+                                    contentType = { _, _ -> LazyContent.TRACK_COLUMN },
+                                ) { _, column ->
                                     Column(Modifier.width(columnWidth)) {
                                         column.forEach { song ->
                                             CompactSongRow(
@@ -663,22 +672,26 @@ fun DetailScreen(
                     // numbers those rows instead, and so does this.
                     val numbered = page.type == BrowseType.ALBUM
                     if (matches.isEmpty() && state.data.isNotEmpty()) {
-                        item(key = "no-matches") {
+                        item(key = "no-matches", contentType = LazyContent.MESSAGE) {
                             MessageState(stringResource(R.string.nothing_matches, query))
                         }
                     }
                     itemsIndexed(
                         items = matches,
                         key = { _, entry -> "${entry.index}_${entry.value.videoId}" },
+                        contentType = { _, _ -> LazyContent.SONG_ROW },
                     ) { position, entry ->
                         val song = entry.value
                         val isCurrent = song.isSameTrackAs(currentSong)
-                        SongRow(
-                            song = if (numbered) {
+                        val rowSong = remember(song, numbered, page.thumbnailUrl) {
+                            if (numbered || song.thumbnailUrl != null) {
                                 song
                             } else {
-                                song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
-                            },
+                                song.copy(thumbnailUrl = page.thumbnailUrl)
+                            }
+                        }
+                        SongRow(
+                            song = rowSong,
                             onClick = {
                                 onSongClick(queue, position)
                             },
@@ -713,12 +726,14 @@ fun DetailScreen(
             // Tracks YouTube offers to round the playlist out, never folded
             // into the list above — see [DetailPage.suggestedSongs].
             if (suggested.isNotEmpty()) {
-                item(key = "suggested-heading") {
+                item(key = "suggested-heading", contentType = LazyContent.HEADER) {
                     SectionHeading(stringResource(R.string.suggested), palette)
                 }
+                val suggestedKeys = uniqueKeys(suggested) { "suggested-${it.videoId}" }
                 itemsIndexed(
                     suggested,
-                    key = { _, song -> "suggested-${song.videoId}" },
+                    key = { index, _ -> suggestedKeys[index] },
+                    contentType = { _, _ -> LazyContent.SONG_ROW },
                 ) { index, song ->
                     SuggestedSongRow(
                         song = song,
@@ -741,11 +756,16 @@ fun DetailScreen(
             }
 
             // Albums / Singles & EPs carousels (artist pages).
-            items(page.sections) { shelf ->
+            itemsIndexed(
+                page.sections,
+                key = { index, shelf -> "section:$index:${shelf.title}" },
+                contentType = { _, _ -> LazyContent.SHELF },
+            ) { _, shelf ->
                 val canShowAll = shelf.items.size > ARTIST_ROW_MAX_ITEMS
                 val displayItems = remember(shelf.items) {
                     if (canShowAll) shelf.items.take(ARTIST_ROW_MAX_ITEMS) else shelf.items
                 }
+                val displayKeys = rememberShelfKeys(displayItems)
                 Column(Modifier.padding(top = 22.dp)) {
                     SectionHeading(
                         title = shelf.title,
@@ -757,7 +777,11 @@ fun DetailScreen(
                         contentPadding = PaddingValues(horizontal = ARTIST_CONTENT_GUTTER),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        items(displayItems) { item ->
+                        itemsIndexed(
+                            displayItems,
+                            key = { index, _ -> displayKeys[index] },
+                            contentType = { _, _ -> LazyContent.CARD },
+                        ) { _, item ->
                             SectionCard(
                                 item = item,
                                 palette = palette,
@@ -967,7 +991,7 @@ private fun ReleaseHeader(
                     }
                     if (canAddSongs) {
                         CircleIconButton(
-                            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            icon = BitChordIcons.PlaylistAdd,
                             contentDescription = stringResource(R.string.add_songs_to_playlist),
                             palette = palette,
                             onClick = { onAddSongs?.invoke() },
@@ -2048,6 +2072,7 @@ private fun ArtistShelfGridPage(
     modifier: Modifier = Modifier,
 ) {
     val gridState = rememberLazyGridState()
+    val keys = rememberShelfKeys(shelf.items)
     val gridPadding = PaddingValues(
         top = topBarContentPadding(),
         bottom = contentPadding.calculateBottomPadding() + 16.dp,
@@ -2069,7 +2094,11 @@ private fun ArtistShelfGridPage(
                     .fillMaxSize()
                     .padding(horizontal = PAGE_GUTTER),
             ) {
-                items(shelf.items, key = { it.browseId ?: it.title }) { item ->
+                gridItemsIndexed(
+                    shelf.items,
+                    key = { index, _ -> keys[index] },
+                    contentType = { _, _ -> LazyContent.CARD },
+                ) { _, item ->
                     SectionCard(
                         item = item,
                         palette = palette,

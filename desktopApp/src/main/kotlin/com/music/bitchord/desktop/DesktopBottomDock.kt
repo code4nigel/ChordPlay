@@ -338,7 +338,7 @@ internal fun DesktopBottomDock(
                 // Synced Lyrics Toggle
                 DesktopToolbarButton(onClick = onOpenLyrics, size = 30.dp) {
                     Icon(
-                        imageVector = BitChordIcons.LyricsQuote,
+                        imageVector = BitChordIcons.LyricsQuoteMarks,
                         contentDescription = "Lyrics",
                         tint = if (sidePanel == DesktopSidePanel.LYRICS) palette.primaryGlow else DesktopSecondary,
                         modifier = Modifier.size(18.dp),

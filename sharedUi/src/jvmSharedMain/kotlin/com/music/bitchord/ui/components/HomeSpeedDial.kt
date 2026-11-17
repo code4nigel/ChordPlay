@@ -34,7 +34,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Casino
@@ -963,10 +962,10 @@ private fun SpeedDialArtwork(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                            imageVector = BitChordIcons.Playlist,
                             contentDescription = null,
                             tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
-                            modifier = Modifier.size(if (isCompact) 18.dp else 22.dp),
+                            modifier = Modifier.size(if (isCompact) 22.dp else 26.dp),
                         )
                         if (!candidateArtUrl.isNullOrBlank()) {
                             AsyncImage(
@@ -977,20 +976,20 @@ private fun SpeedDialArtwork(
                             )
                         }
 
-                        // Playlist micro-badge at bottom-end
+                        // Playlist badge at bottom-end
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(2.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(Color.Black.copy(alpha = 0.70f))
-                                .padding(horizontal = 2.dp, vertical = 1.dp),
+                                .padding(3.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(Color.Black.copy(alpha = 0.72f))
+                                .padding(horizontal = 3.5.dp, vertical = 2.dp),
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                imageVector = BitChordIcons.Playlist,
                                 contentDescription = "Playlist",
-                                tint = Color.White.copy(alpha = 0.90f),
-                                modifier = Modifier.size(if (isCompact) 8.dp else 10.dp),
+                                tint = Color.White.copy(alpha = 0.92f),
+                                modifier = Modifier.size(if (isCompact) 12.dp else 14.dp),
                             )
                         }
                     }

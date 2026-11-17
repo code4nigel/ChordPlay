@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -179,6 +180,7 @@ private fun HeartFlight(
     onDone: () -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val glyphScale = ButtonGlyphWidth / HeartWidth
 
     val travel = remember { Animatable(0f) }
@@ -205,7 +207,16 @@ private fun HeartFlight(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(flight.id, reduceAnimation) {
+        if (reduceAnimation) {
+            bounceScope.launch {
+                state.landing.snapTo(1f)
+                state.landing.animateTo(1.20f, tween(70, easing = LinearOutSlowInEasing))
+                state.landing.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 520f))
+            }
+            onDone()
+            return@LaunchedEffect
+        }
         coroutineScope {
             if (!flight.fromButton) {
                 try {
@@ -247,6 +258,8 @@ private fun HeartFlight(
         }
         onDone()
     }
+
+    if (reduceAnimation) return
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val offset = rootOffset()

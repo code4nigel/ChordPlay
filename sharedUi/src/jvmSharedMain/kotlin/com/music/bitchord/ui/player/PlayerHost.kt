@@ -196,6 +196,7 @@ interface PlayerSettingsSource {
     val hideVolumeBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
     val legacyMeshGradient: StateFlow<Boolean>
+    val liveBlur: StateFlow<Boolean> get() = MutableStateFlow(false)
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
@@ -235,6 +236,7 @@ interface PlayerSettingsSource {
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
     fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) {}
     fun setAnimatedCanvas(value: Boolean) {}
+    fun setFullBleedArtwork(value: Boolean) {}
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

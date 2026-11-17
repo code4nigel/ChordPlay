@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -106,7 +105,7 @@ fun BulkAddProgressDialog(
                         trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     )
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        imageVector = BitChordIcons.PlaylistAdd,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(26.dp),

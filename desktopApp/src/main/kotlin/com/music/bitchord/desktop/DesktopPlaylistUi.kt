@@ -147,7 +147,7 @@ internal fun DesktopPlaylistDialog(
                         val playlist = account[index]
                         val inAccount = playlist.playlistId in accountContains || playlist.playlistId.removePrefix("VL") in accountContains
                         DialogAction(
-                            BitChordIcons.Queue,
+                            BitChordIcons.Playlist,
                             playlist.title,
                             subtitle = playlist.subtitle,
                             enabled = !busy,
@@ -161,7 +161,7 @@ internal fun DesktopPlaylistDialog(
                         val playlist = localPlaylists[index]
                         val inLocal = song != null && playlist.songs.any { it.videoId == song.videoId }
                         DialogAction(
-                            BitChordIcons.Queue,
+                            BitChordIcons.Playlist,
                             playlist.title,
                             subtitle = "${playlist.songs.size} songs",
                             enabled = !busy,

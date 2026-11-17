@@ -15,6 +15,13 @@ import com.music.bitchord.data.FestivalRemoteConfig
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.melody.MelodyEngine
+import com.music.bitchord.data.melody.MelodyMood
+import com.music.bitchord.data.melody.MelodyRules
+import com.music.bitchord.data.melody.MelodyStatus
+import com.music.bitchord.data.melody.MelodyStore
+import com.music.bitchord.data.presence.AndroidPresence
+import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.model.SPOTIFY_MISSING_PREFIX
 import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
@@ -39,6 +46,8 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
+import com.music.bitchord.data.model.orderHomeShelfIds
+import com.music.bitchord.data.model.orderRawHomeShelves
 import com.music.bitchord.data.model.withoutRepeatsOf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.LibraryState
@@ -62,7 +71,6 @@ import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
-import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.FlowPreview
@@ -118,8 +126,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _signedIn = MutableStateFlow(authStore.isSignedIn)
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
 
+    /** All loaded raw Home shelves before visibility filtering and user ordering. */
+    private val _homeRaw = MutableStateFlow<List<HomeShelf>>(emptyList())
+
+    /**
+     * Loaded Home shelf titles in effective display order, including hidden shelves
+     * so Settings can display and re-enable them.
+     */
+    private val _homeShelfTitles = MutableStateFlow<List<String>>(emptyList())
+    val homeShelfTitles: StateFlow<List<String>> = _homeShelfTitles.asStateFlow()
+
     private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
+
+    val speedDialBaseItems: StateFlow<List<ShelfItem>> = combine(
+        _homeRaw,
+        AppSettings.appDesignStyle,
+        AppSettings.pinnedSpeedDialItems,
+    ) { shelves, style, pinned ->
+        if (style == com.music.bitchord.data.settings.AppDesignStyle.CHORDPLAY && shelves.isNotEmpty()) {
+            com.music.bitchord.ui.screens.computeSpeedDialBaseItems(shelves, pinned)
+        } else {
+            emptyList()
+        }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
      * Token for the next page of Home shelves; null once there's nothing
@@ -290,6 +322,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val searchCache = LruCache<String, SearchCacheEntry>(SEARCH_CACHE_ENTRIES)
     private var searchSession: SearchSession? = null
+    private val onMemoryPressure: () -> Unit = {
+        searchCache.trimToSize(SEARCH_CACHE_TRIMMED)
+    }
 
     /** Synced lyrics for whatever is playing; null while unknown or absent. */
     private val _lyrics = MutableStateFlow<List<LyricLine>?>(null)
@@ -1131,9 +1166,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(playlist.playlistId) != null) {
             val removed = com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(playlist.playlistId, song.videoId)
+            PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
+            PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
+            PlaylistMembershipCache.remove(cleanId, song.videoId)
+            PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
             if (removed) {
-                PlaylistMembershipCache.remove(cleanId, song.videoId)
-                PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
                 _detailStack.value = _detailStack.value.map { page ->
                     val songs = (page.songs as? UiState.Success)?.data
                     if (page.browseId != playlist.browseId || songs == null) {
@@ -1160,7 +1197,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
                     ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
             }.getOrNull()
-            ?: return false
+
+        if (cachedSetVideoId == null) {
+            // Song is not in the playlist on the server — clear any stale "added" state immediately.
+            PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
+            PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
+            PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+            PlaylistMembershipCache.remove(cleanId, song.videoId)
+            return false
+        }
 
         return YtMusicRepository.removeFromPlaylist(
             playlist.playlistId,
@@ -1187,7 +1232,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             onFailure = {
                 PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
                 PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
-                PlaylistMembershipCache.add(cleanId, song.videoId)
+                // Check whether the song is actually still in the playlist before restoring cache.
+                val stillPresent = runCatching {
+                    YtMusicRepository.getPlaylistsContainingSong(song.videoId).getOrNull()
+                        ?.let { cleanId in it }
+                }.getOrNull()
+                if (stillPresent == false) {
+                    PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
+                    PlaylistMembershipCache.remove(cleanId, song.videoId)
+                } else {
+                    PlaylistMembershipCache.add(cleanId, song.videoId)
+                }
                 false
             },
         )
@@ -1206,7 +1261,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
-        if (openSongs?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
+        if (openSongs?.any { it.videoId == song.videoId } == true) {
+            PlaylistMembershipCache.clearPendingAdd(cleanId, song.videoId)
+            PlaylistMembershipCache.add(cleanId, song.videoId)
+            return AddOutcome.ALREADY_THERE
+        }
+
+        // Verify against authoritative server membership before adding to prevent duplicates.
+        val alreadyOnServer = runCatching {
+            val containing = YtMusicRepository.getPlaylistsContainingSong(song.videoId).getOrNull()
+            if (containing != null) {
+                cleanId in containing
+            } else {
+                YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
+                    ?.any { it.videoId == song.videoId } == true
+            }
+        }.getOrDefault(false)
+        if (alreadyOnServer) {
+            PlaylistMembershipCache.clearPendingAdd(cleanId, song.videoId)
+            PlaylistMembershipCache.add(cleanId, song.videoId)
+            return AddOutcome.ALREADY_THERE
+        }
 
         return YtMusicRepository.addToPlaylist(cleanId, listOf(song.videoId)).fold(
             onSuccess = { added ->
@@ -1793,6 +1868,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        com.music.bitchord.util.MemoryPressure.register(onMemoryPressure)
         startSearchPipeline()
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
@@ -1846,12 +1922,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 .collect { reloadRemoteDetail(com.music.bitchord.data.smb.SmbConfig.BROWSE_ID) }
         }
         viewModelScope.launch {
+            AppSettings.homeShelfOrder.drop(1).collect { publishHome() }
+        }
+        viewModelScope.launch {
+            AppSettings.hiddenHomeShelves.drop(1).collect { publishHome() }
+        }
+        viewModelScope.launch {
             // A leftover APK only means "Install Now" for the session that
             // downloaded it — see AppUpdateChecker.clearCache.
             AppUpdateChecker.clearCache(getApplication())
             AppUpdateChecker.check()
             FestivalRemoteConfig.check()
         }
+    }
+
+    override fun onCleared() {
+        com.music.bitchord.util.MemoryPressure.unregister(onMemoryPressure)
+        super.onCleared()
     }
 
     /**
@@ -1959,6 +2046,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { fetchExplore() }
     }
 
+    fun ensureExploreLoaded() {
+        if (_explore.value is UiState.Error) loadExplore()
+    }
+
     private suspend fun fetchExplore() {
         val state = YtMusicRepository.moodAndGenres().fold(
             onSuccess = { sections ->
@@ -2032,6 +2123,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
+        _homeRaw.value = emptyList()
+        _homeShelfTitles.value = emptyList()
         _home.value = UiState.Loading
         homeContinuation = null
         homeSeenTitles.clear()
@@ -2128,16 +2221,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun isCurrentHomeLoad(identity: String?, generation: Long) =
         identity == listenerKey() && generation == homeLoadGeneration.get()
 
+    private fun publishHome() {
+        val raw = _homeRaw.value
+        if (raw.isEmpty() && _home.value !is UiState.Success) return
+        val order = AppSettings.homeShelfOrder.value
+        val hidden = AppSettings.hiddenHomeShelves.value
+        val ordered = orderRawHomeShelves(raw, order)
+        _homeShelfTitles.value = orderHomeShelfIds(
+            rawShelfTitles = raw.map { it.title },
+            savedOrder = order,
+            includeSpeedDial = false,
+            includeMelody = false,
+            includeReplay = false,
+        )
+        _home.value = UiState.Success(ordered.filterNot { it.title in hidden })
+    }
+
     private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
-        val existing = (_home.value as? UiState.Success)?.data.orEmpty()
+        val existing = _homeRaw.value
         if (prepend) {
             // YouTube's core home can also contain a stale "Recently played"
             // shelf. The dedicated history endpoint wins and replaces it.
             val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
             homeSeenTitles.addAll(replacing)
-            _home.value = UiState.Success(shelves + existing.filterNot {
+            _homeRaw.value = shelves + existing.filterNot {
                 it.title.lowercase(Locale.ROOT) in replacing
-            })
+            }
+            publishHome()
             return
         }
         val added = shelves.withoutRepeatsOf(existing)
@@ -2162,7 +2272,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 existing + added
             }
-            _home.value = UiState.Success(updated)
+            _homeRaw.value = updated
+            publishHome()
         }
     }
 
@@ -2193,7 +2304,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val baseShelves = (listOfNotNull(synthesizedTopPicks) + feed.shelves + listOfNotNull(remixes.await(), videos.await()) + supplements.await())
             val shelves = baseShelves.withoutRepeatsOf(emptyList())
                 .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-            if (shelves.isNotEmpty()) _home.value = UiState.Success(shelves)
+            if (shelves.isNotEmpty()) {
+                _homeRaw.value = shelves
+                publishHome()
+            }
         }
         quickPicks.await().onSuccess { shelf ->
             if (identity == listenerKey()) shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
@@ -2213,14 +2327,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             YtMusicRepository.moreHome(token).onSuccess { feed ->
                 if (identity == listenerKey()) {
-                    val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
+                    val existing = _homeRaw.value
                     val added = feed.shelves.withoutRepeatsOf(existing)
                         .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
                     // A page with nothing new signals the feed has looped back on
                     // itself rather than run dry with a token still attached —
                     // treat it the same as exhausted so scrolling can't spin here.
                     homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
-                    if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+                    if (added.isNotEmpty()) {
+                        _homeRaw.value = existing + added
+                        publishHome()
+                    }
                 }
             }
             if (identity == listenerKey()) _homeLoadingMore.value = false
@@ -2824,21 +2941,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             // 2. Home feed shelves (Quick picks, Listen again, Similar to, Mixed for you, etc.)
-            val homeState = _home.value
-            if (homeState is UiState.Success) {
-                for (shelf in homeState.data) {
-                    for (item in shelf.items) {
-                        val videoId = item.videoId
-                        if (!videoId.isNullOrBlank()) {
-                            candidates.add(
-                                Song(
-                                    videoId = videoId,
-                                    title = item.title,
-                                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                                    thumbnailUrl = item.thumbnailUrl,
-                                )
+            val rawShelves = _homeRaw.value.ifEmpty { (_home.value as? UiState.Success)?.data.orEmpty() }
+            for (shelf in rawShelves) {
+                for (item in shelf.items) {
+                    val videoId = item.videoId
+                    if (!videoId.isNullOrBlank()) {
+                        candidates.add(
+                            Song(
+                                videoId = videoId,
+                                title = item.title,
+                                artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                                thumbnailUrl = item.thumbnailUrl,
                             )
-                        }
+                        )
                     }
                 }
             }
@@ -2875,12 +2990,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 while (recentLuckySeedIds.size > 24) {
                     recentLuckySeedIds.removeFirst()
                 }
-
-                val msg = "Feeling lucky with ${song.title} • ${song.artist}"
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show()
-                }
-                luckyRadioToast.tryEmit(msg)
 
                 val source = QueueSource("Lucky Radio", PlaybackSourceType.EXPLORE)
                 onPlayRadio?.invoke(song, source)
@@ -3022,6 +3131,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         const val TYPEAHEAD_MAX_RESULTS = 15
 
         const val SEARCH_CACHE_ENTRIES = 100
+        const val SEARCH_CACHE_TRIMMED = 8
 
         /**
          * How long any one source gets to answer a search.
@@ -3971,6 +4081,330 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         loadHome()
     }
 
+    // ---- ChordPlay Melody (endless personal mix) ---------------------------
+
+    /**
+     * Unlocks as soon as any personal or catalog signal exists (no 16-favorite
+     * lock wall). Brand-new accounts with zero signals still open Melody's
+     * starter picker seamlessly.
+     */
+    @Suppress("UNCHECKED_CAST")
+    val melodyStatus: StateFlow<MelodyStatus> =
+        combine(
+            listOf(
+                _library,
+                likeStatuses,
+                _history,
+                _librarySongs,
+                _homeRaw,
+                MelodyStore.starterMoods,
+                MelodyStore.starterArtists,
+                AppSettings.spotifySpdcToken,
+            ),
+        ) { values ->
+            val library = values[0] as UiState<LibraryPage>
+            val likes = values[1] as Map<String, LikeStatus>
+            val history = values[2] as UiState<List<Song>>
+            val librarySongs = values[3] as UiState<List<Song>>
+            val rawHome = values[4] as List<HomeShelf>
+            val starterMoods = values[5] as Set<MelodyMood>
+            val starterArtists = values[6] as Set<String>
+            val spotifyToken = values[7] as String
+
+            val favTracks = likes.count { it.value == LikeStatus.LIKE }
+            val shelves = (library as? UiState.Success)?.data?.shelves.orEmpty()
+            val artists = shelves.firstOrNull { it.title.equals("Artists", true) }?.items?.size ?: 0
+            val subs = shelves.firstOrNull { it.title.equals("Subscriptions", true) }?.items?.size ?: 0
+            val favArtists = maxOf(artists, subs)
+            val historyCount = (history as? UiState.Success)?.data?.size ?: 0
+            val localCount = ((librarySongs as? UiState.Success)?.data?.size ?: 0) + Downloads.saved.value.size
+            val hasHomePicks = rawHome.any { s ->
+                s.items.any { !it.videoId.isNullOrBlank() }
+            }
+            val hasStarters = starterMoods.isNotEmpty() || starterArtists.isNotEmpty()
+
+            MelodyStatus(
+                unlocked = MelodyRules.isUnlocked(
+                    favTrackCount = favTracks,
+                    favArtistCount = favArtists,
+                    historyCount = historyCount,
+                    localTrackCount = localCount,
+                    hasHomePicks = hasHomePicks,
+                    hasStarterPicks = hasStarters,
+                    spotifyConnected = spotifyToken.isNotBlank(),
+                ),
+                favTrackCount = favTracks,
+                favArtistCount = favArtists,
+                historyCount = historyCount,
+                localTrackCount = localCount,
+                hasStarterPicks = hasStarters,
+            )
+        }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, MelodyStatus(unlocked = false))
+
+    private val _melodyQueue = MutableStateFlow<UiState<List<Song>>>(UiState.Success(emptyList()))
+    val melodyQueue: StateFlow<UiState<List<Song>>> = _melodyQueue.asStateFlow()
+
+    private val _melodyLoading = MutableStateFlow(false)
+    val melodyLoading: StateFlow<Boolean> = _melodyLoading.asStateFlow()
+
+    private val _melodySaved = MutableStateFlow(false)
+    val melodySaved: StateFlow<Boolean> = _melodySaved.asStateFlow()
+
+    private val _melodySaveNotice = MutableStateFlow<String?>(null)
+    val melodySaveNotice: StateFlow<String?> = _melodySaveNotice.asStateFlow()
+    fun consumeMelodySaveNotice() { _melodySaveNotice.value = null }
+
+    private var melodyAutoRefreshing = false
+    private var melodyRestore: Job? = null
+
+    init {
+        melodyRestore = viewModelScope.launch {
+            val snapshot = withContext(Dispatchers.IO) {
+                MelodyStore.readSnapshot()?.let { (songs, builtAt) ->
+                    val age = System.currentTimeMillis() - builtAt
+                    val visible = if (age < MelodyStore.MELODY_TTL_MS) {
+                        songs.takeIf { it.isNotEmpty() }
+                    } else {
+                        null
+                    }
+                    visible to age
+                }
+            }
+            val (restored, age) = snapshot ?: return@launch
+            val applied = restored != null &&
+                _melodyQueue.compareAndSet(UiState.Success(emptyList()), UiState.Success(restored))
+            if (applied) maybeAutoRefreshMelody(snapshotAgeMs = age) else maybeAutoRefreshMelody()
+        }
+        viewModelScope.launch {
+            while (true) {
+                delay(MelodyStore.MELODY_AUTO_REFRESH_MS)
+                if (AndroidPresence.isForeground) maybeAutoRefreshMelody()
+            }
+        }
+    }
+
+    private fun maybeAutoRefreshMelody(snapshotAgeMs: Long? = null) {
+        if (melodyAutoRefreshing || _melodySaved.value) return
+        if ((_melodyQueue.value as? UiState.Success)?.data.isNullOrEmpty()) return
+        val age = snapshotAgeMs ?: withCatchingNull { MelodyStore.snapshotAgeMs() } ?: return
+        if (age < MelodyStore.MELODY_AUTO_REFRESH_MS) return
+        melodyAutoRefreshing = true
+        viewModelScope.launch {
+            runCatching { buildMelodyQueue() }.fold(
+                onSuccess = {
+                    if (it.isNotEmpty()) {
+                        _melodyQueue.value = UiState.Success(it)
+                        MelodyStore.saveSnapshot(it)
+                    }
+                },
+                onFailure = { /* keep current mix; retry next hour */ },
+            )
+            melodyAutoRefreshing = false
+        }
+    }
+
+    private inline fun <T> withCatchingNull(block: () -> T): T? = runCatching(block).getOrNull()
+
+    fun applyMelodyConfig(
+        mood: MelodyMood,
+        discovery: Float,
+        memory: Float,
+        excludedGenres: Set<String>,
+        similarLiked: Boolean = MelodyStore.tuner.value.similarLiked,
+    ) {
+        MelodyStore.setMood(mood)
+        MelodyStore.setDiscovery(discovery)
+        MelodyStore.setMemory(memory)
+        MelodyStore.setExcludedGenres(excludedGenres)
+        MelodyStore.setSimilarLiked(similarLiked)
+        refreshMelody()
+    }
+
+    fun applyMelodyStarterPicks(moods: Set<MelodyMood>, artists: Set<String>) {
+        MelodyStore.setStarterPicks(moods, artists)
+        if (moods.size == 1) MelodyStore.setMood(moods.first())
+        refreshMelody()
+    }
+
+    fun seedMelodyFromQuickPicks() {
+        refreshMelody()
+    }
+
+    fun banFromMelody(videoId: String) = MelodyStore.ban(videoId)
+    fun unbanFromMelody(videoId: String) = MelodyStore.unban(videoId)
+
+    /** Skip training: quick skip (<30s or <40%) demotes; fuller listen forgives. */
+    fun recordMelodySkip(videoId: String, playedMs: Long, durationMs: Long) {
+        if (videoId.isBlank()) return
+        val quickSkip = playedMs < 30_000 || (durationMs > 0 && playedMs < durationMs * 0.4)
+        if (quickSkip) MelodyStore.recordSkip(videoId) else MelodyStore.recordFullListen(videoId)
+    }
+
+    private fun melodyGenreOf(artist: String): List<String> =
+        runCatching { ArtistFacts.genresFor(artist) }.getOrDefault(emptyList())
+
+    suspend fun buildMelodyQueue(limit: Int = MelodyEngine.INITIAL_TRACKS): List<Song> = coroutineScope {
+        val lib = (_library.value as? UiState.Success)?.data
+        val favorites = lib?.likedSongs.orEmpty() + lib?.librarySongs.orEmpty()
+        val history = (_history.value as? UiState.Success)?.data
+            ?: YtMusicRepository.history().getOrNull().orEmpty()
+        val homeShelves = _homeRaw.value.ifEmpty { (_home.value as? UiState.Success)?.data.orEmpty() }
+        val homePicks = homeShelves.flatMap { it.items }
+            .filter { !it.videoId.isNullOrBlank() }
+            .map { item ->
+                Song(
+                    videoId = item.videoId.orEmpty(),
+                    title = item.title,
+                    artist = item.subtitle.substringBefore(" • ").trim(),
+                    thumbnailUrl = item.thumbnailUrl,
+                )
+            }
+        val downloadedSongs = runCatching { Downloads.getDownloadedSongs(getApplication()) }.getOrDefault(emptyList())
+        val localTracks = ((_librarySongs.value as? UiState.Success)?.data.orEmpty() + downloadedSongs)
+            .filter { it.videoId.isNotBlank() }
+            .distinctBy { it.videoId }
+            .take(30)
+        val exclude = (favorites.map { it.videoId } + history.map { it.videoId }).toSet()
+        val quickPicksDeferred = async {
+            (YtMusicRepository.quickPicks(exclude).getOrNull().orEmpty() + homePicks)
+                .distinctBy { it.videoId }
+        }
+        val moodDeferred = async {
+            val activeMood = MelodyStore.config.mood
+            if (activeMood != MelodyMood.MELODY) {
+                fetchMelodyMoodPool(activeMood)
+            } else {
+                val starters = MelodyStore.starterMoods.value.take(2)
+                if (starters.isEmpty()) emptyList()
+                else starters.flatMap { fetchMelodyMoodPool(it) }.distinctBy { it.videoId }
+            }
+        }
+        val starterArtistsDeferred = async {
+            val artists = MelodyStore.starterArtists.value.take(3)
+            if (artists.isEmpty()) {
+                emptyList()
+            } else {
+                artists.map { artist ->
+                    async {
+                        YtMusicRepository.search(artist, SearchFilter.SONGS)
+                            .getOrNull()
+                            .orEmpty()
+                            .filterIsInstance<SearchResult.Track>()
+                            .map { it.song }
+                            .take(3)
+                    }
+                }.flatMap { it.await() }.distinctBy { it.videoId }
+            }
+        }
+        val quickPicks = quickPicksDeferred.await()
+        val moodPool = moodDeferred.await()
+        val starterTracks = starterArtistsDeferred.await()
+        MelodyEngine.buildInitialQueue(
+            seeds = MelodyEngine.SeedPool(
+                favorites = favorites,
+                history = history,
+                quickPicks = quickPicks,
+                moodPool = moodPool,
+                localTracks = localTracks,
+                starterTracks = starterTracks,
+            ),
+            likeStatuses = likeStatuses.value,
+            bannedIds = MelodyStore.bannedIds.value,
+            skipCounts = MelodyStore.skipCounts.value,
+            config = MelodyStore.config,
+            limit = limit,
+            genreOf = ::melodyGenreOf,
+        ).distinctBy { it.videoId }.take(limit)
+    }
+
+    private suspend fun fetchMelodyMoodPool(mood: MelodyMood): List<Song> {
+        if (mood == MelodyMood.MELODY) return emptyList()
+        val wanted = mood.stationNames.map { it.lowercase() }.toSet()
+        val stations = YtMusicRepository.moodAndGenres().getOrNull().orEmpty()
+            .flatMap { it.items }
+            .filter { it.title.lowercase() in wanted }
+        if (stations.isEmpty()) return emptyList()
+        val songs = LinkedHashMap<String, Song>()
+        for (station in stations) {
+            val shelves = YtMusicRepository.moodGenreShelves(station.browseId, station.params)
+                .getOrNull().orEmpty()
+            val playlists = shelves.flatMap { it.items }
+                .mapNotNull { it.browseId }
+                .distinct()
+                .take(MELODY_MOOD_PLAYLISTS)
+            for (playlist in playlists) {
+                val entries = YtMusicRepository.allSongs(playlist).getOrNull().orEmpty()
+                entries.take(MELODY_MOOD_PLAYLIST_SONGS).forEach { song ->
+                    songs.putIfAbsent(song.videoId, song)
+                }
+                if (songs.size >= MELODY_MOOD_POOL_SIZE) break
+            }
+            if (songs.size >= MELODY_MOOD_POOL_SIZE) break
+        }
+        return songs.values.toList()
+    }
+
+    fun refreshMelody(limit: Int = MelodyEngine.INITIAL_TRACKS) {
+        if (_melodyLoading.value) return
+        viewModelScope.launch {
+            _melodyLoading.value = true
+            _melodyQueue.value = UiState.Loading
+            runCatching { buildMelodyQueue(limit) }.fold(
+                onSuccess = {
+                    _melodyQueue.value = UiState.Success(it)
+                    if (it.isNotEmpty()) MelodyStore.saveSnapshot(it)
+                },
+                onFailure = { _melodyQueue.value = UiState.Error(it.friendly()) },
+            )
+            _melodyLoading.value = false
+        }
+    }
+
+    suspend fun ensureMelodyTracks(limit: Int = MelodyEngine.INITIAL_TRACKS): List<Song> {
+        melodyRestore?.join()
+        ((_melodyQueue.value as? UiState.Success)?.data?.takeIf { it.isNotEmpty() })?.let { return it }
+        val built = buildMelodyQueue(limit)
+        _melodyQueue.value = UiState.Success(built)
+        _melodySaved.value = false
+        if (built.isNotEmpty()) MelodyStore.saveSnapshot(built)
+        return built
+    }
+
+    fun newMelodyMix(limit: Int = MelodyEngine.INITIAL_TRACKS) {
+        if (_melodyLoading.value) return
+        viewModelScope.launch {
+            _melodyLoading.value = true
+            _melodyQueue.value = UiState.Loading
+            runCatching { buildMelodyQueue(limit) }.fold(
+                onSuccess = {
+                    _melodyQueue.value = UiState.Success(it)
+                    _melodySaved.value = false
+                    if (it.isNotEmpty()) MelodyStore.saveSnapshot(it)
+                },
+                onFailure = { _melodyQueue.value = UiState.Error(it.friendly()) },
+            )
+            _melodyLoading.value = false
+        }
+    }
+
+    fun saveMelody(title: String = "My Melody") {
+        val tracks = (_melodyQueue.value as? UiState.Success)?.data.orEmpty()
+        if (tracks.isEmpty() || _melodySaved.value) return
+        createPlaylistWithVideoIds(
+            title = title,
+            privacy = PlaylistPrivacy.PRIVATE,
+            videoIds = tracks.map { it.videoId },
+            songs = tracks,
+            onResult = { _, _, _ ->
+                _melodySaved.value = true
+                libraryStale = true
+                _melodySaveNotice.value = text(R.string.melody_saved)
+            },
+        )
+    }
+
     private fun Throwable.friendly(): String = when {
         message?.contains("resolve host", true) == true ||
             message?.contains("Unable to resolve", true) == true -> text(R.string.no_internet_connection)
@@ -3981,3 +4415,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
 }
+
+private const val MELODY_MOOD_PLAYLISTS = 4
+private const val MELODY_MOOD_PLAYLIST_SONGS = 15
+private const val MELODY_MOOD_POOL_SIZE = 40

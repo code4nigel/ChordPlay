@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.OpenInNew
 import android.widget.Toast
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.ui.onboarding.OnboardingState
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
@@ -157,9 +159,15 @@ fun AboutSection(
             stringResource(R.string.bitchord_upstream_subtitle),
             "bitchord", "kushagra", "upstream",
         )
+        val showReplaySetup = matchesSearch(
+            searchQuery,
+            stringResource(R.string.replay_welcome_setup),
+            stringResource(R.string.replay_welcome_setup_subtitle),
+            "welcome", "setup", "onboarding", "pass", "wizard",
+        )
 
         val anyAboutMatch = showUpdate || showReplay || showWorkOutGenres || showDontRepeatSongs ||
-            showReddit || showGithub || showReleases || showDevProfile || showUpstreamRepo
+            showReddit || showGithub || showReleases || showDevProfile || showUpstreamRepo || showReplaySetup
 
         // Hero Card: ChordPlay Branding & Version (shown when not searching, or when update matches)
         if (searchQuery.isBlank() || showUpdate) {
@@ -457,6 +465,16 @@ fun AboutSection(
                                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
                                     }
                                 },
+                            )
+                            linkPreceding = true
+                        }
+                        if (showReplaySetup) {
+                            if (linkPreceding) RowDivider()
+                            SettingsRow(
+                                icon = Icons.Rounded.AutoAwesome,
+                                title = stringResource(R.string.replay_welcome_setup),
+                                subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
+                                onClick = { OnboardingState.requestReplay() },
                             )
                         }
                     }

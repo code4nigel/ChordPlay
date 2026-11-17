@@ -17,12 +17,23 @@ object AndroidPresence {
     private const val PREFS = "presence"
     private const val KEY_INSTALL_ID = "install_id"
 
+    @Volatile
+    var isForeground: Boolean = false
+        private set
+
     /** Call once from [Application.onCreate], on the main thread. */
     fun install(app: Application) {
         val presence = Presence(PresencePlatform.Android, installId(app))
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) = presence.setOpen(true)
-            override fun onStop(owner: LifecycleOwner) = presence.setOpen(false)
+            override fun onStart(owner: LifecycleOwner) {
+                isForeground = true
+                presence.setOpen(true)
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                isForeground = false
+                presence.setOpen(false)
+            }
         })
     }
 

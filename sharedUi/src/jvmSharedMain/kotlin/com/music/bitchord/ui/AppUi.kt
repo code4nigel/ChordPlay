@@ -8,7 +8,6 @@ import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.SpeedDialLayoutMode
-import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.model.ShelfItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,13 +68,21 @@ interface AppUiHost {
 
     fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {}
 
-    /** Custom arrangement order for Home screen shelves. */
-    val homeShelfOrder: StateFlow<List<HomeShelfKey>>
-        get() = MutableStateFlow(HomeShelfKey.DEFAULT_ORDER)
+    /** Custom arrangement order for Home sections by feed shelf title or [HomeShelfSlot] token. */
+    val homeShelfOrder: StateFlow<List<String>>
+        get() = MutableStateFlow(emptyList())
 
-    /** Disabled/hidden Home screen shelves. */
-    val disabledHomeShelves: StateFlow<Set<HomeShelfKey>>
+    /** Hidden Home sections by feed shelf title or [HomeShelfSlot] token. */
+    val hiddenHomeShelves: StateFlow<Set<String>>
         get() = MutableStateFlow(emptySet())
+
+    /** Whether the ChordPlay Melody entry card is shown on Home. */
+    val homeMelodyVisible: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
+    /** Whether the Replay entry card is shown on Home. */
+    val homeReplayVisible: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
 
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable

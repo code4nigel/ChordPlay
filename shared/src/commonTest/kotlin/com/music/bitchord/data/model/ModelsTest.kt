@@ -21,6 +21,24 @@ class ModelsTest {
         assertEquals("https://example.test/cover.jpg", "https://example.test/cover.jpg".artworkAt(720))
     }
 
+    @Test
+    fun playerArtworkIsTheSizeOfTheWindowItIsDrawnIn() {
+        assertEquals(1080, playerArtPx(360f, 3f))
+        assertEquals(720, playerArtPx(360f, 2f))
+    }
+
+    @Test
+    fun playerArtworkIsNeverBiggerThanTheLargestRung() {
+        assertEquals(PLAYER_ART_PX, playerArtPx(411f, 3.5f))
+        assertEquals(PLAYER_ART_PX, playerArtPx(2000f, 2f))
+    }
+
+    @Test
+    fun playerArtworkIsNeverSmallerThanTheFloor() {
+        assertEquals(MIN_PLAYER_ART_PX, playerArtPx(200f, 1f))
+        assertEquals(MIN_PLAYER_ART_PX, playerArtPx(0f, 3f))
+    }
+
     private fun album(id: String) = ShelfItem(id, "", null, null, id)
     private fun song(id: String) = ShelfItem(id, "", null, id, null)
 

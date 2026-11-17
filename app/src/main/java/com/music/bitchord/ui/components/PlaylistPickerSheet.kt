@@ -83,13 +83,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
@@ -217,9 +222,16 @@ fun PlaylistPickerSheet(
                 // Safely reconcile remote with cache without wiping in-flight pending adds!
                 PlaylistMembershipCache.reconcileRemote(target.videoId, containingIds, playlists)
 
-                val effectiveContaining = (containingIds + localIds).filter { plId ->
-                    PlaylistMembershipCache.contains(plId, target.videoId)
-                }.toSet()
+                val cleanLocalIds = localIds.map { it.removePrefix("VL") }.toSet()
+                val cleanRemoteIds = containingIds.map { it.removePrefix("VL") }.toSet()
+                val effectiveContaining = playlists
+                    .filter { pl ->
+                        val cleanId = pl.playlistId.removePrefix("VL")
+                        (cleanId in cleanRemoteIds || cleanId in cleanLocalIds) &&
+                            PlaylistMembershipCache.contains(pl.playlistId, target.videoId)
+                    }
+                    .map { it.playlistId }
+                    .toSet()
 
                 withContext(Dispatchers.Main) {
                     initiallyPresent = effectiveContaining
@@ -310,12 +322,30 @@ fun PlaylistPickerSheet(
     val doneContainerColor = MaterialTheme.colorScheme.primary
     val doneContentColor = if (doneContainerColor.luminance() > 0.5f) Color.Black else Color.White
 
+    // Consume all unconsumed vertical/horizontal scroll and fling deltas so
+    // scrolling the playlist list never propagates down to NowPlaying's sheet.
+    val blockParentScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset = available
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity = available
+        }
+    }
+    val sheetModifier = modifier.nestedScroll(blockParentScroll)
+
     if (creating) {
         NewPlaylistForm(
             onBack = if (startCreating) null else ({ creating = false }),
             onCreate = onCreate,
             onDismiss = onDismiss,
-            modifier = modifier
+            modifier = sheetModifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
         )
@@ -324,7 +354,7 @@ fun PlaylistPickerSheet(
 
     if (isLandscape) {
         Row(
-            modifier = modifier
+            modifier = sheetModifier
                 .fillMaxWidth()
                 .heightIn(max = 310.dp)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
@@ -716,7 +746,7 @@ fun PlaylistPickerSheet(
         }
     } else {
         Column(
-            modifier = modifier
+            modifier = sheetModifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
         ) {

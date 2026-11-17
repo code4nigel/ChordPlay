@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -84,6 +83,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.ui.components.FastScroller
+import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PlaylistMembershipCache
@@ -96,8 +96,10 @@ import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.songListSkeleton
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.components.uniqueKeys
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
 @Composable
@@ -272,13 +274,13 @@ fun SearchScreen(
                 contentPadding = searchBottomPadding,
             ) {
             when {
-                activeSearchSource == SearchSource.LOCAL && results == null -> item(key = "local:empty") {
+                activeSearchSource == SearchSource.LOCAL && results == null -> item(key = "local:empty", contentType = LazyContent.MESSAGE) {
                     MessageState(stringResource(Res.string.search_library_empty))
                 }
-                activeSearchSource == SearchSource.LIBRARY && results == null -> item(key = "library:empty") {
+                activeSearchSource == SearchSource.LIBRARY && results == null -> item(key = "library:empty", contentType = LazyContent.MESSAGE) {
                     MessageState("Search your saved playlists, albums, artists and tracks.")
                 }
-                activeSearchSource == SearchSource.ADDONS && results == null -> item(key = "addons:empty") {
+                activeSearchSource == SearchSource.ADDONS && results == null -> item(key = "addons:empty", contentType = LazyContent.MESSAGE) {
                     MessageState(stringResource(Res.string.search_addons_empty))
                 }
                 suggesting -> {
@@ -306,7 +308,7 @@ fun SearchScreen(
                     }
                 }
                 results == null -> if (history.isEmpty()) {
-                    item { MessageState(stringResource(Res.string.search_empty)) }
+                    item(key = "search:empty", contentType = LazyContent.MESSAGE) { MessageState(stringResource(Res.string.search_empty)) }
                 } else {
                     recentSearches(
                         history = history,
@@ -318,10 +320,10 @@ fun SearchScreen(
                     )
                 }
                 results is UiState.Loading -> songListSkeleton(circular = filter == SearchFilter.ARTISTS)
-                results is UiState.Error -> item { MessageState(results.message) }
+                results is UiState.Error -> item(key = "search:error", contentType = LazyContent.MESSAGE) { MessageState(results.message) }
                 results is UiState.Success -> {
                     if (results.data.isEmpty()) {
-                        item(key = if (isSearchingNonYoutube) "library:no-match" else "search:no-match") {
+                        item(key = if (isSearchingNonYoutube) "library:no-match" else "search:no-match", contentType = LazyContent.MESSAGE) {
                             MessageState(
                                 when (activeSearchSource) {
                                     SearchSource.LOCAL -> stringResource(Res.string.search_library_no_results, query.trim())
@@ -340,7 +342,7 @@ fun SearchScreen(
                             } }
                         val topResult = results.data.filterIsInstance<SearchResult.TopTrack>().firstOrNull()
                         if (filter == SearchFilter.ALL && topResult != null && !isSearchingNonYoutube) {
-                            item(key = "search:top-result:${topResult.song.videoId}") {
+                            item(key = "search:top-result:${topResult.song.videoId}", contentType = "top-result") {
                                 TopResultCard(
                                     song = topResult.song,
                                     onPlay = { onTopResultPlay(topResult.song) },
@@ -351,7 +353,7 @@ fun SearchScreen(
                         }
                         searchSections(results.data, filter).forEach { section ->
                             section.title?.let { title ->
-                                item(key = "search-section:$title") {
+                                item(key = "search-section:$title", contentType = LazyContent.HEADER) {
                                     Text(
                                         text = title,
                                         modifier = Modifier.padding(
@@ -365,15 +367,11 @@ fun SearchScreen(
                                     )
                                 }
                             }
+                            val rowKeys = uniqueKeys(section.rows) { it.lazyKey() }
                             itemsIndexed(
                                 items = section.rows,
-                                key = { index, row ->
-                                    when (row) {
-                                        is SearchResult.TopTrack -> "top_${row.song.videoId}_$index"
-                                        is SearchResult.Track -> "track_${row.song.videoId}_$index"
-                                        is SearchResult.Browse -> "browse_${row.item.browseId}_$index"
-                                    }
-                                },
+                                key = { index, _ -> rowKeys[index] },
+                                contentType = { _, row -> row.lazyContentType() },
                             ) { index, row ->
                                 when (row) {
                                     is SearchResult.TopTrack -> Unit
@@ -564,7 +562,7 @@ private fun TopResultCard(
                 onClick = onPlaylist,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
             ) {
-                Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)
+                Icon(BitChordIcons.PlaylistAdd, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(Res.string.playlist_action))
             }
@@ -589,11 +587,17 @@ private fun LazyListScope.searchSuggestions(
     // This is a list-level inset rather than padding hidden inside the first
     // row. It keeps the gap under the field stable even when that row changes
     // its text or icon treatment.
-    item(key = "suggestions:top-inset") { Spacer(Modifier.height(8.dp)) }
+    item(key = "suggestions:top-inset", contentType = "spacer") { Spacer(Modifier.height(8.dp)) }
     // Skip the echo of the typed text (element 0) — it's already visible in
     // the search field itself — and cap at N so the list stays compact above
     // the playable-media cards.
-    itemsIndexed(suggestions.drop(1).take(3), key = { _, term -> "suggest:$term" }) { _, term ->
+    val visibleSuggestions = suggestions.drop(1).take(3)
+    val suggestionKeys = uniqueKeys(visibleSuggestions) { "suggest:$it" }
+    itemsIndexed(
+        visibleSuggestions,
+        key = { index, _ -> suggestionKeys[index] },
+        contentType = { _, _ -> "suggestion" },
+    ) { _, term ->
         SuggestionRow(
             term = term,
             isQueryAction = false,
@@ -683,20 +687,19 @@ private fun LazyListScope.searchTypeaheadDropdown(
     currentSong: Song?,
     isPlaying: Boolean,
 ) {
-    item(key = "typeahead:divider") {
+    item(key = "typeahead:divider", contentType = "divider") {
         HorizontalDivider(
             modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER),
             thickness = 0.5.dp,
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
         )
     }
-    items(typeaheadResults, key = { result ->
-        when (result) {
-            is SearchResult.Track -> "ta:track:${result.song.videoId}"
-            is SearchResult.Browse -> "ta:browse:${result.item.browseId}"
-            is SearchResult.TopTrack -> "ta:top:${result.song.videoId}"
-        }
-    }) { result ->
+    val typeaheadKeys = uniqueKeys(typeaheadResults) { "ta:${it.lazyKey()}" }
+    itemsIndexed(
+        typeaheadResults,
+        key = { index, _ -> typeaheadKeys[index] },
+        contentType = { _, result -> result.lazyContentType() },
+    ) { _, result ->
         when (result) {
             is SearchResult.Track -> TypeaheadSongRow(
                 song = result.song,
@@ -787,7 +790,7 @@ private fun LazyListScope.recentSearches(
     onRemove: (String) -> Unit,
     onClear: () -> Unit,
 ) {
-    item(key = "recent:header") {
+    item(key = "recent:header", contentType = LazyContent.HEADER) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -811,7 +814,12 @@ private fun LazyListScope.recentSearches(
             )
         }
     }
-    items(history, key = { "recent:${it.id}" }) { entity ->
+    val historyKeys = uniqueKeys(history) { "recent:${it.id}" }
+    itemsIndexed(
+        history,
+        key = { index, _ -> historyKeys[index] },
+        contentType = { _, _ -> "recent-search" },
+    ) { _, entity ->
         RecentSearchEntityRow(
             entity = entity,
             isCurrent = entity.entityType == EntityType.TRACK && entity.id == currentSong?.videoId,
@@ -988,3 +996,16 @@ private fun SearchFilterTabs(
 
 /** Rounded, but well short of a capsule — the corner reads as a cut, not a curve. */
 private val FILTER_PILL_SHAPE = RoundedCornerShape(12.dp)
+
+private fun SearchResult.lazyKey(): String = when (this) {
+    is SearchResult.TopTrack -> "top:${song.videoId}"
+    is SearchResult.Track -> "track:${song.videoId}"
+    is SearchResult.Browse -> "browse:${item.browseId ?: item.title}"
+}
+
+/** Tracks and browse results draw differently, so a slot is only reused within its kind. */
+private fun SearchResult.lazyContentType(): String = when (this) {
+    is SearchResult.TopTrack -> "top-result"
+    is SearchResult.Track -> LazyContent.SONG_ROW
+    is SearchResult.Browse -> LazyContent.BROWSE_ROW
+}

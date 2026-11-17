@@ -184,6 +184,7 @@ fun SettingsScreen(
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
     contentPadding: PaddingValues,
+    homeShelfTitles: List<String> = emptyList(),
     currentSection: SettingsSection? = null,
     onSectionChange: ((SettingsSection?) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -258,6 +259,7 @@ fun SettingsScreen(
             SettingsSection.SHELVES -> ShelvesSection(
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
+                homeShelfTitles = homeShelfTitles,
                 initialSearchQuery = query,
             )
             SettingsSection.PLAYER -> PlayerSection(
@@ -373,7 +375,7 @@ private fun SettingsHub(
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
                     SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe"
-                    SettingsSection.SHELVES -> "shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize"
+                    SettingsSection.SHELVES -> "shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
@@ -381,9 +383,9 @@ private fun SettingsHub(
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
                     SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear"
                     SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced performance 120hz refresh rate display smoothness reduce blur reduce animations automix cpu nerd stats diagnostics"
-                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates"
+                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates welcome setup onboarding pass"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
-                    SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay"
+                    SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay welcome setup onboarding"
                 }
                 keywords.contains(q) || section.name.lowercase().contains(q)
             }
@@ -1098,7 +1100,15 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SHELVES,
             icon = Icons.Rounded.ViewAgenda,
             queryTarget = stringResource(R.string.home_shelves),
-            keywords = listOf("shelves", "order", "arrange", "reorder", "home", "quick picks", "forgotten favorites", "speed dial"),
+            keywords = listOf("shelves", "order", "arrange", "reorder", "home", "quick picks", "speed dial", "hide", "show"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.show_replay_in_library),
+            subtitle = stringResource(R.string.show_replay_in_library_subtitle),
+            section = SettingsSection.SHELVES,
+            icon = Icons.Rounded.ViewAgenda,
+            queryTarget = stringResource(R.string.show_replay_in_library),
+            keywords = listOf("replay", "library", "show", "hide", "cards", "stats"),
         ),
 
         // Playback (Player)
@@ -1537,6 +1547,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.Person,
             queryTarget = stringResource(R.string.developer_profile),
             keywords = listOf("developer", "profile", "author", "nigel"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.replay_welcome_setup),
+            subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
+            section = SettingsSection.SUPPORT,
+            icon = Icons.Rounded.AutoAwesome,
+            queryTarget = stringResource(R.string.replay_welcome_setup),
+            keywords = listOf("welcome", "setup", "onboarding", "chordplay pass", "wizard"),
         ),
 
         // Integrations

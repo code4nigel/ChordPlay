@@ -1,12 +1,12 @@
 package com.music.bitchord.ui.components
 
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,19 +22,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,25 +38,36 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.onboarding.Onb
+import com.music.bitchord.ui.onboarding.OnbCard
+import com.music.bitchord.ui.onboarding.OnbPillButton
+import com.music.bitchord.ui.onboarding.OnbSectionLabel
+import com.music.bitchord.ui.onboarding.OnbSubtitleTracking
+import com.music.bitchord.ui.onboarding.OnbTitleTracking
+import com.music.bitchord.ui.player.MeshGradientBackground
+import com.music.bitchord.ui.player.rememberArtworkColors
 
-private val AccentCopper = Color(0xFFE5A97D)
-private val DialogBg = Color(0xFF13141B)
-private val CardBg = Color(0xFF1A1B24)
+private val DialogBaseBg = Color(0xFF0A0A0E)
+private val DialogPlumFallback = Brush.linearGradient(
+    colors = listOf(Color(0xFF23152C), Color(0xFF14111D), DialogBaseBg),
+)
 
 /**
- * Modern, informative community and developer dialog for ChordPlay.
- * Responsive: clean single column in Portrait, balanced two-panel layout in Landscape.
+ * Modern frosted community and developer hub dialog matching the ChordPlay onboarding aesthetic.
+ * Responsive: single column in Portrait, balanced two-panel layout in Landscape.
  */
 @Composable
 fun CommunitySupportDialog(
@@ -76,42 +83,64 @@ fun CommunitySupportDialog(
     val versionName = remember(context) {
         runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
-        }.getOrNull() ?: "2.1.6"
+        }.getOrNull() ?: "2.2.3"
     }
+
+    val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
+    val reduceBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val artworkPalette = rememberArtworkColors(activeArtworkUrl)
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        val dialogShape = RoundedCornerShape(22.dp)
+        val dialogShape = RoundedCornerShape(28.dp)
 
         Box(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = if (isLandscape) 28.dp else 20.dp, vertical = 12.dp),
+                .padding(horizontal = if (isLandscape) 28.dp else 18.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
+            Box(
                 modifier = Modifier
-                    .widthIn(max = if (isLandscape) (screenWidth * 0.88f).coerceAtMost(620.dp) else 370.dp)
+                    .widthIn(max = if (isLandscape) (screenWidth * 0.88f).coerceAtMost(640.dp) else 388.dp)
                     .fillMaxWidth()
-                    .heightIn(max = if (isLandscape) (screenHeight * 0.90f).coerceAtMost(410.dp) else screenHeight * 0.86f)
+                    .heightIn(max = if (isLandscape) (screenHeight * 0.90f).coerceAtMost(420.dp) else screenHeight * 0.86f)
                     .clip(dialogShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), dialogShape),
-                shape = dialogShape,
-                color = DialogBg,
-                tonalElevation = 8.dp,
+                    .background(DialogBaseBg)
+                    .border(1.dp, Onb.Hairline, dialogShape),
             ) {
+                if (!reduceBlur) {
+                    MeshGradientBackground(
+                        palette = artworkPalette,
+                        modifier = Modifier.matchParentSize(),
+                        trackKey = activeArtworkUrl,
+                        animated = false,
+                        blurRadius = 46.dp,
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(DialogPlumFallback),
+                    )
+                }
+                // Subtle dark atmospheric veil so frosted cards & typography keep high contrast.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(DialogBaseBg.copy(alpha = 0.42f)),
+                )
+
                 if (isLandscape) {
-                    // ---- LANDSCAPE: TWO-PANEL SPLIT LAYOUT ----
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // Left Panel: Identity, Hero & Primary Action
                         Column(
                             modifier = Modifier
                                 .weight(0.42f)
@@ -119,202 +148,49 @@ fun CommunitySupportDialog(
                             verticalArrangement = Arrangement.SpaceBetween,
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                // App Squircle Clean Logo
-                                Image(
-                                    painter = painterResource(R.drawable.ic_chordplay_squircle),
-                                    contentDescription = "ChordPlay",
-                                    modifier = Modifier
-                                        .size(54.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .border(1.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(14.dp)),
-                                )
+                            CommunityHeader(
+                                versionName = versionName,
+                                compact = true,
+                            )
 
-                                Spacer(Modifier.height(8.dp))
-
-                                Text(
-                                    text = "ChordPlay",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp,
-                                    ),
-                                    color = Color.White,
-                                )
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color.White.copy(alpha = 0.08f),
-                                ) {
-                                    Text(
-                                        text = "v$versionName",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                        color = Color.White.copy(alpha = 0.70f),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    )
-                                }
-
-                                Spacer(Modifier.height(8.dp))
-
-                                Text(
-                                    text = "Pure music, open-source & crafted with passion.",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 12.sp,
-                                        lineHeight = 16.sp,
-                                    ),
-                                    color = Color.White.copy(alpha = 0.65f),
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 6.dp),
-                                )
-                            }
-
-                            // Left Panel Bottom Action
-                            Button(
+                            OnbPillButton(
+                                text = "Enjoy Listening",
                                 onClick = onDismiss,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(42.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                ),
-                            ) {
-                                Text(
-                                    text = "Enjoy Listening",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                    ),
-                                )
-                            }
+                                modifier = Modifier.heightIn(min = 50.dp),
+                            )
                         }
 
-                        // Right Panel: Developer & Community Hub Grouped Actions
                         Column(
                             modifier = Modifier
                                 .weight(0.58f)
                                 .fillMaxHeight()
                                 .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            CommunityContentSections(
-                                context = context,
-                            )
+                            CommunityContentSections(context = context)
                         }
                     }
                 } else {
-                    // ---- PORTRAIT: CLEAN INTEGRATED COLUMN ----
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp, vertical = 22.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // 1. Top Reddit Hero Banner (Without duplicate icon beneath it!)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(105.dp),
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.banner_chordplay_reddit),
-                                contentDescription = "ChordPlay Banner",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.matchParentSize(),
-                            )
-                            // Smooth gradient fade to dialog background
-                            Box(
-                                modifier = Modifier
-                                    .matchParentSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(
-                                                Color.Transparent,
-                                                DialogBg.copy(alpha = 0.50f),
-                                                DialogBg,
-                                            ),
-                                        ),
-                                    ),
-                            )
-                        }
+                        CommunityHeader(versionName = versionName, compact = false)
 
-                        // 2. Branding & Version Header
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Text(
-                                    text = "ChordPlay",
-                                    style = MaterialTheme.typography.titleLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 22.sp,
-                                    ),
-                                    color = Color.White,
-                                )
+                        Spacer(Modifier.height(18.dp))
 
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color.White.copy(alpha = 0.08f),
-                                ) {
-                                    Text(
-                                        text = "v$versionName",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                        color = Color.White.copy(alpha = 0.70f),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    )
-                                }
-                            }
-                        }
+                        CommunityContentSections(context = context)
 
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(18.dp))
 
-                        // 3. Unified Inset Grouped Sections
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            CommunityContentSections(
-                                context = context,
-                            )
-
-                            Spacer(Modifier.height(4.dp))
-
-                            // 4. Primary Dismiss Button (Rounded Rectangle, not harsh pill)
-                            Button(
-                                onClick = onDismiss,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(44.dp),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                                ),
-                            ) {
-                                Text(
-                                    text = "Enjoy Listening",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                    ),
-                                )
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-                        }
+                        OnbPillButton(
+                            text = "Enjoy Listening",
+                            onClick = onDismiss,
+                            modifier = Modifier.heightIn(min = 50.dp),
+                        )
                     }
                 }
             }
@@ -322,167 +198,182 @@ fun CommunitySupportDialog(
     }
 }
 
-/**
- * Reusable sections for Developer and Support & Community,
- * organized into cohesive unified rounded rectangles with internal row dividers.
- */
 @Composable
-private fun CommunityContentSections(
-    context: android.content.Context,
-    modifier: Modifier = Modifier,
+private fun CommunityHeader(
+    versionName: String,
+    compact: Boolean,
 ) {
+    val iconShape = RoundedCornerShape(16.dp)
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        // Section 1: Developer
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Image(
+            painter = painterResource(R.drawable.ic_chordplay_squircle),
+            contentDescription = "ChordPlay",
+            modifier = Modifier
+                .size(if (compact) 56.dp else 64.dp)
+                .clip(iconShape)
+                .border(1.dp, Onb.Hairline, iconShape),
+        )
+
+        Spacer(Modifier.height(if (compact) 10.dp else 12.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(
-                text = "DEVELOPER",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                ),
-                color = AccentCopper,
-                modifier = Modifier.padding(start = 2.dp),
+                text = "ChordPlay",
+                color = Onb.Title,
+                fontSize = if (compact) 22.sp else 26.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = OnbTitleTracking,
             )
 
-            // Unified rounded container for Developer
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = CardBg,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
-                modifier = Modifier.fillMaxWidth(),
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Onb.SurfaceHigh.copy(alpha = 0.85f))
+                    .border(0.75.dp, Onb.Hairline, CircleShape)
+                    .padding(horizontal = 9.dp, vertical = 3.dp),
             ) {
-                ActionRow(
-                    iconPainter = painterResource(R.drawable.ic_github),
-                    title = "Shivanshu",
-                    subtitle = "@code4nigel • Lead Developer & Maintainer",
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel"))
-                            )
-                        }
-                    },
+                Text(
+                    text = "v$versionName",
+                    color = Onb.Subtitle,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
         }
 
-        // Section 2: Support ChordPlay
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = "Pure music, open-source & crafted with passion.",
+            color = Onb.Subtitle,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = OnbSubtitleTracking,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun CommunityContentSections(
+    context: Context,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = "SUPPORT CHORDPLAY",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp,
-                ),
-                color = AccentCopper,
-                modifier = Modifier.padding(start = 2.dp),
+            OnbSectionLabel("DEVELOPER")
+            CommunityLinkCard(
+                iconPainter = painterResource(R.drawable.ic_github),
+                title = "Shivanshu",
+                subtitle = "@code4nigel • Lead Developer & Maintainer",
+                onClick = { openExternalUrl(context, "https://github.com/code4nigel") },
             )
+        }
 
-            // Single unified rounded container holding both Community hubs with hairline divider
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = CardBg,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    ActionRow(
-                        iconPainter = painterResource(R.drawable.ic_reddit),
-                        title = "Reddit Community",
-                        subtitle = "r/ChordPlay • Join discussion & requests",
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/"))
-                                )
-                            }
-                        },
-                    )
-
-                    HorizontalDivider(
-                        color = Color.White.copy(alpha = 0.06f),
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                    )
-
-                    ActionRow(
-                        iconPainter = painterResource(R.drawable.ic_github),
-                        title = "GitHub Repository",
-                        subtitle = "code4nigel/ChordPlay • Star & contribute",
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay"))
-                                )
-                            }
-                        },
-                    )
-                }
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            OnbSectionLabel("COMMUNITY")
+            CommunityLinkCard(
+                iconPainter = painterResource(R.drawable.ic_reddit),
+                title = "Reddit Community",
+                subtitle = "r/ChordPlay • Join discussion & requests",
+                onClick = { openExternalUrl(context, "https://www.reddit.com/r/ChordPlay/") },
+            )
+            CommunityLinkCard(
+                iconPainter = painterResource(R.drawable.ic_github),
+                title = "GitHub Repository",
+                subtitle = "code4nigel/ChordPlay • Star & contribute",
+                onClick = { openExternalUrl(context, "https://github.com/code4nigel/ChordPlay") },
+            )
         }
     }
 }
 
 @Composable
-private fun ActionRow(
+private fun CommunityLinkCard(
     iconPainter: Painter,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
+    val cardShape = remember { RoundedCornerShape(22.dp) }
+    OnbCard(
+        modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .border(0.75.dp, Onb.Hairline, cardShape),
+        shape = cardShape,
+        onClick = onClick,
     ) {
-        // Flat rounded icon tile
-        Box(
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color.White.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .padding(horizontal = 15.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painter = iconPainter,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(20.dp),
-            )
-        }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Onb.SurfaceHigh.copy(alpha = 0.85f))
+                    .border(0.75.dp, Onb.Hairline, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = iconPainter,
+                    contentDescription = null,
+                    tint = Onb.Title,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
 
-        Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(12.dp))
 
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(1.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = title,
+                    color = Onb.Title,
                     fontSize = 15.sp,
-                ),
-                color = Color.White,
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                color = Color.White.copy(alpha = 0.60f),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = subtitle,
+                    color = Onb.Subtitle,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = Onb.Faint,
+                modifier = Modifier.size(18.dp),
             )
         }
+    }
+}
 
-        Icon(
-            imageVector = Icons.Rounded.ChevronRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(18.dp),
-        )
+private fun openExternalUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 }

@@ -54,11 +54,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -145,6 +142,7 @@ internal fun LandscapePlayerLayout(
     queuePane: @Composable () -> Unit,
     onSelectPane: (PlayerPane) -> Unit = {},
     onOpenPipeline: (() -> Unit)? = null,
+    queueIcon: ImageVector = BitChordIcons.Queue,
     palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
 ) {
@@ -298,6 +296,7 @@ internal fun LandscapePlayerLayout(
                     currentPane = pane,
                     onSelectPane = onSelectPane,
                     onOpenPipeline = onOpenPipeline,
+                    queueIcon = queueIcon,
                     palette = palette,
                     compact = compact,
                 )
@@ -330,6 +329,7 @@ internal fun LandscapeSideRail(
     onSelectPane: (PlayerPane) -> Unit,
     onOpenPipeline: (() -> Unit)?,
     palette: MeshPalette,
+    queueIcon: ImageVector = BitChordIcons.Queue,
     compact: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -426,7 +426,7 @@ internal fun LandscapeSideRail(
 
             // 2. Lyrics
             SideRailItem(
-                icon = Icons.Rounded.FormatQuote,
+                icon = BitChordIcons.LyricsQuoteMarks,
                 selected = currentPane == PlayerPane.Lyrics,
                 contentDescription = "Lyrics",
                 itemSize = itemSize,
@@ -435,7 +435,7 @@ internal fun LandscapeSideRail(
 
             // 3. Queue
             SideRailItem(
-                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                icon = queueIcon,
                 selected = currentPane == PlayerPane.Queue,
                 contentDescription = "Queue",
                 itemSize = itemSize,
@@ -781,6 +781,16 @@ internal fun LandscapeArtworkActions(
         if (signedIn && song.localUri == null) {
             val liked = likeStatus == LikeStatus.LIKE
             val likeBurst = LocalLikeBurstState.current
+            val heartTint by animateColorAsState(
+                targetValue = if (liked) Color(0xFFFF2D55) else Color.White.copy(alpha = 0.85f),
+                animationSpec = tween(durationMillis = 220),
+                label = "landscapeLikeTint",
+            )
+            val heartScale by animateFloatAsState(
+                targetValue = if (liked) 1.06f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "landscapeLikeScale",
+            )
             Box(
                 modifier = Modifier
                     .likeButtonTarget(likeBurst)
@@ -806,8 +816,13 @@ internal fun LandscapeArtworkActions(
                     contentDescription = stringResource(
                         if (liked) Res.string.remove_from_liked else Res.string.like,
                     ),
-                    tint = if (liked) accentColor else Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(20.dp),
+                    tint = heartTint,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .graphicsLayer {
+                            scaleX = heartScale
+                            scaleY = heartScale
+                        },
                 )
             }
         }
@@ -829,7 +844,7 @@ internal fun LandscapeArtworkActions(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    imageVector = BitChordIcons.PlaylistAdd,
                     contentDescription = stringResource(Res.string.add_to_playlist),
                     tint = Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.size(22.dp),
