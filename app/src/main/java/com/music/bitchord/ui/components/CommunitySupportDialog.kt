@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.components
 
 import android.content.Context
@@ -41,6 +51,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -276,7 +287,7 @@ private fun CommunityContentSections(
             CommunityLinkCard(
                 iconPainter = painterResource(R.drawable.ic_github),
                 title = "Shivanshu",
-                subtitle = "@code4nigel • Lead Developer & Maintainer",
+                subtitle = stringResource(R.string.developer_role_subtitle),
                 onClick = { openExternalUrl(context, "https://github.com/code4nigel") },
             )
         }
@@ -285,14 +296,14 @@ private fun CommunityContentSections(
             OnbSectionLabel("COMMUNITY")
             CommunityLinkCard(
                 iconPainter = painterResource(R.drawable.ic_reddit),
-                title = "Reddit Community",
-                subtitle = "r/ChordPlay • Join discussion & requests",
+                title = stringResource(R.string.reddit_community),
+                subtitle = stringResource(R.string.reddit_community_desc),
                 onClick = { openExternalUrl(context, "https://www.reddit.com/r/ChordPlay/") },
             )
             CommunityLinkCard(
                 iconPainter = painterResource(R.drawable.ic_github),
-                title = "GitHub Repository",
-                subtitle = "code4nigel/ChordPlay • Star & contribute",
+                title = stringResource(R.string.github_repository),
+                subtitle = stringResource(R.string.github_repository_desc),
                 onClick = { openExternalUrl(context, "https://github.com/code4nigel/ChordPlay") },
             )
         }

@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens
 
 import android.content.Intent
@@ -84,6 +95,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.SwipeRight
 import androidx.compose.material.icons.rounded.SwitchAccount
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
@@ -1137,6 +1149,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("full bleed", "full screen", "cover", "edges"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.tap_artwork_toggle_fullscreen),
+            subtitle = stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
+            section = SettingsSection.PLAYER,
+            icon = Icons.Rounded.TouchApp,
+            queryTarget = stringResource(R.string.tap_artwork_toggle_fullscreen),
+            keywords = listOf("tap", "artwork", "toggle", "full bleed", "full screen", "cover"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.legacy_mesh_gradient),
             subtitle = stringResource(R.string.legacy_mesh_gradient_subtitle),
             section = SettingsSection.PLAYER,
@@ -1509,11 +1529,11 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
 
         // Support
         GlobalSettingItem(
-            title = "Check for Updates",
+            title = stringResource(R.string.check_for_updates),
             subtitle = stringResource(R.string.support_community),
             section = SettingsSection.SUPPORT,
             icon = Icons.Rounded.Update,
-            queryTarget = "Check for Updates",
+            queryTarget = stringResource(R.string.check_for_updates),
             keywords = listOf("update", "version", "check", "download"),
         ),
         GlobalSettingItem(
@@ -1575,7 +1595,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("spotify", "canvas", "spdc", "connect"),
         ),
         GlobalSettingItem(
-            title = "Discord Rich Presence",
+            title = stringResource(R.string.discord_rich_presence),
             subtitle = stringResource(R.string.account_integrations),
             section = SettingsSection.INTEGRATIONS,
             icon = Icons.Rounded.Cloud,

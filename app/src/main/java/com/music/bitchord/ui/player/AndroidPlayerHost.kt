@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import android.content.Context
@@ -55,6 +66,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val audioQualityWifi get() = AppSettings.audioQualityWifi
         override val canvasOverCellular get() = AppSettings.canvasOverCellular
         override val fullBleedArtwork get() = AppSettings.fullBleedArtwork
+        override val tapArtworkToToggleFullScreen get() = AppSettings.tapArtworkToToggleFullScreen
         override val hideSongStatus get() = AppSettings.hideSongStatus
         override val hideVolumeBar get() = AppSettings.hideVolumeBar
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
@@ -99,6 +111,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
             AppSettings.setFullscreenArtworkLyricsStyle(value)
         override fun setAnimatedCanvas(value: Boolean) = AppSettings.setAnimatedCanvas(value)
         override fun setFullBleedArtwork(value: Boolean) = AppSettings.setFullBleedArtwork(value)
+        override fun setTapArtworkToToggleFullScreen(value: Boolean) = AppSettings.setTapArtworkToToggleFullScreen(value)
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)

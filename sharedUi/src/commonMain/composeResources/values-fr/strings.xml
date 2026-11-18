@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Meilleurs titres</string>
     <string name="shelf_top_picks_desc">Stations d\'artistes, mix et cartes phares</string>
     <string name="add_to_other_playlist">Ajouter à une autre playlist</string>
+
+    <string name="explore_hint">Humeurs et genres</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Mix personnel infini</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">De la musique sans fin choisie pour vous</string>
+    <string name="radio_recent_seeds">Récemment écouté</string>
+    <string name="radio_start_hint">Rechercher un artiste, titre ou album</string>
+    <string name="radio_start_station">Lancer une station</string>
+    <string name="radio_stations">Stations pour vous</string>
+    <string name="replay">Replay</string>
 </resources>

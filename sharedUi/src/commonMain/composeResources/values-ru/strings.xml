@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Лучшие песни</string>
     <string name="shelf_top_picks_desc">Радио артиста, миксы и подборки</string>
     <string name="add_to_other_playlist">Добавить в другой плейлист</string>
+
+    <string name="explore_hint">Настроения и жанры</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Бесконечный персональный микс</string>
+    <string name="radio">Радио</string>
+    <string name="radio_featured">ChordPlay Радио</string>
+    <string name="radio_featured_subtitle">Бесконечная музыка, подобранная для вас</string>
+    <string name="radio_recent_seeds">Недавно воспроизведенные</string>
+    <string name="radio_start_hint">Поиск артиста, песни или альбома</string>
+    <string name="radio_start_station">Запустить станцию</string>
+    <string name="radio_stations">Станции для вас</string>
+    <string name="replay">Replay</string>
 </resources>

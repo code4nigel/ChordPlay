@@ -251,4 +251,17 @@
     <string name="search_addons_no_results">Żadna wtyczka nie ma „%1”.</string>
     <string name="search_addons_none">Brak włączonych wtyczek. Dodaj w Ustawienia → Źródła.</string>
     <string name="add_to_other_playlist">Dodaj do innej playlisty</string>
+
+    <string name="explore_hint">Nastroje i gatunki</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Nieskończony osobisty miks</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">Nieskończona muzyka wybrana dla Ciebie</string>
+    <string name="radio_recent_seeds">Ostatnio odtwarzane</string>
+    <string name="radio_start_hint">Szukaj wykonawcy, utworu lub albumu</string>
+    <string name="radio_start_station">Uruchom stację</string>
+    <string name="radio_stations">Stacje dla Ciebie</string>
+    <string name="replay">Replay</string>
 </resources>

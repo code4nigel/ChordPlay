@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens.settings.sections
 
 import androidx.compose.foundation.clickable
@@ -14,6 +24,7 @@ import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.FormatSize
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicOff
@@ -61,6 +72,7 @@ fun PlayerSection(
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val tapArtworkToToggleFullScreen by AppSettings.tapArtworkToToggleFullScreen.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
@@ -103,6 +115,12 @@ fun PlayerSection(
             stringResource(R.string.full_screen_cover_art),
             stringResource(R.string.full_screen_cover_art_subtitle),
             "full bleed", "full screen", "artwork",
+        )
+        val showTapArtworkToggleFullScreen = fullBleedArtworkAvailable(windowWidth) && matchesSearch(
+            searchQuery,
+            stringResource(R.string.tap_artwork_toggle_fullscreen),
+            stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
+            "tap", "artwork", "toggle", "full bleed", "full screen", "cover",
         )
         val showLegacyMeshGradient = matchesSearch(
             searchQuery,
@@ -157,7 +175,7 @@ fun PlayerSection(
         )
 
         val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
-            showFullScreenCoverArt || showLegacyMeshGradient || showAnimatedCoverArt ||
+            showFullScreenCoverArt || showTapArtworkToggleFullScreen || showLegacyMeshGradient || showAnimatedCoverArt ||
             showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose ||
             showLandscapeFontScale || showSmartAlignment || showNerdStats
 
@@ -206,7 +224,7 @@ fun PlayerSection(
 
                 // Artwork & Video Visuals Section Divider
                 val hasTopVisuals = showPlayerLayout || showBreathingAura
-                val hasArtworkVisuals = showFullScreenCoverArt || showLegacyMeshGradient || showAnimatedCoverArt
+                val hasArtworkVisuals = showFullScreenCoverArt || showTapArtworkToggleFullScreen || showLegacyMeshGradient || showAnimatedCoverArt
                 if (hasArtworkVisuals) {
                     if (hasTopVisuals) {
                         SettingsSectionDivider(title = stringResource(R.string.artwork_and_visuals))
@@ -229,6 +247,25 @@ fun PlayerSection(
                                 )
                             },
                             onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                        )
+                    }
+
+                    if (showTapArtworkToggleFullScreen) {
+                        SettingsRow(
+                            icon = Icons.Rounded.TouchApp,
+                            title = stringResource(R.string.tap_artwork_toggle_fullscreen),
+                            subtitle = stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = tapArtworkToToggleFullScreen,
+                                    onCheckedChange = AppSettings::setTapArtworkToToggleFullScreen,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setTapArtworkToToggleFullScreen(!tapArtworkToToggleFullScreen) },
                         )
                     }
 

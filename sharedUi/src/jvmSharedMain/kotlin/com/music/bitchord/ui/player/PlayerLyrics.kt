@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedContent
@@ -575,9 +586,20 @@ internal class LyricPlayhead(
     private val position: PlaybackPosition,
     private val offsetMs: State<Int>,
 ) {
+    val rawPositionMs: Long get() = position.positionMs
+
+    val lyricsOffsetMs: Int get() = offsetMs.value
+
     val positionMs: Long get() = adjustedLyricsPosition(position.positionMs, offsetMs.value)
 
     val sampledAtNanos: Long get() = position.sampledAtNanos
+
+    /**
+     * Player-only jump counter (seek / skip / repeat). Kept separate from
+     * [lyricsOffsetMs] so adjusting sync offset shifts displayed lyric time
+     * directly without triggering a jump/glide loop.
+     */
+    val seekDiscontinuity: Long get() = position.seeks.toLong()
 
     /**
      * Changes whenever the lyrics are meant to jump: the player seeking, or the
@@ -618,17 +640,20 @@ internal fun rememberLyricClock(
     val clock = remember(trackKey) {
         mutableLongStateOf(Snapshot.withoutReadObservation { playhead.positionMs })
     }
-    val engine = remember(trackKey) { LyricClock(clock.longValue) }
+    val engine = remember(trackKey) {
+        LyricClock(Snapshot.withoutReadObservation { playhead.rawPositionMs })
+    }
 
-    // Not moving: each reading is the truth, including a seek made while paused.
-    // Followed off the snapshot rather than read here, so a reading recomposes
-    // nothing.
+    // Not moving: each reading is the truth, including a seek or sync-offset
+    // change made while paused. Followed off the snapshot rather than read
+    // here, so a reading recomposes nothing.
     if (!isPlaying) {
         LaunchedEffect(engine, playhead) {
-            snapshotFlow { playhead.positionMs }.collect { positionMs ->
-                engine.hold(positionMs, nanosToMs(System.nanoTime()))
-                clock.longValue = positionMs
-            }
+            snapshotFlow { playhead.rawPositionMs to playhead.lyricsOffsetMs }
+                .collect { (rawMs, offset) ->
+                    engine.hold(rawMs, nanosToMs(System.nanoTime()))
+                    clock.longValue = adjustedLyricsPosition(rawMs, offset)
+                }
         }
     }
 
@@ -659,9 +684,10 @@ internal fun rememberLyricClock(
                 val sampledAt = playhead.sampledAtNanos
                 clock.longValue = engine.frame(
                     nowMs = nanosToMs(now),
-                    reportedMs = playhead.positionMs,
+                    reportedMs = playhead.rawPositionMs,
                     sampledAtMs = if (sampledAt > 0L) nanosToMs(sampledAt) else Double.NaN,
-                    discontinuity = playhead.discontinuity,
+                    discontinuity = playhead.seekDiscontinuity,
+                    lyricOffsetMs = playhead.lyricsOffsetMs,
                 )
             }
         }

@@ -245,4 +245,13 @@ class LyricClockTest {
         )
         assertTrue(abs(last - (15_000 - 1_500)) < 40)
     }
+
+    /** Continuous lyricOffsetMs adjustments shift displayed time immediately on each frame without stalling behind glides. */
+    @Test fun continuousLyricOffsetDragShiftsImmediatelyWithoutGlideLag() {
+        val clock = LyricClock(10_000)
+        assertEquals(10_000L, clock.frame(0.0, 10_000, 0.0, 0, lyricOffsetMs = 0))
+        assertEquals(10_116L, clock.frame(16.0, 10_000, 0.0, 0, lyricOffsetMs = -100))
+        assertEquals(10_232L, clock.frame(32.0, 10_000, 0.0, 0, lyricOffsetMs = -200))
+        assertEquals(9_748L, clock.frame(48.0, 10_000, 0.0, 0, lyricOffsetMs = 300))
+    }
 }

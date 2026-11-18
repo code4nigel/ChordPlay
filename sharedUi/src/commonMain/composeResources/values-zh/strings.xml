@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">热门歌曲</string>
     <string name="shelf_top_picks_desc">歌手电台、精选与聚光灯卡片</string>
     <string name="add_to_other_playlist">添加到其他播放列表</string>
+
+    <string name="explore_hint">心情与流派</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">无尽个人专属混音</string>
+    <string name="radio">电台</string>
+    <string name="radio_featured">ChordPlay 电台</string>
+    <string name="radio_featured_subtitle">为你精心挑选的无尽好音乐</string>
+    <string name="radio_recent_seeds">最近收听</string>
+    <string name="radio_start_hint">搜索艺人、歌曲或专辑</string>
+    <string name="radio_start_station">开启电台</string>
+    <string name="radio_stations">为你推荐的电台</string>
+    <string name="replay">Replay</string>
 </resources>

@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens.settings.sections
 
 import android.content.Intent
@@ -274,7 +284,7 @@ fun AboutSection(
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Checking...")
+                            Text(stringResource(R.string.checking_updates))
                         } else when (val state = downloadState) {
                             is AppUpdateChecker.DownloadState.Downloading -> {
                                 CircularProgressIndicator(
@@ -284,7 +294,7 @@ fun AboutSection(
                                     strokeWidth = 2.dp,
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Downloading ${(state.fraction * 100).toInt()}%")
+                                Text(stringResource(R.string.downloading_update_progress, (state.fraction * 100).toInt()))
                             }
                             is AppUpdateChecker.DownloadState.Ready -> {
                                 Icon(
@@ -293,7 +303,7 @@ fun AboutSection(
                                     modifier = Modifier.size(18.dp),
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Install Update")
+                                Text(stringResource(R.string.install_update))
                             }
                             else -> {
                                 if (updateInfo != null) {
@@ -303,7 +313,7 @@ fun AboutSection(
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Download v${updateInfo?.version}")
+                                    Text(stringResource(R.string.download_update, updateInfo?.version.orEmpty()))
                                 } else {
                                     Icon(
                                         imageVector = Icons.Rounded.Update,
@@ -311,7 +321,7 @@ fun AboutSection(
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Check for Updates")
+                                    Text(stringResource(R.string.check_for_updates))
                                 }
                             }
                         }

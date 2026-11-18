@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.components
 
 import android.provider.Settings
@@ -194,7 +204,7 @@ fun Modifier.iosMenuPanel(
     }
 
     // 2. Liquid Glass Mode (Refractive AGSL lens UI matching other Liquid elements)
-    if (isLiquidGlass && isGlassSupported()) {
+    if (!reduceDynamicBlur && isLiquidGlass && isGlassSupported()) {
         val liquidPanel = shadowed.liquidGlass(shape = IosMenuShape as CornerBasedShape, backdrop = backdrop)
         return if (palette != null && palette.accent != Color.Unspecified) {
             liquidPanel
@@ -222,17 +232,17 @@ fun Modifier.iosMenuPanel(
             if (colors.dark) {
                 Brush.verticalGradient(
                     listOf(
-                        palette.wash.copy(alpha = 0.22f),
+                        palette.wash.copy(alpha = 0.24f),
                         palette.elevated.copy(alpha = 0.32f),
-                        palette.background.copy(alpha = 0.46f),
+                        palette.background.copy(alpha = 0.38f),
                     ),
                 )
             } else {
                 Brush.verticalGradient(
                     listOf(
-                        palette.wash.copy(alpha = 0.18f),
-                        palette.elevated.copy(alpha = 0.26f),
-                        palette.background.copy(alpha = 0.38f),
+                        palette.wash.copy(alpha = 0.20f),
+                        palette.elevated.copy(alpha = 0.28f),
+                        palette.background.copy(alpha = 0.36f),
                     ),
                 )
             }
@@ -253,13 +263,21 @@ fun Modifier.iosMenuPanel(
             shadowed.menuBackdropFrost(backdrop, IosMenuShape, baseFill.copy(alpha = 0.20f))
         }
         else -> {
-            shadowed.clip(IosMenuShape)
+            val opaqueBase = if (colors.dark) {
+                baseFill.copy(alpha = 0.94f)
+            } else {
+                colors.fill.copy(alpha = 0.96f)
+            }
+            shadowed
+                .clip(IosMenuShape)
+                .background(opaqueBase, shape = IosMenuShape)
         }
     }
 
     return surface
         .clip(IosMenuShape)
         .background(brush = gradientBrush, shape = IosMenuShape)
+        .border(0.5.dp, rimOverride ?: colors.rim, IosMenuShape)
 }
 
 /** The shadow the menu panel casts. */

@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">トップソング</string>
     <string name="shelf_top_picks_desc">アーティストラジオ、ミックス、おすすめカード</string>
     <string name="add_to_other_playlist">他のプレイリストに追加</string>
+
+    <string name="explore_hint">ムードとジャンル</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">終わりのないパーソナルミックス</string>
+    <string name="radio">ラジオ</string>
+    <string name="radio_featured">ChordPlay ラジオ</string>
+    <string name="radio_featured_subtitle">あなたのために選ばれたエンドレスミュージック</string>
+    <string name="radio_recent_seeds">最近再生したステーション</string>
+    <string name="radio_start_hint">アーティスト、曲、またはアルバムを検索</string>
+    <string name="radio_start_station">ステーションを開始</string>
+    <string name="radio_stations">おすすめのステーション</string>
+    <string name="replay">Replay</string>
 </resources>

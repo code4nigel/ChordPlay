@@ -109,8 +109,16 @@ internal class LyricClock(startMs: Long) {
      * taken, or NaN where nobody said — it is then dated by the first frame that
      * sees it, the best that can be done. [discontinuity] is any value that
      * changes when the playhead jumps on purpose; only its changing matters.
+     * [lyricOffsetMs] shifts the returned display timestamp immediately without
+     * disturbing the underlying playback clock or triggering jump glides.
      */
-    fun frame(nowMs: Double, reportedMs: Long, sampledAtMs: Double, discontinuity: Long): Long {
+    fun frame(
+        nowMs: Double,
+        reportedMs: Long,
+        sampledAtMs: Double,
+        discontinuity: Long,
+        lyricOffsetMs: Int = 0,
+    ): Long {
         val firstOfRun = lastNowMs.isNaN()
         if (discontinuity != lastDiscontinuity) {
             if (lastDiscontinuity != null && !firstOfRun) jumpPending = true
@@ -133,7 +141,11 @@ internal class LyricClock(startMs: Long) {
             }
             anchor(takenAt, reportedMs)
             displayedMs = targetAt(nowMs)
-            return displayedMs.toLong()
+            return if (lyricOffsetMs == 0) {
+                displayedMs.toLong()
+            } else {
+                (displayedMs.toLong() - lyricOffsetMs.toLong()).coerceAtLeast(0L)
+            }
         }
 
         // Carried up to this frame on what was known before it, and only then
@@ -150,7 +162,11 @@ internal class LyricClock(startMs: Long) {
             val takenAt = if (sampledAtMs.isNaN()) nowMs else minOf(sampledAtMs, nowMs)
             if (takenAt >= anchorAtMs || jumpPending) take(nowMs, takenAt, reportedMs)
         }
-        return displayedMs.toLong()
+        return if (lyricOffsetMs == 0) {
+            displayedMs.toLong()
+        } else {
+            (displayedMs.toLong() - lyricOffsetMs.toLong()).coerceAtLeast(0L)
+        }
     }
 
     /** Folds one new reading in — or holds it back, if it disagrees with the song so far. */

@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">שירים מובילים</string>
     <string name="shelf_top_picks_desc">תחנות אמנים, מיקסים וכרטיסיות נבחרות</string>
     <string name="add_to_other_playlist">הוסף לפלייליסט אחר</string>
+
+    <string name="explore_hint">מצבי רוח וסגנונות</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">מיקס אישי אינסופי</string>
+    <string name="radio">רדיו</string>
+    <string name="radio_featured">רדיו ChordPlay</string>
+    <string name="radio_featured_subtitle">מוזיקה אינסופית שנבחרה במיוחד עבורך</string>
+    <string name="radio_recent_seeds">הושמעו לאחרונה</string>
+    <string name="radio_start_hint">חפש אמן, שיר או אלבום</string>
+    <string name="radio_start_station">הפעל תחנה</string>
+    <string name="radio_stations">תחנות עבורך</string>
+    <string name="replay">Replay</string>
 </resources>

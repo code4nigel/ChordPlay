@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import androidx.compose.runtime.Composable
@@ -237,6 +248,8 @@ interface PlayerSettingsSource {
     fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) {}
     fun setAnimatedCanvas(value: Boolean) {}
     fun setFullBleedArtwork(value: Boolean) {}
+    val tapArtworkToToggleFullScreen: StateFlow<Boolean> get() = MutableStateFlow(true)
+    fun setTapArtworkToToggleFullScreen(value: Boolean) {}
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

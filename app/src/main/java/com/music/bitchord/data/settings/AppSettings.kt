@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.data.settings
 
 import com.music.bitchord.data.webdav.update
@@ -604,6 +615,9 @@ object AppSettings {
      */
     val fullBleedArtwork = MutableStateFlow(true)
 
+    /** Tapping the artwork toggles between full-bleed and card layout. Default ON. */
+    val tapArtworkToToggleFullScreen = MutableStateFlow(true)
+
     /**
      * Puts v1.5's backdrop back on the player: four quantised blobs drifting
      * behind the whole screen, rather than the artwork's own colours hung off
@@ -1058,6 +1072,7 @@ object AppSettings {
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, false)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, true)
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
+        tapArtworkToToggleFullScreen.value = prefs.getBoolean(KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
         liveBlur.value = prefs.getBoolean(KEY_LIVE_BLUR, false)
 
@@ -1921,6 +1936,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_ARTWORK, value).apply()
     }
 
+    fun setTapArtworkToToggleFullScreen(value: Boolean) {
+        tapArtworkToToggleFullScreen.value = value
+        prefs.edit().putBoolean(KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK, value).apply()
+    }
+
     fun setLegacyMeshGradient(value: Boolean) {
         legacyMeshGradient.value = value
         prefs.edit().putBoolean(KEY_LEGACY_MESH_GRADIENT, value).apply()
@@ -2773,6 +2793,7 @@ object AppSettings {
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
+    private const val KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK = "tap_artwork_toggle_full_bleed"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LIVE_BLUR = "live_blur"
     private const val KEY_PLAYER_LAYOUT_MODE = "player_layout_mode"

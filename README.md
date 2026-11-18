@@ -12,10 +12,11 @@
 [![Latest Release](https://img.shields.io/github/v/release/code4nigel/ChordPlay?style=flat-square&label=Release&color=7C4DFF)](https://github.com/code4nigel/ChordPlay/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84.svg?style=flat-square)](https://github.com/code4nigel/ChordPlay/releases)
 [![Kotlin Multiplatform](https://img.shields.io/badge/Architecture-Kotlin%20Compose-7F52FF.svg?style=flat-square)](https://kotlinlang.org/)
+[![Reddit](https://img.shields.io/badge/Reddit-r%2FChordPlay-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://www.reddit.com/r/ChordPlay/)
 
 <br/>
 
-[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Lineage & Attribution](#lineage--attribution) • [License](#license)
+[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Community](#community) • [Lineage & Attribution](#lineage--attribution) • [License](#license) • [Support](#support-the-project)
 
 </div>
 
@@ -164,6 +165,23 @@ ChordPlay contains a built-in update detector. When a new release is published o
 
 ---
 
+## Community
+
+Join the official ChordPlay community on Reddit to share feedback, report bugs, request features, and connect with other listeners:
+
+<div align="center">
+  <a href="https://www.reddit.com/r/ChordPlay/">
+    <img src="chordplay_banner_reddit.png" alt="Join r/ChordPlay on Reddit" width="760" />
+  </a>
+  <br/>
+  <br/>
+  <a href="https://www.reddit.com/r/ChordPlay/">
+    <img src="https://img.shields.io/badge/Join%20the%20Subreddit-r%2FChordPlay-FF4500?style=for-the-badge&logo=reddit&logoColor=white" alt="Join r/ChordPlay on Reddit" />
+  </a>
+</div>
+
+---
+
 ## Lineage & Attribution
 
 ChordPlay is an open-source project built with deep gratitude toward the developers who make independent Android music software possible.
@@ -188,3 +206,15 @@ ChordPlay is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 - **ChordPlay modifications & additions**: Copyright (C) 2026 Shivanshu (code4nigel).
 
 See the [LICENSE](LICENSE) file for the full text of the GNU General Public License v3.0.
+
+---
+
+## Support the Project
+
+If you enjoy using ChordPlay and would like to support ongoing development, you can contribute via UPI:
+
+<div align="center">
+  <img src="Images/Shivanshu_UPI_support.jpg" alt="Support ChordPlay via UPI (PhonePe)" width="260" />
+  <br/>
+  <sub>Scan with PhonePe or any UPI app to support ChordPlay (Shivanshu Yadav)</sub>
+</div>

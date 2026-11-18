@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens.settings.sections
 
 import android.content.Intent
@@ -258,7 +268,7 @@ fun SupportSection(
                                 strokeWidth = 2.dp,
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Checking...")
+                            Text(stringResource(R.string.checking_updates))
                         } else when (val state = downloadState) {
                             is AppUpdateChecker.DownloadState.Downloading -> {
                                 CircularProgressIndicator(
@@ -268,7 +278,7 @@ fun SupportSection(
                                     strokeWidth = 2.dp,
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Downloading ${(state.fraction * 100).toInt()}%")
+                                Text(stringResource(R.string.downloading_update_progress, (state.fraction * 100).toInt()))
                             }
                             is AppUpdateChecker.DownloadState.Ready -> {
                                 Icon(
@@ -277,7 +287,7 @@ fun SupportSection(
                                     modifier = Modifier.size(18.dp),
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Install Update")
+                                Text(stringResource(R.string.install_update))
                             }
                             else -> {
                                 if (updateInfo != null) {
@@ -287,7 +297,7 @@ fun SupportSection(
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Download v${updateInfo?.version}")
+                                    Text(stringResource(R.string.download_update, updateInfo?.version.orEmpty()))
                                 } else {
                                     Icon(
                                         imageVector = Icons.Rounded.Update,
@@ -295,7 +305,7 @@ fun SupportSection(
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Check for Updates")
+                                    Text(stringResource(R.string.check_for_updates))
                                 }
                             }
                         }
@@ -357,12 +367,12 @@ fun SupportSection(
                 // Unified Support & Community Block
                 SettingsGroup(
                     header = stringResource(R.string.links_and_community),
-                    footer = "Join our community on Reddit, report bugs, and follow development on GitHub.",
+                    footer = stringResource(R.string.support_community_footer),
                 ) {
                     SettingsRow(
                         iconPainter = painterResource(R.drawable.ic_chordplay_squircle),
-                        title = "ChordPlay Community Hub",
-                        subtitle = "Follow developer, view Reddit & GitHub repositories",
+                        title = stringResource(R.string.community_hub),
+                        subtitle = stringResource(R.string.community_hub_subtitle),
                         trailing = {
                             Icon(
                                 imageVector = Icons.Rounded.ChevronRight,
@@ -403,7 +413,7 @@ fun SupportSection(
                         SettingsRow(
                             iconPainter = painterResource(R.drawable.ic_github),
                             title = stringResource(R.string.github_repository),
-                            subtitle = "github.com/code4nigel/ChordPlay • Source code & issues",
+                            subtitle = stringResource(R.string.github_issues_desc),
                             trailing = {
                                 Icon(
                                     imageVector = Icons.Rounded.OpenInNew,
@@ -683,7 +693,7 @@ private fun DeveloperAvatarWithFloatingNotes(
         // Central Avatar Image
         Image(
             painter = painterResource(R.drawable.dev_avatar),
-            contentDescription = "Developer Avatar",
+            contentDescription = stringResource(R.string.developer_avatar),
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(52.dp)

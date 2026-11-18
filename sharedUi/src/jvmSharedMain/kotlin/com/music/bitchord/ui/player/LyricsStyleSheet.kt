@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
@@ -42,7 +52,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Remove
-import androidx.compose.material.icons.rounded.Tune
 import kotlin.math.roundToInt
 import java.util.Locale
 import androidx.compose.material3.Icon
@@ -129,16 +138,29 @@ internal fun LyricsStyleSheet(
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     val sliderInteractionSource = remember { MutableInteractionSource() }
+    val offsetSliderInteractionSource = remember { MutableInteractionSource() }
     val isDraggingFontSlider by sliderInteractionSource.collectIsDraggedAsState()
+    val isDraggingOffsetSlider by offsetSliderInteractionSource.collectIsDraggedAsState()
+    val isDraggingAnySlider = isDraggingFontSlider || isDraggingOffsetSlider
     val sheetBgAlpha by animateFloatAsState(
-        targetValue = if (isDraggingFontSlider) 0.04f else 1f,
+        targetValue = if (isDraggingAnySlider) 0.04f else 1f,
         animationSpec = tween(140),
         label = "sheetBgAlpha",
     )
     val otherContentAlpha by animateFloatAsState(
-        targetValue = if (isDraggingFontSlider) 0f else 1f,
+        targetValue = if (isDraggingAnySlider) 0f else 1f,
         animationSpec = tween(140),
         label = "otherContentAlpha",
+    )
+    val fontSectionAlpha by animateFloatAsState(
+        targetValue = if (isDraggingOffsetSlider) 0f else 1f,
+        animationSpec = tween(140),
+        label = "fontSectionAlpha",
+    )
+    val offsetSectionAlpha by animateFloatAsState(
+        targetValue = if (isDraggingFontSlider) 0f else 1f,
+        animationSpec = tween(140),
+        label = "offsetSectionAlpha",
     )
 
     val dismissOnRelease: () -> Unit = {
@@ -204,7 +226,7 @@ internal fun LyricsStyleSheet(
                     .offset { IntOffset(0, drawerOffset.roundToInt()) }
                     .clip(DrawerShape)
                     .then(
-                        if (reduceDynamicBlur || isDraggingFontSlider) {
+                        if (reduceDynamicBlur || isDraggingAnySlider) {
                             Modifier.background(
                                 if (accentColor != null) {
                                     Brush.verticalGradient(
@@ -289,16 +311,20 @@ internal fun LyricsStyleSheet(
                             Text(
                                 text = stringResource(Res.string.lyrics_options),
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    fontSize = 20.sp,
+                                    fontSize = 24.sp,
+                                    lineHeight = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                 ),
                                 color = Color.White,
                             )
                             Text(
                                 text = stringResource(Res.string.lyrics_options_subtitle),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.55f),
-                                modifier = Modifier.padding(top = 2.dp),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                ),
+                                color = Color.White.copy(alpha = 0.58f),
+                                modifier = Modifier.padding(top = 3.dp),
                             )
                         }
 
@@ -334,6 +360,7 @@ internal fun LyricsStyleSheet(
 
                     // Live Preview Card
                     val previewFont = rememberLyricsFontFamily(customStyle)
+                    val previewFontSize = (30f * customStyle.effectiveScale).coerceAtLeast(25f).sp
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -344,13 +371,14 @@ internal fun LyricsStyleSheet(
                                 color = Color.White.copy(alpha = 0.10f),
                                 shape = RoundedCornerShape(16.dp),
                             )
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                            .padding(horizontal = 18.dp, vertical = 20.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = stringResource(Res.string.music_feels_better),
                             fontFamily = previewFont,
-                            fontSize = (22.sp * customStyle.effectiveScale),
+                            fontSize = previewFontSize,
+                            lineHeight = (previewFontSize.value * 1.25f).sp,
                             fontWeight = customStyle.weightChoice.weight,
                             textAlign = if (customStyle.centerAligned) TextAlign.Center else TextAlign.Start,
                             color = Color.White,
@@ -485,126 +513,39 @@ internal fun LyricsStyleSheet(
                 Spacer(Modifier.height(16.dp))
 
                 // Section 2: Text Size Scale with Live Slider, +/- steppers, and Reset
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            StyleSectionHeader(title = stringResource(Res.string.text_size).uppercase())
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                            ) {
-                                Text(
-                                    text = "${(customStyle.effectiveScale * 100).roundToInt()}%",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                )
-                            }
-                        }
-
-                        // Reset button
-                        val isDefaultScale = kotlin.math.abs(customStyle.effectiveScale - 1.0f) < 0.02f
-                        TextButton(
-                            onClick = {
-                                haptics.play(Haptic.Tap)
-                                LyricsStyleManager.updateFontScale(1.0f)
-                            },
-                            enabled = !isDefaultScale,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = "Reset size",
-                                modifier = Modifier.size(15.dp),
-                                tint = if (!isDefaultScale) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Reset",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = if (!isDefaultScale) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF1B1B1F).copy(alpha = if (isDraggingFontSlider) 0.92f else 0.45f))
-                            .border(
-                                width = 1.dp,
-                                color = if (isDraggingFontSlider) MaterialTheme.colorScheme.primary.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.08f),
-                                shape = RoundedCornerShape(16.dp),
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            // Minus button
-                            IconButton(
-                                onClick = {
-                                    haptics.play(Haptic.Tap)
-                                    val newScale = ((customStyle.effectiveScale - 0.05f) * 100).roundToInt() / 100f
-                                    LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
-                                },
-                                modifier = Modifier.size(36.dp),
-                                enabled = customStyle.effectiveScale > 0.55f,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Remove,
-                                    contentDescription = "Decrease text size",
-                                    tint = if (customStyle.effectiveScale > 0.55f) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-
-                            // Slider
-                            Slider(
-                                value = customStyle.effectiveScale,
-                                onValueChange = { newScale ->
-                                    LyricsStyleManager.updateFontScale(newScale)
-                                },
-                                valueRange = 0.55f..2.20f,
-                                interactionSource = sliderInteractionSource,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = Color.White.copy(alpha = 0.16f),
-                                ),
-                                modifier = Modifier.weight(1f),
-                            )
-
-                            // Plus button
-                            IconButton(
-                                onClick = {
-                                    haptics.play(Haptic.Tap)
-                                    val newScale = ((customStyle.effectiveScale + 0.05f) * 100).roundToInt() / 100f
-                                    LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
-                                },
-                                modifier = Modifier.size(36.dp),
-                                enabled = customStyle.effectiveScale < 2.20f,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Add,
-                                    contentDescription = "Increase text size",
-                                    tint = if (customStyle.effectiveScale < 2.20f) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        }
-                    }
-                }
+                val isDefaultScale = kotlin.math.abs(customStyle.effectiveScale - 1.0f) < 0.02f
+                AdjustmentSliderSection(
+                    title = stringResource(Res.string.text_size).uppercase(),
+                    badgeText = "${(customStyle.effectiveScale * 100).roundToInt()}%",
+                    isDefault = isDefaultScale,
+                    onReset = {
+                        haptics.play(Haptic.Tap)
+                        LyricsStyleManager.updateFontScale(1.0f)
+                    },
+                    resetContentDescription = "Reset size",
+                    value = customStyle.effectiveScale,
+                    valueRange = 0.55f..2.20f,
+                    onValueChange = { newScale ->
+                        LyricsStyleManager.updateFontScale(newScale)
+                    },
+                    onDecrement = {
+                        haptics.play(Haptic.Tap)
+                        val newScale = ((customStyle.effectiveScale - 0.05f) * 100).roundToInt() / 100f
+                        LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
+                    },
+                    onIncrement = {
+                        haptics.play(Haptic.Tap)
+                        val newScale = ((customStyle.effectiveScale + 0.05f) * 100).roundToInt() / 100f
+                        LyricsStyleManager.updateFontScale(newScale.coerceIn(0.55f, 2.20f))
+                    },
+                    decrementEnabled = customStyle.effectiveScale > 0.55f,
+                    incrementEnabled = customStyle.effectiveScale < 2.20f,
+                    decrementDescription = "Decrease text size",
+                    incrementDescription = "Increase text size",
+                    interactionSource = sliderInteractionSource,
+                    isDragging = isDraggingFontSlider,
+                    modifier = Modifier.graphicsLayer { alpha = fontSectionAlpha },
+                )
 
                 Column(
                     modifier = Modifier
@@ -645,7 +586,7 @@ internal fun LyricsStyleSheet(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        // Left align option pill
+                        // Left align option pill (matches 1/3 capsule width of Top / Top-Mid / Center)
                         Box(Modifier.weight(1f)) {
                             AlignmentOptionPill(
                                 icon = Icons.AutoMirrored.Rounded.FormatAlignLeft,
@@ -672,6 +613,8 @@ internal fun LyricsStyleSheet(
                                 },
                             )
                         }
+
+                        Spacer(Modifier.weight(1f))
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -680,7 +623,7 @@ internal fun LyricsStyleSheet(
                     StyleSectionHeader(title = "HIGHLIGHT POSITION")
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         LyricsHighlightPosition.entries.forEach { pos ->
                             val selected = customStyle.highlightPosition == pos
@@ -697,135 +640,173 @@ internal fun LyricsStyleSheet(
                             }
                         }
                     }
+                } // End inner column with otherContentAlpha
+
+                Spacer(Modifier.height(16.dp))
+
+                // Section 6: Lyrics Sync Offset (stays visible while dragging so live lyrics can be monitored)
+                val offsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+                AdjustmentSliderSection(
+                    title = stringResource(Res.string.sync_offset).uppercase(),
+                    badgeText = String.format(Locale.getDefault(), "%+.1f s", offsetMs / 1_000f),
+                    isDefault = offsetMs == 0,
+                    onReset = {
+                        haptics.play(Haptic.Tap)
+                        PlayerSettings.setLyricsOffsetMs(0)
+                    },
+                    resetContentDescription = stringResource(Res.string.lyrics_offset_reset),
+                    value = offsetMs.toFloat(),
+                    valueRange = MIN_LYRICS_OFFSET_MS.toFloat()..MAX_LYRICS_OFFSET_MS.toFloat(),
+                    onValueChange = { raw ->
+                        val snapped = ((raw / 100f).roundToInt() * 100)
+                            .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+                        if (snapped != offsetMs) {
+                            PlayerSettings.setLyricsOffsetMs(snapped)
+                        }
+                    },
+                    onDecrement = {
+                        haptics.play(Haptic.Select)
+                        PlayerSettings.setLyricsOffsetMs((offsetMs - 100).coerceAtLeast(MIN_LYRICS_OFFSET_MS))
+                    },
+                    onIncrement = {
+                        haptics.play(Haptic.Select)
+                        PlayerSettings.setLyricsOffsetMs((offsetMs + 100).coerceAtMost(MAX_LYRICS_OFFSET_MS))
+                    },
+                    decrementEnabled = offsetMs > MIN_LYRICS_OFFSET_MS,
+                    incrementEnabled = offsetMs < MAX_LYRICS_OFFSET_MS,
+                    decrementDescription = "Decrease sync offset",
+                    incrementDescription = "Increase sync offset",
+                    interactionSource = offsetSliderInteractionSource,
+                    isDragging = isDraggingOffsetSlider,
+                    modifier = Modifier.graphicsLayer { alpha = offsetSectionAlpha },
+                )
 
                 Spacer(Modifier.height(18.dp))
+            }
+        }
+    }
+}
 
-                // Section: Lyrics Sync Offset
-                StyleSectionHeader(title = stringResource(Res.string.sync_offset).uppercase())
-                Spacer(Modifier.height(8.dp))
-                val offsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
-                        .border(
-                            width = 1.dp,
-                            color = Color.White.copy(alpha = 0.10f),
-                            shape = RoundedCornerShape(16.dp),
-                        )
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+@Composable
+private fun AdjustmentSliderSection(
+    title: String,
+    badgeText: String,
+    isDefault: Boolean,
+    onReset: () -> Unit,
+    resetContentDescription: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit,
+    decrementEnabled: Boolean,
+    incrementEnabled: Boolean,
+    decrementDescription: String,
+    incrementDescription: String,
+    interactionSource: MutableInteractionSource,
+    isDragging: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                StyleSectionHeader(title = title, fillWidth = false)
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Tune,
-                                    contentDescription = "Sync Offset",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Text(
-                                    text = "Sync Offset",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White,
-                                )
-                            }
-                            Text(
-                                text = String.format(Locale.getDefault(), "%+.1f s", offsetMs / 1_000f),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF1E2130).copy(alpha = 0.65f),
-                                                Color(0xFF12141C).copy(alpha = 0.50f),
-                                            ),
-                                        ),
-                                    )
-                                    .clickable(enabled = offsetMs > MIN_LYRICS_OFFSET_MS) {
-                                        haptics.play(Haptic.Select)
-                                        PlayerSettings.setLyricsOffsetMs(offsetMs - 100)
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("−", color = Color.White.copy(alpha = if (offsetMs > MIN_LYRICS_OFFSET_MS) 0.9f else 0.3f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            }
-                            ThinSlider(
-                                value = (offsetMs - MIN_LYRICS_OFFSET_MS).toFloat() / (MAX_LYRICS_OFFSET_MS - MIN_LYRICS_OFFSET_MS),
-                                onValueChange = {
-                                    val raw = MIN_LYRICS_OFFSET_MS + it.coerceIn(0f, 1f) * (MAX_LYRICS_OFFSET_MS - MIN_LYRICS_OFFSET_MS)
-                                    PlayerSettings.setLyricsOffsetMs((raw / 100).roundToInt() * 100)
-                                },
-                                idleHeight = 6.dp,
-                                activeHeight = 10.dp,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF1E2130).copy(alpha = 0.65f),
-                                                Color(0xFF12141C).copy(alpha = 0.50f),
-                                            ),
-                                        ),
-                                    )
-                                    .clickable(enabled = offsetMs < MAX_LYRICS_OFFSET_MS) {
-                                        haptics.play(Haptic.Select)
-                                        PlayerSettings.setLyricsOffsetMs(offsetMs + 100)
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("+", color = Color.White.copy(alpha = if (offsetMs < MAX_LYRICS_OFFSET_MS) 0.9f else 0.3f), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        if (offsetMs != 0) {
-                            Text(
-                                text = "Reset offset to 0.0 s",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        haptics.play(Haptic.Tap)
-                                        PlayerSettings.setLyricsOffsetMs(0)
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                            )
-                        }
-                    }
+                    Text(
+                        text = badgeText,
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+
+            TextButton(
+                onClick = onReset,
+                enabled = !isDefault,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = resetContentDescription,
+                    modifier = Modifier.size(15.dp),
+                    tint = if (!isDefault) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "Reset",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (!isDefault) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(
+                    if (isDragging) {
+                        Color(0xFF1B1B1F).copy(alpha = 0.92f)
+                    } else {
+                        Color.White.copy(alpha = 0.06f)
+                    },
+                )
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                IconButton(
+                    onClick = onDecrement,
+                    modifier = Modifier.size(36.dp),
+                    enabled = decrementEnabled,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Remove,
+                        contentDescription = decrementDescription,
+                        tint = if (decrementEnabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
 
-                Spacer(Modifier.height(18.dp))
-                } // End inner column with otherContentAlpha
+                Slider(
+                    value = value,
+                    onValueChange = onValueChange,
+                    valueRange = valueRange,
+                    interactionSource = interactionSource,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.16f),
+                    ),
+                    modifier = Modifier.weight(1f),
+                )
+
+                IconButton(
+                    onClick = onIncrement,
+                    modifier = Modifier.size(36.dp),
+                    enabled = incrementEnabled,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = incrementDescription,
+                        tint = if (incrementEnabled) Color.White.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.25f),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }
@@ -835,15 +816,18 @@ internal fun LyricsStyleSheet(
 private fun StyleSectionHeader(
     title: String,
     modifier: Modifier = Modifier,
+    fillWidth: Boolean = true,
 ) {
     Text(
         text = title,
         style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.8.sp,
         ),
+        textAlign = TextAlign.Start,
         color = Color.White.copy(alpha = 0.5f),
-        modifier = modifier.padding(start = 2.dp),
+        modifier = (if (fillWidth) modifier.fillMaxWidth() else modifier).padding(start = 2.dp),
     )
 }
 
@@ -860,10 +844,11 @@ private fun StyleChip(
     val textTint = if (selected) Color.Black else Color.White.copy(alpha = 0.9f)
     Box(
         modifier = modifier
+            .height(40.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 9.dp),
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -893,10 +878,11 @@ private fun AlignmentOptionPill(
     val tint = if (selected) Color.Black else Color.White.copy(alpha = 0.9f)
     Row(
         modifier = modifier
+            .height(40.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(bg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 9.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
@@ -904,9 +890,9 @@ private fun AlignmentOptionPill(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(16.dp),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         Text(
             text = label,
             color = tint,

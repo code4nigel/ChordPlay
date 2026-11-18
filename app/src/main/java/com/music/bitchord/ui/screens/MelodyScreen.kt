@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens
 
 import androidx.compose.animation.AnimatedContent
@@ -396,7 +406,7 @@ private fun MelodyHero(
             targetState = if (mood == MelodyMood.MELODY) {
                 stringResource(R.string.melody_full_name) + " · " + stringResource(R.string.melody_subtitle)
             } else {
-                mood.label + " · " + stringResource(R.string.melody_full_name)
+                mood.localizedLabel() + " · " + stringResource(R.string.melody_full_name)
             },
             transitionSpec = {
                 (fadeIn(animationSpec = tween(200)) + slideInVertically { it / 3 }) togetherWith
@@ -569,12 +579,24 @@ private fun MelodyGlassCircle(
 }
 
 @Composable
+fun MelodyMood.localizedLabel(): String = when (this) {
+    MelodyMood.MELODY -> stringResource(R.string.melody_mood_all)
+    MelodyMood.LOVE -> stringResource(R.string.melody_mood_love)
+    MelodyMood.WORKOUT -> stringResource(R.string.melody_mood_workout)
+    MelodyMood.CHILL -> stringResource(R.string.melody_mood_chill)
+    MelodyMood.SAD -> stringResource(R.string.melody_mood_sad)
+    MelodyMood.FOCUS -> stringResource(R.string.melody_mood_focus)
+    MelodyMood.PARTY -> stringResource(R.string.melody_mood_party)
+}
+
+@Composable
 private fun MelodyMoodStrip(
     mood: MelodyMood,
     onMood: (MelodyMood) -> Unit,
 ) {
+    val moodOptions = MelodyMood.entries.map { it.localizedLabel() }
     PillSegmentedControl(
-        options = remember { MelodyMood.entries.map { it.label } },
+        options = moodOptions,
         selectedIndex = MelodyMood.entries.indexOf(mood).coerceAtLeast(0),
         onSelect = { index -> onMood(MelodyMood.entries[index]) },
         modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
@@ -868,7 +890,7 @@ private fun MelodyStarterCard(
                         onClick = {
                             pickedMoods = if (selected) pickedMoods - m else pickedMoods + m
                         },
-                        label = { Text(m.label) },
+                        label = { Text(m.localizedLabel()) },
                     )
                 }
             }

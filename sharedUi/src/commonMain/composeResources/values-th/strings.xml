@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">เพลงยอดนิยม</string>
     <string name="shelf_top_picks_desc">สถานีวิทยุศิลปิน มิกซ์ และการ์ดเด่น</string>
     <string name="add_to_other_playlist">เพิ่มไปยังเพลย์ลิสต์อื่น</string>
+
+    <string name="explore_hint">อารมณ์และแนวเพลง</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">มิกซ์ส่วนตัวแบบไม่มีที่สิ้นสุด</string>
+    <string name="radio">วิทยุ</string>
+    <string name="radio_featured">วิทยุ ChordPlay</string>
+    <string name="radio_featured_subtitle">ดนตรีไม่รู้จบที่คัดสรรมาเพื่อคุณ</string>
+    <string name="radio_recent_seeds">เล่นล่าสุด</string>
+    <string name="radio_start_hint">ค้นหาศิลปิน เพลง หรืออัลบั้ม</string>
+    <string name="radio_start_station">เริ่มสถานี</string>
+    <string name="radio_stations">สถานีสำหรับคุณ</string>
+    <string name="replay">Replay</string>
 </resources>

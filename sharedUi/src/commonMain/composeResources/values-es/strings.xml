@@ -251,4 +251,17 @@
     <string name="search_addons_no_results">Ningún complemento tiene “%1”.</string>
     <string name="search_addons_none">No hay complementos habilitados. Añade uno en Ajustes → Fuentes.</string>
     <string name="add_to_other_playlist">Añadir a otra lista de reproducción</string>
+
+    <string name="explore_hint">Estados de ánimo y géneros</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Mezcla personal infinita</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">Música infinita elegida para ti</string>
+    <string name="radio_recent_seeds">Reproducido recientemente</string>
+    <string name="radio_start_hint">Busca un artista, canción o álbum</string>
+    <string name="radio_start_station">Iniciar emisora</string>
+    <string name="radio_stations">Emisoras para ti</string>
+    <string name="replay">Replay</string>
 </resources>

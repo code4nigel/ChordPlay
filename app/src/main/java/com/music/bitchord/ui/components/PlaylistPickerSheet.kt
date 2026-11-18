@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.components
 
 import android.content.res.Configuration
@@ -152,8 +163,9 @@ fun PlaylistPickerSheet(
     excludePlaylistId: String? = null,
 ) {
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val glassSupported = isGlassSupported()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
     val haptics = LocalHapticFeedback.current
 
     var creating by remember { mutableStateOf(startCreating) }
@@ -459,10 +471,10 @@ fun PlaylistPickerSheet(
                                     if (liquidGlass && glassSupported) {
                                         Modifier.lightweightLiquidGlass(
                                             shape = CircleShape,
-                                            fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                            fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.28f else 0.16f),
                                         )
                                     } else {
-                                        Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                        Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.28f else 0.16f))
                                     }
                                 )
                                 .clickable {
@@ -489,10 +501,10 @@ fun PlaylistPickerSheet(
                                     if (liquidGlass && glassSupported) {
                                         Modifier.lightweightLiquidGlass(
                                             shape = CircleShape,
-                                            fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                            fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f),
                                         )
                                     } else {
-                                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f))
                                     }
                                 )
                                 .padding(horizontal = 12.dp),
@@ -637,8 +649,8 @@ fun PlaylistPickerSheet(
                                     .size(34.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.35f else 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f),
                                     )
                                     .clickable {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -693,7 +705,7 @@ fun PlaylistPickerSheet(
                                 modifier = Modifier
                                     .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.90f else 0.65f))
                                     .clickable(onClick = onDismiss),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -838,10 +850,10 @@ fun PlaylistPickerSheet(
                                 if (liquidGlass && glassSupported) {
                                     Modifier.lightweightLiquidGlass(
                                         shape = CircleShape,
-                                        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.90f else 0.65f),
                                     )
                                 } else {
-                                    Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                    Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.90f else 0.65f))
                                 }
                             )
                             .clickable(onClick = onDismiss),
@@ -912,10 +924,10 @@ fun PlaylistPickerSheet(
                             if (liquidGlass && glassSupported) {
                                 Modifier.lightweightLiquidGlass(
                                     shape = CircleShape,
-                                    fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                    fallbackColor = MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.28f else 0.16f),
                                 )
                             } else {
-                                Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.28f else 0.16f))
                             }
                         )
                         .clickable {
@@ -942,10 +954,10 @@ fun PlaylistPickerSheet(
                             if (liquidGlass && glassSupported) {
                                 Modifier.lightweightLiquidGlass(
                                     shape = CircleShape,
-                                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f),
                                 )
                             } else {
-                                Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f))
                             }
                         )
                         .padding(horizontal = 14.dp),
@@ -1005,13 +1017,13 @@ fun PlaylistPickerSheet(
                                 if (liquidGlass && glassSupported) {
                                     Modifier.lightweightLiquidGlass(
                                         shape = CircleShape,
-                                        fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                        fallbackColor = if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.35f else 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f),
                                     )
                                 } else {
                                     Modifier.background(
-                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                        if (isSorted) MaterialTheme.colorScheme.primary.copy(alpha = if (reduceDynamicBlur) 0.35f else 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (reduceDynamicBlur) 0.88f else 0.55f),
                                     )
                                 }
                             )
@@ -1340,8 +1352,9 @@ private fun NewPlaylistForm(
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val glassSupported = isGlassSupported()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
 
     // The form exists to be typed into; opening it with the keyboard already
     // up saves the tap that would otherwise always follow.
@@ -1559,8 +1572,9 @@ internal fun RenamePlaylistForm(
     var name by remember { mutableStateOf(playlist.title) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val glassSupported = isGlassSupported()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
@@ -1723,8 +1737,9 @@ private fun PrivacyPill(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val glassSupported = isGlassSupported()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
     val content = if (selected) {
         MaterialTheme.colorScheme.onPrimary
     } else {

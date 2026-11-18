@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Top-Songs</string>
     <string name="shelf_top_picks_desc">Künstler-Radios, Mixe &amp; Spotlight-Karten</string>
     <string name="add_to_other_playlist">Zu anderer Playlist hinzufügen</string>
+
+    <string name="explore_hint">Stimmungen und Genres</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Endloser persönlicher Mix</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">Endlose Musik, ausgewählt für dich</string>
+    <string name="radio_recent_seeds">Kürzlich wiedergegeben</string>
+    <string name="radio_start_hint">Suche nach Künstler, Titel oder Album</string>
+    <string name="radio_start_station">Sender starten</string>
+    <string name="radio_stations">Sender für dich</string>
+    <string name="replay">Replay</string>
 </resources>

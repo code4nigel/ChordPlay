@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Lagu teratas</string>
     <string name="shelf_top_picks_desc">Stasiun artis, mix &amp; sorotan utama</string>
     <string name="add_to_other_playlist">Tambahkan ke daftar putar lain</string>
+
+    <string name="explore_hint">Suasana hati dan genre</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Mix pribadi tanpa akhir</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">Radio ChordPlay</string>
+    <string name="radio_featured_subtitle">Musik tanpa akhir yang dipilih untuk Anda</string>
+    <string name="radio_recent_seeds">Baru diputar</string>
+    <string name="radio_start_hint">Cari artis, lagu, atau album</string>
+    <string name="radio_start_station">Mulai stasiun</string>
+    <string name="radio_stations">Stasiun untuk Anda</string>
+    <string name="replay">Replay</string>
 </resources>

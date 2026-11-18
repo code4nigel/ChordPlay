@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Bài hát hàng đầu</string>
     <string name="shelf_top_picks_desc">Đài nghệ sĩ, bản phối &amp; thẻ nổi bật</string>
     <string name="add_to_other_playlist">Thêm vào danh sách phát khác</string>
+
+    <string name="explore_hint">Tâm trạng và thể loại</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Bản mix cá nhân bất tận</string>
+    <string name="radio">Radio</string>
+    <string name="radio_featured">ChordPlay Radio</string>
+    <string name="radio_featured_subtitle">Âm nhạc bất tận được chọn lọc riêng cho bạn</string>
+    <string name="radio_recent_seeds">Đã phát gần đây</string>
+    <string name="radio_start_hint">Tìm nghệ sĩ, bài hát hoặc album</string>
+    <string name="radio_start_station">Bắt đầu kênh</string>
+    <string name="radio_stations">Kênh dành cho bạn</string>
+    <string name="replay">Replay</string>
 </resources>

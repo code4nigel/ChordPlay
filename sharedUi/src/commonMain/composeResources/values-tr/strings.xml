@@ -247,4 +247,17 @@
     <string name="shelf_top_songs">Popüler parçalar</string>
     <string name="shelf_top_picks_desc">Sanatçı istasyonları, miksler ve öne çıkanlar</string>
     <string name="add_to_other_playlist">Başka çalma listesine ekle</string>
+
+    <string name="explore_hint">Ruh halleri ve türler</string>
+    <string name="melody">Melody</string>
+    <string name="melody_full_name">ChordPlay Melody</string>
+    <string name="melody_subtitle">Sonsuz kişisel miks</string>
+    <string name="radio">Radyo</string>
+    <string name="radio_featured">ChordPlay Radyo</string>
+    <string name="radio_featured_subtitle">Sizin için seçilen sonsuz müzik</string>
+    <string name="radio_recent_seeds">Son çalınanlar</string>
+    <string name="radio_start_hint">Sanatçı, şarkı veya albüm arayın</string>
+    <string name="radio_start_station">İstasyon başlat</string>
+    <string name="radio_stations">Sizin İçin İstasyonlar</string>
+    <string name="replay">Replay</string>
 </resources>

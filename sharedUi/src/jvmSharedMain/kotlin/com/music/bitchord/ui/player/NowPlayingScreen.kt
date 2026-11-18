@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.animateColorAsState
@@ -483,6 +494,7 @@ fun NowPlayingScreen(
     }
 
     val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val tapArtworkToToggleFullScreen by PlayerSettings.tapArtworkToToggleFullScreen.collectAsStateWithLifecycle()
     val spotifyCanvasOnPhone = canvas?.source == CanvasSource.SPOTIFY && playerFillsWindow(windowWidth)
     val videoHeroMode = videoMode && playerFillsWindow(windowWidth)
     val heroMode = videoHeroMode || (!videoMode && (
@@ -501,6 +513,7 @@ fun NowPlayingScreen(
     val heroClip = canvas?.takeIf { heroMode && !collapse.pastHalf }
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone && heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && clipState.rendered.value
+    val canvasActiveOnPlayer = spotifyCanvasPresentation || (heroClip != null && clipState.rendered.value) || (!heroMode && canvas != null && clipState.rendered.value)
     val canvasFirstPortrait = !spotifyCanvasFullscreen &&
         heroClip != null && clipState.aspect > 0f && clipState.aspect < 1f
     val heroClipMounted = canvas?.takeIf {
@@ -1276,10 +1289,12 @@ fun NowPlayingScreen(
                             onMeshFrameCaptured = { clipState.frames.offer(it) },
                             onDismissBandTop = { measures.dismissBandTop = it },
                             heroFadeFraction = HERO_FADE_FRACTION,
-                            onToggleFullBleedArtwork = {
-                                haptics.play(Haptic.Tap)
-                                PlayerSettings.setFullBleedArtwork(!fullBleedArt)
-                            },
+                            onToggleFullBleedArtwork = if (!canvasActiveOnPlayer && !videoMode && tapArtworkToToggleFullScreen && !panels.lyricsOpen && !panels.queueOpen) {
+                                {
+                                    haptics.play(Haptic.Tap)
+                                    PlayerSettings.setFullBleedArtwork(!fullBleedArt)
+                                }
+                            } else null,
                         )
 
                         PortraitCredits(

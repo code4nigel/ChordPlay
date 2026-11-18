@@ -1,9 +1,24 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.player
 
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import com.music.bitchord.data.model.ArtistCredit
 import com.music.bitchord.data.model.CreditSegment
@@ -576,11 +591,8 @@ internal fun PlayerActionRow(
         // swap, and the lyrics and queue glyphs would slide with it.
         val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(3)
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)
-        val pillAccent = palette?.colors?.getOrNull(0) ?: Color(0xFFFF6D33)
-        val avgLuminance = palette?.colors?.takeIf { it.isNotEmpty() }?.let { colors ->
-            colors.map { it.luminance() }.average().toFloat()
-        } ?: 0f
-        val isDarkBg = avgLuminance < 0.40f
+        val primaryAccent = palette?.colors?.getOrNull(0) ?: Color(0xFFFF5722)
+        val secondaryAccent = palette?.colors?.getOrNull(1) ?: primaryAccent
         val queueIcon = playerQueueIcon(
             repeatMode = repeatMode,
             shuffleEnabled = shuffleEnabled,
@@ -599,8 +611,8 @@ internal fun PlayerActionRow(
                 onClick = onToggleLyrics,
                 onLongClick = onLyricsOffset,
                 highlighted = lyricsOpen,
-                accentColor = pillAccent,
-                isDarkBg = isDarkBg,
+                accentColor = primaryAccent,
+                secondaryAccent = secondaryAccent,
             )
             AnimatedContent(
                 targetState = queueOpen,
@@ -624,7 +636,10 @@ internal fun PlayerActionRow(
                     // Always three-up, unlike the output/party capsule — so it
                     // always takes the narrower spacing. See
                     // [PILL_SEGMENT_WIDTH_TRIPLE].
-                    Pill(accentColor = pillAccent) {
+                    Pill(
+                        accentColor = primaryAccent,
+                        secondaryAccent = secondaryAccent,
+                    ) {
                         PillSegment(
                             icon = BitChordIcons.Shuffle,
                             contentDescription = stringResource(
@@ -635,8 +650,8 @@ internal fun PlayerActionRow(
                             haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
-                            accentColor = pillAccent,
-                            isDarkBg = isDarkBg,
+                            accentColor = primaryAccent,
+                            secondaryAccent = secondaryAccent,
                         )
                         PillDivider()
                         PillSegment(
@@ -659,8 +674,8 @@ internal fun PlayerActionRow(
                                 else -> Haptic.Select
                             },
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
-                            accentColor = pillAccent,
-                            isDarkBg = isDarkBg,
+                            accentColor = primaryAccent,
+                            secondaryAccent = secondaryAccent,
                         )
                         PillDivider()
                         PillSegment(
@@ -673,8 +688,8 @@ internal fun PlayerActionRow(
                             haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
                             width = PILL_SEGMENT_WIDTH_TRIPLE,
-                            accentColor = pillAccent,
-                            isDarkBg = isDarkBg,
+                            accentColor = primaryAccent,
+                            secondaryAccent = secondaryAccent,
                         )
                     }
                 } else {
@@ -701,8 +716,8 @@ internal fun PlayerActionRow(
                 onClick = onToggleQueue,
                 highlighted = queueOpen,
                 haptic = if (queueOpen) Haptic.Tap else Haptic.Expand,
-                accentColor = pillAccent,
-                isDarkBg = isDarkBg,
+                accentColor = primaryAccent,
+                secondaryAccent = secondaryAccent,
             )
         }
     }
@@ -880,9 +895,28 @@ private fun pillWidth(segments: Int): Dp =
 private fun Pill(
     modifier: Modifier = Modifier,
     accentColor: Color? = null,
-    isDarkBg: Boolean = true,
+    secondaryAccent: Color? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val secondary = secondaryAccent ?: accentColor
+    val capsuleRimBrush = remember(accentColor, secondary) {
+        if (accentColor != null && secondary != null) {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.28f),
+                    accentColor.copy(alpha = 0.38f),
+                    secondary.copy(alpha = 0.48f),
+                ),
+            )
+        } else {
+            Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.22f),
+                    Color.White.copy(alpha = 0.14f),
+                ),
+            )
+        }
+    }
     Row(
         modifier = modifier
             .height(BOTTOM_ACTION_SIZE)
@@ -890,11 +924,19 @@ private fun Pill(
             .background(Color.Black.copy(alpha = 0.28f))
             .background(accentColor?.copy(alpha = 0.12f) ?: Color.White.copy(alpha = 0.12f))
             .background(Color.White.copy(alpha = 0.08f))
-            .border(
-                width = 0.8.dp,
-                color = accentColor?.copy(alpha = 0.40f) ?: Color.White.copy(alpha = 0.18f),
-                shape = CircleShape,
-            )
+            .drawWithContent {
+                drawContent()
+                val strokePx = 0.85.dp.toPx()
+                val half = strokePx / 2f
+                val corner = (size.height - strokePx) / 2f
+                drawRoundRect(
+                    brush = capsuleRimBrush,
+                    topLeft = Offset(half, half),
+                    size = Size(size.width - strokePx, size.height - strokePx),
+                    cornerRadius = CornerRadius(corner, corner),
+                    style = Stroke(width = strokePx),
+                )
+            }
             .animateContentSize(
                 animationSpec = spring(
                     dampingRatio = 0.82f,
@@ -992,31 +1034,25 @@ private fun PillSegment(
     /** Per-segment override — see [OutputPartyPill]'s three-up capsule. */
     width: Dp = PILL_SEGMENT_WIDTH,
     accentColor: Color? = null,
-    isDarkBg: Boolean = true,
+    secondaryAccent: Color? = null,
 ) {
     val haptics = rememberHaptics()
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
-    val baseAccent = accentColor ?: Color(0xFFFF6D33)
-    val lightArtworkTone = remember(baseAccent) { baseAccent.toLightArtworkTone() }
-    val darkArtworkTone = remember(baseAccent) { baseAccent.toDarkArtworkTone() }
-    val targetSegBg = when {
-        highlighted && isDarkBg -> lightArtworkTone.copy(alpha = 0.94f)
-        highlighted && accentColor != null -> accentColor.copy(alpha = 0.32f)
-        highlighted -> Color.White.copy(alpha = 0.14f)
-        else -> Color.Transparent
-    }
-    val targetTint = when {
-        highlighted && isDarkBg -> darkArtworkTone
-        highlighted -> Color.White
-        else -> Color.White.copy(alpha = 0.75f)
-    }
-    val segBg by animateColorAsState(targetSegBg, label = "pillSegmentBg")
-    val tint by animateColorAsState(targetTint, label = "pillSegmentTint")
+    val highlightState = rememberArtworkHighlightState(
+        highlighted = highlighted,
+        primaryAccent = accentColor,
+        secondaryAccent = secondaryAccent,
+    )
+    val tint = highlightState.tint
     Box(
         modifier = Modifier
             .width(width)
             .height(BOTTOM_ACTION_SIZE)
-            .background(segBg)
+            .dualShadeHighlight(
+                highlightedFraction = highlightState.fraction,
+                style = highlightState.style,
+                circular = false,
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -1040,7 +1076,7 @@ private fun PillSegment(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(17.dp),
-                    color = Color.White,
+                    color = tint,
                     strokeWidth = 2.dp,
                 )
             } else if (icon != null) {
@@ -1218,41 +1254,24 @@ private fun BottomGlyph(
     label: String? = null,
     tapWindowMs: Long = 0L,
     accentColor: Color? = null,
-    isDarkBg: Boolean = true,
+    secondaryAccent: Color? = null,
 ) {
     val haptics = rememberHaptics()
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
-    val baseAccent = accentColor ?: Color(0xFFFF6D33)
-    val lightArtworkTone = remember(baseAccent) { baseAccent.toLightArtworkTone() }
-    val darkArtworkTone = remember(baseAccent) { baseAccent.toDarkArtworkTone() }
-    val targetBg = when {
-        highlighted && isDarkBg -> lightArtworkTone.copy(alpha = 0.94f)
-        highlighted && accentColor != null -> accentColor.copy(alpha = 0.32f)
-        highlighted -> Color.White.copy(alpha = 0.20f)
-        else -> Color.Transparent
-    }
-    val targetBorder = when {
-        highlighted && isDarkBg -> lightArtworkTone
-        highlighted && accentColor != null -> accentColor.copy(alpha = 0.50f)
-        else -> Color.Transparent
-    }
-    val targetTint = when {
-        highlighted && isDarkBg -> darkArtworkTone
-        highlighted -> Color.White
-        else -> Color.White.copy(alpha = 0.75f)
-    }
-    val bg by animateColorAsState(targetBg, label = "bottomGlyphBg")
-    val borderCol by animateColorAsState(targetBorder, label = "bottomGlyphBorder")
-    val tint by animateColorAsState(targetTint, label = "bottomGlyphTint")
+    val highlightState = rememberArtworkHighlightState(
+        highlighted = highlighted,
+        primaryAccent = accentColor,
+        secondaryAccent = secondaryAccent,
+    )
+    val tint = highlightState.tint
     Box(
         modifier = Modifier
             .size(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(bg)
-            .then(
-                if (highlighted) {
-                    Modifier.border(width = 0.8.dp, color = borderCol, shape = CircleShape)
-                } else Modifier
+            .dualShadeHighlight(
+                highlightedFraction = highlightState.fraction,
+                style = highlightState.style,
+                circular = true,
             )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -1891,53 +1910,149 @@ private fun TrackAnalysisState.localizedLabel(): String = when (this) {
     TrackAnalysisState.FAILED -> stringResource(Res.string.failed)
 }
 
-private fun Color.toLightArtworkTone(): Color {
-    val r = red
-    val g = green
-    val b = blue
-    val max = maxOf(r, g, b)
-    val min = minOf(r, g, b)
-    val d = max - min
-    val h = when {
-        d == 0f -> 0f
-        max == r -> (((g - b) / d) % 6f) * 60f
-        max == g -> (((b - r) / d) + 2f) * 60f
-        else -> (((r - g) / d) + 4f) * 60f
-    }.let { if (it < 0f) it + 360f else it }
-    return hslToColor(h, 0.52f, 0.86f)
+private const val BRIGHT_HIGHLIGHT_LUMINANCE_CAP = 0.68f
+private const val BRIGHT_ICON_CONTRAST_THRESHOLD = 0.45f
+
+private data class ArtworkHighlightStyle(
+    val fillPrimary: Color,
+    val fillSecondary: Color,
+    val fillAlphaPrimary: Float,
+    val fillAlphaSecondary: Float,
+    val underlayAlpha: Float,
+    val rimTop: Color,
+    val rimMid: Color,
+    val rimBottom: Color,
+    val activeIconTint: Color,
+)
+
+private data class ArtworkHighlightState(
+    val fraction: Float,
+    val style: ArtworkHighlightStyle,
+    val tint: Color,
+)
+
+private fun Color.calmBrightTone(): Color {
+    val lum = luminance()
+    if (lum <= BRIGHT_HIGHLIGHT_LUMINANCE_CAP) return this
+    val t = ((lum - BRIGHT_HIGHLIGHT_LUMINANCE_CAP) / (1f - BRIGHT_HIGHLIGHT_LUMINANCE_CAP) * 0.24f)
+        .coerceIn(0f, 0.24f)
+    return lerp(this, Color.Black, t)
 }
 
-private fun Color.toDarkArtworkTone(): Color {
-    val r = red
-    val g = green
-    val b = blue
-    val max = maxOf(r, g, b)
-    val min = minOf(r, g, b)
-    val d = max - min
-    val h = when {
-        d == 0f -> 0f
-        max == r -> (((g - b) / d) % 6f) * 60f
-        max == g -> (((b - r) / d) + 2f) * 60f
-        else -> (((r - g) / d) + 4f) * 60f
-    }.let { if (it < 0f) it + 360f else it }
-    return hslToColor(h, 0.65f, 0.12f)
-}
-
-private fun hslToColor(hue: Float, saturation: Float, lightness: Float): Color {
-    val c = (1f - kotlin.math.abs(2f * lightness - 1f)) * saturation
-    val x = c * (1f - kotlin.math.abs((hue / 60f) % 2f - 1f))
-    val m = lightness - c / 2f
-    val (r1, g1, b1) = when {
-        hue < 60f -> Triple(c, x, 0f)
-        hue < 120f -> Triple(x, c, 0f)
-        hue < 180f -> Triple(0f, c, x)
-        hue < 240f -> Triple(0f, x, c)
-        hue < 300f -> Triple(x, 0f, c)
-        else -> Triple(c, 0f, x)
+private fun resolveArtworkHighlightStyle(
+    primaryAccent: Color?,
+    secondaryAccent: Color?,
+): ArtworkHighlightStyle {
+    if (primaryAccent == null) {
+        return ArtworkHighlightStyle(
+            fillPrimary = Color.White,
+            fillSecondary = Color.White,
+            fillAlphaPrimary = 0.20f,
+            fillAlphaSecondary = 0.14f,
+            underlayAlpha = 0f,
+            rimTop = Color.White.copy(alpha = 0.36f),
+            rimMid = Color.White.copy(alpha = 0.20f),
+            rimBottom = Color.White.copy(alpha = 0.28f),
+            activeIconTint = Color.White.copy(alpha = 0.96f),
+        )
     }
-    return Color(
-        red = (r1 + m).coerceIn(0f, 1f),
-        green = (g1 + m).coerceIn(0f, 1f),
-        blue = (b1 + m).coerceIn(0f, 1f),
+    val secondary = secondaryAccent ?: primaryAccent
+    val fillPrimary = primaryAccent.calmBrightTone()
+    val fillSecondary = secondary.calmBrightTone()
+    val blendedMid = lerp(fillPrimary, fillSecondary, 0.5f)
+    val activeIconTint = if (blendedMid.luminance() >= BRIGHT_ICON_CONTRAST_THRESHOLD) {
+        lerp(secondary, Color.Black, 0.78f)
+    } else {
+        Color.White.copy(alpha = 0.96f)
+    }
+    return ArtworkHighlightStyle(
+        fillPrimary = fillPrimary,
+        fillSecondary = fillSecondary,
+        fillAlphaPrimary = 0.72f,
+        fillAlphaSecondary = 0.66f,
+        underlayAlpha = 0.25f,
+        rimTop = Color.White.copy(alpha = 0.42f),
+        rimMid = primaryAccent.copy(alpha = 0.45f),
+        rimBottom = secondary.copy(alpha = 0.65f),
+        activeIconTint = activeIconTint,
     )
+}
+
+@Composable
+private fun rememberArtworkHighlightState(
+    highlighted: Boolean,
+    primaryAccent: Color?,
+    secondaryAccent: Color?,
+): ArtworkHighlightState {
+    val hasPalette = primaryAccent != null
+    val animPrimary by animateColorAsState(
+        targetValue = primaryAccent ?: Color.White,
+        animationSpec = tween(500),
+        label = "highlightPrimary",
+    )
+    val animSecondary by animateColorAsState(
+        targetValue = secondaryAccent ?: primaryAccent ?: Color.White,
+        animationSpec = tween(500),
+        label = "highlightSecondary",
+    )
+    val fraction by animateFloatAsState(
+        targetValue = if (highlighted) 1f else 0f,
+        animationSpec = tween(220),
+        label = "highlightFraction",
+    )
+    val style = remember(hasPalette, animPrimary, animSecondary) {
+        resolveArtworkHighlightStyle(
+            primaryAccent = if (hasPalette) animPrimary else null,
+            secondaryAccent = if (hasPalette) animSecondary else null,
+        )
+    }
+    val targetTint = if (highlighted) style.activeIconTint else Color.White.copy(alpha = 0.75f)
+    val tint by animateColorAsState(targetTint, label = "highlightTint")
+    return ArtworkHighlightState(fraction = fraction, style = style, tint = tint)
+}
+
+private fun Modifier.dualShadeHighlight(
+    highlightedFraction: Float,
+    style: ArtworkHighlightStyle,
+    circular: Boolean,
+): Modifier = drawBehind {
+    if (highlightedFraction <= 0.005f) return@drawBehind
+    if (style.underlayAlpha > 0f) {
+        drawRect(color = Color.Black.copy(alpha = style.underlayAlpha * highlightedFraction))
+    }
+    val radius = size.maxDimension * (if (circular) 0.72f else 0.85f)
+    drawRect(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                style.fillPrimary.copy(alpha = style.fillAlphaPrimary * highlightedFraction),
+                style.fillSecondary.copy(alpha = style.fillAlphaSecondary * highlightedFraction),
+            ),
+            center = Offset(size.width * 0.5f, size.height * 0.36f),
+            radius = radius,
+        ),
+    )
+    val strokePx = 0.9.dp.toPx()
+    val rimBrush = Brush.linearGradient(
+        colors = listOf(
+            style.rimTop.copy(alpha = style.rimTop.alpha * highlightedFraction),
+            style.rimMid.copy(alpha = style.rimMid.alpha * highlightedFraction),
+            style.rimBottom.copy(alpha = style.rimBottom.alpha * highlightedFraction),
+        ),
+        start = Offset.Zero,
+        end = Offset(size.width, size.height),
+    )
+    if (circular) {
+        drawCircle(
+            brush = rimBrush,
+            radius = (size.minDimension - strokePx) / 2f,
+            style = Stroke(width = strokePx),
+        )
+    } else {
+        drawRect(
+            brush = rimBrush,
+            topLeft = Offset(strokePx / 2f, strokePx / 2f),
+            size = Size(size.width - strokePx, size.height - strokePx),
+            style = Stroke(width = strokePx),
+        )
+    }
 }

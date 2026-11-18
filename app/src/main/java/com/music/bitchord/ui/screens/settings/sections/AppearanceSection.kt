@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.ui.screens.settings.sections
 
 import android.os.Build
@@ -409,7 +419,7 @@ fun AppearanceSection(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Edit,
-                                        contentDescription = "Rename preset",
+                                        contentDescription = stringResource(R.string.rename_preset),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(18.dp),
                                     )
@@ -425,7 +435,7 @@ fun AppearanceSection(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Delete,
-                                        contentDescription = "Delete preset",
+                                        contentDescription = stringResource(R.string.delete_preset),
                                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                                         modifier = Modifier.size(18.dp),
                                     )
@@ -818,12 +828,12 @@ fun AppearanceSection(
     if (showRenameDialog && paletteToRename != null) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Preset") },
+            title = { Text(stringResource(R.string.rename_preset_title)) },
             text = {
                 OutlinedTextField(
                     value = renameInput,
                     onValueChange = { renameInput = it },
-                    label = { Text("Preset Name") },
+                    label = { Text(stringResource(R.string.preset_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -838,12 +848,12 @@ fun AppearanceSection(
                         showRenameDialog = false
                     },
                 ) {
-                    Text("Save")
+                    Text(stringResource(R.string.save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRenameDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -852,9 +862,9 @@ fun AppearanceSection(
     if (showDeleteDialog && paletteToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Preset?") },
+            title = { Text(stringResource(R.string.delete_preset_title)) },
             text = {
-                Text("Are you sure you want to delete \"${paletteToDelete!!.name}\"?")
+                Text(stringResource(R.string.delete_preset_confirmation, paletteToDelete!!.name))
             },
             confirmButton = {
                 TextButton(
@@ -863,12 +873,12 @@ fun AppearanceSection(
                         showDeleteDialog = false
                     },
                 ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )

@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord
 
 import android.Manifest
@@ -35,8 +46,10 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -111,11 +124,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -4990,232 +5005,164 @@ private fun BitChordApp(
         }
 
         val renderPlaylistOverlays: @Composable (com.music.bitchord.ui.components.backdrop.Backdrop, HazeState?) -> Unit = { overlayBackdrop, overlayHaze ->
-            if (playlistTarget != null || creatingPlaylist) {
-                val target = playlistTarget
-                val dismiss = {
-                    playlistTarget = null
-                    creatingPlaylist = false
-                }
-                val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
-                val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-                val artworkPalette = target?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
-                    rememberArtworkPalette(imageUrl = it)
-                }
-                BackHandler(onBack = dismiss)
-                CompositionLocalProvider(LocalAppBackdrop provides overlayBackdrop) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .zIndex(100f)
-                            .containSheetGestures(),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.42f))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = dismiss,
-                                ),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .heightIn(max = 620.dp)
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .navigationBarsPadding()
-                                .iosMenuPanel(
-                                    translucent = true,
-                                    backdrop = overlayBackdrop,
-                                    hazeState = overlayHaze,
-                                    palette = artworkPalette,
-                                    isLiquidGlass = isLiquidGlassActive,
-                                    castsShadow = true,
-                                )
-                                .pointerInput(Unit) {},
-                        ) {
-                            PlaylistPickerSheet(
-                                playlists = playlists,
-                                loading = playlistsLoading,
-                                song = target,
-                                startCreating = target == null,
-                                pinnedPlaylists = pinnedPlaylists,
-                                onDismiss = dismiss,
-                                onCommit = { toAdd, toRemove ->
-                                    target?.let { song ->
-                                        viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
-                                            showQueueNotice(
-                                                when {
-                                                    added > 0 && removed > 0 -> context.getString(R.string.playlists_updated)
-                                                    added > 1 -> context.resources.getQuantityString(
-                                                        R.plurals.added_to_playlists_notice, added, added,
-                                                    )
-                                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                                    removed > 0 -> context.getString(R.string.song_removed_from_playlist)
-                                                    else -> context.getString(R.string.song_already_in_playlist)
-                                                },
-                                            )
-                                        }
-                                    }
-                                    dismiss()
-                                },
-                                onAdd = { picked ->
-                                    target?.let { song ->
-                                        viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                                            showQueueNotice(
-                                                when {
-                                                    added > 1 -> context.resources.getQuantityString(
-                                                        R.plurals.added_to_playlists_notice, added, added,
-                                                    )
-                                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                                    alreadyThere > 0 && failed == 0 ->
-                                                        context.getString(R.string.song_already_in_playlist)
-                                                    else -> context.getString(R.string.failed)
-                                                },
-                                            )
-                                        }
-                                    }
-                                    dismiss()
-                                },
-                                onCreate = { title, privacy ->
-                                    viewModel.createPlaylist(title, privacy, target)
-                                    dismiss()
-                                },
-                            )
-                        }
-                    }
-                }
+            val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+            val songRequest = if (playlistTarget != null || creatingPlaylist) {
+                SongPlaylistSheetRequest(
+                    song = playlistTarget,
+                    startCreating = playlistTarget == null && creatingPlaylist,
+                )
+            } else {
+                null
             }
-
-            if (collectionPlaylistTarget != null) {
-                val target = collectionPlaylistTarget
-                val dismiss = { collectionPlaylistTarget = null }
-                val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
-                val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported()
-                val artworkPalette = target?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let {
-                    rememberArtworkPalette(imageUrl = it)
-                }
-                BackHandler(onBack = dismiss)
-                CompositionLocalProvider(LocalAppBackdrop provides overlayBackdrop) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .zIndex(100f)
-                            .containSheetGestures(),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.42f))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = dismiss,
-                                ),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .heightIn(max = 620.dp)
-                                .padding(horizontal = 8.dp, vertical = 8.dp)
-                                .navigationBarsPadding()
-                                .iosMenuPanel(
-                                    translucent = true,
-                                    backdrop = overlayBackdrop,
-                                    hazeState = overlayHaze,
-                                    palette = artworkPalette,
-                                    isLiquidGlass = isLiquidGlassActive,
-                                    castsShadow = true,
-                                )
-                                .pointerInput(Unit) {},
-                        ) {
-                            target?.let { col ->
-                                PlaylistPickerSheet(
-                                    playlists = playlists,
-                                    loading = playlistsLoading,
-                                    song = null,
-                                    collectionTitle = col.title,
-                                    collectionSubtitle = col.subtitle,
-                                    collectionArtworkUrl = col.thumbnailUrl,
-                                    collectionSongs = col.songs,
-                                    excludePlaylistId = col.sourceBrowseId,
-                                    startCreating = false,
-                                    pinnedPlaylists = pinnedPlaylists,
-                                    onDismiss = dismiss,
-                                    onAdd = { picked ->
-                                        dismiss()
-                                        if (picked.isNotEmpty() && col.songs.isNotEmpty()) {
-                                            viewModel.addSongsToPlaylists(
-                                                playlists = picked,
-                                                songs = col.songs,
-                                                onProgress = { p -> bulkAddProgress = p },
-                                                onResult = { added, alreadyThere, failed ->
-                                                    showQueueNotice(
-                                                        when {
-                                                            added > 0 -> context.getString(
-                                                                R.string.songs_added_to_playlist,
-                                                                added,
-                                                                picked.joinToString(", ") { it.title },
-                                                            )
-                                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
-                                                            else -> context.getString(R.string.failed)
-                                                        }
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    },
-                                    onCommit = { toAdd, _ ->
-                                        dismiss()
-                                        if (toAdd.isNotEmpty() && col.songs.isNotEmpty()) {
-                                            viewModel.addSongsToPlaylists(
-                                                playlists = toAdd,
-                                                songs = col.songs,
-                                                onProgress = { p -> bulkAddProgress = p },
-                                                onResult = { added, alreadyThere, failed ->
-                                                    showQueueNotice(
-                                                        when {
-                                                            added > 0 -> context.getString(
-                                                                R.string.songs_added_to_playlist,
-                                                                added,
-                                                                toAdd.joinToString(", ") { it.title },
-                                                            )
-                                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
-                                                            else -> context.getString(R.string.failed)
-                                                        }
-                                                    )
-                                                }
-                                            )
-                                        }
-                                    },
-                                    onCreate = { title, privacy ->
-                                        dismiss()
-                                        val videoIds = col.songs.map { it.videoId }.filter { it.isNotBlank() && !it.startsWith("local:") }
-                                        viewModel.createPlaylistWithVideoIds(
-                                            title = title,
-                                            privacy = privacy,
-                                            videoIds = videoIds,
-                                            songs = col.songs,
-                                            onProgress = { p -> bulkAddProgress = p },
-                                            onResult = { browseId, createdTitle, savedLocally ->
-                                                showQueueNotice(
-                                                    context.getString(
-                                                        R.string.songs_added_to_playlist,
-                                                        col.songs.size,
-                                                        createdTitle,
-                                                    )
-                                                )
-                                            }
+            val dismissSongOverlay = {
+                playlistTarget = null
+                creatingPlaylist = false
+            }
+            AnimatedPlaylistOverlaySheet(
+                item = songRequest,
+                backdrop = overlayBackdrop,
+                hazeState = overlayHaze,
+                thumbnailUrl = { it.song?.thumbnailUrl },
+                onDismiss = dismissSongOverlay,
+            ) { req ->
+                val target = req.song
+                PlaylistPickerSheet(
+                    playlists = playlists,
+                    loading = playlistsLoading,
+                    song = target,
+                    startCreating = req.startCreating,
+                    pinnedPlaylists = pinnedPlaylists,
+                    onDismiss = dismissSongOverlay,
+                    onCommit = { toAdd, toRemove ->
+                        target?.let { song ->
+                            viewModel.updatePlaylistsForSong(toAdd, toRemove, song) { added, removed ->
+                                showQueueNotice(
+                                    when {
+                                        added > 0 && removed > 0 -> context.getString(R.string.playlists_updated)
+                                        added > 1 -> context.resources.getQuantityString(
+                                            R.plurals.added_to_playlists_notice, added, added,
                                         )
+                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                        removed > 0 -> context.getString(R.string.song_removed_from_playlist)
+                                        else -> context.getString(R.string.song_already_in_playlist)
                                     },
                                 )
                             }
                         }
-                    }
-                }
+                        dismissSongOverlay()
+                    },
+                    onAdd = { picked ->
+                        target?.let { song ->
+                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                                showQueueNotice(
+                                    when {
+                                        added > 1 -> context.resources.getQuantityString(
+                                            R.plurals.added_to_playlists_notice, added, added,
+                                        )
+                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                        alreadyThere > 0 && failed == 0 ->
+                                            context.getString(R.string.song_already_in_playlist)
+                                        else -> context.getString(R.string.failed)
+                                    },
+                                )
+                            }
+                        }
+                        dismissSongOverlay()
+                    },
+                    onCreate = { title, privacy ->
+                        viewModel.createPlaylist(title, privacy, target)
+                        dismissSongOverlay()
+                    },
+                )
+            }
+
+            val dismissCollectionOverlay = { collectionPlaylistTarget = null }
+            AnimatedPlaylistOverlaySheet(
+                item = collectionPlaylistTarget,
+                backdrop = overlayBackdrop,
+                hazeState = overlayHaze,
+                thumbnailUrl = { it.thumbnailUrl },
+                onDismiss = dismissCollectionOverlay,
+            ) { col ->
+                PlaylistPickerSheet(
+                    playlists = playlists,
+                    loading = playlistsLoading,
+                    song = null,
+                    collectionTitle = col.title,
+                    collectionSubtitle = col.subtitle,
+                    collectionArtworkUrl = col.thumbnailUrl,
+                    collectionSongs = col.songs,
+                    excludePlaylistId = col.sourceBrowseId,
+                    startCreating = false,
+                    pinnedPlaylists = pinnedPlaylists,
+                    onDismiss = dismissCollectionOverlay,
+                    onAdd = { picked ->
+                        dismissCollectionOverlay()
+                        if (picked.isNotEmpty() && col.songs.isNotEmpty()) {
+                            viewModel.addSongsToPlaylists(
+                                playlists = picked,
+                                songs = col.songs,
+                                onProgress = { p -> bulkAddProgress = p },
+                                onResult = { added, alreadyThere, failed ->
+                                    showQueueNotice(
+                                        when {
+                                            added > 0 -> context.getString(
+                                                R.string.songs_added_to_playlist,
+                                                added,
+                                                picked.joinToString(", ") { it.title },
+                                            )
+                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                            else -> context.getString(R.string.failed)
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    },
+                    onCommit = { toAdd, _ ->
+                        dismissCollectionOverlay()
+                        if (toAdd.isNotEmpty() && col.songs.isNotEmpty()) {
+                            viewModel.addSongsToPlaylists(
+                                playlists = toAdd,
+                                songs = col.songs,
+                                onProgress = { p -> bulkAddProgress = p },
+                                onResult = { added, alreadyThere, failed ->
+                                    showQueueNotice(
+                                        when {
+                                            added > 0 -> context.getString(
+                                                R.string.songs_added_to_playlist,
+                                                added,
+                                                toAdd.joinToString(", ") { it.title },
+                                            )
+                                            alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                            else -> context.getString(R.string.failed)
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    },
+                    onCreate = { title, privacy ->
+                        dismissCollectionOverlay()
+                        val videoIds = col.songs.map { it.videoId }.filter { it.isNotBlank() && !it.startsWith("local:") }
+                        viewModel.createPlaylistWithVideoIds(
+                            title = title,
+                            privacy = privacy,
+                            videoIds = videoIds,
+                            songs = col.songs,
+                            onProgress = { p -> bulkAddProgress = p },
+                            onResult = { _, createdTitle, _ ->
+                                showQueueNotice(
+                                    context.getString(
+                                        R.string.songs_added_to_playlist,
+                                        col.songs.size,
+                                        createdTitle,
+                                    ),
+                                )
+                            },
+                        )
+                    },
+                )
             }
         }
 
@@ -5822,6 +5769,11 @@ private const val TAB_SEARCH = 3
  */
 private const val TAB_KEY = "tab:"
 
+private data class SongPlaylistSheetRequest(
+    val song: Song?,
+    val startCreating: Boolean,
+)
+
 private data class CollectionPlaylistTarget(
     val title: String,
     val subtitle: String? = null,
@@ -5829,6 +5781,105 @@ private data class CollectionPlaylistTarget(
     val sourceBrowseId: String? = null,
     val songs: List<Song>,
 )
+
+/** Animated modal wrapper for Add-to-Playlist sheets with subtle slide and fade transitions. */
+@Composable
+private fun <T : Any> AnimatedPlaylistOverlaySheet(
+    item: T?,
+    backdrop: com.music.bitchord.ui.components.backdrop.Backdrop,
+    hazeState: HazeState?,
+    thumbnailUrl: (T) -> String?,
+    onDismiss: () -> Unit,
+    content: @Composable (T) -> Unit,
+) {
+    var last by remember { mutableStateOf<T?>(null) }
+    if (item != null && item != last) {
+        SideEffect { last = item }
+    }
+    val shown = item ?: last ?: return
+    val open = item != null
+
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val reduceMotion by rememberUpdatedState(reduceAnimation)
+    val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val artworkPalette = thumbnailUrl(shown)?.takeIf { it.isNotBlank() }?.let {
+        rememberArtworkPalette(imageUrl = it)
+    }
+
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(open) {
+        if (open) {
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = if (reduceMotion) {
+                    tween(durationMillis = 100, easing = LinearEasing)
+                } else {
+                    tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                },
+            )
+        } else {
+            progress.animateTo(
+                targetValue = 0f,
+                animationSpec = if (reduceMotion) {
+                    tween(durationMillis = 90, easing = LinearEasing)
+                } else {
+                    tween(durationMillis = 160, easing = FastOutSlowInEasing)
+                },
+            )
+            last = null
+        }
+    }
+
+    BackHandler(enabled = open, onBack = onDismiss)
+    val p = progress.value.coerceIn(0f, 1f)
+    val density = LocalDensity.current
+    val slideDistancePx = if (reduceAnimation) 0f else with(density) { 40.dp.toPx() }
+
+    CompositionLocalProvider(LocalAppBackdrop provides backdrop) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(100f)
+                .containSheetGestures(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.42f * p))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        enabled = open,
+                        onClick = onDismiss,
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .heightIn(max = 620.dp)
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .navigationBarsPadding()
+                    .graphicsLayer {
+                        alpha = p
+                        translationY = (1f - p) * slideDistancePx
+                    }
+                    .iosMenuPanel(
+                        translucent = true,
+                        backdrop = backdrop,
+                        hazeState = hazeState,
+                        palette = artworkPalette,
+                        isLiquidGlass = isLiquidGlassActive,
+                        castsShadow = true,
+                    )
+                    .pointerInput(Unit) {},
+            ) {
+                content(shown)
+            }
+        }
+    }
+}
 
 /** Gives its body an independent recomposition scope. */
 @Composable
