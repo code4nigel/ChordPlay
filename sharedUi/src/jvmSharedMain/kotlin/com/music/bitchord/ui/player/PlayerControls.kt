@@ -130,6 +130,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.Song
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 /**
@@ -1910,10 +1911,9 @@ private fun TrackAnalysisState.localizedLabel(): String = when (this) {
     TrackAnalysisState.FAILED -> stringResource(Res.string.failed)
 }
 
-private const val BRIGHT_HIGHLIGHT_LUMINANCE_CAP = 0.68f
-private const val BRIGHT_ICON_CONTRAST_THRESHOLD = 0.45f
+private const val BRIGHT_HIGHLIGHT_LUMINANCE_CAP = 0.22f
 
-private data class ArtworkHighlightStyle(
+internal data class ArtworkHighlightStyle(
     val fillPrimary: Color,
     val fillSecondary: Color,
     val fillAlphaPrimary: Float,
@@ -1934,12 +1934,12 @@ private data class ArtworkHighlightState(
 private fun Color.calmBrightTone(): Color {
     val lum = luminance()
     if (lum <= BRIGHT_HIGHLIGHT_LUMINANCE_CAP) return this
-    val t = ((lum - BRIGHT_HIGHLIGHT_LUMINANCE_CAP) / (1f - BRIGHT_HIGHLIGHT_LUMINANCE_CAP) * 0.24f)
-        .coerceIn(0f, 0.24f)
+    val scale = (BRIGHT_HIGHLIGHT_LUMINANCE_CAP / lum).pow(1f / 2.2f)
+    val t = (1f - scale).coerceIn(0f, 0.56f)
     return lerp(this, Color.Black, t)
 }
 
-private fun resolveArtworkHighlightStyle(
+internal fun resolveArtworkHighlightStyle(
     primaryAccent: Color?,
     secondaryAccent: Color?,
 ): ArtworkHighlightStyle {
@@ -1959,22 +1959,19 @@ private fun resolveArtworkHighlightStyle(
     val secondary = secondaryAccent ?: primaryAccent
     val fillPrimary = primaryAccent.calmBrightTone()
     val fillSecondary = secondary.calmBrightTone()
-    val blendedMid = lerp(fillPrimary, fillSecondary, 0.5f)
-    val activeIconTint = if (blendedMid.luminance() >= BRIGHT_ICON_CONTRAST_THRESHOLD) {
-        lerp(secondary, Color.Black, 0.78f)
-    } else {
-        Color.White.copy(alpha = 0.96f)
-    }
+    val maxLum = maxOf(primaryAccent.luminance(), secondary.luminance())
+    val brightExcess = ((maxLum - BRIGHT_HIGHLIGHT_LUMINANCE_CAP) / (1f - BRIGHT_HIGHLIGHT_LUMINANCE_CAP))
+        .coerceIn(0f, 1f)
     return ArtworkHighlightStyle(
         fillPrimary = fillPrimary,
         fillSecondary = fillSecondary,
         fillAlphaPrimary = 0.72f,
         fillAlphaSecondary = 0.66f,
-        underlayAlpha = 0.25f,
+        underlayAlpha = 0.26f + 0.18f * brightExcess,
         rimTop = Color.White.copy(alpha = 0.42f),
-        rimMid = primaryAccent.copy(alpha = 0.45f),
-        rimBottom = secondary.copy(alpha = 0.65f),
-        activeIconTint = activeIconTint,
+        rimMid = fillPrimary.copy(alpha = 0.45f),
+        rimBottom = fillSecondary.copy(alpha = 0.65f),
+        activeIconTint = Color.White.copy(alpha = 0.96f),
     )
 }
 

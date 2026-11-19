@@ -17,7 +17,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,12 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,9 +55,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import org.jetbrains.compose.resources.stringResource
 import java.util.Locale
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.sin
 
 private val LiveRed = Color(0xFFE53935)
 private val LiveDotBright = Color(0xFFFF5252)
@@ -146,11 +138,6 @@ internal fun LiveStationBar(
         targetValue = palette.colors.firstOrNull() ?: LiveDotBright,
         animationSpec = tween(500),
         label = "liveAccent",
-    )
-    val secondaryAccent by animateColorAsState(
-        targetValue = palette.colors.getOrNull(1) ?: accentColor,
-        animationSpec = tween(500),
-        label = "liveSecondaryAccent",
     )
     val pulse = rememberInfiniteTransition(label = "liveEdgePulse")
     val dotAlpha by pulse.animateFloat(
@@ -236,89 +223,21 @@ internal fun LiveStationBar(
         }
     }
 
+    val canScrub = isSeekable && durationMs > 0L
     Column(modifier = modifier.fillMaxWidth()) {
-        if (isSeekable && durationMs > 0L) {
-            SynesthesiaWaveformScrubber(
-                shown = shown,
-                durationMs = durationMs,
-                isPlaying = isPlaying,
-                onScrub = onScrub,
-                onScrubFinished = onScrubFinished,
-                trackKey = trackKey,
-                palette = palette,
-                showTimestamps = false,
-            )
-            Spacer(Modifier.height(6.dp))
-            StatusRow()
-        } else {
-            StatusRow()
-            Spacer(Modifier.height(8.dp))
-            PureLiveWaveStrip(
-                isPlaying = isPlaying,
-                accentColor = accentColor,
-                secondaryAccent = secondaryAccent,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(26.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PureLiveWaveStrip(
-    isPlaying: Boolean,
-    accentColor: Color,
-    secondaryAccent: Color,
-    modifier: Modifier = Modifier,
-) {
-    val phaseTransition = rememberInfiniteTransition(label = "pureLiveWave")
-    val phase by phaseTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "pureLivePhase",
-    )
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        val midY = h / 2f
-        val maxAmp = h * 0.34f
-        val steps = 64
-        val activePhase = if (isPlaying) phase else 0f
-        val ampScale = if (isPlaying) 1f else 0.25f
-
-        val wavePath = Path()
-        for (i in 0..steps) {
-            val t = i.toFloat() / steps
-            val x = t * w
-            val env = sin(t * PI).toFloat()
-            val signal = sin(t * 14f - activePhase) * 0.65f + sin(t * 23f + activePhase * 1.4f) * 0.35f
-            val y = midY + signal * maxAmp * env * ampScale
-            if (i == 0) wavePath.moveTo(x, y) else wavePath.lineTo(x, y)
-        }
-
-        drawLine(
-            color = Color.White.copy(alpha = 0.14f),
-            start = Offset(0f, midY),
-            end = Offset(w, midY),
-            strokeWidth = 1.2.dp.toPx(),
-            cap = StrokeCap.Round,
+        SynesthesiaWaveformScrubber(
+            shown = if (canScrub) shown else ({ 1f }),
+            durationMs = durationMs,
+            isPlaying = isPlaying,
+            onScrub = onScrub,
+            onScrubFinished = onScrubFinished,
+            trackKey = trackKey,
+            palette = palette,
+            showTimestamps = false,
+            liveWaveMotion = true,
+            scrubEnabled = canScrub,
         )
-        drawPath(
-            path = wavePath,
-            color = accentColor.copy(alpha = 0.32f),
-            style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round),
-        )
-        drawPath(
-            path = wavePath,
-            brush = Brush.horizontalGradient(
-                colors = listOf(accentColor, secondaryAccent),
-            ),
-            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-        )
+        Spacer(Modifier.height(6.dp))
+        StatusRow()
     }
 }

@@ -54,13 +54,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -157,11 +160,14 @@ fun SynesthesiaWaveformScrubber(
     palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
     showTimestamps: Boolean = true,
+    liveWaveMotion: Boolean = false,
+    scrubEnabled: Boolean = true,
 ) {
     val progress = shown().coerceIn(0f, 1f)
     val haptics = rememberHaptics()
     var isDragging by remember { mutableStateOf(false) }
     var lastScrubSec by remember { mutableLongStateOf(-1L) }
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
     // Dynamic Artwork Colors
     val accentColor by animateColorAsState(
@@ -181,6 +187,12 @@ fun SynesthesiaWaveformScrubber(
         label = "WaveDragScale",
     )
 
+    val liveMotionAmp by animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0.24f,
+        animationSpec = tween(420),
+        label = "LiveWaveAmp",
+    )
+
     val infinite = rememberInfiniteTransition(label = "WaveBreath")
     val wavePhase by infinite.animateFloat(
         initialValue = 0f,
@@ -191,32 +203,51 @@ fun SynesthesiaWaveformScrubber(
         ),
         label = "WavePhase",
     )
-    val livePhase = if (isPlaying) wavePhase else 0f
+    val livePhase = if (!liveWaveMotion && isPlaying && !reduceAnimation) wavePhase else 0f
 
-    val songWave = rememberSongWaveform(trackKey, durationMs)
+    var liveWavePhase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(liveWaveMotion, isPlaying, reduceAnimation) {
+        if (!liveWaveMotion || !isPlaying || reduceAnimation) return@LaunchedEffect
+        var lastNanos = withFrameNanos { it }
+        val omega = (2.0 * PI / 2.6).toFloat()
+        while (true) {
+            val now = withFrameNanos { it }
+            val dtSec = ((now - lastNanos).coerceIn(0L, 100_000_000L)) / 1_000_000_000f
+            lastNanos = now
+            liveWavePhase = (liveWavePhase + omega * dtSec) % (2f * PI).toFloat()
+        }
+    }
+
+    val songWave = rememberSongWaveform(trackKey, if (liveWaveMotion) 0L else durationMs)
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .pointerInput(durationMs) {
+        val gestureModifier = if (scrubEnabled) {
+            Modifier
+                .pointerInput(durationMs, scrubEnabled) {
+                    val edge = 6.8.dp.toPx()
+                    fun fractionFor(x: Float): Float {
+                        val usable = (size.width.toFloat() - 2f * edge).coerceAtLeast(1f)
+                        return ((x - edge) / usable).coerceIn(0f, 1f)
+                    }
                     detectTapGestures { offset ->
-                        val frac = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                        onScrub(frac)
+                        onScrub(fractionFor(offset.x))
                         onScrubFinished()
                     }
                 }
-                .pointerInput(durationMs) {
+                .pointerInput(durationMs, scrubEnabled) {
+                    val edge = 6.8.dp.toPx()
+                    fun fractionFor(x: Float): Float {
+                        val usable = (size.width.toFloat() - 2f * edge).coerceAtLeast(1f)
+                        return ((x - edge) / usable).coerceIn(0f, 1f)
+                    }
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
                             isDragging = true
-                            val frac = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                            onScrub(frac)
+                            onScrub(fractionFor(offset.x))
                         },
                         onHorizontalDrag = { change, _ ->
                             change.consume()
-                            val frac = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
+                            val frac = fractionFor(change.position.x)
                             if (durationMs > 0L) {
                                 val sec = (frac * durationMs / 1000L).toLong()
                                 if (sec != lastScrubSec) {
@@ -237,7 +268,16 @@ fun SynesthesiaWaveformScrubber(
                             onScrubFinished()
                         },
                     )
-                },
+                }
+        } else {
+            Modifier
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .then(gestureModifier),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -245,16 +285,39 @@ fun SynesthesiaWaveformScrubber(
                 val h = size.height
                 val midY = h * 0.56f
                 val maxAmp = h * 0.36f * dragScale
-                val thumbX = (progress * w).coerceIn(0f, w)
+                val orbRadius = if (isDragging) 8.5.dp.toPx() else 6.8.dp.toPx()
+                val trackSpan = (w - 2f * orbRadius).coerceAtLeast(0f)
+                val thumbX = (orbRadius + progress * trackSpan).coerceIn(0f, w)
+                val playedRight = if (progress >= 0.999f) w else thumbX
 
                 val steps = 96
                 fun waveSample(i: Int): Float {
+                    if (liveWaveMotion) {
+                        val t = i.toFloat() / steps
+                        val p = liveWavePhase
+                        val env = 0.24f + 0.76f * sin((t * PI).toFloat()).coerceIn(0f, 1f)
+                        val w1 = sin(t * 10f - p) * 0.48f
+                        val w2 = sin(t * 19f - p * 2f) * 0.28f
+                        val w3 = cos(t * 7f + p) * 0.24f
+                        val raw = 0.44f + 0.46f * (w1 + w2 + w3) * liveMotionAmp
+                        return (raw * env).coerceIn(0.08f, 1.0f)
+                    }
                     val base = if (i in songWave.indices) songWave[i] else 0.2f
                     val breath = if (isPlaying) 0.05f * sin(i * 0.25f + livePhase) else 0f
                     return (base + breath).coerceIn(0.05f, 1.0f)
                 }
 
                 fun waveLower(i: Int): Float {
+                    if (liveWaveMotion) {
+                        val t = i.toFloat() / steps
+                        val p = liveWavePhase
+                        val env = 0.24f + 0.76f * sin((t * PI).toFloat()).coerceIn(0f, 1f)
+                        val w1 = cos(t * 11f - p) * 0.46f
+                        val w2 = sin(t * 17f + p) * 0.30f
+                        val w3 = sin(t * 23f - p * 2f) * 0.24f
+                        val raw = 0.26f + 0.32f * (w1 + w2 + w3) * liveMotionAmp
+                        return (raw * env).coerceIn(0.04f, 0.72f)
+                    }
                     val base = (if (i in songWave.indices) songWave[i] else 0.2f) * 0.45f
                     val breath = if (isPlaying) 0.03f * cos(i * 0.22f - livePhase) else 0f
                     return (base + breath).coerceIn(0.02f, 0.65f)
@@ -282,78 +345,88 @@ fun SynesthesiaWaveformScrubber(
                     if (i == 0) lowerPath.moveTo(x, y) else lowerPath.lineTo(x, y)
                 }
 
-                // 1. Unplayed portion (right of thumbX)
-                clipRect(left = thumbX, top = 0f, right = w, bottom = h) {
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.18f),
-                        start = Offset(0f, midY),
-                        end = Offset(w, midY),
-                        strokeWidth = 1.5.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawPath(
-                        path = upperFillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
-                            startY = midY - maxAmp,
-                            endY = midY,
-                        ),
-                    )
-                    drawPath(
-                        path = upperPath,
-                        color = Color.White.copy(alpha = 0.24f),
-                        style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round),
-                    )
-                    drawPath(
-                        path = lowerPath,
-                        color = Color.White.copy(alpha = 0.16f),
-                        style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
-                    )
+                // 1. Unplayed portion (right of playedRight)
+                if (playedRight < w) {
+                    clipRect(left = playedRight, top = 0f, right = w, bottom = h) {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.18f),
+                            start = Offset(0f, midY),
+                            end = Offset(w, midY),
+                            strokeWidth = 1.5.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawPath(
+                            path = upperFillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
+                                startY = midY - maxAmp,
+                                endY = midY,
+                            ),
+                        )
+                        drawPath(
+                            path = upperPath,
+                            color = Color.White.copy(alpha = 0.24f),
+                            style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round),
+                        )
+                        drawPath(
+                            path = lowerPath,
+                            color = Color.White.copy(alpha = 0.16f),
+                            style = Stroke(width = 1.2.dp.toPx(), cap = StrokeCap.Round),
+                        )
+                    }
                 }
 
-                // 2. Played portion (left of thumbX) — dynamic palette
-                clipRect(left = 0f, top = 0f, right = thumbX, bottom = h) {
-                    drawPath(
-                        path = upperFillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                accentColor.copy(alpha = 0.58f),
-                                secondaryAccent.copy(alpha = 0.22f),
-                                Color.Transparent,
+                // 2. Played portion (left of playedRight) — dynamic palette
+                if (playedRight > 0f) {
+                    clipRect(left = 0f, top = 0f, right = playedRight, bottom = h) {
+                        drawPath(
+                            path = upperFillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    accentColor.copy(alpha = 0.58f),
+                                    secondaryAccent.copy(alpha = 0.22f),
+                                    Color.Transparent,
+                                ),
+                                startY = midY - maxAmp,
+                                endY = midY + 4.dp.toPx(),
                             ),
-                            startY = midY - maxAmp,
-                            endY = midY + 4.dp.toPx(),
-                        ),
-                    )
-                    drawLine(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(accentColor, secondaryAccent),
-                            startX = 0f,
-                            endX = thumbX.coerceAtLeast(1f),
-                        ),
-                        start = Offset(0f, midY),
-                        end = Offset(thumbX, midY),
-                        strokeWidth = 2.6.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawPath(
-                        path = upperPath,
-                        color = accentColor.copy(alpha = 0.42f),
-                        style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round),
-                    )
-                    drawPath(
-                        path = upperPath,
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(accentColor, secondaryAccent),
-                            startX = 0f,
-                            endX = thumbX.coerceAtLeast(1f),
-                        ),
-                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
-                    )
+                        )
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(accentColor, secondaryAccent),
+                                startX = 0f,
+                                endX = playedRight.coerceAtLeast(1f),
+                            ),
+                            start = Offset(0f, midY),
+                            end = Offset(playedRight, midY),
+                            strokeWidth = 2.6.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawPath(
+                            path = upperPath,
+                            color = accentColor.copy(alpha = 0.42f),
+                            style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round),
+                        )
+                        drawPath(
+                            path = upperPath,
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(accentColor, secondaryAccent),
+                                startX = 0f,
+                                endX = playedRight.coerceAtLeast(1f),
+                            ),
+                            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
+                        )
+                        if (liveWaveMotion) {
+                            drawPath(
+                                path = lowerPath,
+                                color = secondaryAccent.copy(alpha = 0.36f),
+                                style = Stroke(width = 1.3.dp.toPx(), cap = StrokeCap.Round),
+                            )
+                        }
+                    }
                 }
 
                 // 3. Glowing Playhead Indicator Orb
-                val orbRadius = if (isDragging) 8.5.dp.toPx() else 6.8.dp.toPx()
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(accentColor.copy(alpha = 0.65f), Color.Transparent),

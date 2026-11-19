@@ -31,11 +31,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -167,6 +170,8 @@ fun PlaylistPickerSheet(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val glassSupported = isGlassSupported() && !reduceDynamicBlur
     val haptics = LocalHapticFeedback.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
@@ -531,6 +536,13 @@ fun PlaylistPickerSheet(
                                     value = playlistSearchQuery,
                                     onValueChange = { playlistSearchQuery = it },
                                     singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                    keyboardActions = KeyboardActions(
+                                        onSearch = {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                        },
+                                    ),
                                     textStyle = MaterialTheme.typography.bodySmall.copy(
                                         color = MaterialTheme.colorScheme.onSurface,
                                     ),
@@ -725,33 +737,60 @@ fun PlaylistPickerSheet(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
                 )
 
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                ) {
-                    items(sortedPlaylists, key = { it.playlistId }) { playlist ->
-                        val isTicked = playlist.playlistId in selected
-                        val wasPresent = playlist.playlistId in initiallyPresent
-                        val isChordplay = playlist.playlistId in chordplayPlaylistIds
-                        val isPinned = playlist.isPinned(pinnedPlaylists)
-                        PlaylistRow(
-                            playlist = playlist,
-                            selected = isTicked,
-                            wasInitiallyThere = wasPresent,
-                            isChordPlayPlaylist = isChordplay,
-                            isPinned = isPinned,
-                            onClick = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                userToggledPlaylists.add(playlist.playlistId)
-                                selected = if (isTicked) {
-                                    selected - playlist.playlistId
-                                } else {
-                                    selected + playlist.playlistId
-                                }
-                            },
-                        )
+                if (playlists.isNotEmpty() && sortedPlaylists.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.no_results),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    ) {
+                        items(sortedPlaylists, key = { it.playlistId }) { playlist ->
+                            val isTicked = playlist.playlistId in selected
+                            val wasPresent = playlist.playlistId in initiallyPresent
+                            val isChordplay = playlist.playlistId in chordplayPlaylistIds
+                            val isPinned = playlist.isPinned(pinnedPlaylists)
+                            PlaylistRow(
+                                playlist = playlist,
+                                selected = isTicked,
+                                wasInitiallyThere = wasPresent,
+                                isChordPlayPlaylist = isChordplay,
+                                isPinned = isPinned,
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    userToggledPlaylists.add(playlist.playlistId)
+                                    selected = if (isTicked) {
+                                        selected - playlist.playlistId
+                                    } else {
+                                        selected + playlist.playlistId
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -984,6 +1023,13 @@ fun PlaylistPickerSheet(
                             value = playlistSearchQuery,
                             onValueChange = { playlistSearchQuery = it },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                },
+                            ),
                             textStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = MaterialTheme.colorScheme.onSurface,
                             ),
@@ -1098,37 +1144,78 @@ fun PlaylistPickerSheet(
                 else -> {
                     Spacer(Modifier.height(4.dp))
 
+                    val density = LocalDensity.current
+                    var capturedListHeight by remember(configuration.screenHeightDp) { mutableStateOf(0.dp) }
+                    val stableListMinHeight = maxOf(200.dp, capturedListHeight)
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false),
+                            .weight(1f, fill = false)
+                            .heightIn(min = stableListMinHeight)
+                            .onSizeChanged { size ->
+                                if (playlistSearchQuery.isBlank() && size.height > 0) {
+                                    val measured = with(density) { size.height.toDp() }
+                                    if (measured > capturedListHeight) {
+                                        capturedListHeight = measured
+                                    }
+                                }
+                            },
                     ) {
-                        LazyColumn(
-                            state = listState,
-                            contentPadding = PaddingValues(bottom = 84.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            items(sortedPlaylists, key = { it.playlistId }) { playlist ->
-                                val isTicked = playlist.playlistId in selected
-                                val wasPresent = playlist.playlistId in initiallyPresent
-                                val isChordplay = playlist.playlistId in chordplayPlaylistIds
-                                val isPinned = playlist.isPinned(pinnedPlaylists)
-                                PlaylistRow(
-                                    playlist = playlist,
-                                    selected = isTicked,
-                                    wasInitiallyThere = wasPresent,
-                                    isChordPlayPlaylist = isChordplay,
-                                    isPinned = isPinned,
-                                    onClick = {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        userToggledPlaylists.add(playlist.playlistId)
-                                        selected = if (isTicked) {
-                                            selected - playlist.playlistId
-                                        } else {
-                                            selected + playlist.playlistId
-                                        }
-                                    },
-                                )
+                        if (sortedPlaylists.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(bottom = 72.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.no_results),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                contentPadding = PaddingValues(bottom = 84.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                items(sortedPlaylists, key = { it.playlistId }) { playlist ->
+                                    val isTicked = playlist.playlistId in selected
+                                    val wasPresent = playlist.playlistId in initiallyPresent
+                                    val isChordplay = playlist.playlistId in chordplayPlaylistIds
+                                    val isPinned = playlist.isPinned(pinnedPlaylists)
+                                    PlaylistRow(
+                                        playlist = playlist,
+                                        selected = isTicked,
+                                        wasInitiallyThere = wasPresent,
+                                        isChordPlayPlaylist = isChordplay,
+                                        isPinned = isPinned,
+                                        onClick = {
+                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            userToggledPlaylists.add(playlist.playlistId)
+                                            selected = if (isTicked) {
+                                                selected - playlist.playlistId
+                                            } else {
+                                                selected + playlist.playlistId
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
 
@@ -1137,8 +1224,7 @@ fun PlaylistPickerSheet(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .padding(horizontal = 24.dp, vertical = 14.dp)
-                                .navigationBarsPadding(),
+                                .padding(horizontal = 24.dp, vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Button(
@@ -1368,9 +1454,7 @@ private fun NewPlaylistForm(
     }
 
     Column(
-        modifier
-            .fillMaxWidth()
-            .imePadding(),
+        modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier

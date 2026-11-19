@@ -425,6 +425,68 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     return state
 }
 
+internal const val MIN_DVR_SEEKABLE_MS = 60_000L
+internal const val LIVE_EDGE_TOLERANCE_MS = 12_000L
+
+internal data class LiveWindowMetrics(
+    val dvrDurationMs: Long,
+    val isSeekable: Boolean,
+    val behindLiveMs: Long,
+    val isAtLiveEdge: Boolean,
+)
+
+internal fun computeLiveWindowMetrics(
+    isLive: Boolean,
+    rawSeekable: Boolean,
+    rawDurationMs: Long,
+    defaultPositionMs: Long,
+    currentPositionMs: Long,
+): LiveWindowMetrics {
+    if (!isLive) {
+        return LiveWindowMetrics(
+            dvrDurationMs = rawDurationMs.coerceAtLeast(0L),
+            isSeekable = rawSeekable,
+            behindLiveMs = 0L,
+            isAtLiveEdge = true,
+        )
+    }
+    val liveEdgeMs = when {
+        defaultPositionMs > 0L && defaultPositionMs != C.TIME_UNSET -> defaultPositionMs
+        rawDurationMs > 0L && rawDurationMs != C.TIME_UNSET -> rawDurationMs
+        else -> 0L
+    }
+    val hasDvr = rawSeekable && liveEdgeMs >= MIN_DVR_SEEKABLE_MS
+    if (!hasDvr) {
+        return LiveWindowMetrics(
+            dvrDurationMs = 0L,
+            isSeekable = false,
+            behindLiveMs = 0L,
+            isAtLiveEdge = true,
+        )
+    }
+    val behind = (liveEdgeMs - currentPositionMs.coerceAtLeast(0L)).coerceAtLeast(0L)
+    val atEdge = behind < LIVE_EDGE_TOLERANCE_MS
+    return LiveWindowMetrics(
+        dvrDurationMs = liveEdgeMs,
+        isSeekable = true,
+        behindLiveMs = if (atEdge) 0L else behind,
+        isAtLiveEdge = atEdge,
+    )
+}
+
+internal fun liveEdgePositionMs(player: Player): Long {
+    val timeline = player.currentTimeline
+    val index = player.currentMediaItemIndex
+    if (!timeline.isEmpty && index in 0 until timeline.windowCount) {
+        val window = timeline.getWindow(index, Timeline.Window())
+        val defPos = window.defaultPositionMs
+        if (defPos > 0L && defPos != C.TIME_UNSET) return defPos
+        val winDur = window.durationMs
+        if (winDur > 0L && winDur != C.TIME_UNSET) return winDur
+    }
+    return player.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L
+}
+
 private data class LiveSnapshot(
     val durationMs: Long,
     val isLive: Boolean,
@@ -437,29 +499,33 @@ private fun readLiveSnapshot(player: Player, song: Song?): LiveSnapshot {
     val live = song?.isLive == true ||
         player.isCurrentMediaItemLive ||
         StreamResolver.isKnownLive(song?.videoId)
-    val seekable = player.isCurrentMediaItemSeekable
-    val rawDuration = player.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L
-    val duration = if (live && !seekable) 0L else rawDuration
-    val offset = if (live) {
-        player.currentLiveOffset.takeIf { it != C.TIME_UNSET && it >= 0L }
-            ?: if (seekable && rawDuration > 0L) {
-                (rawDuration - player.currentPosition.coerceAtLeast(0L)).coerceAtLeast(0L)
-            } else {
-                0L
-            }
-    } else {
-        0L
+    val timeline = player.currentTimeline
+    val index = player.currentMediaItemIndex
+    var defaultPosMs = C.TIME_UNSET
+    var windowDurMs = C.TIME_UNSET
+    if (!timeline.isEmpty && index in 0 until timeline.windowCount) {
+        val window = timeline.getWindow(index, Timeline.Window())
+        defaultPosMs = window.defaultPositionMs
+        windowDurMs = window.durationMs
     }
-    return LiveSnapshot(
-        durationMs = duration,
+    val rawDuration = windowDurMs.takeIf { it > 0L && it != C.TIME_UNSET }
+        ?: player.duration.takeIf { it > 0L && it != C.TIME_UNSET }
+        ?: 0L
+    val metrics = computeLiveWindowMetrics(
         isLive = live,
-        isSeekable = seekable,
-        liveOffsetMs = offset,
-        isAtLiveEdge = !live || offset < LIVE_EDGE_TOLERANCE_MS,
+        rawSeekable = player.isCurrentMediaItemSeekable,
+        rawDurationMs = rawDuration,
+        defaultPositionMs = defaultPosMs,
+        currentPositionMs = player.currentPosition,
+    )
+    return LiveSnapshot(
+        durationMs = metrics.dvrDurationMs,
+        isLive = live,
+        isSeekable = metrics.isSeekable,
+        liveOffsetMs = metrics.behindLiveMs,
+        isAtLiveEdge = metrics.isAtLiveEdge,
     )
 }
-
-private const val LIVE_EDGE_TOLERANCE_MS = 15_000L
 
 /**
  * Per-field snapshot view over [PlayerState]. A composable that reads

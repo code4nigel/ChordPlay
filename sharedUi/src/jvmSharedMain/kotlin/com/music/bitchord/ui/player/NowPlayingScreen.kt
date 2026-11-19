@@ -336,7 +336,22 @@ fun NowPlayingScreen(
     }
 
     val scrub = rememberPlayerScrub(song.videoId, position, durationMs)
-    val shown: () -> Float = { scrub.shown(position.positionMs, durationMs) }
+    val shown: () -> Float = {
+        if (effectiveIsLive) {
+            when {
+                scrub.scrubbing -> scrub.value
+                scrub.pendingSeek != null -> scrub.pendingSeek!!
+                isAtLiveEdge || !isSeekable || durationMs <= 0L -> 1f
+                else -> (position.positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+            }
+        } else {
+            scrub.shown(position.positionMs, durationMs)
+        }
+    }
+    val handleJumpToLive: () -> Unit = {
+        scrub.pendingSeek = null
+        onJumpToLive()
+    }
     val pastRestartPoint by remember(position) {
         derivedStateOf { position.positionMs > BACK_RESTARTS_AFTER_MS }
     }
@@ -786,7 +801,7 @@ fun NowPlayingScreen(
             isSeekable = isSeekable,
             isAtLiveEdge = isAtLiveEdge,
             liveOffsetMs = liveOffsetMs,
-            onJumpToLive = onJumpToLive,
+            onJumpToLive = handleJumpToLive,
             hasPrevious = hasPrevious,
             pastRestartPoint = pastRestartPoint,
             hasNext = hasNext,
@@ -1402,7 +1417,7 @@ fun NowPlayingScreen(
                             isSeekable = isSeekable,
                             isAtLiveEdge = isAtLiveEdge,
                             liveOffsetMs = liveOffsetMs,
-                            onJumpToLive = onJumpToLive,
+                            onJumpToLive = handleJumpToLive,
                             lyricsUnavailable = lyricsUnavailable,
                             lyricsLoadingText = lyricsLoadingText,
                             pickingLyrics = lyricPicker.picking,

@@ -75,12 +75,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -2648,11 +2652,19 @@ private fun BitChordApp(
             onBlockedControl = showHostOnlyNotice,
             onSeekFraction = { fraction ->
                 controller?.let { p ->
-                    if (!p.isCurrentMediaItemSeekable) return@let
-                    if (p.isCurrentMediaItemLive && fraction >= 0.99f) {
-                        p.seekToDefaultPosition()
+                    if (player.isLive || p.isCurrentMediaItemLive) {
+                        if (!player.isSeekable) return@let
+                        if (fraction >= 0.97f) {
+                            p.seekToDefaultPosition()
+                            return@let
+                        }
+                        val liveEdge = com.music.bitchord.playback.liveEdgePositionMs(p)
+                        if (liveEdge > 0L) {
+                            p.seekTo((fraction * liveEdge).toLong().coerceIn(0L, liveEdge))
+                        }
                         return@let
                     }
+                    if (!p.isCurrentMediaItemSeekable) return@let
                     // Read at the moment of the seek, not from the
                     // polled snapshot the screen draws with: a track
                     // change updates the current item before it updates
@@ -5946,9 +5958,10 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .heightIn(max = 620.dp)
+                    .statusBarsPadding()
+                    .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                     .padding(horizontal = 8.dp, vertical = 8.dp)
-                    .navigationBarsPadding()
+                    .heightIn(max = 620.dp)
                     .graphicsLayer {
                         alpha = p
                         translationY = (1f - p) * slideDistancePx
