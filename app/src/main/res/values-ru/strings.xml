@@ -1429,8 +1429,6 @@
     <string name="player_layout_modern_desc">Парящая обложка с аурой, матовая панель и быстрые действия</string>
     <string name="player_layout_vinyl">Виниловый проигрыватель</string>
     <string name="player_layout_vinyl_desc">Вращающаяся пластинка, выезжающая из конверта с тонармом</string>
-    <string name="player_layout_classic">Классический BitChord</string>
-    <string name="player_layout_classic_desc">Оригинальный интерфейс плеера в стиле Apple Music</string>
     <string name="breathing_artwork_aura">Пульсирующая аура обложки</string>
     <string name="breathing_artwork_aura_desc">Мягкое свечение обложки, пульсирующее в такт музыке</string>
     <string name="artwork_and_visuals">Обложки и визуальные эффекты</string>
@@ -1659,4 +1657,5 @@
     <string name="support_community_footer">Присоединяйтесь к сообществу на Reddit, сообщайте об ошибках и следите за разработкой на GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Нажатие на обложку для полного экрана</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Нажмите на обложку в плеере для переключения между полным экраном и карточкой</string>
+    <string name="live_stations">Прямые эфиры</string>
 </resources>

@@ -260,4 +260,15 @@
     <string name="radio_start_station">Запустить станцию</string>
     <string name="radio_stations">Станции для вас</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">Прямые эфиры</string>
+    <string name="live_on_air">В ЭФИРЕ 24/7</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">Круглосуточный эфир</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">Все</string>
+    <string name="live_cat_artist_stations">Станции артистов</string>
+    <string name="live_cat_lofi_chill">Lo-Fi и Чилл</string>
+    <string name="live_cat_hits">Хиты</string>
+    <string name="live_cat_rock_pop">Рок и Поп</string>
+    <string name="live_stations_empty">Сейчас в этой категории нет активных прямых эфиров.</string>
 </resources>

@@ -1313,8 +1313,6 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="player_layout_modern_desc">Ảnh bìa nổi với hào quang thở, hộp điều khiển mờ và thao tác nhanh</string>
     <string name="player_layout_vinyl">Máy quay đĩa than</string>
     <string name="player_layout_vinyl_desc">Đĩa than quay trượt ra khỏi vỏ đĩa cùng cần đọc di chuyển</string>
-    <string name="player_layout_classic">BitChord Cổ điển</string>
-    <string name="player_layout_classic_desc">Bố cục trình phát phong cách Apple Music ban đầu</string>
     <string name="breathing_artwork_aura">Hào quang ảnh bìa nhịp thở</string>
     <string name="breathing_artwork_aura_desc">Ánh sáng tinh tế xung quanh ảnh bìa đập theo nhịp điệu bài hát</string>
     <string name="artwork_and_visuals">Ảnh bìa &amp; Hình ảnh</string>
@@ -1543,4 +1541,5 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="support_community_footer">Tham gia cộng đồng trên Reddit, báo cáo lỗi và theo dõi phát triển trên GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Chạm để bật/tắt ảnh bìa toàn màn hình</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Chạm vào ảnh bìa bài hát để chuyển đổi giữa toàn màn hình và dạng thẻ</string>
+    <string name="live_stations">Đài phát trực tiếp</string>
 </resources>

@@ -1398,8 +1398,6 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="player_layout_modern_desc">Pochette flottante avec aura pulsée, capsule dépolie et actions rapides</string>
     <string name="player_layout_vinyl">Platine Vinyle</string>
     <string name="player_layout_vinyl_desc">Disque vinyle en rotation glissant hors de sa pochette avec bras articulé</string>
-    <string name="player_layout_classic">BitChord Classique</string>
-    <string name="player_layout_classic_desc">Disposition originale de lecteur inspirée d\'Apple Music</string>
     <string name="breathing_artwork_aura">Aura de pochette pulsée</string>
     <string name="breathing_artwork_aura_desc">Lueur ambiante subtile pulsant avec la musique</string>
     <string name="artwork_and_visuals">Visuels et Pochettes</string>
@@ -1628,4 +1626,5 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="support_community_footer">Rejoignez notre communauté sur Reddit, signalez des bugs et suivez le développement sur GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Toucher la pochette pour plein écran</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Touchez la pochette du lecteur pour alterner entre plein écran et carte</string>
+    <string name="live_stations">Stations en direct</string>
 </resources>

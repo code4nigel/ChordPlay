@@ -135,7 +135,7 @@ class DiscordRPC(
             statusDisplayType = if (useDetails) StatusDisplayType.DETAILS else StatusDisplayType.STATE,
             since = currentTime,
             startTime = calculatedStartTime,
-            endTime = currentTime + adjustedRemainingDuration,
+            endTime = if (song.isLive || durationMillis <= 0L) null else currentTime + adjustedRemainingDuration,
             applicationId = APPLICATION_ID,
             status = status,
         )

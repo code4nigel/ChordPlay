@@ -197,6 +197,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _explore = MutableStateFlow<UiState<List<MoodGenreSection>>>(UiState.Loading)
     val explore: StateFlow<UiState<List<MoodGenreSection>>> = _explore.asStateFlow()
 
+    private val _liveStations = MutableStateFlow<UiState<List<ShelfItem>>>(UiState.Loading)
+    val liveStations: StateFlow<UiState<List<ShelfItem>>> = _liveStations.asStateFlow()
+    private var liveStationsJob: Job? = null
+    private val mergedHomeLiveIds = mutableSetOf<String>()
+
     private val _selectedMoodGenre = MutableStateFlow<MoodGenre?>(null)
     val selectedMoodGenre: StateFlow<MoodGenre?> = _selectedMoodGenre.asStateFlow()
 
@@ -564,6 +569,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _lyrics.value = result.lines
         _lyricsSource.value = result.source
         _lyricsChecked.value = true
+    }
+
+    fun clearLyrics() {
+        lyricsGeneration += 1
+        lyricsJob?.cancel()
+        lyricsJob = null
+        manualLyricsJobs.values.forEach(Job::cancel)
+        manualLyricsJobs.clear()
+        lyricsProviderResults.clear()
+        lyricsFor = null
+        currentLyricsRequest = null
+        selectedLyricsSource = null
+        _lyrics.value = null
+        _lyricsSource.value = null
+        _lyricsChecked.value = true
+        _lyricsProviderStates.value =
+            LyricsSource.entries.associateWith { LyricsProviderState.NOT_FETCHED }
     }
 
     private val _account = MutableStateFlow<Account?>(null)
@@ -2045,7 +2067,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (feed) {
                 Feed.HOME -> refreshHome(identity)
-                Feed.EXPLORE -> fetchExplore()
+                Feed.EXPLORE -> coroutineScope {
+                    val exploreJob = async { fetchExplore() }
+                    val liveJob = async { fetchLiveStations(force = true) }
+                    exploreJob.await()
+                    liveJob.await()
+                }
                 Feed.LIBRARY -> fetchLibrary(identity)
             }
             _refreshing.value = _refreshing.value - feed
@@ -2055,10 +2082,75 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadExplore() {
         _explore.value = UiState.Loading
         viewModelScope.launch { fetchExplore() }
+        loadLiveStations()
     }
 
     fun ensureExploreLoaded() {
         if (_explore.value is UiState.Error) loadExplore()
+    }
+
+    fun loadLiveStations(force: Boolean = false) {
+        if (!force && (_liveStations.value as? UiState.Success)?.data?.isNotEmpty() == true) {
+            return
+        }
+        if (!force && liveStationsJob?.isActive == true) return
+        liveStationsJob?.cancel()
+        if (_liveStations.value !is UiState.Success) {
+            _liveStations.value = UiState.Loading
+        }
+        liveStationsJob = viewModelScope.launch {
+            fetchLiveStations(force = force)
+        }
+    }
+
+    private suspend fun fetchLiveStations(force: Boolean) {
+        val seeds = recentArtistSeeds()
+        val existingSuccess = (_liveStations.value as? UiState.Success)?.takeIf { it.data.isNotEmpty() }
+        _liveStations.value = YtMusicRepository.liveStations(
+            homeShelves = _homeRaw.value,
+            seedArtists = seeds,
+            forceRefresh = force,
+        ).fold(
+            onSuccess = { stations ->
+                if (stations.isEmpty()) existingSuccess ?: UiState.Success(emptyList())
+                else UiState.Success(stations)
+            },
+            onFailure = { failure ->
+                existingSuccess ?: UiState.Error(failure.friendly())
+            },
+        )
+    }
+
+    private fun recentArtistSeeds(): List<String> = buildList {
+        (_history.value as? UiState.Success)?.data?.forEach { song ->
+            val artist = song.artist.trim()
+            if (artist.isNotBlank() && !artist.equals("YouTube Music", ignoreCase = true)) {
+                add(artist)
+            }
+        }
+        _homeRaw.value.asSequence()
+            .flatMap { it.items.asSequence() }
+            .forEach { item ->
+                val artist = InnertubeParser.artistFromSubtitle(item.subtitle).trim()
+                if (artist.isNotBlank() &&
+                    !artist.equals("YouTube Music", ignoreCase = true) &&
+                    !artist.contains("watching", ignoreCase = true)
+                ) {
+                    add(artist)
+                }
+            }
+    }.distinct().take(5)
+
+    private fun maybeMergeHomeLiveStations(shelves: List<HomeShelf>) {
+        val liveIds = shelves.asSequence()
+            .flatMap { it.items.asSequence() }
+            .filter { it.isLive }
+            .mapNotNull { it.videoId }
+            .toSet()
+        if (liveIds.isEmpty()) return
+        if (mergedHomeLiveIds.addAll(liveIds)) {
+            loadLiveStations(force = true)
+        }
     }
 
     private suspend fun fetchExplore() {
@@ -2139,6 +2231,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _home.value = UiState.Loading
         homeContinuation = null
         homeSeenTitles.clear()
+        mergedHomeLiveIds.clear()
         _homeLoadingMore.value = false
         _homeRecentlyPlayedLoading.value = _signedIn.value
         // The core feed plus one browse per supplement. Recently played is left
@@ -2259,6 +2352,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 it.title.lowercase(Locale.ROOT) in replacing
             }
             publishHome()
+            maybeMergeHomeLiveStations(shelves)
             return
         }
         val added = shelves.withoutRepeatsOf(existing)
@@ -2285,6 +2379,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             _homeRaw.value = updated
             publishHome()
+            maybeMergeHomeLiveStations(added)
         }
     }
 
@@ -2318,6 +2413,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (shelves.isNotEmpty()) {
                 _homeRaw.value = shelves
                 publishHome()
+                maybeMergeHomeLiveStations(shelves)
             }
         }
         quickPicks.await().onSuccess { shelf ->

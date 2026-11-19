@@ -260,4 +260,15 @@
     <string name="radio_start_station">เริ่มสถานี</string>
     <string name="radio_stations">สถานีสำหรับคุณ</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">สถานีถ่ายทอดสด</string>
+    <string name="live_on_air">ออกอากาศสด 24/7</string>
+    <string name="live_badge">สด</string>
+    <string name="live_station_247">สถานีถ่ายทอดสด 24/7</string>
+    <string name="jump_to_live">สด</string>
+    <string name="live_cat_all">ทั้งหมด</string>
+    <string name="live_cat_artist_stations">สถานีศิลปิน</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; ชิลล์</string>
+    <string name="live_cat_hits">เพลงฮิต</string>
+    <string name="live_cat_rock_pop">ร็อกและป๊อป</string>
+    <string name="live_stations_empty">ไม่พบสถานีถ่ายทอดสดสำหรับหมวดหมู่นี้ในขณะนี้</string>
 </resources>

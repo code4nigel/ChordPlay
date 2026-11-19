@@ -129,6 +129,7 @@ object SourceResolver {
         album = uri.getQueryParameter("l"),
         isExplicit = uri.getQueryParameter("e")?.let { it == "1" },
         isVideo = uri.getQueryParameter("m") == "1",
+        isLive = uri.getQueryParameter("live") == "1",
     )
 
     /**
@@ -214,7 +215,7 @@ object SourceResolver {
         // Video rows always use YouTube's own stream unless the listener
         // explicitly converts the current item in the player. A module match
         // is another recording and can be a wrong song altogether.
-        if (target.title.isBlank() || target.isVideo) return null
+        if (target.title.isBlank() || target.isVideo || target.isLive) return null
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val request = requestForNow()
@@ -242,7 +243,7 @@ object SourceResolver {
      * YouTube video id, so it first finds the matching YouTube Music row.
      */
     suspend fun youtubeFallback(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank() || target.isVideo) return null
+        if (target.title.isBlank() || target.isVideo || target.isLive) return null
         val youtube = SourceRegistry.activeForPlayback()
             .firstOrNull { it.kind == SourceKind.YOUTUBE }
             ?: return null
@@ -283,7 +284,7 @@ object SourceResolver {
      * been pinned, so the ordinary resolve at playback time is untouched.
      */
     suspend fun prefetchSubstitute(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank() || target.isVideo) return null
+        if (target.title.isBlank() || target.isVideo || target.isLive) return null
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
@@ -352,7 +353,7 @@ object SourceResolver {
         playing: StreamFormat? = null,
         servedBy: String? = null,
     ): SourceStream? {
-        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
+        if (target.title.isBlank() || target.durationSec == null || target.isVideo || target.isLive) return null
         val request = requestForNow()
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null

@@ -83,7 +83,9 @@ object Innertube {
 
     private const val MUSIC_BASE = "https://music.youtube.com/youtubei/v1"
     private const val MUSIC_ORIGIN = "https://music.youtube.com"
+    private const val YOUTUBE_BASE = "https://www.youtube.com/youtubei/v1"
     private const val YOUTUBE_ORIGIN = "https://www.youtube.com"
+    private const val WEB_CLIENT_VERSION = "2.20250101.00.00"
 
     /**
      * Fallback WEB_REMIX version, used until [SessionScope] reads the live one
@@ -653,6 +655,43 @@ object Innertube {
         postMusicAnonymous("search") {
             put("query", query)
         }
+
+    /**
+     * Anonymous YouTube `WEB` search constrained to active live broadcasts
+     * (`params = "EgJAAQ=="` — YouTube's Live filter), used to discover 24/7
+     * music stations and artist stations for the Radio tab.
+     */
+    suspend fun searchLiveYouTube(query: String): JsonObject = withRetry {
+        client.post("$YOUTUBE_BASE/search") {
+            contentType(ContentType.Application.Json)
+            parameter("prettyPrint", "false")
+            header("X-Origin", YOUTUBE_ORIGIN)
+            header("Origin", YOUTUBE_ORIGIN)
+            header("Referer", "$YOUTUBE_ORIGIN/")
+            header("User-Agent", WEB_USER_AGENT)
+            header("Accept-Language", acceptLanguageHeader)
+            visitorData?.let { header("X-Goog-Visitor-Id", it) }
+            setBody(
+                buildJsonObject {
+                    putJsonObject("context") {
+                        putJsonObject("client") {
+                            put("clientName", "WEB")
+                            put("clientVersion", WEB_CLIENT_VERSION)
+                            put("hl", currentLanguage)
+                            put("gl", currentRegion)
+                            visitorData?.let { put("visitorData", it) }
+                        }
+                        putJsonObject("user") {
+                            put("lockedSafetyMode", false)
+                        }
+                        putJsonObject("request") { put("useSsl", true) }
+                    }
+                    put("query", query)
+                    put("params", "EgJAAQ==")
+                },
+            )
+        }.body<JsonObject>()
+    }
 
     /** The stats endpoints a player response nominates for one playback. */
     data class PlaybackTracking(

@@ -1390,8 +1390,6 @@
     <string name="player_layout_modern_desc">Portada flotante con aura de respiración, base en cápsula esmerilada y acciones rápidas</string>
     <string name="player_layout_vinyl">Tocadiscos de vinilo</string>
     <string name="player_layout_vinyl_desc">Disco de vinilo giratorio saliendo de la funda con brazo móvil</string>
-    <string name="player_layout_classic">BitChord Clásico</string>
-    <string name="player_layout_classic_desc">Diseño de reproductor clásico estilo Apple Music</string>
 
     <string name="breathing_artwork_aura">Aura de respiración de portada</string>
     <string name="breathing_artwork_aura_desc">Brillo ambiental sutil de la portada pulsando con la reproducción de audio</string>
@@ -1643,4 +1641,5 @@
     <string name="support_community_footer">Únete a nuestra comunidad en Reddit, reporta errores y sigue el desarrollo en GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Tocar portada para pantalla completa</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Toca la portada del reproductor para alternar entre pantalla completa y tarjeta</string>
+    <string name="live_stations">Emisoras en directo</string>
 </resources>

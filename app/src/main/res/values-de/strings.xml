@@ -1397,8 +1397,6 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="player_layout_modern_desc">Schwebendes Cover mit pulsierender Aura, mattiertes Kapseldeck und Schnellaktionen</string>
     <string name="player_layout_vinyl">Vinyl-Plattenspieler</string>
     <string name="player_layout_vinyl_desc">Sich drehende Vinyl-Schallplatte, die mit Tonarm aus der Hülle gleitet</string>
-    <string name="player_layout_classic">Klassisches BitChord</string>
-    <string name="player_layout_classic_desc">Ursprüngliches Apple Music-inspiriertes Player-Layout</string>
     <string name="breathing_artwork_aura">Pulsierende Cover-Aura</string>
     <string name="breathing_artwork_aura_desc">Dezentes Leuchten um das Cover passend zur Musik</string>
     <string name="artwork_and_visuals">Cover-Art &amp; Visuals</string>
@@ -1627,4 +1625,5 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="support_community_footer">Tritt unserer Community auf Reddit bei, melde Fehler und verfolge die Entwicklung auf GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Tippen für Vollbild-Cover</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Tippe auf das Cover, um zwischen Vollbild und Kartenansicht zu wechseln</string>
+    <string name="live_stations">Live-Sender</string>
 </resources>

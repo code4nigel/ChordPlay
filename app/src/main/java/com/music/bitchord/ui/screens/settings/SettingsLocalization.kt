@@ -83,14 +83,12 @@ fun PlayerInterfaceStyle.localizedDetail(): String = when (this) {
 fun PlayerLayoutMode.localizedLabel(): String = when (this) {
     PlayerLayoutMode.MODERN_AMBIENT -> stringResource(R.string.player_layout_modern)
     PlayerLayoutMode.VINYL_RECORD -> stringResource(R.string.player_layout_vinyl)
-    PlayerLayoutMode.CLASSIC_CLEAN -> stringResource(R.string.player_layout_classic)
 }
 
 @Composable
 fun PlayerLayoutMode.localizedDetail(): String = when (this) {
     PlayerLayoutMode.MODERN_AMBIENT -> stringResource(R.string.player_layout_modern_desc)
     PlayerLayoutMode.VINYL_RECORD -> stringResource(R.string.player_layout_vinyl_desc)
-    PlayerLayoutMode.CLASSIC_CLEAN -> stringResource(R.string.player_layout_classic_desc)
 }
 
 @Composable

@@ -12,6 +12,7 @@ import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.model.LiveStationCategory
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.SearchResult
@@ -280,16 +281,36 @@ object InnertubeParser {
         val header = carousel.o("header").o("musicCarouselShelfBasicHeaderRenderer")
         val title = header.o("title").runs()
         val strapline = header.o("strapline").runs()
+        val isStationShelf = isLiveStationShelf(title, strapline)
         val items = carousel.a("contents").orEmpty().mapNotNull { item ->
             parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
                 ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
                     ?.let { song ->
-                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null, isVideo = song.isVideo)
+                        ShelfItem(
+                            title = song.title,
+                            subtitle = song.artist,
+                            thumbnailUrl = song.thumbnailUrl,
+                            videoId = song.videoId,
+                            browseId = null,
+                            isVideo = song.isVideo,
+                            isLive = song.isLive,
+                            liveViewersText = song.liveViewersText,
+                        )
                     }
                 // A chart row with nothing to play — "Top artists" lists the
                 // artist alone, no track — falls through parseResponsiveListItem
                 // (it demands a videoId) and used to drop the whole shelf.
                 ?: parseArtistRow(item.o("musicResponsiveListItemRenderer"))
+        }.map { item ->
+            if (isStationShelf && item.videoId != null) {
+                item.copy(
+                    isLive = true,
+                    isVideo = true,
+                    liveCategory = item.liveCategory ?: LiveStationCategory.ARTIST_STATIONS,
+                )
+            } else {
+                item
+            }
         }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items, strapline)
     }
@@ -298,7 +319,18 @@ object InnertubeParser {
         val title = shelf.o("title").runs()
         val items = shelf.a("contents").orEmpty().mapNotNull {
             parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-        }.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = it.isVideo) }
+        }.map {
+            ShelfItem(
+                title = it.title,
+                subtitle = it.artist,
+                thumbnailUrl = it.thumbnailUrl,
+                videoId = it.videoId,
+                browseId = null,
+                isVideo = it.isVideo,
+                isLive = it.isLive,
+                liveViewersText = it.liveViewersText,
+            )
+        }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
     }
 
@@ -338,7 +370,7 @@ object InnertubeParser {
                 if (VIDEO_WORD.containsMatchIn(title)) return@let
                 val items = carousel.a("contents").orEmpty().mapNotNull {
                     parseTwoRowItem(it.o("musicTwoRowItemRenderer"))
-                }.filter { it.browseId != null }
+                }.filter { it.browseId != null || (it.isLive && it.videoId != null) }
                 val moreEndpoint = header.o("title").a("runs")?.firstNotNullOfOrNull {
                     it.o("navigationEndpoint").o("browseEndpoint")
                 }
@@ -651,6 +683,9 @@ object InnertubeParser {
 
         val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
+        val viewersText = extractWatchingText(subtitle)
+        val isStationTitle = duration == null && title.endsWith(": The Station", ignoreCase = true)
+        val isLive = renderer.hasLiveBadge() || viewersText != null || isStationTitle
 
         return Song(
             videoId = videoId,
@@ -677,8 +712,10 @@ object InnertubeParser {
             // The row type word is the clean signal when present ("All" tab);
             // otherwise a music-video upload gives itself away with widescreen
             // art where a catalogue track has square album cover art.
-            isVideo = rowType == "video" || thumbnails.isNotSquare(),
+            isVideo = isLive || rowType == "video" || thumbnails.isNotSquare(),
             isExplicit = renderer.hasExplicitBadge(),
+            isLive = isLive,
+            liveViewersText = viewersText,
         )
     }
 
@@ -706,6 +743,9 @@ object InnertubeParser {
         }
         val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
+        val viewersText = extractWatchingText(subtitle)
+        val isStationTitle = duration == null && title.endsWith(": The Station", ignoreCase = true)
+        val isLive = renderer.hasLiveBadge() || viewersText != null || isStationTitle
 
         return Song(
             videoId = videoId,
@@ -720,8 +760,10 @@ object InnertubeParser {
             artists = completeArtistCredits(artist.orEmpty(), credits.artists),
             albumId = credits.albumId,
             albumName = credits.albumName,
-            isVideo = rowType == "video" || thumbnails.isNotSquare(),
+            isVideo = isLive || rowType == "video" || thumbnails.isNotSquare(),
             isExplicit = renderer["subtitleBadges"].hasExplicitBadge(),
+            isLive = isLive,
+            liveViewersText = viewersText,
         )
     }
 
@@ -1115,20 +1157,28 @@ object InnertubeParser {
             // Those same runs link out to the artist and album pages, which is
             // how a track started from the queue knows where it came from.
             val credits = creditsOf(bylineRuns)
+            val durationText = renderer.o("lengthText").runs().takeIf { it.isNotBlank() }
+            val bylineText = byline.joinToString("")
+            val viewersText = extractWatchingText(bylineText)
+            val isLive = renderer.hasLiveBadge() ||
+                viewersText != null ||
+                (durationText == null && title.endsWith(": The Station", ignoreCase = true))
             out[videoId] = Song(
                 videoId = videoId,
                 title = title,
                 artist = artist,
                 thumbnailUrl = renderer.o("thumbnail").a("thumbnails").best(),
-                durationText = renderer.o("lengthText").runs().takeIf { it.isNotBlank() },
+                durationText = durationText,
                 artistId = credits.artistId,
                 artists = completeArtistCredits(artist.orEmpty(), credits.artists),
                 albumId = credits.albumId,
                 albumName = credits.albumName,
                 // A catalogue track is credited "Artist • Album • Year"; the
                 // matching music video is "Artist • 417M views • 2.4M likes".
-                isVideo = byline.any { it.contains("views", ignoreCase = true) },
+                isVideo = isLive || byline.any { it.contains("views", ignoreCase = true) },
                 isExplicit = renderer.hasExplicitBadge(),
+                isLive = isLive,
+                liveViewersText = viewersText,
             )
         }
         return out.values.toList()
@@ -1376,14 +1426,110 @@ object InnertubeParser {
         ) {
             return null
         }
+        val viewersText = extractWatchingText(subtitle)
+        val isStationTitle = title.endsWith(": The Station", ignoreCase = true)
+        val isLive = (resolvedBrowseId == null && videoId != null) &&
+            (renderer.hasLiveBadge() || viewersText != null || isStationTitle)
         return ShelfItem(
             title = title,
             subtitle = subtitle,
             thumbnailUrl = thumbnails.best(),
             videoId = videoId,
             browseId = resolvedBrowseId,
-            isVideo = isWidescreenVideo || VIDEO_WORD.containsMatchIn(title),
+            isVideo = isLive || isWidescreenVideo || VIDEO_WORD.containsMatchIn(title),
+            isLive = isLive,
+            liveViewersText = viewersText,
         )
+    }
+
+    /**
+     * Parses YouTube `WEB` search (`videoRenderer` entries) strictly for
+     * active live music broadcasts (`24/7` streams and Artist Stations).
+     */
+    fun parseYouTubeLiveSearch(
+        response: JsonObject,
+        category: LiveStationCategory = LiveStationCategory.ALL,
+    ): List<ShelfItem> {
+        val seen = HashSet<String>()
+        return collectRenderers(response, "videoRenderer").mapNotNull { renderer ->
+            val videoId = renderer.s("videoId") ?: return@mapNotNull null
+            if (!seen.add(videoId)) return@mapNotNull null
+
+            val title = renderer.o("title").runs()
+                .ifBlank { renderer.o("title").s("simpleText").orEmpty() }
+            if (title.isBlank()) return@mapNotNull null
+
+            val viewersText = listOf(
+                renderer.o("viewCountText").runs().ifBlank { renderer.o("viewCountText").s("simpleText").orEmpty() },
+                renderer.o("shortViewCountText").runs().ifBlank { renderer.o("shortViewCountText").s("simpleText").orEmpty() },
+            ).firstNotNullOfOrNull(::extractWatchingText)
+
+            val hasUpcoming = renderer.hasUpcomingBadge()
+            if (hasUpcoming) return@mapNotNull null
+            if (!renderer.hasLiveBadge() && viewersText == null) return@mapNotNull null
+
+            val channel = renderer.o("ownerText").runs()
+                .ifBlank { renderer.o("longBylineText").runs() }
+                .ifBlank { renderer.o("shortBylineText").runs() }
+                .trim()
+            val thumbnailUrl = renderer.o("thumbnail").a("thumbnails").best()
+            val detectedCategory = when {
+                category == LiveStationCategory.ARTIST_STATIONS ||
+                    title.contains(": The Station", ignoreCase = true) ||
+                    title.endsWith("Station", ignoreCase = true) -> LiveStationCategory.ARTIST_STATIONS
+                else -> category
+            }
+
+            ShelfItem(
+                title = title,
+                subtitle = channel.ifBlank { "Live Station" },
+                thumbnailUrl = thumbnailUrl,
+                videoId = videoId,
+                browseId = null,
+                isVideo = true,
+                isLive = true,
+                liveViewersText = viewersText,
+                liveCategory = detectedCategory,
+            )
+        }
+    }
+
+    private fun isLiveStationShelf(title: String, strapline: String): Boolean =
+        strapline.equals("STATION", ignoreCase = true) ||
+            title.equals("Listen together", ignoreCase = true) ||
+            title.equals("Live stations", ignoreCase = true)
+
+    private fun extractWatchingText(text: String): String? =
+        WATCHING_TALLY.find(text)?.value?.trim()?.takeIf { it.isNotBlank() }
+
+    private fun JsonElement?.hasUpcomingBadge(): Boolean = when (this) {
+        is JsonObject -> {
+            val style = s("style")
+            if (style != null && style.equals("UPCOMING", ignoreCase = true)) return true
+            values.any { it.hasUpcomingBadge() }
+        }
+        is JsonArray -> any { it.hasUpcomingBadge() }
+        else -> false
+    }
+
+    private fun JsonElement?.hasLiveBadge(): Boolean = when (this) {
+        is JsonObject -> {
+            val style = s("style")
+            val iconType = s("iconType")
+            val badgeRenderer = o("metadataBadgeRenderer") ?: o("liveBadgeRenderer") ?: o("thumbnailOverlayTimeStatusRenderer")
+            val badgeLabel = badgeRenderer.s("label")
+            if (style == "BADGE_STYLE_TYPE_LIVE_NOW" ||
+                style == "LIVE" ||
+                iconType == "LIVE" ||
+                iconType == "BROADCAST" ||
+                (badgeLabel != null && badgeLabel.equals("LIVE", ignoreCase = true))
+            ) {
+                return true
+            }
+            values.any { it.hasLiveBadge() }
+        }
+        is JsonArray -> any { it.hasLiveBadge() }
+        else -> false
     }
 
     /**
@@ -1422,6 +1568,7 @@ object InnertubeParser {
 
     private val DURATION = Regex("""\d+:\d{2}""")
     private val YEAR = Regex("""\d{4}""")
+    private val WATCHING_TALLY = Regex("""[\d.,]+\s*[KMB]?\s+watching\b.*""", RegexOption.IGNORE_CASE)
     /**
      * A counted quantity rather than a name — "12.4M plays", "13 songs",
      * "1 hour, 4 minutes". Deliberately narrow: it has to leave "21 Savage"
@@ -1429,7 +1576,7 @@ object InnertubeParser {
      * counting one of the words YouTube counts with.
      */
     private val TALLY = Regex(
-        """[\d.,]+\s*[KMB]?\s+(plays|views|likes|songs|tracks|subscribers|""" +
+        """[\d.,]+\s*[KMB]?\s+(plays|views|watching|likes|songs|tracks|subscribers|""" +
             """hours?|minutes?|seconds?)\b.*""",
         RegexOption.IGNORE_CASE,
     )

@@ -1375,8 +1375,6 @@
     <string name="player_layout_modern_desc">浮かぶジャケットと光のオーラ、すりガラスデッキとクイックアクション</string>
     <string name="player_layout_vinyl">レコードプレーヤー</string>
     <string name="player_layout_vinyl_desc">スリーブから滑り出るレコード盤と動くトーンアーム</string>
-    <string name="player_layout_classic">クラシック BitChord</string>
-    <string name="player_layout_classic_desc">オリジナルの Apple Music スタイルプレーヤーレイアウト</string>
     <string name="breathing_artwork_aura">波打つアートワークオーラ</string>
     <string name="breathing_artwork_aura_desc">音楽に合わせて脈動するアンビエントな光</string>
     <string name="artwork_and_visuals">アートワーク &amp; ビジュアル</string>
@@ -1605,4 +1603,5 @@
     <string name="support_community_footer">Reddit コミュニティへの参加、バグ報告、GitHub での開発フォローをお待ちしています。</string>
     <string name="tap_artwork_toggle_fullscreen">タップで全画面アートワークを切替</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">プレーヤーのアートワークをタップして全画面とカード表示を切り替えます</string>
+    <string name="live_stations">ライブステーション</string>
 </resources>

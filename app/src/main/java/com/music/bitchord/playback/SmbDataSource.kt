@@ -108,6 +108,8 @@ class SmbDataSource : BaseDataSource(/* isNetwork = */ true) {
 
             override fun getUri(): Uri? = active.uri
 
+            override fun getResponseHeaders(): Map<String, List<String>> = active.responseHeaders
+
             override fun close() = active.close()
         }
     }

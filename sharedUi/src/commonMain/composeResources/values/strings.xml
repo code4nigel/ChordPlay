@@ -265,4 +265,17 @@
     <string name="melody_full_name">ChordPlay Melody</string>
     <string name="melody_subtitle">Endless personal mix</string>
     <string name="replay">Replay</string>
+
+    <!-- 24/7 Live Stations -->
+    <string name="live_stations">Live Stations</string>
+    <string name="live_on_air">24/7 ON AIR</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">24/7 Live Station</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">All</string>
+    <string name="live_cat_artist_stations">Artist Stations</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; Chill</string>
+    <string name="live_cat_hits">Hits</string>
+    <string name="live_cat_rock_pop">Rock &amp; Pop</string>
+    <string name="live_stations_empty">No live stations found for this category right now.</string>
 </resources>

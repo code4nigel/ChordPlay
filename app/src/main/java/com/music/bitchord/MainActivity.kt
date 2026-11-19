@@ -236,6 +236,7 @@ import com.music.bitchord.playback.commitRadioQueue
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.hasYouTubeOriginal
 import com.music.bitchord.playback.loadAutoplayTracks
+import com.music.bitchord.playback.playLiveStations
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toSong
@@ -938,6 +939,7 @@ private fun BitChordApp(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
+    val liveStationsState by viewModel.liveStations.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
     val melodyStatus by viewModel.melodyStatus.collectAsStateWithLifecycle()
@@ -1228,8 +1230,12 @@ private fun BitChordApp(
     // the track already playing rather than only the next one.
     val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
-    LaunchedEffect(player.song?.videoId, syncedLyricsEnabled, lyricsSources) {
+    LaunchedEffect(player.song?.videoId, player.isLive, syncedLyricsEnabled, lyricsSources) {
         val currentSong = player.song ?: return@LaunchedEffect
+        if (currentSong.isLive || player.isLive) {
+            viewModel.clearLyrics()
+            return@LaunchedEffect
+        }
         snapshotFlow { player.durationMs }.collectLatest { durationMs ->
             viewModel.loadLyrics(
                 currentSong.videoId,
@@ -2153,7 +2159,35 @@ private fun BitChordApp(
                 artist = InnertubeParser.artistFromSubtitle(item.subtitle),
                 thumbnailUrl = item.thumbnailUrl,
                 isVideo = item.isVideo,
+                isLive = item.isLive,
+                liveViewersText = item.liveViewersText,
             )
+        }
+    }
+
+    val liveStationsLabel = stringResource(R.string.live_stations)
+    val startLiveStations: (List<ShelfItem>, Int, QueueSource) -> Unit = { items, startIndex, source ->
+        playRequestGeneration++
+        activeRadioSeed = null
+        val songs = items.mapNotNull { item ->
+            shelfSong(item)?.copy(
+                isLive = true,
+                isVideo = true,
+                playbackSource = source.title,
+                playbackSourceType = source.type,
+                playbackSourceId = source.id,
+            )
+        }
+        val clickedVideoId = items.getOrNull(startIndex)?.videoId
+        val songIndex = clickedVideoId
+            ?.let { id -> songs.indexOfFirst { it.videoId == id } }
+            ?.takeIf { it >= 0 }
+            ?: startIndex.coerceIn(0, (songs.size - 1).coerceAtLeast(0))
+        songs.getOrNull(songIndex)?.videoId?.let { keepVideoId = it }
+        scope.launch {
+            if (songs.isEmpty() || refusedByHost()) return@launch
+            val c = controller ?: return@launch
+            c.playLiveStations(songs, songIndex)
         }
     }
 
@@ -2597,25 +2631,37 @@ private fun BitChordApp(
             isLoading = playPauseBusy,
             position = player.position,
             durationMs = player.durationMs,
+            isLive = player.isLive,
+            isSeekable = player.isSeekable,
+            isAtLiveEdge = player.isAtLiveEdge,
+            liveOffsetMs = player.liveOffsetMs,
+            onJumpToLive = { controller?.seekToDefaultPosition() },
             audioVersionSwitching = switchingAudioVersion,
             qualityUpgraded = player.isQualityUpgraded,
             onPlayPause = {
                 togglePlayPause()
             },
             onNext = { controller?.seekToNextMediaItem() },
-            onPrevious = { controller?.seekToPrevious() },
+            onPrevious = {
+                if (player.isLive) controller?.seekToPreviousMediaItem() else controller?.seekToPrevious()
+            },
             onBlockedControl = showHostOnlyNotice,
             onSeekFraction = { fraction ->
-                controller?.let { player ->
+                controller?.let { p ->
+                    if (!p.isCurrentMediaItemSeekable) return@let
+                    if (p.isCurrentMediaItemLive && fraction >= 0.99f) {
+                        p.seekToDefaultPosition()
+                        return@let
+                    }
                     // Read at the moment of the seek, not from the
                     // polled snapshot the screen draws with: a track
                     // change updates the current item before it updates
                     // the duration, so a fraction dropped seconds after
                     // a transition would otherwise be scaled by the
                     // previous song's length.
-                    val duration = player.duration
+                    val duration = p.duration
                     if (duration > 0) {
-                        player.seekTo(
+                        p.seekTo(
                             (fraction * duration).toLong()
                                 .coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L)),
                         )
@@ -2623,7 +2669,8 @@ private fun BitChordApp(
                 }
             },
             onSeek = { target ->
-                controller?.let { player ->
+                controller?.let { p ->
+                    if (!p.isCurrentMediaItemSeekable) return@let
                     // Clamped here rather than at each caller because
                     // not every caller can clamp. The scrubber's target
                     // is a fraction of the duration and cannot overrun,
@@ -2636,8 +2683,8 @@ private fun BitChordApp(
                     // final millisecond, which ends the track and starts
                     // the next one: tapping the last line of a song
                     // skipped it.
-                    val duration = player.duration
-                    player.seekTo(
+                    val duration = p.duration
+                    p.seekTo(
                         if (duration > 0) {
                             target.coerceIn(0L, (duration - SEEK_END_GUARD_MS).coerceAtLeast(0L))
                         } else {
@@ -3715,6 +3762,21 @@ private fun BitChordApp(
                                         browseId == MelodyRules.MELODY_BROWSE_ID -> {
                                             showMelody = true
                                         }
+                                        song != null && (item.isLive || song.isLive) -> {
+                                            val siblings = (homeState as? UiState.Success)?.data
+                                                ?.firstOrNull { it.title == shelfTitle }
+                                                ?.items
+                                                ?.filter { it.isLive && it.videoId != null }
+                                                ?.takeIf { it.isNotEmpty() }
+                                                ?: listOf(item)
+                                            val idx = siblings.indexOfFirst { it.videoId == item.videoId }
+                                                .takeIf { it >= 0 } ?: 0
+                                            startLiveStations(
+                                                siblings,
+                                                idx,
+                                                QueueSource(shelfTitle, PlaybackSourceType.HOME),
+                                            )
+                                        }
                                         browseId != null && (item.videoId == null || browseId.startsWith("RD") || browseId.startsWith("VLRD")) -> {
                                             viewModel.openDetail(
                                                 browseId = browseId,
@@ -3826,6 +3888,17 @@ private fun BitChordApp(
                             listState = radioListState,
                             melodyItem = melodyTile,
                             onMelodyClick = { showMelody = true },
+                            liveStations = liveStationsState,
+                            currentSong = player.song,
+                            isPlaying = player.isPlaying,
+                            onLiveStationClick = { stations, idx ->
+                                startLiveStations(
+                                    stations,
+                                    idx,
+                                    QueueSource(liveStationsLabel, PlaybackSourceType.EXPLORE),
+                                )
+                            },
+                            onRetryLiveStations = { viewModel.loadLiveStations(force = true) },
                             seeds = radioSeeds,
                             onSeedClick = { item ->
                                 val videoId = item.videoId ?: return@RadioScreen
@@ -4069,6 +4142,7 @@ private fun BitChordApp(
                 // these pages had no status-bar scrim, title or back button, and
                 // Discord (pushed over Account) was covered by the page it opened
                 // from — hence skipped while it is up.
+                IsolatedScope {
                 when (settingsSubScreen.takeUnless { showDiscord || showSpotify }) {
                     "account_scrobbling" -> {
                         Surface(
@@ -4177,6 +4251,7 @@ private fun BitChordApp(
                             }
                         }
                     }
+                }
                 }
 
                 // The top-bar footprint is transparent on every page so the
@@ -4675,8 +4750,10 @@ private fun BitChordApp(
                                     hazeState = hazeState,
                                     playbackPosition = player.position,
                                     durationMs = player.durationMs,
+                                    isLive = player.isLive,
                                     onSeek = { targetMs ->
                                         controller?.let { mediaController ->
+                                            if (!mediaController.isCurrentMediaItemSeekable) return@let
                                             val duration = mediaController.duration
                                             if (duration > 0L) {
                                                 mediaController.seekTo(targetMs.coerceIn(0L, duration))
@@ -4687,7 +4764,9 @@ private fun BitChordApp(
                                         togglePlayPause()
                                     },
                                     onNext = { controller?.seekToNextMediaItem() },
-                                    onPrevious = { controller?.seekToPrevious() },
+                                    onPrevious = {
+                                        if (player.isLive) controller?.seekToPreviousMediaItem() else controller?.seekToPrevious()
+                                    },
                                     onExpand = if (reducePlayerMotion) {
                                         { showNowPlaying = true }
                                     } else {
@@ -5303,7 +5382,13 @@ private fun BitChordApp(
         if (!pageCoveredByPlayer) {
             renderPlaylistOverlays(effectiveAppBackdrop, hazeState)
         }
+        }
+    }
 
+    CompositionLocalProvider(
+        LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalCarConnected provides isCarMode,
+    ) {
         if (showSpotifyImportDialog) {
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
@@ -5627,7 +5712,12 @@ private fun BitChordApp(
                 },
             )
         }
+    }
 
+    CompositionLocalProvider(
+        LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalCarConnected provides isCarMode,
+    ) {
         MainDialogsHost(
             hazeState = hazeState,
             scope = scope,
@@ -5683,8 +5773,6 @@ private fun BitChordApp(
             confirmJioSaavn = confirmJioSaavn,
             onDismissConfirmJioSaavn = { confirmJioSaavn = false },
         )
-
-    }
     }
 }
 

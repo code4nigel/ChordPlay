@@ -42,6 +42,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
@@ -50,6 +51,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.metrolist.innertubex.extraction.StreamResolveException
 import com.metrolist.innertubex.sabr.findSabrProtocolException
 import com.music.bitchord.data.Http
@@ -111,6 +113,9 @@ object MusicVideoEngine {
 
     /** Switch to next client/fallback if ExoPlayer stalls buffering without progressing. */
     private const val STALL_TIMEOUT_MS = 6_000L
+    private const val LIVE_STALL_TIMEOUT_MS = 12_000L
+    private const val LIVE_SEEK_DRIFT_MS = 2_500L
+    private const val LIVE_IGNORE_DRIFT_MS = 150L
 
     /** How long the picture outlives its last surface: a rotation, a sheet reopened. */
     private const val RELEASE_GRACE_MS = 4_000L
@@ -160,6 +165,30 @@ object MusicVideoEngine {
     val noPictureIds: StateFlow<Set<String>> = _noPictureIds.asStateFlow()
     private val fallbackUsed = HashSet<String>()
     private var loadedStream: InnerTubeXResolver.VideoStream? = null
+    private var isCurrentStreamLive: Boolean = false
+
+    private fun isLiveTrack(videoId: String): Boolean {
+        val song = controller?.currentMediaItem?.toSong()?.takeIf { it.videoId == videoId }
+        if (song?.isLive == true) return true
+        if (controller?.isCurrentMediaItemLive == true && controller?.currentMediaItem?.mediaId == videoId) {
+            return true
+        }
+        return StreamResolver.isKnownLive(videoId)
+    }
+
+    private fun applyVideoTrackSelection(exo: ExoPlayer, capHeight: Int?) {
+        val builder = exo.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+        if (builder is DefaultTrackSelector.Parameters.Builder) {
+            builder.setExceedVideoConstraintsIfNecessary(true)
+        }
+        if (capHeight != null && capHeight > 0 && capHeight < Int.MAX_VALUE) {
+            builder.setMaxVideoSize(Int.MAX_VALUE, capHeight)
+        } else {
+            builder.clearVideoSizeConstraints()
+        }
+        exo.trackSelectionParameters = builder.build()
+    }
 
     fun isPictureless(videoId: String): Boolean = videoId in _noPictureIds.value
 
@@ -211,6 +240,13 @@ object MusicVideoEngine {
                 prefs?.edit()?.remove(KEY_QUALITY)?.apply()
                 _quality.value = _quality.value.copy(held = null)
                 val id = loadedId ?: return@collect
+                if (isCurrentStreamLive && loadedStream?.isHls == true) {
+                    val cap = liveTrackCapFor(id)
+                    loadedCap = cap ?: 0
+                    player?.let { applyVideoTrackSelection(it, cap) }
+                    TrackLog.d(TAG, "video: switched live HLS preference cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
+                    return@collect
+                }
                 streams.remove(id)
                 load(id)
             }
@@ -321,10 +357,51 @@ object MusicVideoEngine {
             }
         }
 
+        override fun onTracksChanged(tracks: Tracks) {
+            if (!isCurrentStreamLive) return
+            val heights = mutableSetOf<Int>()
+            var activeH: Int? = null
+            for (group in tracks.groups) {
+                if (group.type != C.TRACK_TYPE_VIDEO) continue
+                for (i in 0 until group.length) {
+                    val format = group.getTrackFormat(i)
+                    if (format.height > 0) {
+                        heights += format.height
+                        if (group.isTrackSelected(i)) {
+                            activeH = format.height
+                        }
+                    }
+                }
+            }
+            if (heights.isNotEmpty()) {
+                _quality.value = _quality.value.copy(
+                    heights = heights.sortedDescending(),
+                    activeHeight = activeH ?: _quality.value.activeHeight,
+                )
+            }
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             val id = loadedId ?: return
+            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                TrackLog.w(TAG, "video: behind live window for $id; jumping to live edge", about = id)
+                player?.seekToDefaultPosition()
+                player?.prepare()
+                return
+            }
             TrackLog.w(TAG, "video: playback failed at ${loadedCap}p via ${loadedProfile ?: "?"} (${error.errorCodeName}: ${error.message})", about = id)
             streams.remove(id)
+            if (isCurrentStreamLive) {
+                val httpCode = generateSequence<Throwable>(error) { it.cause }
+                    .filterIsInstance<HttpDataSource.InvalidResponseCodeException>()
+                    .firstOrNull()
+                    ?.responseCode
+                if (httpCode != null) {
+                    StreamResolver.onLivePlaybackRefused(id, loadedStream?.url, httpCode)
+                } else {
+                    StreamResolver.invalidate(id)
+                }
+            }
             // If NewPipe provided a 360p MP4 fallback URL, try that before dropping clients.
             val fallbackUrl = loadedStream?.fallbackUrl
             if (fallbackUrl != null && fallbackUsed.add("$id:fallback")) {
@@ -347,7 +424,9 @@ object MusicVideoEngine {
             // googlevideo/SABR turned this client away: the next client in
             // InnerTubeX's catalog gets a turn.
             val profile = loadedProfile
-            if (profile != null && profile != "newpipe" && (isRefusal(error) || error.findSabrProtocolException() != null)) {
+            if (profile != null && profile != "newpipe" && profile != "live-hls" &&
+                (isRefusal(error) || error.findSabrProtocolException() != null)
+            ) {
                 val skip = refused.getOrPut(id) { HashSet() }
                 if (skip.add(profile) && skip.size <= MAX_REFUSED_CLIENTS) {
                     TrackLog.w(TAG, "video: $profile refused/failed; asking the next client", about = id)
@@ -398,8 +477,9 @@ object MusicVideoEngine {
         if (videoId.isNotBlank()) {
             clearNoPicture(videoId)
         }
-        if (wantedSong?.isVideo == true) {
+        if (wantedSong?.isVideo == true || wantedSong?.isLive == true) {
             clearNoPicture(wantedSong.videoId)
+            if (wantedSong.isLive) StreamResolver.markKnownLive(wantedSong.videoId)
         }
         surfaces.removeAll { it.view === view }
         surfaces += Surface(view, priority, videoId)
@@ -508,13 +588,14 @@ object MusicVideoEngine {
     private fun wantedVideoId(): String? {
         val surfaceId = topSurface()?.videoId?.takeIf { it.isNotBlank() }
         val song = controller?.currentMediaItem?.toSong()
-        if (AppSettings.preferMusicOnly.value) {
+        val live = song?.isLive == true || (surfaceId != null && StreamResolver.isKnownLive(surfaceId))
+        if (AppSettings.preferMusicOnly.value && !live) {
             val skipId = surfaceId ?: song?.videoId
             TrackLog.d(TAG, "video: skipped $skipId (preferMusicOnly=true)", about = skipId)
             return null
         }
         val id = when {
-            song?.isVideo == true -> song.videoId
+            song?.isVideo == true || song?.isLive == true -> song.videoId
             surfaceId != null -> surfaceId
             else -> {
                 if (song != null && surfaces.isNotEmpty() && lastIgnoredAudioId != song.videoId) {
@@ -559,6 +640,13 @@ object MusicVideoEngine {
         }?.apply()
         _quality.value = _quality.value.copy(held = height)
         val id = loadedId ?: return
+        if (isCurrentStreamLive && loadedStream?.isHls == true) {
+            val cap = liveTrackCapFor(id)
+            loadedCap = cap ?: 0
+            player?.let { applyVideoTrackSelection(it, cap) }
+            TrackLog.d(TAG, "video: switched live HLS quality cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
+            return
+        }
         streams.remove(id)
         stepDown.remove(id)
         load(id)
@@ -567,10 +655,24 @@ object MusicVideoEngine {
     /** The height asked for: the held one, else the active VideoQuality cap (clamped on metered). */
     private fun capFor(videoId: String): Int {
         val metered = AppSettings.meteredConnection.value == true
-        val prefCap = AppSettings.videoQuality.value.maxHeight
+        val pref = AppSettings.videoQuality.value
+        val prefCap = if (pref.isAuto) AUTO_HEIGHT else pref.maxHeight
         val auto = if (metered) minOf(prefCap, METERED_HEIGHT) else prefCap
         val held = _quality.value.held ?: return auto
         return if (videoId in stepDown) minOf(held, AUTO_HEIGHT) else held
+    }
+
+    /**
+     * Track-selection ceiling for adaptive live HLS streams: null removes height
+     * constraints so ExoPlayer adapts freely when [VideoQuality.AUTO] is active.
+     */
+    private fun liveTrackCapFor(videoId: String): Int? {
+        if (_quality.value.held != null) return capFor(videoId)
+        val pref = AppSettings.videoQuality.value
+        if (pref.isAuto) {
+            return if (AppSettings.meteredConnection.value == true) METERED_HEIGHT else null
+        }
+        return capFor(videoId)
     }
 
     /** A refusal from googlevideo itself, as opposed to a decoder or network failure. */
@@ -587,10 +689,12 @@ object MusicVideoEngine {
             width = assumedWidth,
             height = height,
             mimeType = mimeType,
-            headers = PlayerClient.forStreamUrl(url).mediaHeaders(),
+            headers = StreamResolver.mediaHeadersFor(url),
             heights = heights.ifEmpty { listOfNotNull(height.takeIf { it > 0 }) },
-            profileId = "newpipe",
+            profileId = if (isLive) "live-hls" else "newpipe",
+            isHls = isHls,
             fallbackUrl = fallbackUrl,
+            isLive = isLive,
         )
     }
 
@@ -598,21 +702,20 @@ object MusicVideoEngine {
         stream.width > 0 && stream.height > 0 && stream.aspect < MIN_VIDEO_ASPECT
 
     /**
-     * [videoId]'s picture: resolves straight through InnerTubeX (SABR or direct),
-     * then age-restricted InnerTubeX, then NewPipe fallback, then InnerTubeX HLS.
-     * Avoids blocking pre-playback HTTP probes so ExoPlayer / SABR / range
-     * caching starts on the very first chunk; failures/stalls still fail over
-     * across up to [MAX_REFUSED_CLIENTS] clients via [onPlayerError] and [sync].
+     * [videoId]'s picture: resolves live streams directly via HLS, and VOD tracks
+     * through InnerTubeX (SABR or direct), age-restricted InnerTubeX, NewPipe, or HLS.
      */
     private suspend fun resolve(videoId: String, cap: Int): InnerTubeXResolver.VideoStream? {
         val skip = refused[videoId].orEmpty().toMutableSet()
         var lastError: StreamResolveException? = null
         val forceFallback = "$videoId:newpipe-error" in fallbackUsed
+        val liveTrack = isLiveTrack(videoId)
 
         suspend fun tryInnerTubeX(
             ageRestricted: Boolean,
             allowHls: Boolean,
             allowSabr: Boolean,
+            isLive: Boolean = liveTrack,
         ): InnerTubeXResolver.VideoStream? {
             val candidate = try {
                 withTimeoutOrNull(10_000L) {
@@ -624,6 +727,7 @@ object MusicVideoEngine {
                             ageRestricted = ageRestricted,
                             allowHls = allowHls,
                             allowSabr = allowSabr,
+                            isLive = isLive,
                         )
                     }
                 }
@@ -633,6 +737,28 @@ object MusicVideoEngine {
             } ?: return null
 
             return candidate
+        }
+
+        if (liveTrack) {
+            val sharedLive = StreamResolver.resolveLiveVideoStream(videoId, forceRefresh = forceFallback)
+                ?.toVideoStream(videoId)
+            if (sharedLive != null) {
+                TrackLog.d(
+                    TAG,
+                    "video: resolved live stream via shared live HLS (heights=${sharedLive.heights})",
+                    about = videoId,
+                )
+                return sharedLive
+            }
+            TrackLog.d(TAG, "video: resolving live stream via NewPipe HLS fallback (cap=${cap}p)", about = videoId)
+            val newPipeLive = runCatching {
+                StreamResolver.resolveVideoStream(videoId, cap, isLive = true)?.toVideoStream(videoId)
+            }.onFailure { err ->
+                TrackLog.w(TAG, "video: NewPipe live fallback threw: ${err.message}", about = videoId)
+            }.getOrNull()
+            if (newPipeLive != null) return newPipeLive
+            if (lastError != null && lastError!!.reason in ESCALATED_REASONS) throw lastError!!
+            return null
         }
 
         if (!forceFallback) {
@@ -691,9 +817,13 @@ object MusicVideoEngine {
         activeVideoSource = null
         loadedStream = stream
         loadedProfile = stream.profileId
+        val isLive = stream.isLive || isLiveTrack(id)
+        isCurrentStreamLive = isLive
+        if (isLive) StreamResolver.markKnownLive(id)
+        applyVideoTrackSelection(exo, if (isLive) liveTrackCapFor(id) else null)
 
-        val start = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
-        val initialPos = if (start < 300L) 0L else start + seekLeadMs
+        val start = if (isLive) 0L else controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
+        val initialPos = if (isLive || start < 300L) 0L else start + seekLeadMs
 
         val mediaItem = MediaItem.Builder()
             .setUri(stream.url)
@@ -706,8 +836,9 @@ object MusicVideoEngine {
         val sabrBootstrap = stream.sabrBootstrap
         val source = when {
             stream.isHls -> {
+                val hlsHeaders = StreamResolver.mediaHeadersFor(stream.url) + stream.headers
                 val upstream = OkHttpDataSource.Factory(Http.client)
-                    .setDefaultRequestProperties(stream.headers)
+                    .setDefaultRequestProperties(hlsHeaders)
                 HlsMediaSource.Factory(upstream).createMediaSource(mediaItem)
             }
             sabrBootstrap != null -> {
@@ -756,12 +887,16 @@ object MusicVideoEngine {
         _quality.value = _quality.value.copy(heights = stream.heights, activeHeight = stream.height.takeIf { it > 0 })
         TrackLog.d(
             TAG,
-            "video: playStream profile=${stream.profileId} ${stream.width}x${stream.height} mime=${stream.mimeType} sabr=${stream.isSabr} hls=${stream.isHls} start=${start}ms",
+            "video: playStream profile=${stream.profileId} ${stream.width}x${stream.height} mime=${stream.mimeType} sabr=${stream.isSabr} hls=${stream.isHls} live=$isLive start=${if (isLive) "LIVE" else "${start}ms"}",
             about = id,
         )
         bufferingStartedAt = System.currentTimeMillis()
-        lastBufferedPos = initialPos
-        exo.setMediaSource(source, initialPos)
+        lastBufferedPos = if (isLive) 0L else initialPos
+        if (isLive) {
+            exo.setMediaSource(source)
+        } else {
+            exo.setMediaSource(source, initialPos)
+        }
         exo.playWhenReady = controller?.isPlaying == true
         exo.prepare()
         lastSeekAt = System.currentTimeMillis()
@@ -833,6 +968,7 @@ object MusicVideoEngine {
         loadedId = null
         loadedStream = null
         loadedProfile = null
+        isCurrentStreamLive = false
         bufferingStartedAt = 0L
         lastBufferedPos = 0L
         activeVideoSource?.closeAsync()
@@ -862,6 +998,11 @@ object MusicVideoEngine {
         val audio = controller ?: return
         val exo = player ?: return
         if (loadedId == null || exo.playbackState == Player.STATE_IDLE || exo.playbackState == Player.STATE_ENDED) return
+        if (isCurrentStreamLive || audio.isCurrentMediaItemLive || exo.isCurrentMediaItemLive) {
+            isCurrentStreamLive = true
+            syncLive(audio, exo)
+            return
+        }
         val speed = audio.playbackParameters.speed
         val audioPos = audio.currentPosition
         activeVideoSource?.updatePlaybackPosition(audioPos)
@@ -914,6 +1055,110 @@ object MusicVideoEngine {
         // Catch up (or wait) smoothly by speed nudging instead of jarring re-seeks.
         val nudge = if (abs(drift) > IGNORE_DRIFT_MS) (-drift / 1000f).coerceIn(-0.18f, 0.18f) else 0f
         setSpeed(exo, speed * (1f + nudge))
+    }
+
+    /**
+     * Synchronizes a live HLS video stream with the audio live stream using
+     * absolute window timestamps (or live-edge offsets) rather than raw VOD positions.
+     */
+    private fun syncLive(audio: Player, exo: ExoPlayer) {
+        val speed = audio.playbackParameters.speed
+        val now = System.currentTimeMillis()
+        val driftMs = computeLiveDriftMs(audio, exo)
+
+        if (!audio.isPlaying) {
+            exo.playWhenReady = false
+            setSpeed(exo, speed)
+            if (audio.playbackState == Player.STATE_READY &&
+                driftMs != null && abs(driftMs) > 300L && now - lastSeekAt > 350L && exo.isCurrentMediaItemSeekable
+            ) {
+                val target = (exo.currentPosition + driftMs).coerceIn(0L, exo.duration.coerceAtLeast(0L))
+                lastSeekAt = now
+                exo.seekTo(target)
+            }
+            return
+        }
+
+        exo.playWhenReady = true
+        if (exo.playbackState == Player.STATE_BUFFERING) {
+            val buffered = exo.bufferedPosition
+            if (buffered > lastBufferedPos + 64L) {
+                lastBufferedPos = buffered
+                bufferingStartedAt = now
+            } else if (bufferingStartedAt == 0L) {
+                bufferingStartedAt = now
+            } else if (now - bufferingStartedAt > LIVE_STALL_TIMEOUT_MS) {
+                val id = loadedId ?: return
+                TrackLog.w(TAG, "video: live stream stalled for ${now - bufferingStartedAt}ms; resetting to live edge", about = id)
+                bufferingStartedAt = now
+                if ("$id:live-resync" !in fallbackUsed && fallbackUsed.add("$id:live-resync")) {
+                    exo.seekToDefaultPosition()
+                    exo.prepare()
+                    return
+                }
+                streams.remove(id)
+                load(id)
+                return
+            }
+            return
+        }
+
+        if (driftMs == null) {
+            setSpeed(exo, speed)
+            return
+        }
+
+        // Positive driftMs means video is behind audio and needs to jump/speed up.
+        if (abs(driftMs) > LIVE_SEEK_DRIFT_MS) {
+            if (now - lastSeekAt > 2_000L) {
+                lastSeekAt = now
+                val audioOffset = audio.currentLiveOffset
+                if (audioOffset != C.TIME_UNSET && audioOffset < 5_000L) {
+                    exo.seekToDefaultPosition()
+                } else if (exo.isCurrentMediaItemSeekable) {
+                    val target = (exo.currentPosition + driftMs).coerceIn(0L, exo.duration.coerceAtLeast(0L))
+                    exo.seekTo(target)
+                }
+            }
+            return
+        }
+
+        val nudge = if (abs(driftMs) > LIVE_IGNORE_DRIFT_MS) {
+            (driftMs / 4_000f).coerceIn(-0.06f, 0.06f)
+        } else {
+            0f
+        }
+        setSpeed(exo, speed * (1f + nudge))
+    }
+
+    /**
+     * Positive result means video is behind audio by N ms; negative means ahead.
+     */
+    private fun computeLiveDriftMs(audio: Player, exo: ExoPlayer): Long? {
+        val audioWindow = Timeline.Window()
+        val videoWindow = Timeline.Window()
+        val hasAudioWindow = !audio.currentTimeline.isEmpty &&
+            audio.currentMediaItemIndex in 0 until audio.currentTimeline.windowCount
+        val hasVideoWindow = !exo.currentTimeline.isEmpty &&
+            exo.currentMediaItemIndex in 0 until exo.currentTimeline.windowCount
+
+        if (hasAudioWindow && hasVideoWindow) {
+            audio.currentTimeline.getWindow(audio.currentMediaItemIndex, audioWindow)
+            exo.currentTimeline.getWindow(exo.currentMediaItemIndex, videoWindow)
+            if (audioWindow.windowStartTimeMs != C.TIME_UNSET &&
+                videoWindow.windowStartTimeMs != C.TIME_UNSET
+            ) {
+                val audioAbs = audioWindow.windowStartTimeMs + audio.currentPosition
+                val videoAbs = videoWindow.windowStartTimeMs + exo.currentPosition
+                return audioAbs - videoAbs
+            }
+        }
+        val audioOffset = audio.currentLiveOffset
+        val videoOffset = exo.currentLiveOffset
+        if (audioOffset != C.TIME_UNSET && videoOffset != C.TIME_UNSET) {
+            return videoOffset - audioOffset
+        }
+        return null
     }
 
     private fun seek(exo: ExoPlayer, positionMs: Long) {

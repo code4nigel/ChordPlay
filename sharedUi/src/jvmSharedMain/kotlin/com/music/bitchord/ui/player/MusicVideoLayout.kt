@@ -96,6 +96,7 @@ internal fun FullscreenVideoPlayer(
     scrubber: @Composable () -> Unit,
     transport: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    isLive: Boolean = song.isLive,
 ) {
     HideSystemBars(true)
     var controlsShown by remember { mutableStateOf(true) }
@@ -162,14 +163,21 @@ internal fun FullscreenVideoPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            text = song.title,
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = song.title,
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            if (isLive) LiveBadge(compact = true)
+                        }
                         Text(
                             text = song.artist,
                             color = Color.White.copy(alpha = 0.7f),
@@ -190,7 +198,7 @@ internal fun FullscreenVideoPlayer(
                 Box(
                     Modifier
                         .align(Alignment.Center)
-                        .widthIn(max = 420.dp),
+                        .widthIn(max = 520.dp),
                 ) {
                     transport()
                 }
@@ -426,7 +434,11 @@ private fun MusicVideoQualityUi.selected(): Int? =
 private fun VideoQualityBox(onClick: () -> Unit) {
     val selectedQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     val quality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
-    val label = quality.held?.let { "${it}p" } ?: "${selectedQuality.maxHeight}p"
+    val label = when {
+        quality.held != null -> "${quality.held}p"
+        selectedQuality.isAuto -> "Auto"
+        else -> "${selectedQuality.maxHeight}p"
+    }
     Box(
         modifier = Modifier
             .height(28.dp)

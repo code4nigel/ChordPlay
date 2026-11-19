@@ -1401,8 +1401,6 @@
     <string name="player_layout_modern_desc">עטיפה צפה עם הילה נושמת, קפסולת שליטה ופעולות מהירות</string>
     <string name="player_layout_vinyl">פטיפון תקליטים</string>
     <string name="player_layout_vinyl_desc">תקליט ויניל מסתובב המחליק מהעטיפה עם זרוע נעה</string>
-    <string name="player_layout_classic">BitChord קלאסי</string>
-    <string name="player_layout_classic_desc">פריסת נגן מקורית בהשראת Apple Music</string>
     <string name="breathing_artwork_aura">הילה נושמת של עטיפת השיר</string>
     <string name="breathing_artwork_aura_desc">זוהר עדין סביב התמונה הפועם לפי קצב המוזיקה</string>
     <string name="artwork_and_visuals">תמונות וויזואליה</string>
@@ -1631,4 +1629,5 @@
     <string name="support_community_footer">הצטרף לקהילה שלנו ב-Reddit, דווח על תקלות ועקוב אחר הפיתוח ב-GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">הקש להחלפת תמונת עטיפה למסך מלא</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">הקש על תמונת הנגן כדי לעבור בין תצוגת מסך מלא למבנה כרטיס</string>
+    <string name="live_stations">תחנות בשידור חי</string>
 </resources>

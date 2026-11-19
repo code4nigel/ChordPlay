@@ -260,4 +260,15 @@
     <string name="radio_start_station">ステーションを開始</string>
     <string name="radio_stations">おすすめのステーション</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">ライブステーション</string>
+    <string name="live_on_air">24時間放送中</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">24時間ライブステーション</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">すべて</string>
+    <string name="live_cat_artist_stations">アーティストステーション</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; チル</string>
+    <string name="live_cat_hits">ヒット曲</string>
+    <string name="live_cat_rock_pop">ロック &amp; ポップ</string>
+    <string name="live_stations_empty">このカテゴリーのライブステーションが見つかりません。</string>
 </resources>

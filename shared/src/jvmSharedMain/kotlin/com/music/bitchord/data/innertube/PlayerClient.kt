@@ -60,7 +60,7 @@ data class PlayerClient(
             userAgent = "com.google.ios.youtube/21.29.1 (iPhone16,2; U; CPU iOS 18_5 like Mac OS X;)",
         )
 
-        private val ANDROID = PlayerClient(
+        internal val ANDROID = PlayerClient(
             clientName = "ANDROID",
             clientVersion = "21.26.364",
             userAgent = "com.google.android.youtube/21.26.364 " +
@@ -119,8 +119,13 @@ data class PlayerClient(
          */
         fun forStreamUrl(url: String): PlayerClient {
             val parsed = url.toHttpUrlOrNull() ?: return IOS
-            val name = parsed.queryParameter("c")?.uppercase(Locale.ROOT) ?: return IOS
-            val version = parsed.queryParameter("cver")
+            val segments = parsed.pathSegments
+            fun pathParam(key: String): String? {
+                val idx = segments.indexOf(key)
+                return if (idx >= 0 && idx + 1 < segments.size) segments[idx + 1] else null
+            }
+            val name = (parsed.queryParameter("c") ?: pathParam("c"))?.uppercase(Locale.ROOT) ?: return IOS
+            val version = parsed.queryParameter("cver") ?: pathParam("cver")
             return when {
                 name.startsWith("IOS") ->
                     if (version == IOS_RECENT.clientVersion) IOS_RECENT else IOS

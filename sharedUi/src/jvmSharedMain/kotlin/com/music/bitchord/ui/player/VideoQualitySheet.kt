@@ -65,6 +65,7 @@ fun VideoQualitySheet(
 ) {
     val haptics = rememberHaptics()
     val activeQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
+    val mvQuality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
     val effectiveAccent = accentColor ?: MaterialTheme.colorScheme.primary
 
     val cardContent: @Composable (Modifier) -> Unit = { cardModifier ->
@@ -108,7 +109,7 @@ fun VideoQualitySheet(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Select preferred maximum video resolution for playback:",
+                text = "Auto adapts to available qualities and your connection.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.65f),
             )
@@ -120,6 +121,11 @@ fun VideoQualitySheet(
             ) {
                 VideoQuality.entries.forEach { quality ->
                     val isSelected = quality == activeQuality
+                    val autoDetail = if (quality.isAuto) {
+                        mvQuality.activeHeight?.takeIf { it > 0 }?.let { "Adaptive · ${it}p" } ?: "Adaptive"
+                    } else {
+                        null
+                    }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -146,6 +152,14 @@ fun VideoQualitySheet(
                             color = if (isSelected) effectiveAccent else Color.White.copy(alpha = 0.92f),
                             modifier = Modifier.weight(1f),
                         )
+                        if (autoDetail != null) {
+                            Text(
+                                text = autoDetail,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isSelected) effectiveAccent.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
                         if (isSelected) {
                             Icon(
                                 imageVector = Icons.Rounded.Check,

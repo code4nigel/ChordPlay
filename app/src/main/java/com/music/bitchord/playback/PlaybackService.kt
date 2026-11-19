@@ -38,6 +38,7 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -52,7 +53,9 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
+import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.TransferListener
@@ -111,6 +114,7 @@ import com.music.bitchord.download.Downloads
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.NerdStats
@@ -294,6 +298,7 @@ class PlaybackService : MediaLibraryService() {
     private val searchResults = ConcurrentHashMap<String, List<Song>>()
     private val searchBrowseResults = ConcurrentHashMap<String, List<BrowseItem>>()
     private val songCache = ConcurrentHashMap<String, Song>()
+    private val liveServedUrls = ConcurrentHashMap<String, String>()
 
     /**
      * [YtMusicRepository.home] cached briefly for Android Auto's browse tree.
@@ -621,7 +626,7 @@ class PlaybackService : MediaLibraryService() {
     private val trackAnalyzer = com.music.bitchord.playback.smart.TrackAnalyzer(this, AudioCache)
 
     /** Shared with the crossfade's tail player, so both read the same disk cache. */
-    private var mediaSourceFactory: DefaultMediaSourceFactory? = null
+    private var mediaSourceFactory: MediaSource.Factory? = null
 
     /** Last sampled position of the playing track, in seconds. */
     private var lastPositionSeconds = 0L
@@ -1322,8 +1327,27 @@ class PlaybackService : MediaLibraryService() {
                     )
                     .build()
             }
+            val scheme = dataSpec.uri.scheme?.lowercase()
+            if (scheme == "http" || scheme == "https") {
+                val url = dataSpec.uri.toString()
+                val headers = StreamResolver.mediaHeadersFor(url)
+                if (headers.isNotEmpty() || dataSpec.httpRequestHeaders.isNotEmpty()) {
+                    return@Resolver dataSpec.buildUpon()
+                        .setHttpRequestHeaders(headers + dataSpec.httpRequestHeaders)
+                        .build()
+                }
+                return@Resolver dataSpec
+            }
             val videoId = dataSpec.uri.getQueryParameter("v")
                 ?: return@Resolver dataSpec
+            if (dataSpec.uri.getQueryParameter("live") == "1" || StreamResolver.isKnownLive(videoId)) {
+                val (streamUrl, headers) = resolveLiveStream(videoId)
+                TrackLog.d("BitChord", "serving live HLS stream for $videoId", about = videoId)
+                return@Resolver dataSpec.buildUpon()
+                    .setUri(Uri.parse(streamUrl))
+                    .setHttpRequestHeaders(headers)
+                    .build()
+            }
             // An explicit rollback is not a preference for a different
             // candidate: it means this exact YouTube rendition, immediately.
             // Answer it before StreamChoice, the module race and a pending
@@ -1487,6 +1511,9 @@ class PlaybackService : MediaLibraryService() {
                 // trickle or a 403 rather than an error worth the name, so the
                 // fetch is dressed as whatever the URL says it should be.
                 val headers = StreamResolver.mediaHeadersFor(streamUrl)
+                if (StreamResolver.isKnownLive(videoId) || StreamResolver.isHlsManifestUrl(streamUrl)) {
+                    StreamContainer.declare(streamUrl, "hls")
+                }
                 // Recorded even though only one server can answer here: a
                 // source enabled from Settings mid-track flips the branch
                 // above under a half-filled cache entry, and the entry would
@@ -1526,6 +1553,9 @@ class PlaybackService : MediaLibraryService() {
                 // again while the fallback plays.
                 is Resolved.YouTube -> {
                     NerdStats.recordSource(videoId, "YouTube")
+                    if (StreamResolver.isKnownLive(videoId) || StreamResolver.isHlsManifestUrl(won.url)) {
+                        StreamContainer.declare(won.url, "hls")
+                    }
                     val headers = StreamResolver.mediaHeadersFor(won.url)
                     StreamChoice.remember(videoId, SourceStream(won.url, headers = headers), substituted = false)
                     dataSpec.buildUpon()
@@ -1574,11 +1604,17 @@ class PlaybackService : MediaLibraryService() {
         AudioCache.setUpstream(defaultDataSourceFactory)
         // DsdExtractorsFactory: the stock extractors plus DSF/DFF, which Media3
         // cannot open at all. A DSD file leaves the extractor as float PCM.
-        mediaSourceFactory = DefaultMediaSourceFactory(
+        val loadErrorHandlingPolicy = PermanentAwareLoadErrorPolicy()
+        val defaultMediaSourceFactory = DefaultMediaSourceFactory(
             AudioCache.playbackFactory(defaultDataSourceFactory),
             DsdExtractorsFactory(),
         )
-            .setLoadErrorHandlingPolicy(PermanentAwareLoadErrorPolicy())
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+        mediaSourceFactory = LiveAwareMediaSourceFactory(
+            defaultFactory = defaultMediaSourceFactory,
+            loadErrorHandlingPolicy = loadErrorHandlingPolicy,
+            resolveLiveStream = ::resolveLiveStream,
+        )
 
         configuredFloatOutput = shouldEnableFloatOutput()
         val exoPlayer = buildPlayer(
@@ -1718,8 +1754,10 @@ class PlaybackService : MediaLibraryService() {
             onHandoff = ::adoptPlayer,
             analysisFor = { item -> trackAnalyzer.analysisFor(item.mediaId) },
             requestAnalysis = { item, durationMs ->
-                item.localConfiguration?.uri?.let { uri ->
-                    trackAnalyzer.request(item.mediaId, uri, durationMs / 1000.0)
+                if (!item.isLiveItem) {
+                    item.localConfiguration?.uri?.let { uri ->
+                        trackAnalyzer.request(item.mediaId, uri, durationMs / 1000.0)
+                    }
                 }
             },
             // "Incoming" and "outgoing" here are session roles, not players:
@@ -2416,6 +2454,7 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val current = exoPlayer.currentMediaItem?.toSong() ?: return
+        if (current.isLive || StreamResolver.isKnownLive(current.videoId)) return
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         // In a party the server's queue is the one being topped up, and this
         // player's copy of it lags behind by however long reconcile is held off
@@ -2971,26 +3010,27 @@ class PlaybackService : MediaLibraryService() {
         // never counted.
         ListeningRecorder.onStopped()
         val newSong = mediaItem?.toSong()
-        val durationMs = exoPlayer.duration.takeIf { it > 0 }
-        if (exoPlayer.isPlaying) {
+        val currentIsLive = newSong?.isLive == true ||
+            exoPlayer.isCurrentMediaItemLive ||
+            StreamResolver.isKnownLive(newSong?.videoId)
+        updateLiveTrackSelection(exoPlayer, currentIsLive)
+        val durationMs = if (currentIsLive) null else exoPlayer.duration.takeIf { it > 0 }
+        if (exoPlayer.isPlaying && !currentIsLive) {
             scrobbleManager?.onSongStart(newSong, durationMs)
         }
 
         // ListenBrainz: submit finished for old song, playing_now for new song.
-        // The finished listen only counts when the track actually ended —
-        // an auto-advance, a repeat, or a crossfade at the very end. A
-        // manual skip (SEEK) means the song wasn't listened to, so it must
-        // not be scrobbled.
+        // Live streams do not submit scrobbles.
         val ended = previousEnded
         val prevSong = listenBrainzSong
         val prevStart = listenBrainzStartMs
-        if (prevSong != null && ended && prevStart > 0L) {
+        if (prevSong != null && !prevSong.isLive && ended && prevStart > 0L) {
             submitListenBrainzFinished(prevSong, prevStart, listenBrainzDurationMs)
         }
-        listenBrainzSong = newSong
-        listenBrainzStartMs = if (exoPlayer.isPlaying) System.currentTimeMillis() else 0L
+        listenBrainzSong = newSong?.takeUnless { currentIsLive }
+        listenBrainzStartMs = if (exoPlayer.isPlaying && !currentIsLive) System.currentTimeMillis() else 0L
         listenBrainzDurationMs = durationMs
-        if (newSong != null && exoPlayer.isPlaying) {
+        if (newSong != null && !currentIsLive && exoPlayer.isPlaying) {
             submitListenBrainzPlayingNow(newSong, 0L, durationMs)
         }
 
@@ -3016,21 +3056,24 @@ class PlaybackService : MediaLibraryService() {
         if (exoPlayer.isPlaying) registerCurrentPlay()
         savePlaybackState(exoPlayer)
         prefetchAround(exoPlayer)
-        // The second look belongs to the track it was started for; the
-        // queue moving on ends it — unless it is already proving what it
-        // found, see [cancelStaleUpgradeJob] — and starts the new
-        // track's own, which nothing else here would. The
-        // track arriving has usually been resolved already, by
-        // ExoPlayer preparing the next item while this one played, so
-        // it is pending by now; the ones that aren't are picked up by
-        // the sampler in [reportProgress].
         cancelStaleUpgradeJob()
-        lookForBetterCopy(exoPlayer)
+        if (!currentIsLive) {
+            lookForBetterCopy(exoPlayer)
+        }
         // Covers crossfades too: a blended advance never reaches
         // onMediaItemTransition, and [adoptPlayer] calls this handler by hand.
         publishWidgetState()
         loadLyricsForCurrentTrack()
-        if (exoPlayer.isPlaying) startLyricsTicker()
+        if (exoPlayer.isPlaying && !currentIsLive) startLyricsTicker()
+    }
+
+    private fun updateLiveTrackSelection(exoPlayer: ExoPlayer, isLive: Boolean) {
+        val params = exoPlayer.trackSelectionParameters
+        val alreadyDisabled = C.TRACK_TYPE_VIDEO in params.disabledTrackTypes
+        if (alreadyDisabled == isLive) return
+        exoPlayer.trackSelectionParameters = params.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, isLive)
+            .build()
     }
 
     /** The background hunt for a better copy of whatever is playing. */
@@ -3121,6 +3164,78 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    private fun resolveLiveStream(videoId: String): Pair<String, Map<String, String>> {
+        QualityUpgrade.forget(videoId)
+        StreamChoice.forget(videoId)
+        NerdStats.clearDeclared(videoId)
+        NerdStats.recordSource(videoId, "YouTube Live")
+        val streamUrl = try {
+            runBlocking(TrackLog.about(videoId)) {
+                withTimeout(RESOLVE_TIMEOUT_MS) { StreamResolver.resolve(videoId, isLive = true) }
+            }
+        } catch (e: TimeoutCancellationException) {
+            throw java.io.IOException("Live stream resolution timed out for $videoId", e)
+        }
+        StreamContainer.declare(streamUrl, "hls")
+        liveServedUrls[videoId] = streamUrl
+        val headers = StreamResolver.mediaHeadersFor(streamUrl)
+        return streamUrl to headers
+    }
+
+    /**
+     * Routes `bitchord://` live items directly to [HlsMediaSource.Factory] over a clean
+     * [OkHttpDataSource.Factory] chain (bypassing disk cache and range chunking), and keeps
+     * [DefaultMediaSourceFactory] for all VOD/local/module sources.
+     */
+    private class LiveAwareMediaSourceFactory(
+        private val defaultFactory: DefaultMediaSourceFactory,
+        private val loadErrorHandlingPolicy: LoadErrorHandlingPolicy,
+        private val resolveLiveStream: (videoId: String) -> Pair<String, Map<String, String>>,
+    ) : MediaSource.Factory by defaultFactory {
+
+        override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+            val uri = mediaItem.localConfiguration?.uri
+            if (!mediaItem.isLiveItem || uri?.scheme?.equals("bitchord", ignoreCase = true) != true) {
+                return defaultFactory.createMediaSource(mediaItem)
+            }
+            val sessionHeaders = AtomicReference<Map<String, String>>(emptyMap())
+            val liveDataSourceFactory = ResolvingDataSource.Factory(OkHttpDataSource.Factory(Http.client)) { dataSpec ->
+                val scheme = dataSpec.uri.scheme?.lowercase(Locale.ROOT)
+                if (scheme == "http" || scheme == "https") {
+                    val url = dataSpec.uri.toString()
+                    val headers = sessionHeaders.get().ifEmpty { StreamResolver.mediaHeadersFor(url) }
+                    if (headers.isNotEmpty() || dataSpec.httpRequestHeaders.isNotEmpty()) {
+                        dataSpec.buildUpon()
+                            .setHttpRequestHeaders(headers + dataSpec.httpRequestHeaders)
+                            .build()
+                    } else {
+                        dataSpec
+                    }
+                } else {
+                    val videoId = dataSpec.uri.getQueryParameter("v")
+                        ?: mediaItem.mediaId.takeIf { it.isNotBlank() }
+                        ?: throw java.io.IOException("Missing videoId for live item: ${dataSpec.uri}")
+                    val (streamUrl, headers) = resolveLiveStream(videoId)
+                    sessionHeaders.set(headers)
+                    StreamContainer.served(videoId, streamUrl)
+                    TrackLog.d(
+                        "BitChord",
+                        "serving live HLS stream for $videoId (host=${Uri.parse(streamUrl).host})",
+                        about = videoId,
+                    )
+                    dataSpec.buildUpon()
+                        .setUri(Uri.parse(streamUrl))
+                        .setHttpRequestHeaders(headers)
+                        .build()
+                }
+            }
+            return HlsMediaSource.Factory(liveDataSourceFactory)
+                .setAllowChunklessPreparation(false)
+                .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+                .createMediaSource(mediaItem)
+        }
+    }
+
     /** Counts every byte a player reads, cache or network, progressive or DASH. */
     private class CountingBandwidthMeter(private val delegate: BandwidthMeter) : BandwidthMeter by delegate {
         val bytes = AtomicLong()
@@ -3169,9 +3284,17 @@ class PlaybackService : MediaLibraryService() {
      * starting over.
      */
     private fun recoverFrom(error: PlaybackException, player: ExoPlayer) {
+        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+            val mediaId = player.currentMediaItem?.mediaId
+            TrackLog.w("BitChord", "live window fell behind for $mediaId; seeking to live edge", about = mediaId)
+            player.seekToDefaultPosition()
+            player.prepare()
+            return
+        }
         val item = player.currentMediaItem ?: return
         val mediaId = item.mediaId
         val uri = item.localConfiguration?.uri
+        val isLive = item.isLiveItem || player.isCurrentMediaItemLive || StreamResolver.isKnownLive(mediaId)
         val position = player.currentPosition.coerceAtLeast(0L)
         val attempts = recoveries.getOrDefault(mediaId, 0) + 1
         recoveries[mediaId] = attempts
@@ -3315,6 +3438,18 @@ class PlaybackService : MediaLibraryService() {
                 QualityUpgrade.refuseUpgrades(videoId)
             }
         uri?.getQueryParameter("v")?.let(StreamChoice::forget)
+        if (isLive) {
+            val httpCode = generateSequence<Throwable>(error) { it.cause }
+                .filterIsInstance<HttpDataSource.InvalidResponseCodeException>()
+                .firstOrNull()
+                ?.responseCode
+            val served = liveServedUrls.remove(mediaId)
+            if (httpCode != null) {
+                StreamResolver.onLivePlaybackRefused(mediaId, served, httpCode)
+            } else {
+                StreamResolver.invalidate(mediaId)
+            }
+        }
         scope.launch(TrackLog.about(mediaId)) {
             // Long enough for the released source to let go of the cache keys
             // about to be removed, short enough to read as a stutter.
@@ -3342,12 +3477,19 @@ class PlaybackService : MediaLibraryService() {
             withContext(Dispatchers.Main) {
                 val player = this@PlaybackService.player ?: return@withContext
                 if (player.currentMediaItem?.mediaId != mediaId) return@withContext
-                TrackLog.d("BitChord", "retrying $mediaId from ${position}ms")
+                TrackLog.d(
+                    "BitChord",
+                    if (isLive) "retrying live $mediaId from live edge" else "retrying $mediaId from ${position}ms",
+                )
                 // Claimed before the seek, so the transition it may fire is
                 // recognised as this retry rather than read as a fresh start and
                 // handed a fresh attempt budget.
                 retryingMediaId = mediaId
-                player.seekTo(player.currentMediaItemIndex, position)
+                if (isLive) {
+                    player.seekToDefaultPosition(player.currentMediaItemIndex)
+                } else {
+                    player.seekTo(player.currentMediaItemIndex, position)
+                }
                 player.prepare()
             }
         }
@@ -3521,13 +3663,31 @@ class PlaybackService : MediaLibraryService() {
         // [restreamMissingLocalFile]: that flag stops a retry against the same
         // stream refilling its own budget, and this is the first attempt this
         // stream has had that could possibly work.
+        val isLiveHls = mime == MimeTypes.APPLICATION_M3U8 &&
+            (item.isLiveItem || StreamResolver.isKnownLive(mediaId))
+        val targetUri = if (isLiveHls && "live=1" !in reopenedUri) {
+            "$reopenedUri&live=1"
+        } else {
+            reopenedUri
+        }
         recoveries.remove(mediaId)
-        val declared = item.buildUpon()
+        val declaredBuilder = item.buildUpon()
             // MIME selects DashMediaSource/HlsMediaSource; the marker makes
             // Media3 actually rebuild rather than update ProgressiveMediaSource.
-            .setUri(reopenedUri)
+            .setUri(targetUri)
             .setMimeType(mime)
-            .build()
+        if (isLiveHls) {
+            val updatedExtras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                putBoolean(EXTRA_IS_LIVE, true)
+                putBoolean("bitchord.isVideo", true)
+            }
+            declaredBuilder.setMediaMetadata(
+                item.mediaMetadata.buildUpon()
+                    .setExtras(updatedExtras)
+                    .build(),
+            )
+        }
+        val declared = declaredBuilder.build()
         scope.launch(TrackLog.about(mediaId)) {
             withContext(Dispatchers.IO) { AudioCache.discard(playbackUri) }
             withContext(Dispatchers.Main) {
@@ -3537,7 +3697,12 @@ class PlaybackService : MediaLibraryService() {
                 // to instead.
                 if (live.currentMediaItem?.mediaId != mediaId) return@withContext
                 live.replaceMediaItem(live.currentMediaItemIndex, declared)
-                live.seekTo(live.currentMediaItemIndex, position)
+                if (isLiveHls) {
+                    updateLiveTrackSelection(live, true)
+                    live.seekToDefaultPosition(live.currentMediaItemIndex)
+                } else {
+                    live.seekTo(live.currentMediaItemIndex, position)
+                }
                 live.prepare()
             }
         }
@@ -5385,7 +5550,9 @@ class PlaybackService : MediaLibraryService() {
                     // that ticks exactly while audio is coming out, which is what
                     // makes it the right place to count from.
                     player.currentMediaItem?.toSong()?.let {
-                        ListeningRecorder.onSample(it, player.duration)
+                        if (!it.isLive && !StreamResolver.isKnownLive(it.videoId)) {
+                            ListeningRecorder.onSample(it, player.duration)
+                        }
                     }
                     // Only two primitive preference values. Queue JSON is
                     // written from onTimelineChanged, never from this loop.
@@ -6384,8 +6551,9 @@ class PlaybackService : MediaLibraryService() {
         // Read on the main thread, before the push is handed to IO: by the time
         // a coroutine gets to run, the queue may have moved on, and ExoPlayer's
         // state is only legal to read from the thread it was built on.
-        val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-        val durationMs = exoPlayer.duration.takeIf { it > 0 } ?: 0L
+        val isLive = song.isLive || exoPlayer.isCurrentMediaItemLive || StreamResolver.isKnownLive(song.videoId)
+        val positionMs = if (isLive) 0L else exoPlayer.currentPosition.coerceAtLeast(0L)
+        val durationMs = if (isLive) 0L else exoPlayer.duration.takeIf { it > 0 } ?: 0L
         // The listener's own rate, not the player's instantaneous one.
         //
         // This is called from the middle of a track change, which is exactly
@@ -6589,7 +6757,7 @@ class PlaybackService : MediaLibraryService() {
             return
         }
 
-        if (!AppSettings.syncedLyrics.value) {
+        if (!AppSettings.syncedLyrics.value || currentSong.isLive || StreamResolver.isKnownLive(currentSong.videoId)) {
             serviceLyrics = null
             stopLyricsTicker()
             return

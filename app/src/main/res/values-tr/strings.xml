@@ -1354,8 +1354,6 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="player_layout_modern_desc">Nefes alan auraya sahip yüzen kapak, buzlu cam kontrol alanı ve hızlı işlemler</string>
     <string name="player_layout_vinyl">Vinil Pikap</string>
     <string name="player_layout_vinyl_desc">Dönen plaktan hareketli iğneyle kayan vinil plak animasyonu</string>
-    <string name="player_layout_classic">Klasik BitChord</string>
-    <string name="player_layout_classic_desc">Orijinal Apple Music tarzı oynatıcı düzeni</string>
     <string name="breathing_artwork_aura">Nefes Alan Kapak Aurası</string>
     <string name="breathing_artwork_aura_desc">Müziğin ritmine göre hafifçe parlayan ortam ışığı</string>
     <string name="artwork_and_visuals">Albüm Kapağı &amp; Görseller</string>
@@ -1584,4 +1582,5 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="support_community_footer">Reddit topluluğumuza katılın, hata bildirin ve geliştirmeyi GitHub üzerinden takip edin.</string>
     <string name="tap_artwork_toggle_fullscreen">Tam ekran için kapağa dokun</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Tam ekran ile kart düzeni arasında geçiş yapmak için oynatıcı kapağına dokunun</string>
+    <string name="live_stations">Canlı İstasyonlar</string>
 </resources>

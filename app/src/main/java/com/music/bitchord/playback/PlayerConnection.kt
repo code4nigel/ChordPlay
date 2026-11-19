@@ -31,13 +31,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.os.bundleOf
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
+import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
@@ -86,6 +89,10 @@ data class PlayerState(
     val hasNext: Boolean = false,
     /** True while the current item is the replacement installed by a quality upgrade. */
     val isQualityUpgraded: Boolean = false,
+    val isLive: Boolean = false,
+    val isSeekable: Boolean = false,
+    val liveOffsetMs: Long = 0L,
+    val isAtLiveEdge: Boolean = true,
 )
 
 /** Binds to [PlaybackService] for the lifetime of the composition. */
@@ -219,6 +226,8 @@ fun Song.toSongBundle(): Bundle = bundleOf(
     "playbackSourceType" to playbackSourceType?.name,
     "playbackSourceId" to playbackSourceId,
     "isExplicit" to (isExplicit ?: false),
+    "isLive" to isLive,
+    "liveViewersText" to liveViewersText,
     // `bundleOf` has no overload for a list of strings, so the two halves of
     // the credits go in afterwards.
 ).apply {
@@ -239,7 +248,11 @@ fun songFromBundle(b: Bundle): Song = Song(
     isVideo = b.getBoolean("isVideo"),
     isVideoOrigin = b.getBoolean("isVideoOrigin"),
     setVideoId = b.getString("setVideoId"),
-    fromAutoplay = b.getBoolean("fromAutoplay"),
+    queueTier = if (b.getBoolean("fromAutoplay")) {
+        com.music.bitchord.data.model.QueueTier.AUTOPLAY
+    } else {
+        com.music.bitchord.data.model.QueueTier.CONTEXT
+    },
     radioName = b.getString("radioName"),
     localUri = b.getString("localUri"),
     downloadFormat = b.getString("downloadFormat"),
@@ -249,6 +262,8 @@ fun songFromBundle(b: Bundle): Song = Song(
     playbackSourceType = b.getString("playbackSourceType")?.let { runCatching { com.music.bitchord.data.model.PlaybackSourceType.valueOf(it) }.getOrNull() },
     playbackSourceId = b.getString("playbackSourceId"),
     isExplicit = if (b.containsKey("isExplicit")) b.getBoolean("isExplicit") else null,
+    isLive = b.getBoolean("isLive"),
+    liveViewersText = b.getString("liveViewersText"),
 )
 
 /** Flushes the current radio queue to disk before reporting that it started. */
@@ -316,13 +331,15 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     queueSnapshot = queueSnapshot.toMutableList().also { it[index] = item.toSong() }
                 }
             }
+            val song = item?.toSong()
+            val liveSnap = readLiveSnapshot(player, song)
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
             position.report(player.currentPosition.coerceAtLeast(0L))
             state = state.copy(
-                song = item?.toSong(),
+                song = song,
                 isPlaying = player.isPlaying,
-                durationMs = player.duration.coerceAtLeast(0L),
+                durationMs = liveSnap.durationMs,
                 error = error,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
                 repeatMode = player.repeatMode,
@@ -332,6 +349,10 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 hasNext = player.hasNextMediaItem(),
                 isQualityUpgraded = item?.mediaMetadata?.extras
                     ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
+                isLive = liveSnap.isLive,
+                isSeekable = liveSnap.isSeekable,
+                liveOffsetMs = liveSnap.liveOffsetMs,
+                isAtLiveEdge = liveSnap.isAtLiveEdge,
             )
         }
 
@@ -378,16 +399,67 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     // Nothing is lost by stopping: `sync` above runs on the controller's own
     // events, and the first thing that happens on the way back is a fresh read.
     val foreground = rememberIsForeground()
-    LaunchedEffect(controller, state.isPlaying, foreground) {
-        while (controller != null && state.isPlaying && foreground) {
+    LaunchedEffect(controller, state.isPlaying, state.isLive, foreground) {
+        if (controller == null || !foreground || (!state.isPlaying && !state.isLive)) return@LaunchedEffect
+        val interval = if (state.isPlaying) 500L else 1_000L
+        while (true) {
             position.report(controller.currentPosition.coerceAtLeast(0L))
-            val duration = controller.duration.coerceAtLeast(0L)
-            if (duration != state.durationMs) state = state.copy(durationMs = duration)
-            delay(500)
+            val snap = readLiveSnapshot(controller, state.song)
+            if (snap.durationMs != state.durationMs ||
+                snap.isLive != state.isLive ||
+                snap.isSeekable != state.isSeekable ||
+                snap.liveOffsetMs != state.liveOffsetMs ||
+                snap.isAtLiveEdge != state.isAtLiveEdge
+            ) {
+                state = state.copy(
+                    durationMs = snap.durationMs,
+                    isLive = snap.isLive,
+                    isSeekable = snap.isSeekable,
+                    liveOffsetMs = snap.liveOffsetMs,
+                    isAtLiveEdge = snap.isAtLiveEdge,
+                )
+            }
+            delay(interval)
         }
     }
     return state
 }
+
+private data class LiveSnapshot(
+    val durationMs: Long,
+    val isLive: Boolean,
+    val isSeekable: Boolean,
+    val liveOffsetMs: Long,
+    val isAtLiveEdge: Boolean,
+)
+
+private fun readLiveSnapshot(player: Player, song: Song?): LiveSnapshot {
+    val live = song?.isLive == true ||
+        player.isCurrentMediaItemLive ||
+        StreamResolver.isKnownLive(song?.videoId)
+    val seekable = player.isCurrentMediaItemSeekable
+    val rawDuration = player.duration.takeIf { it > 0L && it != C.TIME_UNSET } ?: 0L
+    val duration = if (live && !seekable) 0L else rawDuration
+    val offset = if (live) {
+        player.currentLiveOffset.takeIf { it != C.TIME_UNSET && it >= 0L }
+            ?: if (seekable && rawDuration > 0L) {
+                (rawDuration - player.currentPosition.coerceAtLeast(0L)).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+    } else {
+        0L
+    }
+    return LiveSnapshot(
+        durationMs = duration,
+        isLive = live,
+        isSeekable = seekable,
+        liveOffsetMs = offset,
+        isAtLiveEdge = !live || offset < LIVE_EDGE_TOLERANCE_MS,
+    )
+}
+
+private const val LIVE_EDGE_TOLERANCE_MS = 15_000L
 
 /**
  * Per-field snapshot view over [PlayerState]. A composable that reads
@@ -416,6 +488,10 @@ class PlayerReads internal constructor(
     val hasPrevious: Boolean by derived { it.hasPrevious }
     val hasNext: Boolean by derived { it.hasNext }
     val isQualityUpgraded: Boolean by derived { it.isQualityUpgraded }
+    val isLive: Boolean by derived { it.isLive }
+    val isSeekable: Boolean by derived { it.isSeekable }
+    val liveOffsetMs: Long by derived { it.liveOffsetMs }
+    val isAtLiveEdge: Boolean by derived { it.isAtLiveEdge }
 }
 
 /**
@@ -450,11 +526,13 @@ fun rememberPlayerReads(controller: MediaController?): PlayerReads {
                     queueSnapshot = queueSnapshot.toMutableList().also { it[index] = refreshed }
                 }
             }
+            val song = item?.toSong()
+            val liveSnap = readLiveSnapshot(player, song)
             position.report(player.currentPosition.coerceAtLeast(0L))
             state = state.copy(
-                song = item?.toSong(),
+                song = song,
                 isPlaying = player.isPlaying,
-                durationMs = player.duration.coerceAtLeast(0L),
+                durationMs = liveSnap.durationMs,
                 error = error,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
                 repeatMode = player.repeatMode,
@@ -464,6 +542,10 @@ fun rememberPlayerReads(controller: MediaController?): PlayerReads {
                 hasNext = player.hasNextMediaItem(),
                 isQualityUpgraded = item?.mediaMetadata?.extras
                     ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
+                isLive = liveSnap.isLive,
+                isSeekable = liveSnap.isSeekable,
+                liveOffsetMs = liveSnap.liveOffsetMs,
+                isAtLiveEdge = liveSnap.isAtLiveEdge,
             )
         }
 
@@ -502,10 +584,28 @@ fun rememberPlayerReads(controller: MediaController?): PlayerReads {
     val foreground = rememberIsForeground()
     LaunchedEffect(controller, foreground) {
         if (controller == null || !foreground) return@LaunchedEffect
-        pollWhilePlaying(isPlaying = { state.isPlaying }, intervalMs = 500) {
-            position.report(controller.currentPosition.coerceAtLeast(0L))
-            val duration = controller.duration.coerceAtLeast(0L)
-            if (duration != state.durationMs) state = state.copy(durationMs = duration)
+        snapshotFlow { state.isPlaying to state.isLive }.collectLatest { (playing, live) ->
+            if (!playing && !live) return@collectLatest
+            val interval = if (playing) 500L else 1_000L
+            while (true) {
+                position.report(controller.currentPosition.coerceAtLeast(0L))
+                val snap = readLiveSnapshot(controller, state.song)
+                if (snap.durationMs != state.durationMs ||
+                    snap.isLive != state.isLive ||
+                    snap.isSeekable != state.isSeekable ||
+                    snap.liveOffsetMs != state.liveOffsetMs ||
+                    snap.isAtLiveEdge != state.isAtLiveEdge
+                ) {
+                    state = state.copy(
+                        durationMs = snap.durationMs,
+                        isLive = snap.isLive,
+                        isSeekable = snap.isSeekable,
+                        liveOffsetMs = snap.liveOffsetMs,
+                        isAtLiveEdge = snap.isAtLiveEdge,
+                    )
+                }
+                delay(interval)
+            }
         }
     }
     return reads
@@ -553,6 +653,9 @@ fun MediaItem.toSong() = Song(
     playbackSourceId = mediaMetadata.extras?.getString(EXTRA_PLAYBACK_SOURCE_ID),
     localUri = mediaMetadata.extras?.getString(EXTRA_LOCAL_URI),
     localPath = mediaMetadata.extras?.getString(EXTRA_LOCAL_PATH),
+    isLive = mediaMetadata.extras?.getBoolean(EXTRA_IS_LIVE) == true ||
+        localConfiguration?.uri?.getQueryParameter("live") == "1",
+    liveViewersText = mediaMetadata.extras?.getString(EXTRA_LIVE_VIEWERS),
 )
 
 /** @see Song.fromAutoplay */
@@ -631,6 +734,8 @@ private const val EXTRA_DURATION = "bitchord.durationText"
 private const val EXTRA_EXPLICIT = "bitchord.explicit"
 private const val EXTRA_IS_VIDEO = "bitchord.isVideo"
 private const val EXTRA_VIDEO_ORIGIN = "bitchord.isVideoOrigin"
+internal const val EXTRA_IS_LIVE = "bitchord.isLive"
+internal const val EXTRA_LIVE_VIEWERS = "bitchord.liveViewers"
 
 /** Set only on the replacement item produced by [QualityUpgrade]. */
 const val EXTRA_QUALITY_UPGRADED = "bitchord.qualityUpgraded"
@@ -639,6 +744,12 @@ const val EXTRA_QUALITY_UPGRADED = "bitchord.qualityUpgraded"
 val MediaItem.isVideoOrigin: Boolean
     get() = mediaMetadata.extras?.getBoolean(EXTRA_VIDEO_ORIGIN) == true ||
         mediaMetadata.extras?.getBoolean(EXTRA_IS_VIDEO) == true
+
+/** Whether this item represents an active/24/7 live broadcast stream. */
+val MediaItem.isLiveItem: Boolean
+    get() = mediaMetadata.extras?.getBoolean(EXTRA_IS_LIVE) == true ||
+        localConfiguration?.uri?.getQueryParameter("live") == "1" ||
+        StreamResolver.isKnownLive(mediaId)
 
 fun MediaController.autoplaySectionStart(): Int = autoplaySectionStart(
     fromAutoplay = (0 until mediaItemCount).map { getMediaItemAt(it).fromAutoplay },
@@ -684,73 +795,58 @@ private fun resolvePlaybackUri(uriString: String, localPath: String?): String {
  * simply omits it and the match is made on title and artist alone, as it was
  * before.
  */
+private fun encodeQueryValue(value: String): String =
+    Uri.encode(value) ?: java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
 private fun Song.matchQuery(): String = buildString {
-    append("&n=").append(Uri.encode(title))
-    append("&a=").append(Uri.encode(artist))
+    append("&n=").append(encodeQueryValue(title))
+    append("&a=").append(encodeQueryValue(artist))
     TrackMatcher.secondsOf(durationText)?.let { append("&d=").append(it) }
-    albumName?.takeIf { it.isNotBlank() }?.let { append("&l=").append(Uri.encode(it)) }
+    albumName?.takeIf { it.isNotBlank() }?.let { append("&l=").append(encodeQueryValue(it)) }
     isExplicit?.let { append("&e=").append(if (it) "1" else "0") }
     // `m` controls source routing, not player policy. A converted catalogue
     // track keeps [isVideoOrigin] for AutoMix, but is intentionally audio here
     // so the normal source-quality upgrade path can improve it.
-    if (isVideo) append("&m=1")
+    if (isVideo || isLive) append("&m=1")
+    if (isLive) append("&live=1")
+}
+
+internal fun Song.playbackUriString(offlineUri: String? = null): String {
+    val effectiveOfflineUri = if (isLive) null else offlineUri
+    if (effectiveOfflineUri != null) return effectiveOfflineUri
+    val sourceTrack = SourceRegistry.parseTrackKey(videoId)
+    return when {
+        videoId.startsWith("content://") || videoId.startsWith("file://") -> videoId
+        isLive -> "bitchord://watch?v=$videoId${matchQuery()}"
+        sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
+            .let { "$it${matchQuery()}" }
+        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
+        else -> "bitchord://watch?v=$videoId${matchQuery()}"
+    }
+}
+
+internal fun Song.playbackMimeType(offlineUri: String? = null): String? {
+    val effectiveOfflineUri = if (isLive) null else offlineUri
+    return if (isLive && effectiveOfflineUri == null) MimeTypes.APPLICATION_M3U8 else null
 }
 
 fun Song.toMediaItem(): MediaItem {
-    val sourceTrack = SourceRegistry.parseTrackKey(videoId)
-    // A row from search or a playlist carries no file of its own, but the track
-    // may still be on disk from a download — see [Downloads.saved].
-    //
-    // Answered *here*, where the item is built, rather than in the player's
-    // stream resolver, because everything downstream decides what to do by the
-    // scheme the item arrives with: [AudioCache.playbackFactory] sends file and
-    // content URIs past the disk cache instead of writing a second copy of
-    // them, and DefaultDataSource picks ContentDataSource off the same scheme.
-    // A local URI substituted further down lands inside the half of the chain
-    // that only speaks HTTP, where OkHttp rejects it as a malformed URL — which
-    // is what a downloaded track played from search used to do, four times over,
-    // before giving up.
-    //
-    // Both halves are checked, not just the record: a claim about a folder this
-    // app does not own — see [Downloads] — outlives the file it names whenever
-    // one is deleted from a file manager, and trusting either unchecked sent the
-    // player a `file://` uri to a path that had simply stopped existing.
-    //
-    // [localUri] needs it just as much as the lookup does, and for a reason that
-    // is easy to miss: it is not only set from a folder read that just verified
-    // the file. It also round-trips off the player's own item through
-    // [MediaItem.toSong], so an item waiting in the live queue can carry a URI
-    // that has become stale since it was created. Checking only the lookup
-    // leaves that path unguarded.
-    val offlineUri = localUri?.takeUnless(Downloads::isMissingLocalFile)
-        ?: Downloads.verifiedSavedUri(videoId)
-    val uriString = offlineUri ?: when {
-        videoId.startsWith("content://") || videoId.startsWith("file://") -> videoId
-        // Title, artist and runtime ride along in the URI because they are what
-        // a cross-source match is made on, and the resolver runs on ExoPlayer's
-        // loader thread with nothing but a DataSpec in hand — see
-        // [SourceResolver.resolve]. Read-ahead resolves tracks that aren't the
-        // current item, so reaching back for the session's metadata isn't an
-        // option either.
-        sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
-            .let { "$it${matchQuery()}" }
-        // A track the listener reverted by hand stays reverted — see
-        // [OriginalVersion]. Applied here rather than at the one menu that
-        // reverts, because "stays" has to mean the next queue entry built for
-        // this song too: another play from a list, a restored queue, Android
-        // Auto. Everything downstream reads the item's URI and nothing reads
-        // the preference, so this is the only place it has to be said.
-        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
-        // The same three fields, for the same reason, on the YouTube path: a
-        // source ranked above YouTube gets offered this track before YouTube
-        // resolves it — see [SourceResolver.substituteForYouTube] — and that
-        // match is made on them, which the loader thread has no other way to
-        // reach.
-        else -> "bitchord://watch?v=$videoId${matchQuery()}"
+    val offlineUri = if (isLive) {
+        null
+    } else {
+        localUri?.takeUnless(Downloads::isMissingLocalFile)
+            ?: Downloads.verifiedSavedUri(videoId)
     }
+    val uriString = playbackUriString(offlineUri)
+    val mimeType = playbackMimeType(offlineUri)
     return MediaItem.Builder()
         .setMediaId(videoId)
         .setUri(resolvePlaybackUri(uriString, localPath))
+        .apply {
+            if (mimeType != null) {
+                setMimeType(mimeType)
+            }
+        }
     .setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(title)
@@ -794,7 +890,8 @@ fun Song.toMediaItem(): MediaItem {
                 if (queueTier != QueueTier.CONTEXT || queueEntryId != null || fromAutoplay ||
                     offlineUri != null || durationText != null ||
                     artistId != null || albumId != null || setVideoId != null ||
-                    isExplicit != null || isVideo || isVideoOrigin || radioName != null ||
+                    isExplicit != null || isVideo || isVideoOrigin || isLive ||
+                    liveViewersText != null || radioName != null ||
                     playbackSource != null || playbackSourceType != null || playbackSourceId != null
                 ) {
                     setExtras(
@@ -815,6 +912,8 @@ fun Song.toMediaItem(): MediaItem {
                             EXTRA_EXPLICIT to isExplicit,
                             EXTRA_IS_VIDEO to isVideo,
                             EXTRA_VIDEO_ORIGIN to isVideoOrigin,
+                            EXTRA_IS_LIVE to isLive,
+                            EXTRA_LIVE_VIEWERS to liveViewersText,
                         ),
                     )
                 }
@@ -924,7 +1023,25 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         }
         queue.map { it.toMediaItem() }
     }
-    setMediaItems(items, queueStartIndex(startIndex, items.size, shuffled), 0L)
+    val startPos = if (songs.getOrNull(startIndex)?.isLive == true) C.TIME_UNSET else 0L
+    setMediaItems(items, queueStartIndex(startIndex, items.size, shuffled), startPos)
+    prepare()
+    play()
+}
+
+/**
+ * Replaces the queue with 24/7 Live Stations without shuffling so Next/Previous
+ * surf sequentially between live channels and playback starts directly at the live edge.
+ */
+suspend fun MediaController.playLiveStations(stations: List<Song>, startIndex: Int) {
+    if (stations.isEmpty()) return
+    val clamped = startIndex.coerceIn(stations.indices)
+    val items = withContext(Dispatchers.Default) {
+        stations.map { station ->
+            station.copy(isLive = true, isVideo = true).toMediaItem()
+        }
+    }
+    setMediaItems(items, clamped, C.TIME_UNSET)
     prepare()
     play()
 }

@@ -1274,8 +1274,6 @@
     <string name="player_layout_modern_desc">Floating cover with breathing aura, frosted capsule deck, and quick actions</string>
     <string name="player_layout_vinyl">Vinyl Turntable</string>
     <string name="player_layout_vinyl_desc">Spinning vinyl record sliding out from sleeve with moving tonearm</string>
-    <string name="player_layout_classic">Classic BitChord</string>
-    <string name="player_layout_classic_desc">Original Apple Music-style player layout</string>
 
     <string name="breathing_artwork_aura">Breathing Artwork Aura</string>
     <string name="breathing_artwork_aura_desc">Subtle ambient artwork glow pulsing with audio playback</string>
@@ -1518,4 +1516,5 @@
     <string name="melody_mood_sad">Sad</string>
     <string name="melody_mood_focus">Focus</string>
     <string name="melody_mood_party">Party</string>
+    <string name="live_stations">Live Stations</string>
 </resources>

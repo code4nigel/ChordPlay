@@ -52,6 +52,8 @@ object TrackMatcher {
         val isExplicit: Boolean? = null,
         /** Music-video timing includes visual intros/outros that catalogue audio omits. */
         val isVideo: Boolean = false,
+        /** True for 24/7 or active live broadcasts (never substituted/upgraded). */
+        val isLive: Boolean = false,
     )
 
     fun targetOf(song: Song) = Target(
@@ -61,6 +63,7 @@ object TrackMatcher {
         song.albumName,
         song.isExplicit,
         song.isVideo,
+        song.isLive,
     )
 
     // ── Asking ──────────────────────────────────────────────────────────────

@@ -260,4 +260,15 @@
     <string name="radio_start_station">開始電台</string>
     <string name="radio_stations">為你推薦的電台</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">直播電台</string>
+    <string name="live_on_air">24/7 直播中</string>
+    <string name="live_badge">直播</string>
+    <string name="live_station_247">24/7 直播電台</string>
+    <string name="jump_to_live">回到直播</string>
+    <string name="live_cat_all">全部</string>
+    <string name="live_cat_artist_stations">藝人電台</string>
+    <string name="live_cat_lofi_chill">Lo-Fi 與放鬆</string>
+    <string name="live_cat_hits">熱門金曲</string>
+    <string name="live_cat_rock_pop">搖滾與流行</string>
+    <string name="live_stations_empty">目前此分類找不到直播電台。</string>
 </resources>

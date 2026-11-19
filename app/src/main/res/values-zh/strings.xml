@@ -1376,8 +1376,6 @@
     <string name="player_layout_modern_desc">呼吸光晕浮空封面、磨砂胶囊控制区与快捷操作</string>
     <string name="player_layout_vinyl">复古黑胶唱机</string>
     <string name="player_layout_vinyl_desc">滑出唱套的旋转黑胶唱片与灵动唱臂动画</string>
-    <string name="player_layout_classic">经典 BitChord</string>
-    <string name="player_layout_classic_desc">经典 Apple Music 风格播放器布局</string>
     <string name="breathing_artwork_aura">律动封面光晕</string>
     <string name="breathing_artwork_aura_desc">环境微光随音频节奏律动呼吸</string>
     <string name="artwork_and_visuals">封面与视觉效果</string>
@@ -1606,4 +1604,5 @@
     <string name="support_community_footer">欢迎加入 Reddit 社区，反馈问题，并在 GitHub 上关注我们的开发进度。</string>
     <string name="tap_artwork_toggle_fullscreen">轻按切换封面全屏</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">轻按播放器封面可在全屏与卡片布局之间切换</string>
+    <string name="live_stations">直播电台</string>
 </resources>

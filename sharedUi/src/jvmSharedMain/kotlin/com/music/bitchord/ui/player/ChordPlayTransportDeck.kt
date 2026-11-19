@@ -156,6 +156,7 @@ fun SynesthesiaWaveformScrubber(
     trackKey: String = "",
     palette: MeshPalette = remember { MeshPalette(emptyList()) },
     modifier: Modifier = Modifier,
+    showTimestamps: Boolean = true,
 ) {
     val progress = shown().coerceIn(0f, 1f)
     val haptics = rememberHaptics()
@@ -376,22 +377,24 @@ fun SynesthesiaWaveformScrubber(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            OdometerText(
-                value = formatTime((progress * durationMs).toLong()),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.65f),
-            )
-            OdometerText(
-                value = formatTime(durationMs.coerceAtLeast(0L)),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.65f),
-            )
+        if (showTimestamps) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                OdometerText(
+                    value = formatTime((progress * durationMs).toLong()),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+                OdometerText(
+                    value = formatTime(durationMs.coerceAtLeast(0L)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = 0.65f),
+                )
+            }
         }
     }
 }
@@ -417,6 +420,7 @@ fun ChordPlayTransportDeck(
     palette: MeshPalette = remember { MeshPalette(emptyList()) },
     hazeState: HazeState? = null,
     queueOpen: Boolean = false,
+    isLive: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -551,7 +555,7 @@ fun ChordPlayTransportDeck(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    enabled = !queueOpen,
+                    enabled = !queueOpen && !isLive,
                 ) {
                     haptics.play(if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn)
                     onToggleShuffle()
@@ -562,7 +566,11 @@ fun ChordPlayTransportDeck(
                 Icon(
                     imageVector = BitChordIcons.Shuffle,
                     contentDescription = stringResource(if (shuffleEnabled) Res.string.shuffle_on else Res.string.shuffle_off),
-                    tint = if (shuffleEnabled) accentColor else Color.White.copy(alpha = 0.58f),
+                    tint = when {
+                        isLive -> Color.White.copy(alpha = 0.22f)
+                        shuffleEnabled -> accentColor
+                        else -> Color.White.copy(alpha = 0.58f)
+                    },
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -817,7 +825,7 @@ fun ChordPlayTransportDeck(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    enabled = !queueOpen,
+                    enabled = !queueOpen && !isLive,
                 ) {
                     haptics.play(
                         when (repeatMode) {
@@ -831,7 +839,7 @@ fun ChordPlayTransportDeck(
             contentAlignment = Alignment.Center,
         ) {
             if (sideButtonsWidth > 4.dp) {
-                if (repeatMode == RepeatModes.ONE) {
+                if (!isLive && repeatMode == RepeatModes.ONE) {
                     Text(
                         text = "1",
                         color = accentColor,
@@ -842,7 +850,11 @@ fun ChordPlayTransportDeck(
                     Icon(
                         imageVector = BitChordIcons.Repeat,
                         contentDescription = stringResource(Res.string.repeat_off),
-                        tint = if (repeatActive) accentColor else Color.White.copy(alpha = 0.58f),
+                        tint = when {
+                            isLive -> Color.White.copy(alpha = 0.22f)
+                            repeatActive -> accentColor
+                            else -> Color.White.copy(alpha = 0.58f)
+                        },
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -866,6 +878,7 @@ fun ChordPlayPipelineBottomPill(
 ) {
     val haptics = rememberHaptics()
     val videoQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
+    val mvQuality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     val racingLossless by NerdStats.racingLossless.collectAsStateWithLifecycle()
     val stillRacing = song.videoId in racingLossless
@@ -879,8 +892,22 @@ fun ChordPlayPipelineBottomPill(
     val stats = nerdStats
     val hasMeasuredAudio = stats != null && (stats.mimeType != null || stats.bitrateKbps != null || stats.sampleRateHz != null)
 
+    val qualityBadge = if (videoQuality.isAuto) {
+        mvQuality.activeHeight?.takeIf { it > 0 }?.let { h ->
+            when {
+                h >= 2160 -> "4K"
+                h >= 1080 -> "FHD"
+                h >= 720 -> "HD"
+                else -> "${h}P"
+            }
+        } ?: videoQuality.badge
+    } else {
+        videoQuality.badge
+    }
+
     val primaryLabel = when {
-        song.isVideo -> "VIDEO • ${videoQuality.badge}"
+        song.isLive -> "LIVE • $qualityBadge"
+        song.isVideo -> "VIDEO • $qualityBadge"
         isLoading || stillRacing || !hasMeasuredAudio -> "PROCESSING..."
         stats?.isHiRes == true -> "HD LOSSLESS"
         stats?.isLossless == true -> "LOSSLESS ${NerdStats.codecLabel(stats.mimeType) ?: "FLAC"}"
@@ -894,6 +921,7 @@ fun ChordPlayPipelineBottomPill(
 
     val sampleRate = stats?.sampleRateHz
     val secondaryLabel = when {
+        song.isLive -> "24/7 LIVE STATION"
         song.isVideo -> "VIDEO STREAM"
         isLoading || stillRacing || !hasMeasuredAudio -> "AUDIO PIPELINE"
         stats?.isLossless == true -> {

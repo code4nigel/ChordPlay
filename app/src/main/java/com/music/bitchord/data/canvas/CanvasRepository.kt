@@ -72,9 +72,13 @@ object CanvasRepository {
      * ([NowPlayingScreen], which checks [AppSettings.canvasOverCellular]).
      */
     suspend fun canvasFor(song: Song): CanvasArtwork? {
-        if (song.isVideo && song.videoId.isNotBlank()) {
-            val maxH = AppSettings.videoQuality.value.maxHeight
-            val resolved = com.music.bitchord.data.innertube.StreamResolver.resolveVideoStream(song.videoId, maxH)
+        if ((song.isVideo || song.isLive) && song.videoId.isNotBlank()) {
+            val maxH = AppSettings.videoQuality.value.let { if (it.isAuto) 1080 else it.maxHeight }
+            val resolved = com.music.bitchord.data.innertube.StreamResolver.resolveVideoStream(
+                videoId = song.videoId,
+                maxHeight = maxH,
+                isLive = song.isLive,
+            )
             return if (resolved != null) {
                 CanvasArtwork(
                     url = resolved.url,
@@ -131,7 +135,7 @@ object CanvasRepository {
      * through the settling delay again to arrive back at the same clip.
      */
     fun cached(song: Song): CanvasArtwork? {
-        if (song.isVideo) return null
+        if (song.isVideo || song.isLive) return null
         val key = cacheKey(
             base = "song|${song.videoId}",
             spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value,

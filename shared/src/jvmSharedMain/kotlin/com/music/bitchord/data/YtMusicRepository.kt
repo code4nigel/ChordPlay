@@ -25,6 +25,7 @@ import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
+import com.music.bitchord.data.model.LiveStationCategory
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.playlistMoves
 import com.music.bitchord.data.model.PlaylistPrivacy
@@ -295,6 +296,96 @@ object YtMusicRepository {
             subtitle = "16:9 widescreen official videos",
         )
     }
+
+    @Volatile
+    private var liveStationsCache: Pair<List<ShelfItem>, Long>? = null
+
+    /**
+     * 24/7 Live Artist Stations & active live music radio broadcasts for the Radio tab.
+     * Merges Home's personalized "Listen together / STATION" shelf (when available) with
+     * live-filtered YouTube searches across curated categories so guests and all regions
+     * always see active 24/7 live streams.
+     */
+    suspend fun liveStations(
+        homeShelves: List<HomeShelf> = emptyList(),
+        seedArtists: List<String> = emptyList(),
+        forceRefresh: Boolean = false,
+    ): Result<List<ShelfItem>> = call("radio:liveStations") {
+        val homeLive = homeShelves
+            .flatMap { it.items }
+            .filter { it.isLive && !it.videoId.isNullOrBlank() }
+            .map {
+                it.copy(
+                    isVideo = true,
+                    liveCategory = it.liveCategory ?: LiveStationCategory.ARTIST_STATIONS,
+                )
+            }
+
+        val now = MonotonicClock.nowMs()
+        if (!forceRefresh) {
+            liveStationsCache?.takeIf { now - it.second < LIVE_STATIONS_TTL_MS }?.let { (cached, _) ->
+                if (cached.isNotEmpty()) {
+                    return@call (homeLive + cached)
+                        .distinctBy { it.videoId }
+                }
+            }
+        }
+
+        val fetched = coroutineScope {
+            val topArtist = seedArtists.firstOrNull { it.isNotBlank() }
+            val queries = buildList {
+                if (topArtist != null) {
+                    add(LiveStationCategory.ARTIST_STATIONS to "$topArtist \"The Station\" live")
+                }
+                add(LiveStationCategory.ARTIST_STATIONS to "\"The Station\" live music 24/7")
+                add(LiveStationCategory.LOFI_CHILL to "24/7 lofi hip hop chill beats live radio")
+                add(LiveStationCategory.HITS to "24/7 top hits pop music live radio")
+                add(LiveStationCategory.ROCK_POP to "24/7 rock pop classic hits live music radio")
+            }
+            val searchBatches = queries.map { (category, query) ->
+                async {
+                    runCatching {
+                        InnertubeParser.parseYouTubeLiveSearch(
+                            Innertube.searchLiveYouTube(query),
+                            category = category,
+                        ).take(8)
+                    }.getOrDefault(emptyList())
+                }
+            }
+            val ytMusicStationFallback = async {
+                runCatching {
+                    InnertubeParser.parseSearchPage(
+                        Innertube.search("\"The Station\"", SearchFilter.VIDEOS.params),
+                        includeVideos = true,
+                    ).rows.mapNotNull { row ->
+                        val song = (row as? SearchResult.Track)?.song ?: (row as? SearchResult.TopTrack)?.song
+                        song?.takeIf { it.isLive || it.title.endsWith(": The Station", ignoreCase = true) }?.let {
+                            ShelfItem(
+                                title = it.title,
+                                subtitle = it.artist,
+                                thumbnailUrl = it.thumbnailUrl,
+                                videoId = it.videoId,
+                                browseId = null,
+                                isVideo = true,
+                                isLive = true,
+                                liveViewersText = it.liveViewersText,
+                                liveCategory = LiveStationCategory.ARTIST_STATIONS,
+                            )
+                        }
+                    }.take(8)
+                }.getOrDefault(emptyList())
+            }
+            searchBatches.awaitAll().flatten() + ytMusicStationFallback.await()
+        }
+
+        val combined = (homeLive + fetched).distinctBy { it.videoId }
+        if (combined.isNotEmpty()) {
+            liveStationsCache = combined to now
+        }
+        combined
+    }
+
+    private const val LIVE_STATIONS_TTL_MS = 5 * 60 * 1000L
 
     private const val HISTORY = "FEmusic_history"
     private const val RECENT_TITLE = "Recents"

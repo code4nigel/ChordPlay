@@ -127,48 +127,42 @@ object GlassShaderWarmup {
             key = "Refraction",
             source = RoundedRectRefractionShaderString,
         ) {
-            setFloatUniform("halfSize", 64f, 32f)
-            setFloatUniform("minHalf", 32f)
+            setFloatUniform("size", 128f, 64f)
             setFloatUniform("offset", 0f, 0f)
             setFloatUniform("cornerRadii", floatArrayOf(16f, 16f, 16f, 16f))
             setFloatUniform("refractionHeight", 8f)
             setFloatUniform("refractionAmount", -12f)
             setFloatUniform("depthEffect", 0f)
-            setIntUniform("circleMapMode", 0)
         },
         WarmupShader(
             key = "RefractionWithDispersion",
             source = RoundedRectRefractionWithDispersionShaderString,
         ) {
-            setFloatUniform("halfSize", 64f, 32f)
-            setFloatUniform("minHalf", 32f)
+            setFloatUniform("size", 128f, 64f)
             setFloatUniform("offset", 0f, 0f)
             setFloatUniform("cornerRadii", floatArrayOf(16f, 16f, 16f, 16f))
             setFloatUniform("refractionHeight", 8f)
             setFloatUniform("refractionAmount", -12f)
             setFloatUniform("depthEffect", 0f)
-            setFloatUniform("chromaticAberration", 0.5f)
-            setIntUniform("circleMapMode", 0)
+            setFloatUniform("chromaticAberration", 1f)
         },
         WarmupShader(
             key = "Default",
             source = DefaultHighlightShaderString,
         ) {
-            setFloatUniform("halfSize", 64f, 32f)
-            setFloatUniform("minHalf", 32f)
+            setFloatUniform("size", 128f, 64f)
             setFloatUniform("cornerRadii", floatArrayOf(16f, 16f, 16f, 16f))
             setColorUniform("color", Color.White)
-            setFloatUniform("lightDir", 0.70710677f, 0.70710677f)
+            setFloatUniform("angle", 0.7853982f)
             setFloatUniform("falloff", 1f)
         },
         WarmupShader(
             key = "Ambient",
             source = AmbientHighlightShaderString,
         ) {
-            setFloatUniform("halfSize", 64f, 32f)
-            setFloatUniform("minHalf", 32f)
+            setFloatUniform("size", 128f, 64f)
             setFloatUniform("cornerRadii", floatArrayOf(16f, 16f, 16f, 16f))
-            setFloatUniform("lightDir", 0.70710677f, 0.70710677f)
+            setFloatUniform("angle", 0.7853982f)
             setFloatUniform("falloff", 1f)
         },
     )

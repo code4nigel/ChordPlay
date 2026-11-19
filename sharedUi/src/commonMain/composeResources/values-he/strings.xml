@@ -260,4 +260,15 @@
     <string name="radio_start_station">הפעל תחנה</string>
     <string name="radio_stations">תחנות עבורך</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">תחנות בשידור חי</string>
+    <string name="live_on_air">שידור חי 24/7</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">תחנת שידור חי 24/7</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">הכול</string>
+    <string name="live_cat_artist_stations">תחנות אמנים</string>
+    <string name="live_cat_lofi_chill">Lo-Fi וצ׳יל</string>
+    <string name="live_cat_hits">להיטים</string>
+    <string name="live_cat_rock_pop">רוק ופופ</string>
+    <string name="live_stations_empty">לא נמצאו תחנות בשידור חי עבור קטגוריה זו כרגע.</string>
 </resources>

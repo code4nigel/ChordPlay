@@ -151,7 +151,9 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     ) = AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier, bottomFade = bottomFade)
 
     override fun showsMusicVideoPicture(videoId: String): Boolean =
-        !AppSettings.preferMusicOnly.value && !MusicVideoEngine.isPictureless(videoId)
+        (!AppSettings.preferMusicOnly.value ||
+            com.music.bitchord.data.innertube.StreamResolver.isKnownLive(videoId)) &&
+            !MusicVideoEngine.isPictureless(videoId)
 
     override val musicVideoNoPictureIds: StateFlow<Set<String>>
         get() = MusicVideoEngine.noPictureIds

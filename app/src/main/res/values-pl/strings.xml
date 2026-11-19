@@ -1457,8 +1457,6 @@
     <string name="player_layout_modern_desc">Pływająca okładka z pulsującą poświatą, kapsułkowy pulpit i szybkie akcje</string>
     <string name="player_layout_vinyl">Gramofon winylowy</string>
     <string name="player_layout_vinyl_desc">Kręcąca się płyta winylowa wysuwająca się z okładki z ruchomym ramieniem</string>
-    <string name="player_layout_classic">Klasyczny BitChord</string>
-    <string name="player_layout_classic_desc">Oryginalny układ odtwarzacza w stylu Apple Music</string>
 
     <string name="breathing_artwork_aura">Pulsująca poświata okładki</string>
     <string name="breathing_artwork_aura_desc">Subtelna nastrojowa poświata okładki pulsująca w rytm odtwarzania</string>
@@ -1710,4 +1708,5 @@
     <string name="support_community_footer">Dołącz do naszej społeczności na Reddit, zgłaszaj błędy i śledź rozwój na GitHubie.</string>
     <string name="tap_artwork_toggle_fullscreen">Dotknij okładki, by włączyć pełny ekran</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Dotknij okładki odtwarzacza, aby przełączyć między pełnym ekranem a kartą</string>
+    <string name="live_stations">Stacje na żywo</string>
 </resources>

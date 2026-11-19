@@ -233,7 +233,7 @@ interface PlayerSettingsSource {
     val playerInterfaceStyle: StateFlow<com.music.bitchord.data.settings.PlayerInterfaceStyle> get() = MutableStateFlow(com.music.bitchord.data.settings.PlayerInterfaceStyle.WAVEPLAY)
     val fullscreenArtworkLyricsStyle: StateFlow<FullscreenArtworkLyricsStyle>
     val enableBreathingAura: StateFlow<Boolean>
-    val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.Q_720P)
+    val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.AUTO)
     val landscapeFontScale: StateFlow<com.music.bitchord.data.settings.LandscapeFontScale> get() = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
     val videoFullBleed: StateFlow<Boolean> get() = MutableStateFlow(true)
     val videoFill: StateFlow<Boolean> get() = MutableStateFlow(false)
@@ -333,10 +333,10 @@ internal fun videoQualityLabel(height: Int): String = when {
     else -> "${height}p"
 }
 
-/** Whether [song]'s picture can be shown here — a music video, on a platform that plays one. */
+/** Whether [song]'s picture can be shown here — a music video or live station, on a platform that plays one. */
 internal fun showsMusicVideo(song: Song): Boolean =
-    song.isVideo && PlayerPlatform.host.musicVideoSupported &&
-        PlayerPlatform.host.showsMusicVideoPicture(song.videoId)
+    (song.isVideo || song.isLive) && PlayerPlatform.host.musicVideoSupported &&
+        (song.isLive || PlayerPlatform.host.showsMusicVideoPicture(song.videoId))
 
 /** @see PlayerHost.MusicVideo */
 @Composable

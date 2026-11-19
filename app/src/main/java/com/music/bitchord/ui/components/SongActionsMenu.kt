@@ -232,7 +232,7 @@ fun SongActionsMenu(
 
         // Group 1: Version actions
         val hasVersionActions = onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null
-        val showVideoQualityAction = !isAudioVersion || song.isVideo
+        val showVideoQualityAction = !isAudioVersion || song.isVideo || song.isLive
         if (hasVersionActions || showVideoQualityAction) {
             if (startsGroup()) IosMenuSeparator()
             (onRollbackToOriginal ?: onUpgradeQuality)?.let {
@@ -310,24 +310,28 @@ fun SongActionsMenu(
         }
 
         // Group 3: Downloads & Offline cache
-        if (startsGroup()) IosMenuSeparator()
-        DownloadRow(song, palette, isOffline, onDownload)
-        onRemoveFromCache?.let {
-            ActionRow(
-                icon = Icons.Rounded.DeleteOutline,
-                label = stringResource(R.string.remove_from_cache),
-                accent = palette.accent,
-                onClick = it,
-            )
-        }
-        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
-        onRemoveFromHistory?.let {
-            ActionRow(
-                icon = Icons.Rounded.DeleteOutline,
-                label = stringResource(R.string.remove_from_history),
-                accent = palette.accent,
-                onClick = it,
-            )
+        val showCacheGroup = !song.isLive || onRemoveFromCache != null || onRemoveFromHistory != null ||
+            (onUploadToWebDav != null && isOffline)
+        if (showCacheGroup) {
+            if (startsGroup()) IosMenuSeparator()
+            if (!song.isLive) DownloadRow(song, palette, isOffline, onDownload)
+            onRemoveFromCache?.let {
+                ActionRow(
+                    icon = Icons.Rounded.DeleteOutline,
+                    label = stringResource(R.string.remove_from_cache),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
+            onRemoveFromHistory?.let {
+                ActionRow(
+                    icon = Icons.Rounded.DeleteOutline,
+                    label = stringResource(R.string.remove_from_history),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
         }
 
         // Group 4: Queue & Radio

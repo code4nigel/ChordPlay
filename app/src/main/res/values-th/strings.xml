@@ -1380,8 +1380,6 @@
     <string name="player_layout_modern_desc">หน้าปกเพลงลอยตัวพร้อมออร่ามีชีวิต แคปซูลควบคุมแบบฝ้า และการทำงานด่วน</string>
     <string name="player_layout_vinyl">เครื่องเล่นแผ่นเสียงไวนิล</string>
     <string name="player_layout_vinyl_desc">แผ่นเสียงไวนิลหมุนเลื่อนออกจากซองพร้อมแขนโทนอาร์มเคลื่อนไหว</string>
-    <string name="player_layout_classic">BitChord คลาสสิก</string>
-    <string name="player_layout_classic_desc">เค้าโครงโปรแกรมเล่นสไตล์ Apple Music ดั้งเดิม</string>
     <string name="breathing_artwork_aura">ออร่าภาพหน้าปกเคลื่อนไหว</string>
     <string name="breathing_artwork_aura_desc">แสงบรรยากาศนุ่มนวลรอบหน้าปกที่เปล่งประกายตามจังหวะเพลง</string>
     <string name="artwork_and_visuals">ภาพหน้าปกและภาพกราฟิก</string>
@@ -1610,4 +1608,5 @@
     <string name="support_community_footer">เข้าร่วมชุมชนของเราบน Reddit รายงานจุดบกพร่อง และติดตามการพัฒนาบน GitHub</string>
     <string name="tap_artwork_toggle_fullscreen">แตะเพื่อสลับภาพปกเต็มจอ</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">แตะที่ภาพปกของเครื่องเล่นเพื่อสลับระหว่างแบบเต็มหน้าจอกับแบบการ์ด</string>
+    <string name="live_stations">สถานีถ่ายทอดสด</string>
 </resources>

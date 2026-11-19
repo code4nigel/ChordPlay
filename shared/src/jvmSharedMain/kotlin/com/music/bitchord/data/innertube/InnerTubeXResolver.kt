@@ -72,6 +72,8 @@ object InnerTubeXResolver {
         /** InnerTubeX's catalog id for the exact client variant; what exclusions key on. */
         val profileId: String,
         val headers: Map<String, String>,
+        val isLive: Boolean = false,
+        val isHls: Boolean = false,
     )
 
     /**
@@ -221,6 +223,7 @@ object InnerTubeXResolver {
 
     /** What each minted URL was, so its fetch can be dressed and its refusal attributed. */
     private val minted = ConcurrentHashMap<String, Extracted>()
+    private val mintedVideoHeaders = ConcurrentHashMap<String, Map<String, String>>()
 
     /** Clients refused a track mid-playback, by videoId, and until when. */
     private val excluded = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
@@ -240,13 +243,22 @@ object InnerTubeXResolver {
         maxKbps: Int,
         skipClients: Set<String> = emptySet(),
         requireM4a: Boolean = false,
+        allowHls: Boolean = false,
+        isLive: Boolean = false,
     ): Extracted? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
         innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
-        val stream = extractor.extract(
+        val initialAllowHls = allowHls || isLive
+        var stream = extractor.extract(
             videoId = videoId,
-            hints = ContentHints().withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
+            hints = ContentHints(
+                isLive = true.takeIf { isLive },
+            ).withStreamCapabilities(
+                allowHls = initialAllowHls,
+                allowSabr = false,
+                allowBoundedRange = true,
+            ),
             excludedClients = excludedFor(videoId) + skipClients,
             audioQuality = when {
                 requireM4a -> AudioQuality.MP4
@@ -255,20 +267,68 @@ object InnerTubeXResolver {
             },
             clientPlaybackNonce = generateClientPlaybackNonce(),
         ) ?: return null
+
+        var detectedLive = isLive || stream.mediaMetadata?.isLive == true || StreamResolver.isLiveUrl(stream.audioUrl)
+        val initialIsHls = StreamResolver.isHlsManifestUrl(stream.audioUrl) ||
+            stream.mimeType.orEmpty().contains("mpegurl", ignoreCase = true)
+        if (detectedLive && !initialIsHls && !initialAllowHls) {
+            TrackLog.d(TAG, "InnerTubeX detected live stream for $videoId; re-extracting with HLS enabled", about = videoId)
+            val hlsStream = extractor.extract(
+                videoId = videoId,
+                hints = ContentHints(isLive = true).withStreamCapabilities(
+                    allowHls = true,
+                    allowSabr = false,
+                    allowBoundedRange = true,
+                ),
+                excludedClients = excludedFor(videoId) + skipClients,
+                audioQuality = AudioQuality.AUTO,
+                clientPlaybackNonce = generateClientPlaybackNonce(),
+            )
+            if (hlsStream != null) {
+                stream = hlsStream
+                detectedLive = true
+            }
+        }
+
         check(stream.sabrBootstrap == null) { "SABR is not supported by this playback engine" }
         val mime = stream.mimeType.orEmpty()
+        val videoMime = stream.videoMimeType.orEmpty()
+        val audioIsHls = StreamResolver.isHlsManifestUrl(stream.audioUrl) ||
+            mime.contains("mpegurl", ignoreCase = true)
+        val videoFallbackHls = stream.videoUrl?.takeIf {
+            StreamResolver.isHlsManifestUrl(it) || videoMime.contains("mpegurl", ignoreCase = true)
+        }
+        val resolvedUrl = when {
+            audioIsHls -> stream.audioUrl
+            detectedLive && videoFallbackHls != null -> videoFallbackHls
+            else -> stream.audioUrl
+        }
+        val isHls = StreamResolver.isHlsManifestUrl(resolvedUrl) ||
+            mime.contains("mpegurl", ignoreCase = true) ||
+            (resolvedUrl == videoFallbackHls && videoMime.contains("mpegurl", ignoreCase = true))
+        if (detectedLive && !isHls) {
+            TrackLog.d(
+                TAG,
+                "InnerTubeX ${stream.profileId} returned non-HLS stream for live $videoId; falling back",
+                about = videoId,
+            )
+            return null
+        }
+        val effectiveMime = if (resolvedUrl == videoFallbackHls && videoMime.isNotBlank()) videoMime else mime
         val extracted = Extracted(
             videoId = videoId,
-            url = stream.audioUrl,
+            url = resolvedUrl,
             kbps = (stream.bitrate ?: 0) / 1000,
-            mimeType = if (stream.codecs.isNullOrBlank()) mime else "$mime; codecs=\"${stream.codecs}\"",
+            mimeType = if (stream.codecs.isNullOrBlank()) effectiveMime else "$effectiveMime; codecs=\"${stream.codecs}\"",
             loudnessDb = stream.loudnessDb,
             clientName = stream.clientName,
             profileId = stream.profileId,
             headers = stream.headers,
+            isLive = detectedLive,
+            isHls = isHls,
         )
         if (minted.size >= MAX_REMEMBERED) minted.clear()
-        minted[extracted.url] = extracted
+        minted[resolvedUrl] = extracted
         return extracted
     }
 
@@ -290,6 +350,7 @@ object InnerTubeXResolver {
         val contentLengthBytes: Long? = null,
         val bitrate: Int? = null,
         val rangeChunkSizeBytes: Long = 1_048_576L,
+        val isLive: Boolean = false,
     ) {
         val aspect: Float get() = if (height > 0) width.toFloat() / height else 0f
         val isSabr: Boolean get() = sabrBootstrap != null
@@ -334,30 +395,54 @@ object InnerTubeXResolver {
         ageRestricted: Boolean = false,
         allowHls: Boolean = false,
         allowSabr: Boolean = true,
+        isLive: Boolean = false,
     ): VideoStream? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
         innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
-        val stream = extractor.extract(
+        val initialAllowHls = allowHls || isLive
+        val initialStream = extractor.extract(
             videoId = videoId,
             hints = ContentHints(
                 isAgeRestricted = true.takeIf { ageRestricted },
+                isLive = true.takeIf { isLive },
                 wantVideo = true,
                 maxVideoHeight = maxHeight,
-            ).withStreamCapabilities(allowHls = allowHls, allowSabr = allowSabr, allowBoundedRange = true),
+            ).withStreamCapabilities(
+                allowHls = initialAllowHls,
+                allowSabr = if (isLive) false else allowSabr,
+                allowBoundedRange = true,
+            ),
             excludedClients = excludedFor(videoId) + skipClients,
             audioQuality = AudioQuality.LOW,
             clientPlaybackNonce = generateClientPlaybackNonce(),
         )
-        if (stream == null) {
+        if (initialStream == null) {
             TrackLog.d(
                 TAG,
-                "video: InnerTubeX extract returned null (allowHls=$allowHls, allowSabr=$allowSabr, ageRestricted=$ageRestricted)",
+                "video: InnerTubeX extract returned null (allowHls=$initialAllowHls, allowSabr=$allowSabr, ageRestricted=$ageRestricted, isLive=$isLive)",
                 about = videoId,
             )
             return null
         }
-        val sabrBootstrap = stream.sabrVideoBootstrap?.takeIf { it.selectedVideoFormat != null }
+        val stream = if (!initialAllowHls && initialStream.mediaMetadata?.isLive == true) {
+            TrackLog.d(TAG, "video: InnerTubeX detected live stream for $videoId; switching to HLS", about = videoId)
+            extractor.extract(
+                videoId = videoId,
+                hints = ContentHints(
+                    isAgeRestricted = true.takeIf { ageRestricted },
+                    isLive = true,
+                    wantVideo = true,
+                    maxVideoHeight = maxHeight,
+                ).withStreamCapabilities(allowHls = true, allowSabr = false, allowBoundedRange = true),
+                excludedClients = excludedFor(videoId) + skipClients,
+                audioQuality = AudioQuality.LOW,
+                clientPlaybackNonce = generateClientPlaybackNonce(),
+            ) ?: initialStream
+        } else {
+            initialStream
+        }
+        val sabrBootstrap = stream.sabrVideoBootstrap?.takeIf { it.selectedVideoFormat != null && !isLive && stream.mediaMetadata?.isLive != true }
         if (sabrBootstrap != null) {
             val width = sabrBootstrap.selectedVideoWidth ?: stream.videoWidth ?: 0
             val height = sabrBootstrap.selectedVideoHeight ?: stream.videoHeight ?: 0
@@ -393,10 +478,18 @@ object InnerTubeXResolver {
                 rangeChunkSizeBytes = stream.rangeChunkSizeBytes,
             )
         }
-        // A live broadcast's video-only URL is a window that ends in seconds,
-        // like its audio one; no picture beats a frozen one.
-        val rawUrl = stream.videoUrl
-        val url = rawUrl?.takeUnless(StreamResolver::isLiveUrl)
+        // Live streams require HLS manifests; drop non-HLS sliding live segments.
+        val rawUrl = stream.videoUrl ?: stream.audioUrl.takeIf { StreamResolver.isHlsManifestUrl(it) }
+        val mime = stream.videoMimeType ?: stream.mimeType.orEmpty()
+        val isHls = rawUrl != null && (
+            "mpegurl" in mime.lowercase() || StreamResolver.isHlsManifestUrl(rawUrl)
+            )
+        val url = when {
+            rawUrl == null -> null
+            isHls -> rawUrl
+            StreamResolver.isLiveUrl(rawUrl) -> null
+            else -> rawUrl
+        }
         if (url == null) {
             TrackLog.d(
                 TAG,
@@ -405,19 +498,17 @@ object InnerTubeXResolver {
             )
             return null
         }
+        val detectedLive = isLive || stream.mediaMetadata?.isLive == true || StreamResolver.isLiveUrl(url)
         val width = stream.videoWidth ?: 0
         val height = stream.videoHeight ?: 0
-        val mime = stream.videoMimeType.orEmpty()
-        val isHls = allowHls && (
-            "mpegurl" in mime.lowercase() ||
-                ".m3u8" in url.lowercase() ||
-                "/manifest/hls" in url.lowercase()
-            )
+        if (mintedVideoHeaders.size >= MAX_REMEMBERED) mintedVideoHeaders.clear()
+        mintedVideoHeaders[url] = stream.headers
         TrackLog.d(
             TAG,
             "video: ${width}x$height $mime ${stream.videoCodecs.orEmpty()} via ${stream.profileId}" +
                 (if (ageRestricted) " (age-restricted)" else "") +
-                (if (isHls) " (hls)" else ""),
+                (if (isHls) " (hls)" else "") +
+                (if (detectedLive) " (live)" else ""),
             about = videoId,
         )
         return VideoStream(
@@ -436,6 +527,7 @@ object InnerTubeXResolver {
             contentLengthBytes = stream.videoContentLengthBytes,
             bitrate = stream.videoBitrate,
             rangeChunkSizeBytes = stream.rangeChunkSizeBytes,
+            isLive = detectedLive,
         )
     }
 
@@ -458,7 +550,7 @@ object InnerTubeXResolver {
     val sessionGeneration: StateFlow<Int> = _sessionGeneration.asStateFlow()
 
     /** Headers the media fetch for [url] must carry, when InnerTubeX minted it. */
-    fun headersFor(url: String): Map<String, String>? = minted[url]?.headers
+    fun headersFor(url: String): Map<String, String>? = minted[url]?.headers ?: mintedVideoHeaders[url]
 
     /**
      * Records that googlevideo refused [url] mid-playback.
@@ -481,6 +573,7 @@ object InnerTubeXResolver {
     fun onSessionChanged() {
         excluded.clear()
         minted.clear()
+        mintedVideoHeaders.clear()
         // A new cookie or visitor means a new player config and PoToken binding.
         if (prefs != null) warm(0)
         _sessionGeneration.update { it + 1 }

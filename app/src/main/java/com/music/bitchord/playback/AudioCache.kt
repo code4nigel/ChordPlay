@@ -492,7 +492,7 @@ object AudioCache {
      * fill, and backfills it into any entry already tagged without it.
      */
     fun noteSongs(songs: List<Song>) {
-        val playable = songs.filter { it.localUri == null && it.videoId.isNotBlank() }
+        val playable = songs.filter { !it.isLive && it.localUri == null && it.videoId.isNotBlank() }
         if (playable.isEmpty()) return
         if (notedSongs.size > MAX_NOTED_SONGS) notedSongs.clear()
         playable.forEach { notedSongs[it.videoId] = it }
@@ -779,10 +779,51 @@ object AudioCache {
     private const val MATCHING_SCHEMA = 2
     private const val ALT_SUFFIX = "#alt"
 
+    internal fun shouldBypassCache(
+        scheme: String?,
+        liveParam: String?,
+        manifestReopenParam: String?,
+        path: String?,
+    ): Boolean {
+        val normalizedScheme = scheme?.lowercase(Locale.ROOT)
+        if (normalizedScheme == "file" || normalizedScheme == "content" ||
+            normalizedScheme == "http" || normalizedScheme == "https"
+        ) {
+            return true
+        }
+        if (liveParam == "1") return true
+        if (manifestReopenParam == "hls") return true
+        return path?.contains(".m3u8", ignoreCase = true) == true
+    }
+
+    internal fun shouldBypassCache(uri: Uri): Boolean = shouldBypassCache(
+        scheme = uri.scheme,
+        liveParam = uri.getQueryParameter("live"),
+        manifestReopenParam = uri.getQueryParameter("manifest_reopen"),
+        path = uri.path,
+    )
+
+    internal fun shouldBypassCacheUrl(rawUri: String): Boolean {
+        val parsed = runCatching { java.net.URI.create(rawUri) }.getOrNull() ?: return false
+        val params = parsed.rawQuery.orEmpty()
+            .split('&')
+            .mapNotNull { part ->
+                val eq = part.indexOf('=')
+                if (eq <= 0) null else part.substring(0, eq) to part.substring(eq + 1)
+            }
+            .toMap()
+        return shouldBypassCache(
+            scheme = parsed.scheme,
+            liveParam = params["live"],
+            manifestReopenParam = params["manifest_reopen"],
+            path = parsed.path,
+        )
+    }
+
     /**
      * Wraps [upstream] so everything played is written to disk on the way
      * through, and anything already there is served without a request.
-     * Local file and content URIs bypass disk caching to prevent redundant writes.
+     * Local file, content, HTTP/HTTPS segments, and live HLS URIs bypass disk caching.
      */
     fun playbackFactory(upstream: DataSource.Factory): DataSource.Factory = DataSource.Factory {
         val cacheDs = cacheFactory(upstream).createDataSource()
@@ -796,8 +837,7 @@ object AudioCache {
             }
 
             override fun open(dataSpec: DataSpec): Long {
-                val scheme = dataSpec.uri.scheme
-                activeDs = if (scheme == "file" || scheme == "content") {
+                activeDs = if (shouldBypassCache(dataSpec.uri)) {
                     upstreamDs
                 } else {
                     cacheDs
@@ -809,6 +849,8 @@ object AudioCache {
                 activeDs.read(buffer, offset, length)
 
             override fun getUri(): Uri? = activeDs.uri
+
+            override fun getResponseHeaders(): Map<String, List<String>> = activeDs.responseHeaders
 
             override fun close() {
                 activeDs.close()
@@ -896,7 +938,9 @@ object AudioCache {
         // read-ahead for those is a separate job, and their servers are
         // typically a good deal closer than googlevideo anyway.
         //
-        val videoIds = mediaIds.filter { SourceRegistry.parseTrackKey(it) == null }
+        val nonLive = upcoming.filterNot { it.target.isLive || StreamResolver.isKnownLive(it.mediaId) }
+        val videoIds = nonLive.map { it.mediaId }
+            .filter { SourceRegistry.parseTrackKey(it) == null }
             // A track already on disk needs no reading ahead, and read-ahead
             // speaks only to googlevideo: warming one would spend mobile data
             // fetching a second copy of a file the listener deliberately saved,

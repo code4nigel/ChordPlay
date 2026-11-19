@@ -260,4 +260,15 @@
     <string name="radio_start_station">İstasyon başlat</string>
     <string name="radio_stations">Sizin İçin İstasyonlar</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">Canlı İstasyonlar</string>
+    <string name="live_on_air">7/24 YAYINDA</string>
+    <string name="live_badge">CANLI</string>
+    <string name="live_station_247">7/24 Canlı İstasyon</string>
+    <string name="jump_to_live">CANLI</string>
+    <string name="live_cat_all">Tümü</string>
+    <string name="live_cat_artist_stations">Sanatçı İstasyonları</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; Chill</string>
+    <string name="live_cat_hits">Hitler</string>
+    <string name="live_cat_rock_pop">Rock &amp; Pop</string>
+    <string name="live_stations_empty">Şu anda bu kategori için canlı istasyon bulunamadı.</string>
 </resources>

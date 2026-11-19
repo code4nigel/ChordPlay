@@ -122,6 +122,10 @@ data class Song(
     val playbackSourceType: PlaybackSourceType? = null,
     /** Browse id for an album, playlist, or other source page. */
     val playbackSourceId: String? = null,
+    /** True when this track is a 24/7 or active live broadcast stream (HLS). */
+    val isLive: Boolean = false,
+    /** Live viewer count label when advertised (e.g. "1.2K watching"). */
+    val liveViewersText: String? = null,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
@@ -358,6 +362,15 @@ enum class SearchFilter(
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA==", "EgWKAQIoAWoKEAUQCRADEAoYBA=="),
 }
 
+/** Filter categories for the 24/7 Live Stations showcase on the Radio tab. */
+enum class LiveStationCategory(val label: String) {
+    ALL("All"),
+    ARTIST_STATIONS("Artist Stations"),
+    LOFI_CHILL("Lo-Fi & Chill"),
+    HITS("Hits"),
+    ROCK_POP("Rock & Pop"),
+}
+
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */
 data class ShelfItem(
     val title: String,
@@ -366,6 +379,9 @@ data class ShelfItem(
     val videoId: String?,
     val browseId: String?,
     val isVideo: Boolean = false,
+    val isLive: Boolean = false,
+    val liveViewersText: String? = null,
+    val liveCategory: LiveStationCategory? = null,
 )
 
 /** The signed-in Google account, as YouTube Music reports it. */

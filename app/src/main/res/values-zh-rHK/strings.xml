@@ -1376,8 +1376,6 @@
     <string name="player_layout_modern_desc">呼吸光暈懸浮專輯封面、磨砂膠囊操作列與快捷動作</string>
     <string name="player_layout_vinyl">復古黑膠唱盤</string>
     <string name="player_layout_vinyl_desc">旋轉黑膠唱片滑出唱套動畫，搭配隨曲走動之唱臂</string>
-    <string name="player_layout_classic">經典 BitChord</string>
-    <string name="player_layout_classic_desc">經典 Apple Music 靈感播放佈局</string>
     <string name="breathing_artwork_aura">律動封面光暈</string>
     <string name="breathing_artwork_aura_desc">微光氛圍隨音樂節拍柔和律動呼吸</string>
     <string name="artwork_and_visuals">專輯封面與視覺呈現</string>
@@ -1606,4 +1604,5 @@
     <string name="support_community_footer">歡迎加入 Reddit 社群，回報問題，並在 GitHub 上關注我們的開發進度。</string>
     <string name="tap_artwork_toggle_fullscreen">輕觸切換封面全螢幕</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">輕觸播放器封面可在全螢幕與卡片版面之間切換</string>
+    <string name="live_stations">直播電台</string>
 </resources>

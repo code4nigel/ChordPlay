@@ -54,7 +54,6 @@ enum class AppDesignStyle(val label: String, val detail: String) {
 enum class PlayerLayoutMode(val label: String, val detail: String) {
     MODERN_AMBIENT("Modern Ambient", "Floating cover with breathing aura, frosted capsule deck, and quick actions"),
     VINYL_RECORD("Vinyl Turntable", "Spinning vinyl record sliding out from sleeve with moving tonearm"),
-    CLASSIC_CLEAN("Classic BitChord", "Original Apple Music-style player layout"),
 }
 
 /** Player interface style: WavePlay is the unified player interface. */
@@ -82,10 +81,13 @@ enum class SongSwipeAction(val label: String) {
 
 /** Video stream resolution tiers. */
 enum class VideoQuality(val label: String, val badge: String, val maxHeight: Int) {
+    AUTO("Auto", "AUTO", Int.MAX_VALUE),
     Q_360P("360p SD", "SD", 360),
     Q_480P("480p SD", "SD", 480),
     Q_720P("720p HD", "HD", 720),
-    Q_1080P("1080p FHD", "FHD", 1080),
+    Q_1080P("1080p FHD", "FHD", 1080);
+
+    val isAuto: Boolean get() = this == AUTO
 }
 
 /** Global typography font choice. */

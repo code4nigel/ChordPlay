@@ -1418,8 +1418,6 @@
     <string name="player_layout_modern_desc">ब्रीदिंग ऑरा के साथ फ्लोटिंग कवर, फ्रॉस्टेड कैप्सूल डेक और त्वरित क्रियाएं</string>
     <string name="player_layout_vinyl">विनाइल टर्नटेबल</string>
     <string name="player_layout_vinyl_desc">स्लीव से बाहर निकलता घूमता हुआ विनाइल रिकॉर्ड और टोनआर्म</string>
-    <string name="player_layout_classic">क्लासिक BitChord</string>
-    <string name="player_layout_classic_desc">Apple Music शैली का क्लासिक प्लेयर लेआउट</string>
 
     <string name="breathing_artwork_aura">ब्रीदिंग आर्टवर्क ऑरा</string>
     <string name="breathing_artwork_aura_desc">ऑडियो प्लेबैक के साथ स्पंदित होने वाला सूक्ष्म परिवेशी आर्टवर्क ग्लो</string>
@@ -1671,4 +1669,5 @@
     <string name="support_community_footer">Reddit पर हमारे समुदाय से जुड़ें, बग रिपोर्ट करें और GitHub पर विकास को फॉलो करें।</string>
     <string name="tap_artwork_toggle_fullscreen">फुलस्क्रीन आर्टवर्क के लिए टैप करें</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">फुलस्क्रीन और कार्ड लेआउट के बीच स्विच करने के लिए प्लेयर आर्टवर्क पर टैप करें</string>
+    <string name="live_stations">लाइव स्टेशन</string>
 </resources>

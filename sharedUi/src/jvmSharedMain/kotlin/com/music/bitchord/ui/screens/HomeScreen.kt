@@ -131,6 +131,7 @@ import com.music.bitchord.ui.components.rememberShelfKeys
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.trackColumnWidth
 import com.music.bitchord.ui.components.uniqueKeys
+import com.music.bitchord.ui.player.LiveBadge
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.PlayerPlatform
@@ -141,7 +142,7 @@ private val HOME_TITLE_LIFT = 28.dp
 private const val RECENTS_TITLE = "Recents"
 private const val RECENT_TRACKS_PER_COLUMN = 4
 
-private fun ShelfItem.matchesCurrentlyPlaying(song: Song?): Boolean {
+internal fun ShelfItem.matchesCurrentlyPlaying(song: Song?): Boolean {
     song ?: return false
     if (videoId == null) return false
     return videoId == song.videoId || (title == song.title && subtitle == song.artist)
@@ -1561,6 +1562,7 @@ internal fun Shelf(
                     isCurrent = item.matchesCurrentlyPlaying(currentSong),
                     isPlaying = item.matchesCurrentlyPlaying(currentSong) && isPlaying,
                     isVideo = isVideoShelf || item.isVideo,
+                    isLive = item.isLive,
                     enableTilt = enableTilt,
                 )
             }
@@ -1662,7 +1664,8 @@ internal fun ShelfCard(
     onClick: () -> Unit,
     onLongPress: (() -> Unit)? = null,
     isVideo: Boolean = false,
-    modifier: Modifier = if (isVideo) Modifier.width(220.dp) else Modifier.width(SHELF_CARD_WIDTH),
+    isLive: Boolean = item.isLive,
+    modifier: Modifier = if (isVideo || isLive) Modifier.width(220.dp) else Modifier.width(SHELF_CARD_WIDTH),
     /** Set on a Library playlist card that's in [AppSettings.pinnedPlaylists][com.music.bitchord.data.settings.AppSettings.pinnedPlaylists]. */
     isPinned: Boolean = false,
     isCurrent: Boolean = false,
@@ -1721,10 +1724,11 @@ internal fun ShelfCard(
             )
             else -> {
                 val cardShape = SmoothCornerShape(16.dp)
+                val wideCard = isVideo || isLive
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(if (isVideo) 16f / 9f else 1f)
+                        .aspectRatio(if (wideCard) 16f / 9f else 1f)
                         .clip(cardShape)
                         .thumbnailBorder(cardShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -1736,7 +1740,14 @@ internal fun ShelfCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                     if (isCurrent && isPlaying) SearchPlayingBars(Modifier.align(Alignment.Center))
-                    if (isVideo) {
+                    if (isLive) {
+                        LiveBadge(
+                            compact = true,
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp),
+                        )
+                    } else if (isVideo) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)

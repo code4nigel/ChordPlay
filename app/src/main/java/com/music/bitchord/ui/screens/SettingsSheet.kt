@@ -1130,7 +1130,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.PLAYER,
             icon = Icons.Rounded.GraphicEq,
             queryTarget = stringResource(R.string.player_layout),
-            keywords = listOf("modern ambient", "vinyl turntable", "classic", "layout"),
+            keywords = listOf("modern ambient", "vinyl turntable", "layout"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.breathing_artwork_aura),

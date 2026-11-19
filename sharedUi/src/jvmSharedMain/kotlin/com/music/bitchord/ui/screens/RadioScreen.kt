@@ -29,7 +29,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +40,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,14 +55,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.LiveStationCategory
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
 import com.music.bitchord.data.model.ShelfItem
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.explore
+import com.music.bitchord.sharedui.resources.live_cat_all
+import com.music.bitchord.sharedui.resources.live_cat_artist_stations
+import com.music.bitchord.sharedui.resources.live_cat_hits
+import com.music.bitchord.sharedui.resources.live_cat_lofi_chill
+import com.music.bitchord.sharedui.resources.live_cat_rock_pop
+import com.music.bitchord.sharedui.resources.live_on_air
+import com.music.bitchord.sharedui.resources.live_station_247
+import com.music.bitchord.sharedui.resources.live_stations
+import com.music.bitchord.sharedui.resources.live_stations_empty
 import com.music.bitchord.sharedui.resources.melody
 import com.music.bitchord.sharedui.resources.radio
 import com.music.bitchord.sharedui.resources.radio_featured
@@ -68,10 +85,15 @@ import com.music.bitchord.sharedui.resources.radio_stations
 import com.music.bitchord.sharedui.resources.retry
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.PullToRefresh
+import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.ShelfRow
 import com.music.bitchord.ui.components.ShimmerBox
+import com.music.bitchord.ui.components.SmoothCornerShape
+import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.player.LiveBadge
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import org.jetbrains.compose.resources.stringResource
@@ -99,7 +121,14 @@ fun RadioScreen(
     pullState: PullToRefreshState,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    liveStations: UiState<List<ShelfItem>> = UiState.Success(emptyList()),
+    currentSong: Song? = null,
+    isPlaying: Boolean = false,
+    onLiveStationClick: (List<ShelfItem>, Int) -> Unit = { _, _ -> },
+    onRetryLiveStations: () -> Unit = {},
 ) {
+    var selectedLiveCategory by remember { mutableStateOf(LiveStationCategory.ALL) }
+    val showLiveSection = liveStations !is UiState.Success || liveStations.data.isNotEmpty()
     PullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -153,6 +182,120 @@ fun RadioScreen(
                 )
             }
             item(key = "radio:featured_gap") { Spacer(Modifier.height(14.dp)) }
+            if (showLiveSection) {
+                item(key = "radio:live_header") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.live_stations),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Color(0xFFE53935).copy(alpha = 0.16f))
+                                .border(1.dp, Color(0xFFE53935).copy(alpha = 0.45f), RoundedCornerShape(999.dp))
+                                .padding(horizontal = 9.dp, vertical = 3.dp),
+                        ) {
+                            Text(
+                                text = stringResource(Res.string.live_on_air),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFFF5252),
+                                letterSpacing = 0.8.sp,
+                            )
+                        }
+                    }
+                }
+                item(key = "radio:live_chips") {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                    ) {
+                        items(LiveStationCategory.entries, key = { it.name }) { category ->
+                            val selected = category == selectedLiveCategory
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary
+                                        else Color.White.copy(alpha = 0.10f),
+                                        shape = RoundedCornerShape(999.dp),
+                                    )
+                                    .clickable { selectedLiveCategory = category }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                            ) {
+                                Text(
+                                    text = category.localizedLabel(),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+                item(key = "radio:live_content") {
+                    when (liveStations) {
+                        UiState.Loading -> LiveStationsSkeleton()
+                        is UiState.Error -> MessageState(
+                            liveStations.message,
+                            actionLabel = stringResource(Res.string.retry),
+                            onAction = onRetryLiveStations,
+                        )
+                        is UiState.Success -> {
+                            val filtered = remember(liveStations.data, selectedLiveCategory) {
+                                if (selectedLiveCategory == LiveStationCategory.ALL) {
+                                    liveStations.data
+                                } else {
+                                    liveStations.data.filter { it.liveCategory == selectedLiveCategory }
+                                }
+                            }
+                            if (filtered.isEmpty()) {
+                                Text(
+                                    text = stringResource(Res.string.live_stations_empty),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 12.dp),
+                                )
+                            } else {
+                                ShelfRow(
+                                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                ) {
+                                    itemsIndexed(
+                                        items = filtered,
+                                        key = { index, item -> "live:${item.videoId ?: index}:${item.title}" },
+                                    ) { index, item ->
+                                        val isCurrent = item.matchesCurrentlyPlaying(currentSong)
+                                        LiveStationCard(
+                                            item = item,
+                                            isCurrent = isCurrent,
+                                            isPlaying = isCurrent && isPlaying,
+                                            onClick = { onLiveStationClick(filtered, index) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item(key = "radio:live_gap") { Spacer(Modifier.height(18.dp)) }
+            }
             if (seeds.isNotEmpty()) {
                 item(key = "radio:seeds_header") {
                     SectionHeader(stringResource(Res.string.radio_recent_seeds))
@@ -444,3 +587,136 @@ private fun RadioSkeleton() {
 }
 
 private val STATION_SPACING = 10.dp
+
+@Composable
+private fun LiveStationCategory.localizedLabel(): String = stringResource(
+    when (this) {
+        LiveStationCategory.ALL -> Res.string.live_cat_all
+        LiveStationCategory.ARTIST_STATIONS -> Res.string.live_cat_artist_stations
+        LiveStationCategory.LOFI_CHILL -> Res.string.live_cat_lofi_chill
+        LiveStationCategory.HITS -> Res.string.live_cat_hits
+        LiveStationCategory.ROCK_POP -> Res.string.live_cat_rock_pop
+    },
+)
+
+@Composable
+private fun LiveStationCard(
+    item: ShelfItem,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val cardShape = SmoothCornerShape(16.dp)
+    val artistLabel = remember(item.subtitle) {
+        InnertubeParser.artistFromSubtitle(item.subtitle).takeIf { it.isNotBlank() }
+    } ?: stringResource(Res.string.live_station_247)
+    Column(
+        modifier = modifier
+            .width(228.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(cardShape)
+                .thumbnailBorder(cardShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            AsyncImage(
+                model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.18f),
+                            0.45f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.52f),
+                        ),
+                    ),
+            )
+            LiveBadge(
+                compact = true,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp),
+            )
+            if (isCurrent && isPlaying) {
+                SearchPlayingBars(Modifier.align(Alignment.Center))
+            }
+            item.liveViewersText?.takeIf { it.isNotBlank() }?.let { viewers ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.68f))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = viewers,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = artistLabel,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun LiveStationsSkeleton() {
+    ShelfRow(
+        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        items(3) {
+            Column(Modifier.width(228.dp)) {
+                ShimmerBox(
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f),
+                    RoundedCornerShape(16.dp),
+                )
+                Spacer(Modifier.height(8.dp))
+                ShimmerBox(
+                    Modifier
+                        .fillMaxWidth(0.75f)
+                        .height(14.dp),
+                    RoundedCornerShape(6.dp),
+                )
+                Spacer(Modifier.height(4.dp))
+                ShimmerBox(
+                    Modifier
+                        .fillMaxWidth(0.45f)
+                        .height(12.dp),
+                    RoundedCornerShape(6.dp),
+                )
+            }
+        }
+    }
+}

@@ -260,4 +260,15 @@
     <string name="radio_start_station">Iniciar estação</string>
     <string name="radio_stations">Estações para você</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">Estações ao vivo</string>
+    <string name="live_on_air">NO AR 24/7</string>
+    <string name="live_badge">AO VIVO</string>
+    <string name="live_station_247">Estação ao vivo 24/7</string>
+    <string name="jump_to_live">AO VIVO</string>
+    <string name="live_cat_all">Todas</string>
+    <string name="live_cat_artist_stations">Estações de artistas</string>
+    <string name="live_cat_lofi_chill">Lo-Fi e Chill</string>
+    <string name="live_cat_hits">Sucessos</string>
+    <string name="live_cat_rock_pop">Rock e Pop</string>
+    <string name="live_stations_empty">Nenhuma estação ao vivo encontrada para esta categoria no momento.</string>
 </resources>

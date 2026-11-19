@@ -464,7 +464,7 @@ object AppSettings {
     val colorPalette = MutableStateFlow(ChordPlayPalette.DYNAMIC_ARTWORK)
     val amoledDarkMode = MutableStateFlow(false)
     val appFontChoice = MutableStateFlow(AppFontChoice.APPLE_SF_PRO)
-    val videoQuality = MutableStateFlow(VideoQuality.Q_720P)
+    val videoQuality = MutableStateFlow(VideoQuality.AUTO)
 
     /** Currently playing track artwork URL for dynamic artwork theming. */
     val activeTrackArtworkUrl = MutableStateFlow<String?>(null)
@@ -637,7 +637,7 @@ object AppSettings {
 
 
 
-    /** Player screen layout: Modern Ambient with breathing aura vs Classic Clean. */
+    /** Player screen layout: Modern Ambient with breathing aura vs Vinyl Turntable. */
     val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
     val playerInterfaceStyle = MutableStateFlow(PlayerInterfaceStyle.WAVEPLAY)
 
@@ -1194,7 +1194,7 @@ object AppSettings {
         appFontChoice.value = prefs.getString("app_font_choice", null)
             ?.let { s -> AppFontChoice.entries.firstOrNull { it.name == s } } ?: AppFontChoice.APPLE_SF_PRO
         videoQuality.value = prefs.getString("video_quality", null)
-            ?.let { s -> VideoQuality.entries.firstOrNull { it.name == s } } ?: VideoQuality.Q_720P
+            ?.let { s -> VideoQuality.entries.firstOrNull { it.name == s } } ?: VideoQuality.AUTO
         val savedTitleOrder = prefs.getString(KEY_HOME_SHELF_ORDER, null)
         homeShelfOrder.value = if (savedTitleOrder.isNullOrEmpty()) {
             emptyList()

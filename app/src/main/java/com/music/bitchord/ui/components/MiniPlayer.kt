@@ -12,6 +12,7 @@
 package com.music.bitchord.ui.components
 
 import com.music.bitchord.R
+import com.music.bitchord.ui.player.LiveBadge
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
@@ -547,6 +548,7 @@ fun MiniPlayer(
     onExpand: () -> Unit,
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
+    isLive: Boolean = song.isLive,
     onSeek: ((Long) -> Unit)? = null,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
@@ -564,9 +566,11 @@ fun MiniPlayer(
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
 
+    val effectiveIsLive = isLive || song.isLive
+    val effectiveDurationMs = if (effectiveIsLive) 0L else durationMs
     var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
     var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
-    val currentDurationMs by rememberUpdatedState(durationMs)
+    val currentDurationMs by rememberUpdatedState(effectiveDurationMs)
     val currentPlaybackPosition by rememberUpdatedState(playbackPosition)
     val currentOnSeek by rememberUpdatedState(onSeek)
 
@@ -621,7 +625,7 @@ fun MiniPlayer(
                         )
                     }
                 },
-                durationMs = durationMs,
+                durationMs = effectiveDurationMs,
                 currentPositionMs = { currentPlaybackPosition?.positionMs ?: 0L },
                 onScrubStart = {
                     suppressExpandUntilNanos = Long.MAX_VALUE
@@ -659,10 +663,10 @@ fun MiniPlayer(
             .border(0.5.dp, Color.White.copy(alpha = 0.08f), shape)
             .drawWithContent {
                 drawContent()
-                if (durationMs > 0L) {
+                if (effectiveDurationMs > 0L) {
                     val activeScrub = scrubFraction
                     val currentMs = playbackPosition?.positionMs ?: 0L
-                    val progress = activeScrub ?: (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    val progress = activeScrub ?: (currentMs.toFloat() / effectiveDurationMs.toFloat()).coerceIn(0f, 1f)
                     if (progress > 0.0005f) {
                         val strokeInset = 1.dp.toPx()
                         val h = size.height - 2 * strokeInset
@@ -755,15 +759,28 @@ fun MiniPlayer(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 val activeScrub = scrubFraction
-                if (activeScrub != null && durationMs > 0L) {
-                    val previewMs = (activeScrub * durationMs).roundToLong().coerceIn(0L, durationMs)
+                if (activeScrub != null && effectiveDurationMs > 0L) {
+                    val previewMs = (activeScrub * effectiveDurationMs).roundToLong().coerceIn(0L, effectiveDurationMs)
                     Text(
-                        text = "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(durationMs)}",
+                        text = "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(effectiveDurationMs)}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = glowColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                } else if (effectiveIsLive) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = song.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        LiveBadge(compact = true)
+                    }
                 } else {
                     Text(
                         text = song.artist,

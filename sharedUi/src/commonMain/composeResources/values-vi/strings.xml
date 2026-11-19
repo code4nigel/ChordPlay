@@ -260,4 +260,15 @@
     <string name="radio_start_station">Bắt đầu kênh</string>
     <string name="radio_stations">Kênh dành cho bạn</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">Đài phát trực tiếp</string>
+    <string name="live_on_air">PHÁT 24/7</string>
+    <string name="live_badge">TRỰC TIẾP</string>
+    <string name="live_station_247">Đài trực tiếp 24/7</string>
+    <string name="jump_to_live">TRỰC TIẾP</string>
+    <string name="live_cat_all">Tất cả</string>
+    <string name="live_cat_artist_stations">Đài nghệ sĩ</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; Thư giãn</string>
+    <string name="live_cat_hits">Bản hit</string>
+    <string name="live_cat_rock_pop">Rock &amp; Pop</string>
+    <string name="live_stations_empty">Hiện không tìm thấy đài phát trực tiếp nào cho danh mục này.</string>
 </resources>

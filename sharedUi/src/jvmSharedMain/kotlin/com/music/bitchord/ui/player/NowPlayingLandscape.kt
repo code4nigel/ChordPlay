@@ -77,6 +77,11 @@ internal fun LandscapeAndVideoNowPlaying(
     isLoading: Boolean,
     position: PlaybackPosition,
     durationMs: Long,
+    isLive: Boolean = song.isLive,
+    isSeekable: Boolean = true,
+    isAtLiveEdge: Boolean = true,
+    liveOffsetMs: Long = 0L,
+    onJumpToLive: () -> Unit = {},
     hasPrevious: Boolean,
     pastRestartPoint: Boolean,
     hasNext: Boolean,
@@ -190,28 +195,75 @@ internal fun LandscapeAndVideoNowPlaying(
                     onRenderedChanged = onVideoRenderedChange,
                     onExitFullscreen = onExitFullscreen,
                     onOpenQuality = onOpenVideoQuality,
+                    isLive = isLive,
                     scrubber = {
-                        PlayerScrubber(
-                            shown = shown,
-                            durationMs = durationMs,
-                            loading = isLoading,
-                            mixing = mixing && !scrub.scrubbing,
-                            transitionWindow = null,
-                            onScrub = onScrub,
-                            onScrubFinished = onScrubFinished,
-                        )
+                        when {
+                            isLive -> LiveStationBar(
+                                shown = shown,
+                                durationMs = durationMs,
+                                isPlaying = isPlaying && position.advancing,
+                                isSeekable = isSeekable,
+                                isAtLiveEdge = isAtLiveEdge,
+                                liveOffsetMs = liveOffsetMs,
+                                liveViewersText = song.liveViewersText,
+                                onScrub = onScrub,
+                                onScrubFinished = onScrubFinished,
+                                onJumpToLive = onJumpToLive,
+                                trackKey = song.videoId,
+                                palette = synesthesiaPalette,
+                            )
+                            isWavePlay -> SynesthesiaWaveformScrubber(
+                                shown = shown,
+                                durationMs = durationMs,
+                                isPlaying = isPlaying && position.advancing,
+                                onScrub = onScrub,
+                                onScrubFinished = onScrubFinished,
+                                trackKey = song.videoId,
+                                palette = synesthesiaPalette,
+                            )
+                            else -> PlayerScrubber(
+                                shown = shown,
+                                durationMs = durationMs,
+                                loading = isLoading,
+                                mixing = mixing && !scrub.scrubbing,
+                                transitionWindow = null,
+                                onScrub = onScrub,
+                                onScrubFinished = onScrubFinished,
+                            )
+                        }
                     },
                     transport = {
-                        TransportRow(
-                            isPlaying = isPlaying,
-                            isLoading = isLoading,
-                            previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
-                            nextEnabled = !controlsLocked && hasNext,
-                            onPrevious = onPrevious,
-                            onPlayPause = onPlayPause,
-                            onNext = onNext,
-                            compact = true,
-                        )
+                        val previousEnabled = !controlsLocked && if (isLive) hasPrevious else (hasPrevious || pastRestartPoint)
+                        if (isWavePlay) {
+                            ChordPlayTransportDeck(
+                                isPlaying = isPlaying,
+                                isLoading = isLoading || audioVersionSwitching,
+                                previousEnabled = previousEnabled,
+                                nextEnabled = !controlsLocked && hasNext,
+                                onPrevious = onPrevious,
+                                onPlayPause = onPlayPause,
+                                onNext = onNext,
+                                shuffleEnabled = shuffleEnabled,
+                                repeatMode = repeatMode,
+                                onToggleShuffle = onToggleShuffle,
+                                onCycleRepeat = onCycleRepeat,
+                                palette = synesthesiaPalette,
+                                hazeState = playerHaze,
+                                queueOpen = panels.queueOpen,
+                                isLive = isLive,
+                            )
+                        } else {
+                            TransportRow(
+                                isPlaying = isPlaying,
+                                isLoading = isLoading,
+                                previousEnabled = previousEnabled,
+                                nextEnabled = !controlsLocked && hasNext,
+                                onPrevious = onPrevious,
+                                onPlayPause = onPlayPause,
+                                onNext = onNext,
+                                compact = true,
+                            )
+                        }
                     },
                 )
                 playerOverlays()
@@ -432,7 +484,7 @@ internal fun LandscapeAndVideoNowPlaying(
                                 fontScale = landscapeFontScale,
                             )
                         },
-                        lyricStrip = if (syncedLyricsEnabled) {
+                        lyricStrip = if (syncedLyricsEnabled && !isLive) {
                             {
                                 val stripFontSize = (16 * landscapeFontScale.scaleFactor).sp
                                 CurrentLyricStrip(
@@ -454,7 +506,22 @@ internal fun LandscapeAndVideoNowPlaying(
                             null
                         },
                         scrubber = {
-                            if (isWavePlay) {
+                            if (isLive) {
+                                LiveStationBar(
+                                    shown = shown,
+                                    durationMs = durationMs,
+                                    isPlaying = isPlaying && position.advancing,
+                                    isSeekable = isSeekable,
+                                    isAtLiveEdge = isAtLiveEdge,
+                                    liveOffsetMs = liveOffsetMs,
+                                    liveViewersText = song.liveViewersText,
+                                    onScrub = onScrub,
+                                    onScrubFinished = onScrubFinished,
+                                    onJumpToLive = onJumpToLive,
+                                    trackKey = song.videoId,
+                                    palette = synesthesiaPalette,
+                                )
+                            } else if (isWavePlay) {
                                 SynesthesiaWaveformScrubber(
                                     shown = shown,
                                     durationMs = durationMs,
@@ -487,11 +554,12 @@ internal fun LandscapeAndVideoNowPlaying(
                             }
                         },
                         transport = {
+                            val previousEnabled = !controlsLocked && if (isLive) hasPrevious else (hasPrevious || pastRestartPoint)
                             if (isWavePlay) {
                                 ChordPlayTransportDeck(
                                     isPlaying = isPlaying,
                                     isLoading = isLoading || audioVersionSwitching,
-                                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                                    previousEnabled = previousEnabled,
                                     nextEnabled = !controlsLocked && hasNext,
                                     onPrevious = onPrevious,
                                     onPlayPause = onPlayPause,
@@ -503,12 +571,13 @@ internal fun LandscapeAndVideoNowPlaying(
                                     palette = synesthesiaPalette,
                                     hazeState = playerHaze,
                                     queueOpen = panels.queueOpen,
+                                    isLive = isLive,
                                 )
                             } else {
                                 TransportRow(
                                     isPlaying = isPlaying,
                                     isLoading = isLoading || audioVersionSwitching,
-                                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                                    previousEnabled = previousEnabled,
                                     nextEnabled = !controlsLocked && hasNext,
                                     onPrevious = onPrevious,
                                     onPlayPause = onPlayPause,

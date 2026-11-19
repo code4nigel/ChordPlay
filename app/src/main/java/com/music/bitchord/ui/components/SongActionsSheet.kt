@@ -251,7 +251,7 @@ fun SongActionsSheet(
         // and between them they are the whole of the choice, which is why they
         // sit in the same place under the same divider.
         val hasVersionActions = onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null
-        val showVideoQualityAction = !isAudioVersion || song.isVideo
+        val showVideoQualityAction = !isAudioVersion || song.isVideo || song.isLive
         if (hasVersionActions || showVideoQualityAction) {
             (onRollbackToOriginal ?: onUpgradeQuality)?.let {
                 ActionRow(

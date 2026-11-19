@@ -264,4 +264,15 @@
     <string name="radio_start_station">स्टेशन शुरू करें</string>
     <string name="radio_stations">आपके लिए स्टेशन</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">लाइव स्टेशन</string>
+    <string name="live_on_air">24/7 लाइव</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">24/7 लाइव स्टेशन</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">सभी</string>
+    <string name="live_cat_artist_stations">कलाकार स्टेशन</string>
+    <string name="live_cat_lofi_chill">लो-फ़ाई और चिल</string>
+    <string name="live_cat_hits">हिट्स</string>
+    <string name="live_cat_rock_pop">रॉक और पॉप</string>
+    <string name="live_stations_empty">इस श्रेणी के लिए अभी कोई लाइव स्टेशन नहीं मिला।</string>
 </resources>

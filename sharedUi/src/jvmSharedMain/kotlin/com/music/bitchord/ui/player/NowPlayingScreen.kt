@@ -184,6 +184,11 @@ fun NowPlayingScreen(
     isLoading: Boolean,
     position: PlaybackPosition,
     durationMs: Long,
+    isLive: Boolean = song.isLive,
+    isSeekable: Boolean = true,
+    isAtLiveEdge: Boolean = true,
+    liveOffsetMs: Long = 0L,
+    onJumpToLive: () -> Unit = {},
     audioVersionSwitching: Boolean,
     qualityUpgraded: Boolean,
     queue: List<Song>,
@@ -266,9 +271,12 @@ fun NowPlayingScreen(
     val isChordPlay = appDesignStyle == AppDesignStyle.CHORDPLAY
     val isModernAmbient = isChordPlay && playerLayoutMode == PlayerLayoutMode.MODERN_AMBIENT
     val isVinylRecord = isChordPlay && playerLayoutMode == PlayerLayoutMode.VINYL_RECORD
-    val isModernOrVinyl = isModernAmbient || isVinylRecord
+    // Both supported ChordPlay layouts (Modern Ambient and Vinyl Turntable) use
+    // ChordPlay's WavePlay deck so the glowing Play/Pause orb is never lost.
+    val isModernOrVinyl = isChordPlay
     val playerInterfaceStyle by PlayerSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
-    val isWavePlay = isModernOrVinyl && playerInterfaceStyle == PlayerInterfaceStyle.WAVEPLAY
+    val isWavePlay = isChordPlay && playerInterfaceStyle == PlayerInterfaceStyle.WAVEPLAY
+    val effectiveIsLive = isLive || song.isLive
 
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
     val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
@@ -643,7 +651,7 @@ fun NowPlayingScreen(
             isLoading = isLoading,
             isModernOrVinyl = isWavePlay,
             onOpenPipeline = {
-                if (song.isVideo) {
+                if (song.isVideo || effectiveIsLive) {
                     overlays.videoQuality = true
                 } else {
                     overlays.audioPipeline = true
@@ -774,6 +782,11 @@ fun NowPlayingScreen(
             isLoading = isLoading,
             position = position,
             durationMs = durationMs,
+            isLive = effectiveIsLive,
+            isSeekable = isSeekable,
+            isAtLiveEdge = isAtLiveEdge,
+            liveOffsetMs = liveOffsetMs,
+            onJumpToLive = onJumpToLive,
             hasPrevious = hasPrevious,
             pastRestartPoint = pastRestartPoint,
             hasNext = hasNext,
@@ -792,7 +805,7 @@ fun NowPlayingScreen(
             onExitFullscreen = exitFullscreen,
             onOpenVideoQuality = { overlays.videoQuality = true },
             onOpenPipeline = {
-                if (song.isVideo) overlays.videoQuality = true else overlays.audioPipeline = true
+                if (song.isVideo || effectiveIsLive) overlays.videoQuality = true else overlays.audioPipeline = true
             },
             likeBurstState = likeBurstState,
             playerHaze = playerHaze,
@@ -1385,6 +1398,11 @@ fun NowPlayingScreen(
                             isPlaying = isPlaying,
                             position = position,
                             durationMs = durationMs,
+                            isLive = effectiveIsLive,
+                            isSeekable = isSeekable,
+                            isAtLiveEdge = isAtLiveEdge,
+                            liveOffsetMs = liveOffsetMs,
+                            onJumpToLive = onJumpToLive,
                             lyricsUnavailable = lyricsUnavailable,
                             lyricsLoadingText = lyricsLoadingText,
                             pickingLyrics = lyricPicker.picking,
@@ -1432,6 +1450,14 @@ fun NowPlayingScreen(
                         .height(measures.heroHeight)
                         .align(Alignment.TopStart),
                 ) {
+                    if (effectiveIsLive) {
+                        LiveBadge(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .graphicsLayer { alpha = videoControlsAlpha }
+                                .padding(start = 16.dp, bottom = 14.dp),
+                        )
+                    }
                     VideoControlsDock(
                         videoFill = videoFill,
                         onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },

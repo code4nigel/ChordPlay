@@ -1374,8 +1374,6 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="player_layout_modern_desc">Sampul mengambang dengan aura berdenyut, kapsul buram, dan aksi cepat</string>
     <string name="player_layout_vinyl">Pemutar Vinil</string>
     <string name="player_layout_vinyl_desc">Piringan hitam berputar yang meluncur keluar dari sampul dengan jarum bergerak</string>
-    <string name="player_layout_classic">BitChord Klasik</string>
-    <string name="player_layout_classic_desc">Tata letak pemutar klasik bergaya Apple Music</string>
     <string name="breathing_artwork_aura">Aura Sampul Berdenyut</string>
     <string name="breathing_artwork_aura_desc">Cahaya sekitar yang berdenyut lembut mengikuti alunan musik</string>
     <string name="artwork_and_visuals">Sampul &amp; Visual</string>
@@ -1604,4 +1602,5 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="support_community_footer">Bergabunglah dengan komunitas kami di Reddit, laporkan bug, dan ikuti pengembangan di GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Ketuk untuk beralih gambar sampul layar penuh</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Ketuk gambar sampul pemutar untuk beralih antara layar penuh dan tata letak kartu</string>
+    <string name="live_stations">Stasiun Langsung</string>
 </resources>

@@ -1401,8 +1401,6 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="player_layout_modern_desc">Capa flutuante com aura viva, cápsula fosca e ações rápidas</string>
     <string name="player_layout_vinyl">Toca-Discos de Vinil</string>
     <string name="player_layout_vinyl_desc">Disco de vinil girando que desliza para fora da capa com agulha móvel</string>
-    <string name="player_layout_classic">BitChord Clássico</string>
-    <string name="player_layout_classic_desc">Layout de player clássico inspirado no Apple Music</string>
     <string name="breathing_artwork_aura">Aura Pulsante da Capa</string>
     <string name="breathing_artwork_aura_desc">Brilho sutil ao redor da capa que pulsa no ritmo da música</string>
     <string name="artwork_and_visuals">Capas e Elementos Visuais</string>
@@ -1631,4 +1629,5 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="support_community_footer">Junte-se à nossa comunidade no Reddit, relate problemas e acompanhe o desenvolvimento no GitHub.</string>
     <string name="tap_artwork_toggle_fullscreen">Tocar na capa para tela cheia</string>
     <string name="tap_artwork_toggle_fullscreen_subtitle">Toque na capa do player para alternar entre tela cheia e cartão</string>
+    <string name="live_stations">Estações ao vivo</string>
 </resources>

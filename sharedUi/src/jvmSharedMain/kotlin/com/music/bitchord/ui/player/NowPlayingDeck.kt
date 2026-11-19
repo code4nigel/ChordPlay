@@ -51,6 +51,11 @@ internal fun PortraitControlDeck(
     isPlaying: Boolean,
     position: PlaybackPosition,
     durationMs: Long,
+    isLive: Boolean = song.isLive,
+    isSeekable: Boolean = true,
+    isAtLiveEdge: Boolean = true,
+    liveOffsetMs: Long = 0L,
+    onJumpToLive: () -> Unit = {},
     lyricsUnavailable: Boolean,
     lyricsLoadingText: String,
     pickingLyrics: Boolean,
@@ -101,16 +106,28 @@ internal fun PortraitControlDeck(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (!panels.lyricsOpen && syncedLyricsEnabled) {
-                CurrentLyricStrip(
-                    lines = lyricsTranslation.displayedLyrics,
-                    trackKey = song.videoId,
-                    playhead = lyricsPlayhead,
-                    isPlaying = isPlaying && position.advancing,
-                    durationMs = durationMs,
-                    lyricsUnavailable = lyricsUnavailable,
-                    loadingText = lyricsLoadingText,
-                    onClick = panels.openLyrics,
-                )
+                if (isLive) {
+                    Text(
+                        text = "\u00A0",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = 6.dp)
+                            .padding(vertical = 4.dp),
+                    )
+                } else {
+                    CurrentLyricStrip(
+                        lines = lyricsTranslation.displayedLyrics,
+                        trackKey = song.videoId,
+                        playhead = lyricsPlayhead,
+                        isPlaying = isPlaying && position.advancing,
+                        durationMs = durationMs,
+                        lyricsUnavailable = lyricsUnavailable,
+                        loadingText = lyricsLoadingText,
+                        onClick = panels.openLyrics,
+                    )
+                }
             }
             if (!panels.lyricsOpen && !syncedLyricsEnabled) {
                 Text(
@@ -153,7 +170,22 @@ internal fun PortraitControlDeck(
                     }
                 }
             }
-            if (isWavePlay) {
+            if (isLive) {
+                LiveStationBar(
+                    shown = shown,
+                    durationMs = durationMs,
+                    isPlaying = isPlaying && position.advancing,
+                    isSeekable = isSeekable,
+                    isAtLiveEdge = isAtLiveEdge,
+                    liveOffsetMs = liveOffsetMs,
+                    liveViewersText = song.liveViewersText,
+                    onScrub = onScrub,
+                    onScrubFinished = onScrubFinished,
+                    onJumpToLive = onJumpToLive,
+                    trackKey = song.videoId,
+                    palette = synesthesiaPalette,
+                )
+            } else if (isWavePlay) {
                 SynesthesiaWaveformScrubber(
                     shown = shown,
                     durationMs = durationMs,
@@ -188,11 +220,12 @@ internal fun PortraitControlDeck(
 
             Spacer(Modifier.height(8.dp + controlSpread / 2))
 
+            val previousEnabled = !controlsLocked && if (isLive) hasPrevious else (hasPrevious || pastRestartPoint)
             if (isWavePlay) {
                 ChordPlayTransportDeck(
                     isPlaying = isPlaying,
                     isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                    previousEnabled = previousEnabled,
                     nextEnabled = !controlsLocked && hasNext,
                     onPrevious = onPrevious,
                     onPlayPause = onPlayPause,
@@ -204,12 +237,13 @@ internal fun PortraitControlDeck(
                     palette = synesthesiaPalette,
                     hazeState = playerHaze,
                     queueOpen = panels.queueOpen,
+                    isLive = isLive,
                 )
             } else {
                 TransportRow(
                     isPlaying = isPlaying,
                     isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = !controlsLocked && (hasPrevious || pastRestartPoint),
+                    previousEnabled = previousEnabled,
                     nextEnabled = !controlsLocked && hasNext,
                     onPrevious = onPrevious,
                     onPlayPause = onPlayPause,

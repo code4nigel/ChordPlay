@@ -260,4 +260,15 @@
     <string name="radio_start_station">Mulai stasiun</string>
     <string name="radio_stations">Stasiun untuk Anda</string>
     <string name="replay">Replay</string>
+    <string name="live_stations">Stasiun Langsung</string>
+    <string name="live_on_air">SIARAN 24/7</string>
+    <string name="live_badge">LIVE</string>
+    <string name="live_station_247">Stasiun Langsung 24/7</string>
+    <string name="jump_to_live">LIVE</string>
+    <string name="live_cat_all">Semua</string>
+    <string name="live_cat_artist_stations">Stasiun Artis</string>
+    <string name="live_cat_lofi_chill">Lo-Fi &amp; Santai</string>
+    <string name="live_cat_hits">Hits</string>
+    <string name="live_cat_rock_pop">Rock &amp; Pop</string>
+    <string name="live_stations_empty">Tidak ada stasiun langsung yang ditemukan untuk kategori ini saat ini.</string>
 </resources>

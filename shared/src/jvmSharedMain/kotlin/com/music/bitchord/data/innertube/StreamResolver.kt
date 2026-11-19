@@ -26,8 +26,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.ConnectionPool
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.NewPipe
@@ -47,7 +56,9 @@ import org.schabi.newpipe.extractor.exceptions.YoutubeMusicPremiumContentExcepti
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
+import org.schabi.newpipe.extractor.stream.StreamType
 import java.io.IOException
+import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -269,11 +280,40 @@ object StreamResolver {
      * starting a track, and ExoPlayer asks again for every re-open: each seek
      * outside the buffer, and each range the cache fills in.
      */
-    suspend fun resolve(videoId: String): String {
+    /** Tracks videoIds discovered (via metadata or resolved manifest) to be active live broadcasts. */
+    private val knownLiveIds: MutableSet<String> = Collections.newSetFromMap(ConcurrentHashMap())
+
+    fun markKnownLive(videoId: String) {
+        if (videoId.isBlank()) return
+        if (knownLiveIds.size > 256) knownLiveIds.clear()
+        knownLiveIds.add(videoId)
+    }
+
+    fun isKnownLive(videoId: String?): Boolean = videoId != null && videoId in knownLiveIds
+
+    /** Drops any memoized stream URL for [videoId] so the next open resolves fresh. */
+    fun invalidate(videoId: String) {
+        recent.remove(videoId)
+    }
+
+    fun isHlsManifestUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        val path = lower.substringBefore('?')
+        return ".m3u8" in path ||
+            "/hls_playlist" in lower ||
+            "/manifest/hls_variant" in lower ||
+            "/manifest/hls_playlist" in lower
+    }
+
+    suspend fun resolve(videoId: String, isLive: Boolean = false): String {
         init
+        if (isLive) markKnownLive(videoId)
+        val liveHint = isLive || isKnownLive(videoId)
+        val ttl = if (liveHint) LIVE_URL_TTL_MS else URL_TTL_MS
 
         recent[videoId]
-            ?.takeIf { MonotonicClock.nowMs() - it.at < URL_TTL_MS }
+            ?.takeIf { MonotonicClock.nowMs() - it.at < ttl }
+            ?.takeUnless { liveHint && !isHlsManifestUrl(it.url) }
             ?.let { return it.url }
 
         // A verdict, not a failure: asking again cannot change the answer, so
@@ -281,7 +321,8 @@ object StreamResolver {
         // See [rememberUnplayable] for why this is the fix for "stuck loading".
         unplayableReason(videoId)?.let { throw PermanentlyUnplayableException(it) }
 
-        val stream = coalescedResolve(videoId)
+        val stream = coalescedResolve(videoId, liveHint)
+        if (stream.isLive || stream.isHls) markKnownLive(videoId)
 
         // The container carries no bitrate field, so this is the only place the
         // real figure is ever known.
@@ -397,13 +438,13 @@ object StreamResolver {
      * single largest producer of lines in the log, and every one of them was
      * previously filed against whatever happened to be playing while the walk
      * ran, which for read-ahead is the track before this one.
-     */    private suspend fun coalescedResolve(videoId: String): Stream {
+     */    private suspend fun coalescedResolve(videoId: String, isLive: Boolean): Stream {
         inFlight[videoId]?.let { return it.await() }
         // Started lazily so that losing the race below costs nothing: the walk
         // that gets discarded has not run a line, so cancelling it fires no
         // requests and leaves no half-finished deferred behind.
         val walk = resolverScope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-            resolveUncached(videoId)
+            resolveUncached(videoId, isLive)
         }
         val running = inFlight.putIfAbsent(videoId, walk)
         if (running != null) {
@@ -433,14 +474,32 @@ object StreamResolver {
 
     private val resolverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private suspend fun resolveUncached(videoId: String): Stream {
+    private suspend fun resolveUncached(videoId: String, isLive: Boolean = false): Stream {
         val resolveStart = MonotonicClock.nowMs()
         val stream = try {
-            timed("$videoId InnerTubeX") { innerTubeXStream(videoId) }
-                ?: run {
-                    TrackLog.w(TAG, "InnerTubeX found no usable stream for $videoId; falling back to extraction")
-                    timed("$videoId newPipeStream") { newPipeStream(videoId, ::pickForQuality) }
-                }
+            val knownLive = isLive || isKnownLive(videoId)
+            if (knownLive) {
+                timed("$videoId AndroidLive") { androidLiveHlsStream(videoId) }
+                    ?: timed("$videoId InnerTubeX") { innerTubeXStream(videoId, isLive = true) }
+                    ?: run {
+                        TrackLog.w(TAG, "InnerTubeX found no usable live stream for $videoId; falling back to extraction")
+                        timed("$videoId newPipeStream") { newPipeStream(videoId, isLive = true, ::pickForQuality) }
+                    }
+            } else {
+                timed("$videoId InnerTubeX") { innerTubeXStream(videoId, isLive = false) }
+                    ?: run {
+                        if (isKnownLive(videoId)) {
+                            timed("$videoId AndroidLive") { androidLiveHlsStream(videoId) }
+                        } else {
+                            null
+                        }
+                    }
+                    ?: run {
+                        val nowLive = isKnownLive(videoId)
+                        TrackLog.w(TAG, "InnerTubeX found no usable stream for $videoId; falling back to extraction")
+                        timed("$videoId newPipeStream") { newPipeStream(videoId, nowLive, ::pickForQuality) }
+                    }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: LinkageError) {
@@ -500,31 +559,185 @@ object StreamResolver {
         videoId: String,
         maxKbps: Int = maxKbps(),
         requireM4a: Boolean = false,
+        isLive: Boolean = false,
     ): Stream? {
         val skip = mutableSetOf<String>()
         repeat(INNERTUBEX_ATTEMPTS) {
             val found = try {
-                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a)
+                InnerTubeXResolver.extract(
+                    videoId = videoId,
+                    maxKbps = maxKbps,
+                    skipClients = skip,
+                    requireM4a = requireM4a,
+                    allowHls = isLive,
+                    isLive = isLive,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 TrackLog.w(TAG, "InnerTubeX failed for $videoId: ${e.javaClass.simpleName}: ${e.message}")
                 return null
             } ?: return null
-            val verdict = timed("$videoId InnerTubeX ${found.profileId} probe") { probe(found.url) }
+            val isHls = found.isHls || isHlsManifestUrl(found.url)
+            if (found.isLive) markKnownLive(videoId)
+            if (isLive && !isHls) {
+                TrackLog.w(TAG, "InnerTubeX ${found.profileId} returned non-HLS URL for live $videoId; skipping client")
+                skip += found.profileId
+                return@repeat
+            }
+            val verdict = timed("$videoId InnerTubeX ${found.profileId} probe") {
+                if (isHls) probeHls(found.url) else probe(found.url)
+            }
             if (verdict == Probe.OK) {
-                TrackLog.d(TAG, "resolved $videoId via InnerTubeX ${found.profileId} @ ${found.kbps}kbps")
-                return Stream(found.url, found.kbps, found.mimeType, found.loudnessDb)
+                if (found.isLive || isLive) markKnownLive(videoId)
+                TrackLog.d(TAG, "resolved $videoId via InnerTubeX ${found.profileId} @ ${found.kbps}kbps (hls=$isHls, live=${found.isLive || isLive})")
+                return Stream(
+                    url = found.url,
+                    kbps = found.kbps,
+                    mimeType = found.mimeType,
+                    loudnessDb = found.loudnessDb,
+                    isLive = found.isLive || isLive,
+                    isHls = isHls,
+                )
             }
             TrackLog.w(TAG, "InnerTubeX ${found.profileId} minted an unusable URL for $videoId: $verdict")
+            if (verdict == Probe.REFUSED) {
+                InnerTubeXResolver.exclude(videoId, found.profileId)
+            }
             skip += found.profileId
         }
         return null
     }
 
+    private val liveHeadersByUrl = ConcurrentHashMap<String, Map<String, String>>()
+    private val liveHeightsByUrl = ConcurrentHashMap<String, List<Int>>()
+
     /** The headers a media fetch for [url] must carry to match whoever minted it. */
     fun mediaHeadersFor(url: String): Map<String, String> =
-        InnerTubeXResolver.headersFor(url) ?: PlayerClient.forStreamUrl(url).mediaHeaders()
+        liveHeadersByUrl[url]
+            ?: InnerTubeXResolver.headersFor(url)
+            ?: PlayerClient.forStreamUrl(url).mediaHeaders()
+
+    /** Adaptive video heights discovered when probing live HLS [url]. */
+    fun liveHeightsFor(url: String): List<Int> = liveHeightsByUrl[url].orEmpty()
+
+    /**
+     * Records an HTTP refusal during active live playback so the dead manifest URL and its
+     * InnerTubeX client profile are dropped before retrying.
+     */
+    fun onLivePlaybackRefused(videoId: String, masterUrl: String?, responseCode: Int) {
+        recent.remove(videoId)
+        if (masterUrl != null) {
+            liveHeadersByUrl.remove(masterUrl)
+            liveHeightsByUrl.remove(masterUrl)
+            if (responseCode in REFUSAL_CODES) {
+                InnerTubeXResolver.onRefused(masterUrl)
+            }
+        }
+    }
+
+    /**
+     * Resolves a segment-verified live HLS stream suitable for video playback, reusing
+     * [resolve] so audio and video share the same working manifest without duplicate network calls.
+     */
+    suspend fun resolveLiveVideoStream(videoId: String, forceRefresh: Boolean = false): ResolvedVideoStream? =
+        withContext(Dispatchers.IO + TrackLog.about(videoId)) {
+            if (forceRefresh) invalidate(videoId)
+            val url = try {
+                resolve(videoId, isLive = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TrackLog.w(TAG, "resolveLiveVideoStream failed for $videoId: ${e.message}")
+                return@withContext null
+            }
+            ResolvedVideoStream(
+                url = url,
+                height = 0,
+                mimeType = "application/x-mpegURL",
+                heights = liveHeightsFor(url),
+                isLive = true,
+                isHls = true,
+            )
+        }
+
+    /**
+     * Requests a live broadcast directly via YouTube's anonymous `ANDROID` player client,
+     * which returns an adaptive DVR HLS manifest whose segments do not require PO tokens.
+     */
+    private suspend fun androidLiveHlsStream(videoId: String): Stream? = withContext(Dispatchers.IO) {
+        val visitorData = Innertube.ensureVisitorData()
+        val payload = buildJsonObject {
+            put("videoId", videoId)
+            put("contentCheckOk", true)
+            put("racyCheckOk", true)
+            putJsonObject("context") {
+                putJsonObject("client") {
+                    put("clientName", PlayerClient.ANDROID.clientName)
+                    put("clientVersion", PlayerClient.ANDROID.clientVersion)
+                    put("androidSdkVersion", 35)
+                    put("osName", "Android")
+                    put("osVersion", "15")
+                    put("hl", Innertube.currentLanguage)
+                    put("gl", Innertube.currentRegion)
+                    if (!visitorData.isNullOrBlank()) {
+                        put("visitorData", visitorData)
+                    }
+                }
+            }
+        }.toString()
+
+        val reqBuilder = okhttp3.Request.Builder()
+            .url("https://www.youtube.com/youtubei/v1/player?prettyPrint=false")
+            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .header("User-Agent", PlayerClient.ANDROID.userAgent)
+            .header("X-YouTube-Client-Name", "3")
+            .header("X-YouTube-Client-Version", PlayerClient.ANDROID.clientVersion)
+        if (!visitorData.isNullOrBlank()) {
+            reqBuilder.header("X-Goog-Visitor-Id", visitorData)
+        }
+
+        val hlsUrl = try {
+            androidLivePlayerClient.newCall(reqBuilder.build()).execute().use { response ->
+                if (!response.isSuccessful) {
+                    TrackLog.w(TAG, "Android live player HTTP ${response.code} for $videoId")
+                    return@withContext null
+                }
+                val body = response.body?.string().orEmpty()
+                parseAndroidLiveHlsResponse(body)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            TrackLog.w(TAG, "Android live player request failed for $videoId: ${e.message}")
+            return@withContext null
+        } ?: return@withContext null
+
+        val mediaHeaders = PlayerClient.ANDROID.mediaHeaders()
+        if (liveHeadersByUrl.size > 64) liveHeadersByUrl.clear()
+        liveHeadersByUrl[hlsUrl] = mediaHeaders
+
+        val verdict = timed("$videoId Android live HLS probe") { probeHls(hlsUrl, mediaHeaders) }
+        if (verdict == Probe.OK) {
+            markKnownLive(videoId)
+            TrackLog.d(
+                TAG,
+                "resolved $videoId via Android live HLS (heights=${liveHeightsFor(hlsUrl)})",
+            )
+            Stream(
+                url = hlsUrl,
+                kbps = 0,
+                mimeType = "application/x-mpegURL",
+                isLive = true,
+                isHls = true,
+            )
+        } else {
+            liveHeadersByUrl.remove(hlsUrl)
+            liveHeightsByUrl.remove(hlsUrl)
+            TrackLog.w(TAG, "Android live HLS failed probe for $videoId: $verdict")
+            null
+        }
+    }
 
     private const val INNERTUBEX_ATTEMPTS = 3
 
@@ -539,7 +752,14 @@ object StreamResolver {
      * be. Playback only ever needs the URL; a download needs the rest of it to
      * name the file and declare its type.
      */
-    class Stream(val url: String, val kbps: Int, val mimeType: String, val loudnessDb: Double? = null) {
+    class Stream(
+        val url: String,
+        val kbps: Int,
+        val mimeType: String,
+        val loudnessDb: Double? = null,
+        val isLive: Boolean = false,
+        val isHls: Boolean = false,
+    ) {
 
         /**
          * The container these bytes are actually in, which is not always what
@@ -746,7 +966,7 @@ object StreamResolver {
 
     // ---- Validation ---------------------------------------------------------
 
-    private enum class Probe {
+    internal enum class Probe {
         /** Served media bytes; safe to play and to cache. */
         OK,
 
@@ -755,6 +975,67 @@ object StreamResolver {
 
         /** Never got an answer worth interpreting; blame nothing in particular. */
         UNREACHABLE,
+    }
+
+    internal data class HlsMasterInfo(
+        val variantUrl: String?,
+        val directSegmentUrl: String?,
+        val heights: List<Int>,
+    )
+
+    private val hlsResolutionRegex = Regex("""RESOLUTION=\d+x(\d+)""", RegexOption.IGNORE_CASE)
+    private val hlsJson = Json { ignoreUnknownKeys = true }
+
+    internal fun parseHlsMaster(text: String, baseUrl: HttpUrl): HlsMasterInfo {
+        val heights = mutableListOf<Int>()
+        val resolvedUris = mutableListOf<String>()
+        var isMediaPlaylist = false
+        for (rawLine in text.lineSequence()) {
+            val line = rawLine.trim()
+            if (line.isEmpty()) continue
+            if (line.startsWith("#")) {
+                if (line.startsWith("#EXTINF:", ignoreCase = true)) {
+                    isMediaPlaylist = true
+                }
+                if (line.startsWith("#EXT-X-STREAM-INF:", ignoreCase = true)) {
+                    hlsResolutionRegex.find(line)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                        ?.takeIf { it > 0 }
+                        ?.let(heights::add)
+                }
+                continue
+            }
+            baseUrl.resolve(line)?.toString()?.let(resolvedUris::add)
+        }
+        val uniqueHeights = heights.distinct().sortedDescending()
+        return if (isMediaPlaylist) {
+            HlsMasterInfo(variantUrl = null, directSegmentUrl = resolvedUris.lastOrNull(), heights = uniqueHeights)
+        } else {
+            HlsMasterInfo(variantUrl = resolvedUris.firstOrNull(), directSegmentUrl = null, heights = uniqueHeights)
+        }
+    }
+
+    internal fun parseHlsLastSegment(text: String, baseUrl: HttpUrl): String? {
+        var lastResolved: String? = null
+        for (rawLine in text.lineSequence()) {
+            val line = rawLine.trim()
+            if (line.isEmpty() || line.startsWith("#")) continue
+            baseUrl.resolve(line)?.toString()?.let { lastResolved = it }
+        }
+        return lastResolved
+    }
+
+    internal fun parseAndroidLiveHlsResponse(body: String): String? = runCatching {
+        val root = hlsJson.parseToJsonElement(body).jsonObject
+        val status = root["playabilityStatus"]?.jsonObject?.get("status")?.jsonPrimitive?.contentOrNull
+        if (status != "OK") return@runCatching null
+        root["streamingData"]?.jsonObject?.get("hlsManifestUrl")?.jsonPrimitive?.contentOrNull
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
+    private fun readUpTo(body: okhttp3.ResponseBody, maxBytes: Long = HLS_PLAYLIST_MAX_BYTES): String {
+        val source = body.source()
+        source.request(maxBytes)
+        return source.buffer.clone().readByteString(minOf(maxBytes, source.buffer.size)).utf8()
     }
 
     /**
@@ -808,6 +1089,59 @@ object StreamResolver {
         }
     }
 
+    /**
+     * Validates a live HLS manifest URL by fetching the playlist and proving a real
+     * media segment serves bytes (catching clients whose `.m3u8` answers 200 while every
+     * media segment answers 403).
+     */
+    internal fun probeHls(url: String, headers: Map<String, String> = mediaHeadersFor(url)): Probe {
+        fun okhttp3.Request.Builder.withHeaders(): okhttp3.Request.Builder = apply {
+            headers.forEach { (name, value) -> header(name, value) }
+        }
+
+        return try {
+            val masterParsed: HlsMasterInfo
+            prober.newCall(okhttp3.Request.Builder().url(url).withHeaders().build()).execute().use { response ->
+                if (response.code in REFUSAL_CODES) return Probe.REFUSED
+                if (response.code !in 200..299) return Probe.UNREACHABLE
+                val contentType = response.header("Content-Type").orEmpty()
+                val body = response.body ?: return Probe.UNREACHABLE
+                val masterText = readUpTo(body)
+                val looksM3u8 = masterText.trimStart().startsWith("#EXTM3U") ||
+                    "mpegurl" in contentType.lowercase()
+                if (!looksM3u8) return Probe.REFUSED
+                masterParsed = parseHlsMaster(masterText, response.request.url)
+                if (masterParsed.heights.isNotEmpty()) {
+                    if (liveHeightsByUrl.size > 64) liveHeightsByUrl.clear()
+                    liveHeightsByUrl[url] = masterParsed.heights
+                }
+            }
+
+            val segmentUrl = masterParsed.directSegmentUrl ?: run {
+                val variantUrl = masterParsed.variantUrl ?: return Probe.REFUSED
+                prober.newCall(okhttp3.Request.Builder().url(variantUrl).withHeaders().build()).execute().use { vResp ->
+                    if (vResp.code in REFUSAL_CODES) return Probe.REFUSED
+                    if (vResp.code !in 200..299) return Probe.UNREACHABLE
+                    val vBody = vResp.body ?: return Probe.UNREACHABLE
+                    val variantText = readUpTo(vBody)
+                    parseHlsLastSegment(variantText, vResp.request.url) ?: return Probe.REFUSED
+                }
+            }
+
+            prober.newCall(okhttp3.Request.Builder().url(segmentUrl).withHeaders().build()).execute().use { sResp ->
+                when {
+                    sResp.code in REFUSAL_CODES -> Probe.REFUSED
+                    sResp.code !in 200..299 -> Probe.UNREACHABLE
+                    sResp.body?.source()?.request(HLS_SEGMENT_PROBE_BYTES) == true -> Probe.OK
+                    else -> Probe.UNREACHABLE
+                }
+            }
+        } catch (e: Exception) {
+            TrackLog.w(TAG, "HLS probe failed: ${e.message}")
+            Probe.UNREACHABLE
+        }
+    }
+
     private val REFUSAL_CODES = setOf(403, 404, 410)
 
     /**
@@ -821,30 +1155,24 @@ object StreamResolver {
         isHls: Boolean = false,
     ): Boolean {
         val sentHeaders = if (headers.isNotEmpty()) headers else mediaHeadersFor(url)
+        if (isHls) return probeHls(url, sentHeaders) == Probe.OK
         val builder = okhttp3.Request.Builder().url(url)
         sentHeaders.forEach { (name, value) -> builder.header(name, value) }
-        val rangeLabel: String
-        if (!isHls) {
-            val length = url.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
-            val start = if (length != null && length > AUTH_BOUNDARY_BYTES + PROBE_READ_BYTES) AUTH_BOUNDARY_BYTES else 0L
-            val window = PlayerClient.rangeBytesFor(url)
-            val range = when {
-                window != Long.MAX_VALUE -> "bytes=$start-${minOf(start + window, length ?: Long.MAX_VALUE) - 1}"
-                length != null -> "bytes=$start-${length - 1}"
-                else -> "bytes=$start-"
-            }
-            builder.header("Range", range)
-            rangeLabel = range
-        } else {
-            rangeLabel = "hls-manifest"
+        val length = url.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
+        val start = if (length != null && length > AUTH_BOUNDARY_BYTES + PROBE_READ_BYTES) AUTH_BOUNDARY_BYTES else 0L
+        val window = PlayerClient.rangeBytesFor(url)
+        val range = when {
+            window != Long.MAX_VALUE -> "bytes=$start-${minOf(start + window, length ?: Long.MAX_VALUE) - 1}"
+            length != null -> "bytes=$start-${length - 1}"
+            else -> "bytes=$start-"
         }
+        builder.header("Range", range)
         return try {
             prober.newCall(builder.build()).execute().use { response ->
                 val contentType = response.header("Content-Type")
                 val ok = when {
                     response.code in REFUSAL_CODES -> false
                     response.code !in 200..299 && response.code != 416 -> false
-                    isHls -> response.body?.source()?.request(256L) == true
                     else -> (
                         contentType?.startsWith("video/", ignoreCase = true) == true ||
                             contentType?.startsWith("application/octet-stream", ignoreCase = true) == true
@@ -854,15 +1182,21 @@ object StreamResolver {
                 if (!ok) {
                     TrackLog.w(
                         TAG,
-                        "video probe failed: HTTP ${response.code} type=$contentType range=$rangeLabel host=${url.toHttpUrlOrNull()?.host}",
+                        "video probe failed: HTTP ${response.code} type=$contentType range=$range host=${url.toHttpUrlOrNull()?.host}",
                     )
                 }
                 ok
             }
         } catch (e: Exception) {
-            TrackLog.w(TAG, "video probe exception ($rangeLabel): ${e.message}")
+            TrackLog.w(TAG, "video probe exception ($range): ${e.message}")
             false
         }
+    }
+
+    private val androidLivePlayerClient by lazy {
+        Http.client.newBuilder()
+            .callTimeout(ANDROID_LIVE_PLAYER_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
     }
 
     /**
@@ -881,6 +1215,9 @@ object StreamResolver {
     }
 
     private const val PROBE_TIMEOUT_SECONDS = 6L
+    private const val ANDROID_LIVE_PLAYER_TIMEOUT_SECONDS = 10L
+    private const val HLS_PLAYLIST_MAX_BYTES = 256L * 1024L
+    private const val HLS_SEGMENT_PROBE_BYTES = 512L
 
     /** Where googlevideo stops authorising some clients' URLs (InnerTubeX: "CDN 403 after 1 MiB"). */
     private const val AUTH_BOUNDARY_BYTES = 1024L * 1024
@@ -938,13 +1275,21 @@ object StreamResolver {
      */
     private suspend fun newPipeStream(
         videoId: String,
+        isLive: Boolean = false,
         select: (List<Pair<Int, AudioStream>>) -> AudioStream?,
     ): Stream {
         var failure: Exception? = null
         repeat(EXTRACTION_ATTEMPTS) { attempt ->
             if (attempt > 0) delay(EXTRACTION_RETRY_MS * attempt)
             try {
-                return extractStream(videoId, select)
+                val stream = extractStream(videoId, select, isLive = isLive)
+                if (stream.isHls) {
+                    val verdict = withContext(Dispatchers.IO) { probeHls(stream.url) }
+                    if (verdict != Probe.OK) {
+                        error("Live HLS playlist unavailable ($verdict)")
+                    }
+                }
+                return stream
             } catch (e: CancellationException) {
                 throw e
             } catch (e: LinkageError) {
@@ -1062,6 +1407,7 @@ object StreamResolver {
     private suspend fun extractStream(
         videoId: String,
         select: (List<Pair<Int, AudioStream>>) -> AudioStream?,
+        isLive: Boolean = false,
     ): Stream = extractionGate.withLock {
         withContext(Dispatchers.IO) {
             val waited = MonotonicClock.nowMs()
@@ -1069,6 +1415,27 @@ object StreamResolver {
                 "https://www.youtube.com/watch?v=$videoId",
             )
             extractor.fetchPage()
+            val streamType = runCatching { extractor.streamType }.getOrNull()
+            val extractorLive = isLive ||
+                streamType == StreamType.LIVE_STREAM ||
+                streamType == StreamType.AUDIO_LIVE_STREAM
+            if (extractorLive) {
+                val hls = runCatching { extractor.hlsUrl }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (hls != null) {
+                    markKnownLive(videoId)
+                    TrackLog.d(
+                        TAG,
+                        "NewPipe picked live HLS stream for $videoId (type=$streamType, gate=${MonotonicClock.nowMs() - waited}ms)",
+                    )
+                    return@withContext Stream(
+                        url = hls,
+                        kbps = 0,
+                        mimeType = "application/x-mpegURL",
+                        isLive = true,
+                        isHls = true,
+                    )
+                }
+            }
             val candidates = extractor.audioStreams
                 // Progressive only — DASH/HLS entries carry a manifest, not a URL.
                 .filter {
@@ -1095,8 +1462,12 @@ object StreamResolver {
 
     fun isLiveUrl(url: String): Boolean {
         val parsed = url.toHttpUrlOrNull() ?: return false
+        val lower = url.lowercase()
         return parsed.queryParameter("live") == "1" ||
-            parsed.queryParameter("source") == "yt_live_broadcast"
+            parsed.queryParameter("source") == "yt_live_broadcast" ||
+            "/source/yt_live_broadcast" in lower ||
+            "/live/1/" in lower ||
+            lower.endsWith("/live/1")
     }
 
     data class ResolvedVideoStream(
@@ -1105,6 +1476,8 @@ object StreamResolver {
         val mimeType: String = "video/mp4",
         val fallbackUrl: String? = null,
         val heights: List<Int> = emptyList(),
+        val isLive: Boolean = false,
+        val isHls: Boolean = false,
     )
 
     data class CandidateVideoStream(
@@ -1118,19 +1491,19 @@ object StreamResolver {
     private val videoStreamCache = ConcurrentHashMap<String, ResolvedVideoStream>()
     private val candidateVideoStreamsByVideoId = ConcurrentHashMap<String, List<CandidateVideoStream>>()
 
-    private fun selectVideoCandidate(
+    internal fun selectVideoCandidate(
         candidates: List<CandidateVideoStream>,
         maxHeight: Int,
     ): ResolvedVideoStream? {
         if (candidates.isEmpty()) return null
-        val picked = candidates.filter { it.height <= maxHeight }
+        val picked = candidates.filter { it.height in 1..maxHeight }
             .sortedWith(
                 compareBy<CandidateVideoStream> { it.height }
                     .thenBy { if (it.isMp4) 1 else 0 }
                     .thenBy { if (it.isMuxed) 1 else 0 },
             )
             .lastOrNull()
-            ?: candidates.minByOrNull { it.height }
+            ?: candidates.minByOrNull { if (it.height > 0) it.height else Int.MAX_VALUE }
             ?: return null
 
         val fallback = candidates
@@ -1147,17 +1520,24 @@ object StreamResolver {
         )
     }
 
-    suspend fun resolveVideoStream(videoId: String, maxHeight: Int): ResolvedVideoStream? =
+    suspend fun resolveVideoStream(
+        videoId: String,
+        maxHeight: Int,
+        isLive: Boolean = false,
+    ): ResolvedVideoStream? =
         withContext(Dispatchers.IO + TrackLog.about(videoId)) {
             init
+            val liveHint = isLive || isKnownLive(videoId)
             val cacheKey = "$videoId:$maxHeight"
-            videoStreamCache[cacheKey]?.let { return@withContext it }
+            if (!liveHint) {
+                videoStreamCache[cacheKey]?.let { return@withContext it }
 
-            val cachedCandidates = candidateVideoStreamsByVideoId[videoId]
-            if (!cachedCandidates.isNullOrEmpty()) {
-                selectVideoCandidate(cachedCandidates, maxHeight)?.let { resolved ->
-                    videoStreamCache[cacheKey] = resolved
-                    return@withContext resolved
+                val cachedCandidates = candidateVideoStreamsByVideoId[videoId]
+                if (!cachedCandidates.isNullOrEmpty()) {
+                    selectVideoCandidate(cachedCandidates, maxHeight)?.let { resolved ->
+                        videoStreamCache[cacheKey] = resolved
+                        return@withContext resolved
+                    }
                 }
             }
 
@@ -1167,6 +1547,24 @@ object StreamResolver {
                     extractionGate.withLock {
                         val extractor = ServiceList.YouTube.getStreamExtractor("https://www.youtube.com/watch?v=$videoId")
                         extractor.fetchPage()
+                        val streamType = runCatching { extractor.streamType }.getOrNull()
+                        val extractorLive = liveHint ||
+                            streamType == StreamType.LIVE_STREAM ||
+                            streamType == StreamType.AUDIO_LIVE_STREAM
+                        if (extractorLive) {
+                            val hls = runCatching { extractor.hlsUrl }.getOrNull()?.takeIf { it.isNotBlank() }
+                            if (hls != null) {
+                                markKnownLive(videoId)
+                                TrackLog.d(TAG, "NewPipe resolved live HLS video for $videoId (type=$streamType)")
+                                return@withLock ResolvedVideoStream(
+                                    url = hls,
+                                    height = if (maxHeight in 1..4320) maxHeight else 0,
+                                    mimeType = "application/x-mpegURL",
+                                    isLive = true,
+                                    isHls = true,
+                                )
+                            }
+                        }
                         val muxed = runCatching { extractor.videoStreams }.getOrDefault(emptyList())
                             .filter { !it.content.isNullOrBlank() && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
                             .map {
@@ -1210,7 +1608,12 @@ object StreamResolver {
                 }.getOrNull()
 
                 if (extracted != null) {
-                    videoStreamCache[cacheKey] = extracted
+                    if (extracted.isHls && !probeVideo(extracted.url, isHls = true)) {
+                        return@withContext null
+                    }
+                    if (!extracted.isLive) {
+                        videoStreamCache[cacheKey] = extracted
+                    }
                     return@withContext extracted
                 }
             }
@@ -1277,6 +1680,7 @@ object StreamResolver {
     private val recent = ConcurrentHashMap<String, Resolved>()
 
     private const val URL_TTL_MS = 20 * 60 * 1000L
+    private const val LIVE_URL_TTL_MS = 10 * 60 * 1000L
 
     /** Enough for the queue in hand; this is a latency cache, not a store. */
     private const val MAX_REMEMBERED = 32

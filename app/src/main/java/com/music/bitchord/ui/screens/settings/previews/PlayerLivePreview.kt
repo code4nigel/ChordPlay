@@ -75,8 +75,8 @@ import com.music.bitchord.ui.screens.settings.localizedLabel
 
 /**
  * Authentic live interactive player preview faithfully mirroring ChordPlay's
- * Now Playing screen: reflects layout mode (Modern Ambient vs Vinyl Turntable vs Classic),
- * interface style (WavePlay vs ChordPlay OG), breathing aura, and current song metadata.
+ * Now Playing screen: reflects layout mode (Modern Ambient vs Vinyl Turntable),
+ * interface style (WavePlay), breathing aura, and current song metadata.
  */
 @Composable
 fun PlayerLivePreview(
@@ -124,7 +124,6 @@ fun PlayerLivePreview(
 
     val animatedPrimary by animateColorAsState(targetValue = activePrimary, animationSpec = tween(300), label = "playerPrimary")
 
-    val isModern = playerLayoutMode == PlayerLayoutMode.MODERN_AMBIENT
     val isVinyl = playerLayoutMode == PlayerLayoutMode.VINYL_RECORD
     val isWavePlay = playerInterfaceStyle == PlayerInterfaceStyle.WAVEPLAY
 
@@ -263,7 +262,7 @@ fun PlayerLivePreview(
 
             Spacer(Modifier.height(14.dp))
 
-            // Artwork Stage (Modern Ambient vs Vinyl Turntable vs Classic Clean)
+            // Artwork Stage (Modern Ambient vs Vinyl Turntable)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -377,7 +376,7 @@ fun PlayerLivePreview(
                             }
                         }
                     }
-                    isModern -> {
+                    else -> {
                         // Modern Ambient with Static Breathing Aura
                         Box(contentAlignment = Alignment.Center) {
                             if (enableBreathingAura) {
@@ -413,34 +412,6 @@ fun PlayerLivePreview(
                                         modifier = Modifier.size(44.dp),
                                     )
                                 }
-                            }
-                        }
-                    }
-                    else -> {
-                        // Classic Clean Apple Music-style Square Cover
-                        Box(
-                            modifier = Modifier
-                                .size(116.dp)
-                                .shadow(10.dp, RoundedCornerShape(8.dp), spotColor = Color.Black)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Brush.linearGradient(listOf(animatedPrimary, activeSecondary)))
-                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (!activeArtworkUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = activeArtworkUrl,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            } else {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_logo),
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.90f),
-                                    modifier = Modifier.size(44.dp),
-                                )
                             }
                         }
                     }
