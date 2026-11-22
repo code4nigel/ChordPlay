@@ -63,7 +63,10 @@ internal fun PlayerOverlays(
             hazeState = playerHaze,
             accountName = accountName,
             onDismiss = { overlays.audioOutput = false },
-            onOpenCast = { overlays.cast = true },
+            onOpenCast = {
+                overlays.audioOutput = false
+                overlays.cast = true
+            },
             accentColor = accentColor,
         )
     }

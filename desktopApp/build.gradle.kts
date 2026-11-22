@@ -365,8 +365,8 @@ tasks.named<ProcessResources>("processResources") {
         include("*.dll")
         into("native")
     }
-    // The Automix models, taken from the Android module rather than copied into this one.
-    from(rootProject.file("app/src/main/assets")) {
+    // The Automix models, stored in models/ rather than bundled inside the Android APK.
+    from(rootProject.file("models")) {
         include("*.onnx")
         into("models")
     }

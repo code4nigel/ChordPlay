@@ -14,6 +14,8 @@ param(
 
     [string]$ExplicitVersionName = "",
 
+    [string]$Abi = "",
+
     [switch]$NoBump,
 
     [switch]$Clean,

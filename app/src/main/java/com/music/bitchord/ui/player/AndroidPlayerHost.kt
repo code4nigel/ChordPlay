@@ -114,6 +114,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setAnimatedCanvas(value: Boolean) = AppSettings.setAnimatedCanvas(value)
         override fun setFullBleedArtwork(value: Boolean) = AppSettings.setFullBleedArtwork(value)
         override fun setTapArtworkToToggleFullScreen(value: Boolean) = AppSettings.setTapArtworkToToggleFullScreen(value)
+        override fun setSmartFadeEnabled(value: Boolean) {
+            AppSettings.setSmartFadeEnabled(value)
+            if (value) {
+                com.music.bitchord.playback.smart.AutomixModelManager.ensureModelsDownloaded(app)
+            }
+        }
     }
 
     override fun cachedCanvas(song: Song): CanvasArtwork? = CanvasRepository.cached(song)

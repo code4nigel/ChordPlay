@@ -42,6 +42,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -192,8 +194,16 @@ object AudioCache {
     const val QUEUE_DEPTH = QUEUE_LOOKAHEAD + 1
 
     private lateinit var cache: SimpleCache
+    private val initStarted = AtomicBoolean(false)
+    private val initLatch = CountDownLatch(1)
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private fun awaitInit() {
+        if (!::cache.isInitialized && initStarted.get()) {
+            runCatching { initLatch.await() }
+        }
+    }
 
     /**
      * Kept in the app's cache directory: this is disposable by definition, and
@@ -202,36 +212,44 @@ object AudioCache {
      * dropping the spans that named them.
      */
     fun init(context: Context) {
-        evictor.maxBytes = AppSettings.audioCacheLimitBytes.value
-        cache = SimpleCache(
-            File(context.cacheDir, "audio"),
-            evictor,
-            StandaloneDatabaseProvider(context),
-        )
-        // Builds before album/explicit/video-aware and credit-aware matching
-        // may have cached a completely different recording under a YouTube
-        // track's `#alt` key.
-        // Those bytes otherwise outlive the matcher fix: playback serves them
-        // without resolving, then refuses the correct 320kbps replacement as
-        // no quality gain. Drop only the substitution-capable entries once;
-        // ordinary YouTube cache entries remain warm.
-        val state = context.getSharedPreferences(CACHE_STATE_PREFS, Context.MODE_PRIVATE)
-        if (state.getInt(KEY_MATCHING_SCHEMA, 0) < MATCHING_SCHEMA) {
-            val stale = cache.keys.filter { it.endsWith(ALT_SUFFIX) }
-            stale.forEach { runCatching { cache.removeResource(it) } }
-            state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
-            TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
-        }
-        // Nothing is playing yet, so nothing an addon served is worth keeping —
-        // see [dropForeignEntries].
-        dropForeignEntries(keep = emptySet())
-        // A SimpleCache can only be opened once per process, so the ceiling
-        // moves by mutating this evictor rather than reopening the cache —
-        // see [DynamicLruCacheEvictor].
+        if (!initStarted.compareAndSet(false, true)) return
+        val appContext = context.applicationContext
         scope.launch {
-            AppSettings.audioCacheLimitBytes.collect { maxBytes ->
-                evictor.maxBytes = maxBytes
-                evictor.applyNow(cache)
+            try {
+                evictor.maxBytes = AppSettings.audioCacheLimitBytes.value
+                cache = SimpleCache(
+                    File(appContext.cacheDir, "audio"),
+                    evictor,
+                    StandaloneDatabaseProvider(appContext),
+                )
+                // Builds before album/explicit/video-aware and credit-aware matching
+                // may have cached a completely different recording under a YouTube
+                // track's `#alt` key.
+                // Those bytes otherwise outlive the matcher fix: playback serves them
+                // without resolving, then refuses the correct 320kbps replacement as
+                // no quality gain. Drop only the substitution-capable entries once;
+                // ordinary YouTube cache entries remain warm.
+                val state = appContext.getSharedPreferences(CACHE_STATE_PREFS, Context.MODE_PRIVATE)
+                if (state.getInt(KEY_MATCHING_SCHEMA, 0) < MATCHING_SCHEMA) {
+                    val stale = cache.keys.filter { it.endsWith(ALT_SUFFIX) }
+                    stale.forEach { runCatching { cache.removeResource(it) } }
+                    state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
+                    TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
+                }
+                // Nothing is playing yet, so nothing an addon served is worth keeping —
+                // see [dropForeignEntries].
+                dropForeignEntries(keep = emptySet())
+                // A SimpleCache can only be opened once per process, so the ceiling
+                // moves by mutating this evictor rather than reopening the cache —
+                // see [DynamicLruCacheEvictor].
+                scope.launch {
+                    AppSettings.audioCacheLimitBytes.collect { maxBytes ->
+                        evictor.maxBytes = maxBytes
+                        evictor.applyNow(cache)
+                    }
+                }
+            } finally {
+                initLatch.countDown()
             }
         }
     }
@@ -251,7 +269,10 @@ object AudioCache {
         analysisHeadWant.clear()
         renditionKeys.clear()
         scope.launch {
-            cache.keys.toList().forEach { runCatching { cache.removeResource(it) } }
+            awaitInit()
+            if (::cache.isInitialized) {
+                cache.keys.toList().forEach { runCatching { cache.removeResource(it) } }
+            }
             _contentsChanged.value++
             withContext(Dispatchers.Main) { onComplete() }
         }
@@ -277,6 +298,8 @@ object AudioCache {
      * Call it off the main thread.
      */
     fun discard(uri: Uri) {
+        awaitInit()
+        if (!::cache.isInitialized) return
         val exact = keyFactory.buildCacheKey(DataSpec(uri))
         val about = mediaIdIn(uri)
         val family = uri.getQueryParameter("v")?.let { videoId ->
@@ -307,6 +330,8 @@ object AudioCache {
      * Runs on the caller's thread; call it off the main one.
      */
     fun discardRendition(uri: Uri) {
+        awaitInit()
+        if (!::cache.isInitialized) return
         val key = keyFactory.buildCacheKey(DataSpec(uri))
         runCatching { cache.removeResource(key) }
             .onSuccess { TrackLog.d(TAG, "discarded unused rendition $key", about = mediaIdIn(uri)) }
@@ -826,13 +851,19 @@ object AudioCache {
      * Local file, content, HTTP/HTTPS segments, and live HLS URIs bypass disk caching.
      */
     fun playbackFactory(upstream: DataSource.Factory): DataSource.Factory = DataSource.Factory {
-        val cacheDs = cacheFactory(upstream).createDataSource()
         val upstreamDs = upstream.createDataSource()
+        val listeners = mutableListOf<androidx.media3.datasource.TransferListener>()
+        var createdCacheDs: DataSource? = null
+        fun ensureCacheDs(): DataSource = createdCacheDs ?: cacheFactory(upstream).createDataSource().also { ds ->
+            listeners.forEach { ds.addTransferListener(it) }
+            createdCacheDs = ds
+        }
         object : DataSource {
-            private var activeDs: DataSource = cacheDs
+            private var activeDs: DataSource = upstreamDs
 
             override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
-                cacheDs.addTransferListener(transferListener)
+                listeners.add(transferListener)
+                createdCacheDs?.addTransferListener(transferListener)
                 upstreamDs.addTransferListener(transferListener)
             }
 
@@ -840,7 +871,7 @@ object AudioCache {
                 activeDs = if (shouldBypassCache(dataSpec.uri)) {
                     upstreamDs
                 } else {
-                    cacheDs
+                    ensureCacheDs()
                 }
                 return activeDs.open(dataSpec)
             }
@@ -858,13 +889,16 @@ object AudioCache {
         }
     }
 
-    private fun cacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
-        .setCache(cache)
-        .setUpstreamDataSourceFactory(upstream)
-        .setCacheKeyFactory(keyFactory)
-        // A cache write that fails (full disk, evicted mid-write) should drop
-        // to streaming, not surface as a playback error.
-        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    private fun cacheFactory(upstream: DataSource.Factory): CacheDataSource.Factory {
+        awaitInit()
+        return CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstream)
+            .setCacheKeyFactory(keyFactory)
+            // A cache write that fails (full disk, evicted mid-write) should drop
+            // to streaming, not surface as a playback error.
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
 
     /**
      * As [cacheFactory], minus [CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR] —
@@ -884,10 +918,13 @@ object AudioCache {
      * going to. Without the flag, losing the race throws before a byte is
      * read, and every attempt past the first costs nothing.
      */
-    private fun readAheadCacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
-        .setCache(cache)
-        .setUpstreamDataSourceFactory(upstream)
-        .setCacheKeyFactory(keyFactory)
+    private fun readAheadCacheFactory(upstream: DataSource.Factory): CacheDataSource.Factory {
+        awaitInit()
+        return CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstream)
+            .setCacheKeyFactory(keyFactory)
+    }
 
     /** Set once the player exists; read-ahead resolves streams the same way. */
     private var upstreamFactory: DataSource.Factory? = null
@@ -1102,6 +1139,8 @@ object AudioCache {
 
     /** @return true once every range of [videoId] is on disk. */
     private suspend fun cacheWholeOnce(videoId: String): Boolean {
+        awaitInit()
+        if (!::cache.isInitialized) return false
         val total = runCatching { StreamResolver.contentLength(videoId) }.getOrNull()
             ?: return false
 
@@ -1154,6 +1193,8 @@ object AudioCache {
      * on bytes it never reached.
      */
     fun cachedSummary(uri: Uri): String {
+        awaitInit()
+        if (!::cache.isInitialized) return "cache not initialized"
         val key = keyFactory.buildCacheKey(DataSpec(uri))
         val spans = cache.getCachedSpans(key).filter { it.isCached }
         if (spans.isEmpty()) return "$key holds nothing"
@@ -1694,8 +1735,9 @@ object AudioCache {
      * [CacheDataSource] to open against; only the key decides which bytes come
      * back.
      */
-    fun renditionDataSource(uri: Uri, rendition: Rendition): MediaDataSource =
-        CacheMediaDataSource(
+    fun renditionDataSource(uri: Uri, rendition: Rendition): MediaDataSource {
+        awaitInit()
+        return CacheMediaDataSource(
             CacheDataSource.Factory()
                 .setCache(cache)
                 .setUpstreamDataSourceFactory(NoUpstream)
@@ -1704,6 +1746,7 @@ object AudioCache {
                 .createDataSource(),
             uri,
         )
+    }
 
     /**
      * A random-access reader over [uri]'s cached bytes, for the analyzer to hand

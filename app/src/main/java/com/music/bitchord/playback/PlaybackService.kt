@@ -1216,7 +1216,7 @@ class PlaybackService : MediaLibraryService() {
         super.onCreate()
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
-            com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
+            com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.BitChordApplication.authStore.cookie
         }
 
         // First, because everything below assumes it is standing up fresh and

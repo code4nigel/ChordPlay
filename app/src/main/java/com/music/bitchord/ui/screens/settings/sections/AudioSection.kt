@@ -35,11 +35,13 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.smart.AutomixModelManager
 import com.music.bitchord.ui.screens.*
 import kotlin.math.roundToInt
 
@@ -71,6 +74,9 @@ fun AudioSection(
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+    val automixModelState by AutomixModelManager.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { AutomixModelManager.refreshState(context) }
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
@@ -301,24 +307,44 @@ fun AudioSection(
                         if (showPreferMusicOnly || showCrossfade) RowDivider()
 
                         val automixTitle = stringResource(R.string.automix)
+                        val automixSubtitle = when {
+                            smartFade && automixModelState is AutomixModelManager.ModelState.Downloading -> {
+                                val pct = ((automixModelState as AutomixModelManager.ModelState.Downloading).progress * 100).toInt()
+                                "Downloading Automix models ($pct%)…"
+                            }
+                            smartFade && automixModelState is AutomixModelManager.ModelState.Error -> {
+                                "Automix enabled (tap to retry model download)"
+                            }
+                            smartFade -> stringResource(R.string.automix_enabled_subtitle)
+                            else -> stringResource(R.string.automix_disabled_subtitle)
+                        }
+                        val toggleAutomix: (Boolean) -> Unit = { enabled ->
+                            AppSettings.setSmartFadeEnabled(enabled)
+                            if (enabled) {
+                                AutomixModelManager.ensureModelsDownloaded(context)
+                            }
+                        }
                         SettingsRow(
                             icon = Icons.Rounded.AutoAwesome,
                             title = automixTitle,
-                            subtitle = stringResource(
-                                if (smartFade) R.string.automix_enabled_subtitle
-                                else R.string.automix_disabled_subtitle,
-                            ),
+                            subtitle = automixSubtitle,
                             trailing = {
                                 Switch(
                                     checked = smartFade,
-                                    onCheckedChange = AppSettings::setSmartFadeEnabled,
+                                    onCheckedChange = toggleAutomix,
                                     colors = SwitchDefaults.colors(
                                         checkedTrackColor = MaterialTheme.colorScheme.primary,
                                         checkedBorderColor = MaterialTheme.colorScheme.primary,
                                     ),
                                 )
                             },
-                            onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+                            onClick = {
+                                if (smartFade && automixModelState is AutomixModelManager.ModelState.Error) {
+                                    AutomixModelManager.ensureModelsDownloaded(context)
+                                } else {
+                                    toggleAutomix(!smartFade)
+                                }
+                            },
                         )
                     }
 

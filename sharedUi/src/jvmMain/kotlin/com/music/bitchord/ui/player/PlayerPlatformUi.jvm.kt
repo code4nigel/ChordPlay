@@ -128,6 +128,33 @@ internal actual fun DrawScope.clipShiftedDown(
     paint.close()
 }
 
+internal actual fun bundledLyricsFontFamily(choice: LyricsFontChoice): androidx.compose.ui.text.font.FontFamily {
+    val weight = androidx.compose.ui.text.font.FontWeight
+    return when (choice) {
+        LyricsFontChoice.DEFAULT -> androidx.compose.ui.text.font.FontFamily(
+            androidx.compose.ui.text.platform.Font("font/sf_pro_display_regular.otf", weight.Normal),
+            androidx.compose.ui.text.platform.Font("font/sf_pro_display_medium.otf", weight.Medium),
+            androidx.compose.ui.text.platform.Font("font/sf_pro_display_semibold.otf", weight.SemiBold),
+            androidx.compose.ui.text.platform.Font("font/sf_pro_display_bold.otf", weight.Bold),
+            androidx.compose.ui.text.platform.Font("font/sf_pro_display_heavy.otf", weight.ExtraBold),
+        )
+        LyricsFontChoice.POPPINS -> androidx.compose.ui.text.font.FontFamily(
+            androidx.compose.ui.text.platform.Font("font/poppins_regular.ttf", weight.Normal),
+            androidx.compose.ui.text.platform.Font("font/poppins_medium.ttf", weight.Medium),
+            androidx.compose.ui.text.platform.Font("font/poppins_semibold.ttf", weight.SemiBold),
+            androidx.compose.ui.text.platform.Font("font/poppins_bold.ttf", weight.Bold),
+            androidx.compose.ui.text.platform.Font("font/poppins_extrabold.ttf", weight.ExtraBold),
+        )
+        LyricsFontChoice.PARKINSANS -> androidx.compose.ui.text.font.FontFamily(
+            androidx.compose.ui.text.platform.Font("font/parkinsans_medium.ttf", weight.Medium),
+            androidx.compose.ui.text.platform.Font("font/parkinsans_semibold.ttf", weight.SemiBold),
+            androidx.compose.ui.text.platform.Font("font/parkinsans_bold.ttf", weight.Bold),
+            androidx.compose.ui.text.platform.Font("font/parkinsans_extrabold.ttf", weight.ExtraBold),
+        )
+        else -> androidx.compose.ui.text.font.FontFamily.Default
+    }
+}
+
 internal actual fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily {
     return try {
         androidx.compose.ui.text.font.FontFamily(

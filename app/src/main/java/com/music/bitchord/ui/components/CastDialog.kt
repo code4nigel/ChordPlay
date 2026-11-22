@@ -60,12 +60,14 @@ fun CastDialog(
     modifier: Modifier = Modifier,
 ) {
     val cast by CastController.state.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val haptics = rememberHaptics()
     // Set by tapping a receiver, so the popup closes itself when that receiver
     // connects — but not when somebody opens it while already casting.
     var picked by remember { mutableStateOf(false) }
 
     DisposableEffect(cast.supported) {
+        CastController.ensureStarted(context)
         val stop = CastController.discover(active = true)
         onDispose(stop)
     }

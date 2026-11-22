@@ -247,6 +247,7 @@ fun NowPlayingScreen(
     val isTopBright = (artTopLuminance ?: 0f) > 0.45f
 
     val playerHaze = remember { HazeState() }
+    val playerOverlayHaze = remember { HazeState() }
     val overlays = remember { PlayerOverlayState() }
     val openAudioOutput = rememberOutputPicker { overlays.audioOutput = true }
     val controlsLocked = rememberControlsLocked()
@@ -697,7 +698,7 @@ fun NowPlayingScreen(
         )
         PlayerOverlays(
             overlays = overlays,
-            playerHaze = playerHaze,
+            playerHaze = playerOverlayHaze,
             accountName = accountName,
             accentColor = synesthesiaPalette.colors.firstOrNull(),
             isVideo = song.isVideo,
@@ -825,6 +826,7 @@ fun NowPlayingScreen(
             },
             likeBurstState = likeBurstState,
             playerHaze = playerHaze,
+            playerOverlayHaze = playerOverlayHaze,
             dockHost = dockHost,
             dock = dock,
             dockFrame = dockFrame,
@@ -898,7 +900,8 @@ fun NowPlayingScreen(
                 .onSizeChanged { measures.playerBounds = it }
                 .background(Color.Black),
         ) {
-            PortraitBackdrop(
+            Box(Modifier.fillMaxSize().hazeSource(playerOverlayHaze)) {
+                PortraitBackdrop(
                 legacyMesh = legacyMeshBackdrop,
                 tablet = tabletArtworkBackdrop,
                 panelOpen = panels.lyricsOpen || panels.queueOpen,
@@ -1490,6 +1493,7 @@ fun NowPlayingScreen(
                             .padding(end = 16.dp, bottom = 14.dp),
                     )
                 }
+            }
             }
             playerOverlays()
         }

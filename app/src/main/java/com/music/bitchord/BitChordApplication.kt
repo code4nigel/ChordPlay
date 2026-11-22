@@ -76,6 +76,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         AndroidStreamHooks.installEarly()
         PlayerPlatform.install(AndroidPlayerHost(this))
         com.music.bitchord.ui.AppUi.install(com.music.bitchord.ui.AndroidAppUiHost)
+        registerBundledLyricsFonts()
         // The shared data layer (lyrics, the YouTube Music client) logs to
         // logcat on debug builds only, as the app's own DebugLog always has.
         if (BuildConfig.DEBUG) {
@@ -212,6 +213,43 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         val activityManager = getSystemService(ACTIVITY_SERVICE) as? android.app.ActivityManager
         if (activityManager?.isLowRamDevice != true) {
             com.music.bitchord.ui.components.backdrop.GlassShaderWarmup.warmUp()
+        }
+    }
+
+    private fun registerBundledLyricsFonts() {
+        val sfPro by lazy {
+            androidx.compose.ui.text.font.FontFamily(
+                androidx.compose.ui.text.font.Font(R.font.sf_pro_display_regular, androidx.compose.ui.text.font.FontWeight.Normal),
+                androidx.compose.ui.text.font.Font(R.font.sf_pro_display_medium, androidx.compose.ui.text.font.FontWeight.Medium),
+                androidx.compose.ui.text.font.Font(R.font.sf_pro_display_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+                androidx.compose.ui.text.font.Font(R.font.sf_pro_display_bold, androidx.compose.ui.text.font.FontWeight.Bold),
+                androidx.compose.ui.text.font.Font(R.font.sf_pro_display_heavy, androidx.compose.ui.text.font.FontWeight.ExtraBold),
+            )
+        }
+        val poppins by lazy {
+            androidx.compose.ui.text.font.FontFamily(
+                androidx.compose.ui.text.font.Font(R.font.poppins_regular, androidx.compose.ui.text.font.FontWeight.Normal),
+                androidx.compose.ui.text.font.Font(R.font.poppins_medium, androidx.compose.ui.text.font.FontWeight.Medium),
+                androidx.compose.ui.text.font.Font(R.font.poppins_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+                androidx.compose.ui.text.font.Font(R.font.poppins_bold, androidx.compose.ui.text.font.FontWeight.Bold),
+                androidx.compose.ui.text.font.Font(R.font.poppins_extrabold, androidx.compose.ui.text.font.FontWeight.ExtraBold),
+            )
+        }
+        val parkinsans by lazy {
+            androidx.compose.ui.text.font.FontFamily(
+                androidx.compose.ui.text.font.Font(R.font.parkinsans_medium, androidx.compose.ui.text.font.FontWeight.Medium),
+                androidx.compose.ui.text.font.Font(R.font.parkinsans_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+                androidx.compose.ui.text.font.Font(R.font.parkinsans_bold, androidx.compose.ui.text.font.FontWeight.Bold),
+                androidx.compose.ui.text.font.Font(R.font.parkinsans_extrabold, androidx.compose.ui.text.font.FontWeight.ExtraBold),
+            )
+        }
+        com.music.bitchord.ui.player.LyricsStyleManager.setBundledFontResolver { choice ->
+            when (choice) {
+                com.music.bitchord.ui.player.LyricsFontChoice.DEFAULT -> sfPro
+                com.music.bitchord.ui.player.LyricsFontChoice.POPPINS -> poppins
+                com.music.bitchord.ui.player.LyricsFontChoice.PARKINSANS -> parkinsans
+                else -> androidx.compose.ui.text.font.FontFamily.Default
+            }
         }
     }
 

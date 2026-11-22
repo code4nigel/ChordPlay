@@ -15,25 +15,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import com.music.bitchord.sharedui.resources.Res
-import com.music.bitchord.sharedui.resources.parkinsans_bold
-import com.music.bitchord.sharedui.resources.parkinsans_extrabold
-import com.music.bitchord.sharedui.resources.parkinsans_medium
-import com.music.bitchord.sharedui.resources.parkinsans_semibold
-import com.music.bitchord.sharedui.resources.poppins_bold
-import com.music.bitchord.sharedui.resources.poppins_extrabold
-import com.music.bitchord.sharedui.resources.poppins_medium
-import com.music.bitchord.sharedui.resources.poppins_regular
-import com.music.bitchord.sharedui.resources.poppins_semibold
-import com.music.bitchord.sharedui.resources.sf_pro_display_bold
-import com.music.bitchord.sharedui.resources.sf_pro_display_heavy
-import com.music.bitchord.sharedui.resources.sf_pro_display_medium
-import com.music.bitchord.sharedui.resources.sf_pro_display_regular
-import com.music.bitchord.sharedui.resources.sf_pro_display_semibold
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.jetbrains.compose.resources.Font
 
 /**
  * Supported font families for lyrics rendering.
@@ -101,29 +85,9 @@ data class LyricsCustomStyle(
 @Composable
 fun rememberLyricsFontFamily(style: LyricsCustomStyle): FontFamily {
     return when (style.fontChoice) {
-        LyricsFontChoice.DEFAULT -> {
-            val reg = Font(Res.font.sf_pro_display_regular, FontWeight.Normal)
-            val med = Font(Res.font.sf_pro_display_medium, FontWeight.Medium)
-            val semi = Font(Res.font.sf_pro_display_semibold, FontWeight.SemiBold)
-            val bold = Font(Res.font.sf_pro_display_bold, FontWeight.Bold)
-            val heavy = Font(Res.font.sf_pro_display_heavy, FontWeight.ExtraBold)
-            remember(reg, med, semi, bold, heavy) { FontFamily(reg, med, semi, bold, heavy) }
-        }
-        LyricsFontChoice.POPPINS -> {
-            val reg = Font(Res.font.poppins_regular, FontWeight.Normal)
-            val med = Font(Res.font.poppins_medium, FontWeight.Medium)
-            val semi = Font(Res.font.poppins_semibold, FontWeight.SemiBold)
-            val bold = Font(Res.font.poppins_bold, FontWeight.Bold)
-            val heavy = Font(Res.font.poppins_extrabold, FontWeight.ExtraBold)
-            remember(reg, med, semi, bold, heavy) { FontFamily(reg, med, semi, bold, heavy) }
-        }
-        LyricsFontChoice.PARKINSANS -> {
-            val med = Font(Res.font.parkinsans_medium, FontWeight.Medium)
-            val semi = Font(Res.font.parkinsans_semibold, FontWeight.SemiBold)
-            val bold = Font(Res.font.parkinsans_bold, FontWeight.Bold)
-            val heavy = Font(Res.font.parkinsans_extrabold, FontWeight.ExtraBold)
-            remember(med, semi, bold, heavy) { FontFamily(med, semi, bold, heavy) }
-        }
+        LyricsFontChoice.DEFAULT,
+        LyricsFontChoice.POPPINS,
+        LyricsFontChoice.PARKINSANS -> remember(style.fontChoice) { bundledLyricsFontFamily(style.fontChoice) }
         LyricsFontChoice.SERIF -> FontFamily.Serif
         LyricsFontChoice.SANS_SERIF -> FontFamily.SansSerif
         LyricsFontChoice.MONOSPACE -> FontFamily.Monospace
@@ -147,6 +111,13 @@ object LyricsStyleManager {
     val style: StateFlow<LyricsCustomStyle> = _style.asStateFlow()
 
     private var persister: ((LyricsCustomStyle) -> Unit)? = null
+    private var bundledFontResolver: ((LyricsFontChoice) -> FontFamily)? = null
+
+    fun setBundledFontResolver(resolver: (LyricsFontChoice) -> FontFamily) {
+        bundledFontResolver = resolver
+    }
+
+    internal fun resolveBundledFont(choice: LyricsFontChoice): FontFamily? = bundledFontResolver?.invoke(choice)
 
     fun setInitialStyle(initial: LyricsCustomStyle) {
         _style.value = initial

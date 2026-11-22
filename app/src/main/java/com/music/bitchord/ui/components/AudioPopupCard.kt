@@ -148,7 +148,6 @@ internal fun AudioPopupCard(
         )
     }
     val frostStyle = remember(tintedDarkBase) { menuFrost(tintedDarkBase, alpha = 0.18f) }
-    val useLiquidGlass = !reduceDynamicBlur && isGlassSupported()
 
     Box(
         modifier = modifier
@@ -182,19 +181,17 @@ internal fun AudioPopupCard(
                 )
                 .clip(POPUP_CARD_SHAPE)
                 .then(
-                    when {
-                        reduceDynamicBlur -> Modifier
+                    if (reduceDynamicBlur) {
+                        Modifier
                             .background(tintedDarkBase.copy(alpha = 0.95f), POPUP_CARD_SHAPE)
                             .background(opaqueTintedGradient, POPUP_CARD_SHAPE)
-                        useLiquidGlass -> Modifier
-                            .liquidGlass(shape = POPUP_CARD_SHAPE)
-                            .background(glassGradient, POPUP_CARD_SHAPE)
-                        else -> Modifier
+                    } else {
+                        Modifier
                             .optimizedHazeEffect(state = hazeState, style = frostStyle)
                             .background(glassGradient, POPUP_CARD_SHAPE)
                     },
                 )
-                .border(width = if (useLiquidGlass) 1.1.dp else 0.8.dp, brush = rimBrush, shape = POPUP_CARD_SHAPE)
+                .border(width = if (!reduceDynamicBlur) 1.1.dp else 0.8.dp, brush = rimBrush, shape = POPUP_CARD_SHAPE)
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },

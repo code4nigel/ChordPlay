@@ -134,7 +134,7 @@ data class BulkAddProgress(
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val authStore = AuthStore(app)
+    private val authStore = com.music.bitchord.BitChordApplication.authStore
 
     private val _signedIn = MutableStateFlow(authStore.isSignedIn)
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()

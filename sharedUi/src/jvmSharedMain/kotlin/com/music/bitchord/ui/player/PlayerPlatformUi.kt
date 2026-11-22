@@ -57,6 +57,9 @@ internal expect fun DrawScope.clipShiftedDown(
     block: DrawScope.() -> Unit,
 )
 
+/** Loads a bundled lyrics font family by choice. */
+internal expect fun bundledLyricsFontFamily(choice: LyricsFontChoice): androidx.compose.ui.text.font.FontFamily
+
 /** Loads a custom font family from an absolute file path on disk. */
 internal expect fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ChordPlay Android Build & Version Automation Script
 
@@ -79,7 +79,62 @@ Write-Host "============================================================" -Foreg
 Write-Host "   ChordPlay Android Build & Version Automation" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "Workspace Root : $rootDir" -ForegroundColor Gray
-Write-Host "Target Variant : $Variant" -ForegroundColor Gray
+
+$gradleFile = Join-Path $rootDir "app\build.gradle.kts"
+if (-not (Test-Path $gradleFile)) {
+    Write-Error "Cannot find app build file at $gradleFile"
+}
+
+$gradleContent = [System.IO.File]::ReadAllText($gradleFile)
+
+$currentCodeMatch = [regex]::Match($gradleContent, '(?m)^\s*versionCode\s*=\s*(\d+)')
+$currentNameMatch = [regex]::Match($gradleContent, '(?m)^\s*versionName\s*=\s*"([^"]+)"')
+
+if (-not $currentCodeMatch.Success) {
+    Write-Error "Failed to parse versionCode from $gradleFile"
+}
+if (-not $currentNameMatch.Success) {
+    Write-Error "Failed to parse versionName from $gradleFile"
+}
+
+$currentVersionCode = [int]$currentCodeMatch.Groups[1].Value
+$currentVersionName = $currentNameMatch.Groups[1].Value
+
+Write-Host "`nCurrent Version in app/build.gradle.kts:" -ForegroundColor Yellow
+Write-Host "  versionCode : $currentVersionCode" -ForegroundColor Yellow
+Write-Host "  versionName : $currentVersionName" -ForegroundColor Yellow
+
+# Interactive prompt when invoked with no CLI arguments
+if ($PSBoundParameters.Count -eq 0) {
+    Write-Host ""
+    $typeChoice = Read-Host "Build type — [p] prodRelease or [d] devDebug (default: d)"
+    $Variant = switch -Regex ($typeChoice.Trim().ToLower()) {
+        "^(p|prod|prodrelease)$" { "prodRelease" }
+        default                  { "devDebug" }
+    }
+
+    $verInput = Read-Host "Version number (current: $currentVersionName, Enter to auto-bump)"
+    if (-not [string]::IsNullOrWhiteSpace($verInput)) {
+        $ExplicitVersionName = $verInput.Trim()
+    }
+
+    $codeInput = Read-Host "Version code (current: $currentVersionCode, Enter to auto-bump)"
+    if (-not [string]::IsNullOrWhiteSpace($codeInput)) {
+        $parsedCode = 0
+        if ([int]::TryParse($codeInput.Trim(), [ref]$parsedCode) -and $parsedCode -gt 0) {
+            $ExplicitVersionCode = $parsedCode
+        } else {
+            Write-Warning "Invalid version code '$codeInput'; falling back to auto-bump."
+        }
+    }
+
+    $abiInput = Read-Host "APK type / ABI (e.g. x8a, v7a, x64) [optional, Enter for all]"
+    if (-not [string]::IsNullOrWhiteSpace($abiInput)) {
+        $Abi = $abiInput.Trim()
+    }
+}
+
+Write-Host "`nTarget Variant : $Variant" -ForegroundColor Gray
 
 # --------------------------------------------------------------------------
 # 1. Environment Verification (JDK 21 & CMake)
@@ -107,34 +162,7 @@ if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
 }
 
 # --------------------------------------------------------------------------
-# 2. Read Current Version Info
-# --------------------------------------------------------------------------
-$gradleFile = Join-Path $rootDir "app\build.gradle.kts"
-if (-not (Test-Path $gradleFile)) {
-    Write-Error "Cannot find app build file at $gradleFile"
-}
-
-$gradleContent = [System.IO.File]::ReadAllText($gradleFile)
-
-$currentCodeMatch = [regex]::Match($gradleContent, '(?m)^\s*versionCode\s*=\s*(\d+)')
-$currentNameMatch = [regex]::Match($gradleContent, '(?m)^\s*versionName\s*=\s*"([^"]+)"')
-
-if (-not $currentCodeMatch.Success) {
-    Write-Error "Failed to parse versionCode from $gradleFile"
-}
-if (-not $currentNameMatch.Success) {
-    Write-Error "Failed to parse versionName from $gradleFile"
-}
-
-$currentVersionCode = [int]$currentCodeMatch.Groups[1].Value
-$currentVersionName = $currentNameMatch.Groups[1].Value
-
-Write-Host "`nCurrent Version in app/build.gradle.kts:" -ForegroundColor Yellow
-Write-Host "  versionCode : $currentVersionCode" -ForegroundColor Yellow
-Write-Host "  versionName : $currentVersionName" -ForegroundColor Yellow
-
-# --------------------------------------------------------------------------
-# 3. Calculate New Version Code & Name
+# 2. Calculate New Version Code & Name
 # --------------------------------------------------------------------------
 $effectiveBump = if ($NoBump) { "none" } else { $Bump }
 

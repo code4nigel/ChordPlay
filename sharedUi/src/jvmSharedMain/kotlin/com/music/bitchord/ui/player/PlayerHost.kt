@@ -253,6 +253,7 @@ interface PlayerSettingsSource {
     fun setFullBleedArtwork(value: Boolean) {}
     val tapArtworkToToggleFullScreen: StateFlow<Boolean> get() = MutableStateFlow(true)
     fun setTapArtworkToToggleFullScreen(value: Boolean) {}
+    fun setSmartFadeEnabled(value: Boolean) {}
 }
 
 private val DEFAULT_PLAYER_ANIMATION_SPEED = MutableStateFlow(1.0f)

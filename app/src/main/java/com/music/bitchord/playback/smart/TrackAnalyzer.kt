@@ -78,15 +78,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * is not one. This used to live inside each tracker; it moved out when they
      * became shared with the desktop build, which unpacks from the jar instead.
      */
-    private fun unpackedAsset(name: String): String {
-        val file = java.io.File(context.filesDir, name)
-        if (!file.exists() || file.length() == 0L) {
-            context.assets.open(name).use { input ->
-                file.outputStream().use { output -> input.copyTo(output) }
-            }
-        }
-        return file.absolutePath
-    }
+    private fun unpackedAsset(name: String): String =
+        AutomixModelManager.ensureModelSync(context, name)
 
     /**
      * Whether analysis is switched off entirely right now.

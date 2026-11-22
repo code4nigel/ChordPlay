@@ -17,7 +17,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,15 +46,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.music.bitchord.R
 
 /**
  * Full-screen festive celebration dialog for Diwali.
@@ -91,12 +87,18 @@ fun DiwaliCelebrationDialog(
                     onClick = { /* swallow clicks inside card */ },
                 ),
         ) {
-            // 1. Beautiful high-res festive background illustration
-            Image(
-                painter = painterResource(R.drawable.diwali_celebration_bg),
-                contentDescription = "Diwali Celebration",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+            // 1. Lightweight festive warm gradient backdrop
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0.0f to Color(0xFF4E1A10),
+                            0.35f to Color(0xFF8C3B10),
+                            0.65f to Color(0xFFD97706),
+                            1.0f to Color(0xFF1F0C08),
+                        ),
+                    ),
             )
 
             // 2. Multi-stop atmospheric dark vignette at the bottom for pristine readability

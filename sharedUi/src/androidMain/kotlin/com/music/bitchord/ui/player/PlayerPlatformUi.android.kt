@@ -119,6 +119,9 @@ internal actual fun DrawScope.clipShiftedDown(
     }
 }
 
+internal actual fun bundledLyricsFontFamily(choice: LyricsFontChoice): androidx.compose.ui.text.font.FontFamily =
+    LyricsStyleManager.resolveBundledFont(choice) ?: androidx.compose.ui.text.font.FontFamily.Default
+
 internal actual fun createFontFamilyFromFile(path: String): androidx.compose.ui.text.font.FontFamily {
     return try {
         val tf = android.graphics.Typeface.createFromFile(java.io.File(path))

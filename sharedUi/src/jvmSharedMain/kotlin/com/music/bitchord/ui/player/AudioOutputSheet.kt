@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
@@ -47,6 +48,8 @@ import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -164,6 +167,7 @@ internal fun AudioOutputSheet(
 ) {
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
+    val smartFadeEnabled by PlayerSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val animationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
@@ -328,6 +332,11 @@ internal fun AudioOutputSheet(
                 if (cast.supported) {
                     CastRow(cast = cast, opaque = reduceDynamicBlur, onClick = onOpenCast)
                 }
+                AutomixRow(
+                    enabled = smartFadeEnabled,
+                    opaque = reduceDynamicBlur,
+                    onToggle = { PlayerSettings.setSmartFadeEnabled(it) },
+                )
             }
         }
     }
@@ -428,6 +437,109 @@ private fun CastRow(cast: CastUi, opaque: Boolean, onClick: () -> Unit) {
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.45f),
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/**
+ * Toggles Automix (beat-matched transitions) directly from the player's audio output sheet.
+ */
+@Composable
+private fun AutomixRow(
+    enabled: Boolean,
+    opaque: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    val haptics = rememberHaptics()
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "automixRowScale",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            opaque && enabled -> Color.White.copy(alpha = 0.14f)
+            opaque -> Color.White.copy(alpha = 0.06f)
+            enabled -> Color.White.copy(alpha = 0.16f)
+            else -> Color.White.copy(alpha = 0.07f)
+        },
+        animationSpec = tween(220),
+        label = "automixRowBg",
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(AUDIO_PILL_SHAPE)
+            .background(bgColor)
+            .border(
+                width = 0.75.dp,
+                color = Color.White.copy(alpha = if (enabled) 0.22f else 0.09f),
+                shape = AUDIO_PILL_SHAPE,
+            )
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) {
+                haptics.play(Haptic.Select)
+                onToggle(!enabled)
+            }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = if (enabled) 0.18f else 0.10f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = if (enabled) 1f else 0.78f),
+                modifier = Modifier.size(21.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = "Automix",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
+                ),
+                color = Color.White.copy(alpha = if (enabled) 1f else 0.90f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = if (enabled) "Beat-matched transitions" else "Off",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.60f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = {
+                haptics.play(Haptic.Select)
+                onToggle(it)
+            },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color.White.copy(alpha = 0.36f),
+                uncheckedThumbColor = Color.White.copy(alpha = 0.78f),
+                uncheckedTrackColor = Color.White.copy(alpha = 0.12f),
+                uncheckedBorderColor = Color.White.copy(alpha = 0.25f),
+            ),
         )
     }
 }

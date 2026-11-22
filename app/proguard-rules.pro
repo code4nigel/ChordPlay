@@ -27,6 +27,11 @@
 -keep class com.hierynomus.** { *; }
 -keep class net.engio.mbassy.** { *; }
 -keep class org.bouncycastle.** { *; }
+
+# ---- Google Cast ----------------------------------------------------------------
+# Instantiated reflectively by CastContext from AndroidManifest's OPTIONS_PROVIDER_CLASS_NAME.
+-keep class com.music.bitchord.playback.cast.CastOptionsProvider { *; }
+-keep class com.google.android.gms.cast.** { *; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
 # The vendored FFmpeg extension's JNI calls back into this by name to grow
 # its output buffer (native/ffmpeg/ffmpeg_jni.cc, JNI_OnLoad).
