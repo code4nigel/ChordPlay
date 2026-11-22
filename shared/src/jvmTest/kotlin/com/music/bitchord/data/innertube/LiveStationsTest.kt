@@ -455,4 +455,49 @@ class LiveStationsTest {
         """.trimIndent()
         assertNull(StreamResolver.parseAndroidLiveHlsResponse(missingManifestJson))
     }
+
+    @Test
+    fun isDedicatedArtistLiveStationAcceptsOwnedOrSingleArtistAndRejectsCompilations() {
+        val dedicatedChannel = com.music.bitchord.data.model.ShelfItem(
+            title = "Lover Live Radio 24/7",
+            subtitle = "Taylor Swift • 1.2K watching",
+            thumbnailUrl = null,
+            videoId = "liveTS1",
+            browseId = null,
+            isVideo = true,
+            isLive = true,
+        )
+        val titledStation = com.music.bitchord.data.model.ShelfItem(
+            title = "Taylor Swift: The Station",
+            subtitle = "YouTube Music",
+            thumbnailUrl = null,
+            videoId = "liveTS2",
+            browseId = null,
+            isVideo = true,
+            isLive = true,
+        )
+        val multiArtistCompilation = com.music.bitchord.data.model.ShelfItem(
+            title = "Billboard Hot 100 Pop Songs 2026 - Taylor Swift, Billie Eilish & Dua Lipa",
+            subtitle = "Top Hits 24/7 • 4K watching",
+            thumbnailUrl = null,
+            videoId = "liveComp1",
+            browseId = null,
+            isVideo = true,
+            isLive = true,
+        )
+        val unrelatedLofi = com.music.bitchord.data.model.ShelfItem(
+            title = "lofi hip hop radio - beats to relax/study to",
+            subtitle = "Lofi Girl • 18K watching",
+            thumbnailUrl = null,
+            videoId = "liveLofi1",
+            browseId = null,
+            isVideo = true,
+            isLive = true,
+        )
+
+        assertTrue(com.music.bitchord.data.YtMusicRepository.isDedicatedArtistLiveStation(dedicatedChannel, "Taylor Swift"))
+        assertTrue(com.music.bitchord.data.YtMusicRepository.isDedicatedArtistLiveStation(titledStation, "Taylor Swift"))
+        assertFalse(com.music.bitchord.data.YtMusicRepository.isDedicatedArtistLiveStation(multiArtistCompilation, "Taylor Swift"))
+        assertFalse(com.music.bitchord.data.YtMusicRepository.isDedicatedArtistLiveStation(unrelatedLofi, "Taylor Swift"))
+    }
 }

@@ -77,6 +77,7 @@ fun PlayerSection(
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
+    val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
@@ -142,6 +143,12 @@ fun PlayerSection(
             stringResource(R.string.hide_song_status_subtitle),
             "song status", "playing from", "played by",
         )
+        val showHideLyricsPreview = matchesSearch(
+            searchQuery,
+            stringResource(R.string.hide_lyrics_on_player),
+            stringResource(R.string.hide_lyrics_on_player_subtitle),
+            "hide lyrics", "lyrics preview", "one line", "chip", "player",
+        )
         val showPlayNextOnSwipe = matchesSearch(
             searchQuery,
             stringResource(R.string.play_next_on_swipe),
@@ -176,7 +183,7 @@ fun PlayerSection(
 
         val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
             showFullScreenCoverArt || showTapArtworkToggleFullScreen || showLegacyMeshGradient || showAnimatedCoverArt ||
-            showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose ||
+            showHideSongStatus || showHideLyricsPreview || showPlayNextOnSwipe || showStopMusicOnClose ||
             showLandscapeFontScale || showSmartAlignment || showNerdStats
 
         // Pinned Live Preview (hidden during active search)
@@ -339,7 +346,7 @@ fun PlayerSection(
                 }
 
                 // Preferences Section Divider
-                val hasPreferences = showHideSongStatus || showPlayNextOnSwipe || showStopMusicOnClose
+                val hasPreferences = showHideSongStatus || showHideLyricsPreview || showPlayNextOnSwipe || showStopMusicOnClose
                 if (hasPreferences) {
                     if (hasTopVisuals || hasArtworkVisuals) {
                         SettingsSectionDivider(title = stringResource(R.string.preferences_header))
@@ -362,6 +369,25 @@ fun PlayerSection(
                                 )
                             },
                             onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
+                        )
+                    }
+
+                    if (showHideLyricsPreview) {
+                        SettingsRow(
+                            icon = Icons.Rounded.VisibilityOff,
+                            title = stringResource(R.string.hide_lyrics_on_player),
+                            subtitle = stringResource(R.string.hide_lyrics_on_player_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = hideLyricsPreview,
+                                    onCheckedChange = AppSettings::setHideLyricsPreview,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setHideLyricsPreview(!hideLyricsPreview) },
                         )
                     }
 

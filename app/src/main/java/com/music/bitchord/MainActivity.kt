@@ -177,6 +177,7 @@ import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.InnertubeParser
+import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LikeStatus
@@ -303,6 +304,7 @@ import com.music.bitchord.ui.components.GlassMotion
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalAppBackdropFrozen
+import com.music.bitchord.ui.components.LocalAppHazeState
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
@@ -370,6 +372,7 @@ import com.music.bitchord.ui.screens.MelodyScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.RadioScreen
 import com.music.bitchord.ui.screens.SearchScreen
+import com.music.bitchord.ui.screens.LiveStationsScreen
 import com.music.bitchord.data.melody.MelodyMood
 import com.music.bitchord.data.melody.MelodyRules
 import com.music.bitchord.data.melody.MelodyStore
@@ -654,7 +657,6 @@ private fun BitChordApp(
     val isCarMode = isCarConnected || (context.getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager)?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_CAR
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
     val useIntegratedDock = dockStyle != DockStyle.NORMAL
-    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "TOP of BitChordApp: dockStyle=$dockStyle, isCarMode=$isCarMode, useIntegratedDock=$useIntegratedDock")
     val glassActive = (dockStyle == DockStyle.LIQUID || LocalLiquidGlassEnabled.current) && isGlassSupported()
     // "Reduce dynamic blur" keeps the glass bar's *shape* — the folding
     // now-playing-and-tabs component is a layout, not an effect, and dropping
@@ -699,7 +701,9 @@ private fun BitChordApp(
     // takes part in the docking asks for [activeDock] / this, never for the
     // dock or the motion directly.
     val reducePlayerMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val activeDock = playerDock.takeIf { !reducePlayerMotion }
+    playerSheetMotion.animationSpeed = playerAnimationSpeed
     playerSheetMotion.flingVelocity = with(LocalDensity.current) { PLAYER_PULL_FLING_VELOCITY.toPx() }
     // How the app takes the player down, whatever for: a back press, or a page
     // opened from inside it. Set straight to false, the sheet left in one frame
@@ -738,11 +742,13 @@ private fun BitChordApp(
     var showReplayShare by rememberSaveable { mutableStateOf(false) }
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
+    var yearStoryOpen by rememberSaveable { mutableStateOf(false) }
     // Track which sub-screen was opened from Settings so AnimatedContent keeps
     // SettingsSheet mounted underneath and back navigation restores scroll.
     // null = no sub-screen overlay; non-null = that key is rendered as overlay.
     var settingsSubScreen by rememberSaveable { mutableStateOf<String?>(null) }
     var currentSettingsSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
+    val driveAlerts = remember { com.music.bitchord.ui.screens.DriveBackupAlerts() }
     var showAccountScrobbling by rememberSaveable { mutableStateOf(false) }
     var showSources by rememberSaveable { mutableStateOf(false) }
     var showListenTogether by rememberSaveable { mutableStateOf(false) }
@@ -760,6 +766,7 @@ private fun BitChordApp(
     var showHistory by remember { mutableStateOf(false) }
     var showMelody by rememberSaveable { mutableStateOf(false) }
     var showGenres by rememberSaveable { mutableStateOf(false) }
+    var showAllLiveStations by rememberSaveable { mutableStateOf(false) }
     var showMelodySave by remember { mutableStateOf(false) }
     var melodySaveName by remember { mutableStateOf("My Melody") }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
@@ -824,6 +831,7 @@ private fun BitChordApp(
     // is still in flight — read by the long-press sheet so it can show a
     // loading row instead of the two just being absent while it waits.
     var linksLoading by remember { mutableStateOf(false) }
+    var menuLinksLoading by remember { mutableStateOf(false) }
     // Which track the playlist picker is adding, or null when it's closed.
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
@@ -881,7 +889,7 @@ private fun BitChordApp(
     // The modal player owns light status glyphs and its own contrast scrim.
     // Every other surface follows the theme; Replay's page and stories remain
     // dark artwork either way.
-    SystemBarIcons(dark = !darkTheme && !showNowPlaying && !showReplay && replayStory == null)
+    SystemBarIcons(dark = !darkTheme && !showNowPlaying && !showReplay && replayStory == null && !yearStoryOpen)
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
@@ -944,6 +952,8 @@ private fun BitChordApp(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val liveStationsState by viewModel.liveStations.collectAsStateWithLifecycle()
+    val radioMixes by viewModel.radioMixes.collectAsStateWithLifecycle()
+    val fallbackMoodMixes by viewModel.fallbackMoodMixes.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
     val melodyStatus by viewModel.melodyStatus.collectAsStateWithLifecycle()
@@ -976,6 +986,7 @@ private fun BitChordApp(
         showReplay = false
         replayStory = null
         showReplayShare = false
+        yearStoryOpen = false
         showAccountScrobbling = false
         showSources = false
         showEqualizer = false
@@ -1269,7 +1280,7 @@ private fun BitChordApp(
     val currentListState = when {
         showMelody && detail == null -> melodyListState
         showGenres && detail == null -> if (selectedMoodGenre == null) genresListState else moodGenreListState
-        selectedTab == TAB_HOME -> homeListState
+        selectedTab == TAB_HOME -> if (selectedMoodGenre == null) homeListState else moodGenreListState
         selectedTab == TAB_RADIO -> if (selectedMoodGenre == null) radioListState else moodGenreListState
         selectedTab == TAB_LIBRARY -> libraryListState
         else -> searchListState
@@ -1290,6 +1301,7 @@ private fun BitChordApp(
     }
     LaunchedEffect(selectedTab, showGenres) {
         if (selectedTab == TAB_RADIO || showGenres) viewModel.ensureExploreLoaded()
+        if (selectedTab == TAB_RADIO) viewModel.onRadioShown()
     }
     LaunchedEffect(showMelody) {
         if (showMelody) viewModel.ensureMelodyTracks()
@@ -1384,9 +1396,9 @@ private fun BitChordApp(
     val sharedLinkLabel = stringResource(R.string.shared_link)
     val tabs = remember(homeLabel, radioLabel, libraryLabel, searchLabel) {
         listOf(
-            BottomTab(homeLabel, BitChordIcons.HomeOutlined, BitChordIcons.Home),
-            BottomTab(radioLabel, Icons.Rounded.Radio, Icons.Rounded.Radio),
-            BottomTab(libraryLabel, BitChordIcons.TabLibraryOutlined, BitChordIcons.TabLibrary),
+            BottomTab(homeLabel, BitChordIcons.Home, BitChordIcons.Home),
+            BottomTab(radioLabel, BitChordIcons.TabRadio, BitChordIcons.TabRadio),
+            BottomTab(libraryLabel, BitChordIcons.TabLibrary, BitChordIcons.TabLibrary),
             BottomTab(searchLabel, BitChordIcons.TabSearch, BitChordIcons.TabSearch),
         )
     }
@@ -2555,6 +2567,23 @@ private fun BitChordApp(
     val replayCards = remember(replay.summary) {
         replay.summary?.takeUnless { it.isEmpty }?.cards(context).orEmpty()
     }
+    val replayYear = com.music.bitchord.ui.replay.year.rememberReplayYear(
+        active = selectedTab == TAB_HOME || yearStoryOpen,
+    )
+    val replayYearDescription = replayYear?.let {
+        stringResource(R.string.replay_year_open, it.year.toString())
+    }
+    val replayYearBadge = remember(replayYear, replayYearDescription) {
+        replayYear?.let { year ->
+            com.music.bitchord.ui.screens.ReplayYearBadge(
+                year = year.year,
+                artworkUrl = year.data.summary.songs.firstOrNull()?.song?.thumbnailUrl,
+                contentDescription = replayYearDescription.orEmpty(),
+                onOpen = { yearStoryOpen = true },
+            )
+        }
+    }
+    LaunchedEffect(yearStoryOpen) { if (yearStoryOpen) controller?.pause() }
 
     // ---- The track in the player ----
     // Whatever started this track knew its title and its artwork, but rarely
@@ -2593,6 +2622,27 @@ private fun BitChordApp(
         AppSettings.activeTrackArtworkUrl.value = playerRemoteArt ?: playerSong?.thumbnailUrl
         AppSettings.activeTrackTitle.value = playerSong?.title ?: player.song?.title
         AppSettings.activeTrackArtist.value = playerSong?.artists?.joinToString { it.name } ?: player.song?.artists?.joinToString { it.name }
+    }
+    LaunchedEffect(songActions?.videoId, menuFromPlayer) {
+        val target = songActions
+        if (target == null || menuFromPlayer || target.isLocal || target.videoId.isBlank() || target.videoId.startsWith("local:")) {
+            menuLinksLoading = false
+            return@LaunchedEffect
+        }
+        if (target.albumId != null && target.artistId != null) {
+            menuLinksLoading = false
+            return@LaunchedEffect
+        }
+        menuLinksLoading = true
+        val resolved = YtMusicRepository.trackLinks(target.videoId).getOrNull()
+        menuLinksLoading = false
+        if (resolved != null && songActions?.videoId == target.videoId) {
+            songActions = target.copy(
+                artistId = target.artistId ?: resolved.artistId,
+                albumId = target.albumId ?: resolved.albumId,
+                albumName = target.albumName ?: resolved.albumName,
+            )
+        }
     }
 
     // The player's whole parameter list, kept apart from the sheet that
@@ -2968,6 +3018,7 @@ private fun BitChordApp(
 
     CompositionLocalProvider(
         LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalAppHazeState provides hazeState,
         LocalCarConnected provides isCarMode,
     ) {
         Box(
@@ -3019,6 +3070,9 @@ private fun BitChordApp(
         BackHandler(enabled = showGenres && selectedMoodGenre == null && detail == null && !showSettings && !showReplay && !showMelody) {
             showGenres = false
         }
+        BackHandler(enabled = showAllLiveStations && detail == null && !showSettings && !showReplay && !showMelody) {
+            showAllLiveStations = false
+        }
         BackHandler(enabled = showDiscord) {
             showDiscord = false
         }
@@ -3045,7 +3099,7 @@ private fun BitChordApp(
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
         BackHandler(enabled = showSettings && currentSettingsSection != null) {
-            currentSettingsSection = null
+            currentSettingsSection = currentSettingsSection?.parentSection()
         }
         BackHandler(enabled = showSettings && currentSettingsSection == null && !showSpotify && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer && !showReplay) {
             showSettings = false
@@ -3113,7 +3167,8 @@ private fun BitChordApp(
                         showDiscord -> "discord"
                         showHistory -> "history"
                         showMelody && detail == null -> "melody"
-                        showGenres && detail == null -> if (selectedMoodGenre != null) "genre:${selectedMoodGenre?.browseId}" else "genres"
+                        showGenres && detail == null -> if (selectedMoodGenre != null) "genre:${selectedMoodGenre?.browseId}:${selectedMoodGenre?.params}" else "genres"
+                        selectedMoodGenre != null && detail == null -> "genre:${selectedMoodGenre?.browseId}:${selectedMoodGenre?.params}"
                         // `&& detail == null`: a card opened from the grid
                         // stacks a detail page over it exactly as one opened
                         // from the Library tab does — see
@@ -3544,6 +3599,7 @@ private fun BitChordApp(
                             homeShelfTitles = homeShelfTitles,
                             currentSection = currentSettingsSection,
                             onSectionChange = { currentSettingsSection = it },
+                            driveAlerts = driveAlerts,
                         )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
@@ -3750,6 +3806,14 @@ private fun BitChordApp(
                                     null
                                 },
                                 songSort = songSort,
+                                liveStations = (liveStationsState as? UiState.Success)?.data.orEmpty(),
+                                onLiveStationClick = { stations, idx ->
+                                    startLiveStations(
+                                        stations,
+                                        idx,
+                                        QueueSource(stations[idx].title, PlaybackSourceType.EXPLORE),
+                                    )
+                                },
                                 contentPadding = listPadding,
                             )
                         }
@@ -3762,9 +3826,25 @@ private fun BitChordApp(
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),
+                                replayYear = replayYearBadge,
                                 signedIn = signedIn,
                                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                                 onItemClick = { item, shelfTitle ->
+                                    val liveCatalog = (liveStationsState as? UiState.Success)?.data.orEmpty()
+                                    val matchedLive = item.videoId?.let { id -> liveCatalog.firstOrNull { it.videoId == id } }
+                                    val resolvedLiveItem = when {
+                                        item.isLive && !item.videoId.isNullOrBlank() ->
+                                            item.copy(isLive = true, isVideo = true)
+                                        matchedLive != null ->
+                                            item.copy(
+                                                isLive = true,
+                                                isVideo = true,
+                                                liveViewersText = item.liveViewersText ?: matchedLive.liveViewersText,
+                                            )
+                                        !item.videoId.isNullOrBlank() && StreamResolver.isKnownLive(item.videoId) ->
+                                            item.copy(isLive = true, isVideo = true)
+                                        else -> null
+                                    }
                                     val song = shelfSong(item)
                                     // Hoisted because ShelfItem lives in :shared, and
                                     // Kotlin will not smart-cast a public nullable
@@ -3774,14 +3854,15 @@ private fun BitChordApp(
                                         browseId == MelodyRules.MELODY_BROWSE_ID -> {
                                             showMelody = true
                                         }
-                                        song != null && (item.isLive || song.isLive) -> {
+                                        resolvedLiveItem != null -> {
                                             val siblings = (homeState as? UiState.Success)?.data
                                                 ?.firstOrNull { it.title == shelfTitle }
                                                 ?.items
                                                 ?.filter { it.isLive && it.videoId != null }
                                                 ?.takeIf { it.isNotEmpty() }
-                                                ?: listOf(item)
-                                            val idx = siblings.indexOfFirst { it.videoId == item.videoId }
+                                                ?: liveCatalog.takeIf { matchedLive != null }
+                                                ?: listOf(resolvedLiveItem)
+                                            val idx = siblings.indexOfFirst { it.videoId == resolvedLiveItem.videoId }
                                                 .takeIf { it >= 0 } ?: 0
                                             startLiveStations(
                                                 siblings,
@@ -3817,6 +3898,21 @@ private fun BitChordApp(
                                     }
                                 },
                                 onPlayMixClick = { item ->
+                                    val liveCatalog = (liveStationsState as? UiState.Success)?.data.orEmpty()
+                                    val matchedLive = item.videoId?.let { id -> liveCatalog.firstOrNull { it.videoId == id } }
+                                    val resolvedLiveItem = when {
+                                        item.isLive && !item.videoId.isNullOrBlank() ->
+                                            item.copy(isLive = true, isVideo = true)
+                                        matchedLive != null ->
+                                            item.copy(
+                                                isLive = true,
+                                                isVideo = true,
+                                                liveViewersText = item.liveViewersText ?: matchedLive.liveViewersText,
+                                            )
+                                        !item.videoId.isNullOrBlank() && StreamResolver.isKnownLive(item.videoId) ->
+                                            item.copy(isLive = true, isVideo = true)
+                                        else -> null
+                                    }
                                     val song = shelfSong(item)
                                         ?: item.browseId?.removePrefix("VL")?.removePrefix("RDAMVM")?.takeIf { !item.browseId.orEmpty().contains("RDTM") && !item.browseId.orEmpty().contains("RDCL") }?.let { vid ->
                                             Song(
@@ -3826,9 +3922,20 @@ private fun BitChordApp(
                                                 thumbnailUrl = item.thumbnailUrl,
                                             )
                                         }
-                                    if (song != null) {
+                                    if (resolvedLiveItem != null) {
+                                        val siblings = liveCatalog.takeIf { matchedLive != null } ?: listOf(resolvedLiveItem)
+                                        val idx = siblings.indexOfFirst { it.videoId == resolvedLiveItem.videoId }
+                                            .takeIf { it >= 0 } ?: 0
+                                        startLiveStations(
+                                            siblings,
+                                            idx,
+                                            QueueSource(item.title, PlaybackSourceType.HOME),
+                                        )
+                                    } else if (song != null) {
+                                        val isVideoTrack = song.isVideo || item.isVideo
+                                        if (isVideoTrack) keepVideoId = song.videoId
                                         playRadio(
-                                            song,
+                                            if (isVideoTrack) song.copy(isVideo = true) else song,
                                             QueueSource(item.title, PlaybackSourceType.HOME),
                                         )
                                     } else {
@@ -3861,9 +3968,30 @@ private fun BitChordApp(
                                     replayLandingPage = ReplayStoryPage.INTRO
                                     showReplay = true
                                 },
+                                onFindMoodClick = viewModel::openMoodGenre,
+                                onFindMoodShowAll = { showGenres = true },
                             )
                         }
-                        TAB_RADIO -> selectedMoodGenre?.let { category ->
+                        TAB_RADIO -> if (showAllLiveStations) {
+                            LiveStationsScreen(
+                                liveStations = liveStationsState,
+                                currentSong = player.song,
+                                isPlaying = player.isPlaying,
+                                onBack = { showAllLiveStations = false },
+                                onLiveStationClick = { stations, idx ->
+                                    startLiveStations(
+                                        stations,
+                                        idx,
+                                        QueueSource(liveStationsLabel, PlaybackSourceType.EXPLORE),
+                                    )
+                                },
+                                onRefresh = { viewModel.loadLiveStations(force = true) },
+                                refreshing = MainViewModel.Feed.EXPLORE in refreshing,
+                                pullState = radioPull,
+                                contentPadding = listPadding,
+                                onLiveStationLongPress = onShelfLongPress,
+                            )
+                        } else selectedMoodGenre?.let { category ->
                             MoodGenrePlaylistsScreen(
                                 title = category.title,
                                 state = moodGenreShelves,
@@ -3911,6 +4039,37 @@ private fun BitChordApp(
                                 )
                             },
                             onRetryLiveStations = { viewModel.loadLiveStations(force = true) },
+                            onSeeAllLiveStations = { showAllLiveStations = true },
+                            onLiveStationLongPress = onShelfLongPress,
+                            mixes = radioMixes,
+                            fallbackMoodMixes = fallbackMoodMixes,
+                            onMixClick = { item ->
+                                val browseId = item.browseId
+                                val song = shelfSong(item)
+                                when {
+                                    browseId != null && (item.videoId == null || browseId.startsWith("VL") || browseId.startsWith("RD") || browseId.startsWith("VLRD")) -> {
+                                        viewModel.openDetail(
+                                            browseId = browseId,
+                                            title = item.title,
+                                            subtitle = item.subtitle,
+                                            thumbnailUrl = item.thumbnailUrl,
+                                            type = BrowseType.PLAYLIST,
+                                        )
+                                    }
+                                    song != null -> playRadio(
+                                        song,
+                                        QueueSource(item.title, PlaybackSourceType.EXPLORE, browseId),
+                                    )
+                                    browseId != null -> viewModel.openDetail(
+                                        browseId = browseId,
+                                        title = item.title,
+                                        subtitle = item.subtitle,
+                                        thumbnailUrl = item.thumbnailUrl,
+                                        type = BrowseType.PLAYLIST,
+                                    )
+                                }
+                            },
+                            onMixLongPress = onShelfLongPress,
                             seeds = radioSeeds,
                             onSeedClick = { item ->
                                 val videoId = item.videoId ?: return@RadioScreen
@@ -4317,6 +4476,7 @@ private fun BitChordApp(
                         showHistory -> stringResource(R.string.history)
                         showMelody && detail == null -> stringResource(R.string.melody)
                         showGenres && selectedMoodGenre == null && detail == null -> stringResource(R.string.explore)
+                        showAllLiveStations && detail == null -> stringResource(R.string.live_stations)
                         libraryShowAll != null && detail == null -> libraryShowAll?.title.orEmpty()
                         showAccountScrobbling -> stringResource(R.string.account_scrobbling)
                         showSources -> stringResource(R.string.sources)
@@ -4342,7 +4502,7 @@ private fun BitChordApp(
                     scrolled = when {
                         showSettings || showAccountScrobbling || showSources || showListenTogether ||
                             showEqualizer ||
-                            showDiscord || showHistory || showGenres ||
+                            showDiscord || showHistory || showGenres || showAllLiveStations ||
                             (libraryShowAll != null && detail == null) ||
                             (detail != null && detailActiveShelf != null) ||
                             selectedMoodGenre != null -> true
@@ -4365,6 +4525,7 @@ private fun BitChordApp(
                             if (selectedMoodGenre != null) viewModel.closeMoodGenre() else showGenres = false
                             Unit
                         })
+                        showAllLiveStations && detail == null -> ({ showAllLiveStations = false })
                         libraryShowAll != null && detail == null -> ({ libraryShowAll = null })
                         showAccountScrobbling -> ({ showAccountScrobbling = false })
                         showSources -> ({ showSources = false })
@@ -4373,7 +4534,7 @@ private fun BitChordApp(
                         settingsSubScreen != null -> ({ settingsSubScreen = null })
                         showSettings -> ({
                             if (currentSettingsSection != null) {
-                                currentSettingsSection = null
+                                currentSettingsSection = currentSettingsSection?.parentSection()
                             } else {
                                 showSettings = false
                                 if (detail == null && !showReplay) selectedTab = TAB_HOME
@@ -4657,7 +4818,7 @@ private fun BitChordApp(
                 val tabScrollJob = remember { arrayOfNulls<Job>(1) }
                 // One tab handler, whichever bar is drawing it.
                 val onTabSelected: (Int) -> Unit = { index ->
-                    if (index == selectedTab && detail == null && !showSettings && !showSpotify && !showDiscord && !showHistory && !showMelody && !showGenres && !showReplay && libraryShowAll == null) {
+                    if (index == selectedTab && detail == null && !showSettings && !showSpotify && !showDiscord && !showHistory && !showMelody && !showGenres && !showAllLiveStations && !showReplay && libraryShowAll == null) {
                         tabScrollJob[0]?.cancel()
                         tabScrollJob[0] = scope.launch {
                             if (currentListState.firstVisibleItemIndex > 8) {
@@ -4678,6 +4839,7 @@ private fun BitChordApp(
                     showHistory = false
                     showMelody = false
                     showGenres = false
+                    showAllLiveStations = false
                     showDiscord = false
                     showSpotify = false
                     libraryShowAll = null
@@ -4692,7 +4854,6 @@ private fun BitChordApp(
                     }
                 }
 
-                android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "dockStyle=$dockStyle, useIntegratedDock=$useIntegratedDock")
                 if (useIntegratedDock) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -4700,7 +4861,6 @@ private fun BitChordApp(
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
-                    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "DRAWING: GlassNavBar")
                     QueueActionNoticeHost(queueNotice)
                     // Liquid glass replaces the two stacked bars with the single
                     // component they are stacked to imitate: the now playing
@@ -4750,7 +4910,6 @@ private fun BitChordApp(
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    android.util.Log.e("CHORDPLAY_DOCK_DEBUG", "DRAWING: MiniPlayer + FloatingBottomBar")
                     QueueActionNoticeHost(queueNotice)
                     if (hasPlayerSong) {
                         IsolatedScope {
@@ -4854,8 +5013,7 @@ private fun BitChordApp(
             } else {
                 !song.isVideo && convertedVideoId != song.videoId
             }
-            val onToggleVersion: (() -> Unit)? = if (fromPlayer &&
-                hasAlternateVersion &&
+            val onToggleVersion: (() -> Unit)? = if (hasAlternateVersion &&
                 !switchingAudioVersion &&
                 controller?.currentMediaItem?.mediaId == song.videoId
             ) {
@@ -5002,16 +5160,15 @@ private fun BitChordApp(
                 // Only the player's copy of a track is ever missing these
                 // and backfilling — a row opened from a list already has
                 // whatever ids it's ever going to have.
-                resolvingLinks = fromPlayer && linksLoading,
-                showSleepTimer = fromPlayer,
+                resolvingLinks = if (fromPlayer) linksLoading else menuLinksLoading,
+                showSleepTimer = fromPlayer || controller?.currentMediaItem != null,
                 // Offered for every playing track with a YouTube upload
                 // behind it, not only for one an upgrade visibly swapped:
                 // a source ranked above YouTube can be playing its own
                 // idea of the song from the first second, and a wrong
                 // match sounds like a wrong match whether or not anything
                 // announced itself. See [Song.hasYouTubeOriginal].
-                onRollbackToOriginal = if (fromPlayer &&
-                    song.hasYouTubeOriginal() &&
+                onRollbackToOriginal = if (song.hasYouTubeOriginal() &&
                     // Nothing to revert *from*: the listener is hearing a
                     // file they saved, not a stream anything chose.
                     song.localUri == null &&
@@ -5041,11 +5198,10 @@ private fun BitChordApp(
                 // due to look at it again — [QualityUpgrade.refuseUpgrades]
                 // takes a broken track off the automatic path for the rest
                 // of the session, and `askByHand` is what clears that.
-                onUpgradeQuality = if (fromPlayer &&
-                    (
-                        song.videoId in pinnedToOriginal ||
-                            playingYouTubesOwn(song.videoId, controller)
-                        ) &&
+                onUpgradeQuality = if ((
+                    song.videoId in pinnedToOriginal ||
+                        playingYouTubesOwn(song.videoId, controller)
+                    ) &&
                     // A track playing off a file the listener saved is not
                     // playing a stream anything could upgrade — the pin on
                     // it is only waiting for the day it is streamed again.
@@ -5059,7 +5215,7 @@ private fun BitChordApp(
                 } else {
                     null
                 },
-                upgradeQualityInProgress = fromPlayer && song.videoId in qualityUpgradesInFlight,
+                upgradeQualityInProgress = song.videoId in qualityUpgradesInFlight,
                 onToggleAudioVersion = onToggleVersion,
                 isAudioVersion = menuIsAudioVersion,
                 // Hidden outright when there's no real YouTube id behind
@@ -5330,6 +5486,13 @@ private fun BitChordApp(
             }
         }
 
+        // ---- Replay year story ----
+        com.music.bitchord.ui.replay.year.ReplayYearHost(
+            year = replayYear,
+            open = yearStoryOpen,
+            onClose = { yearStoryOpen = false },
+        )
+
         LaunchedEffect(pageCoveredByPlayer) {
             if (!pageCoveredByPlayer && menuFromPlayer) songActions = null
         }
@@ -5337,7 +5500,7 @@ private fun BitChordApp(
             item = songActions?.takeIf { songMenuOrigin == null && !(menuFromPlayer && pageCoveredByPlayer) },
             anchor = songMenuAnchor,
             onDismiss = { songActions = null },
-            backdrop = effectiveAppBackdrop,
+            backdrop = effectiveAppBackdrop.takeIf { glassSamplesBackdrop },
             hazeState = hazeState,
         ) { song ->
             songMenuBody(song)
@@ -5394,11 +5557,21 @@ private fun BitChordApp(
         if (!pageCoveredByPlayer) {
             renderPlaylistOverlays(effectiveAppBackdrop, hazeState)
         }
+        com.music.bitchord.ui.screens.DriveBackupAlertsHost(
+            alerts = driveAlerts,
+            hazeState = hazeState,
+            onRestoreStarted = {
+                if (currentSettingsSection == SettingsSection.DRIVE_DEVICES) {
+                    currentSettingsSection = SettingsSection.DRIVE_BACKUP
+                }
+            },
+        )
         }
     }
 
     CompositionLocalProvider(
         LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalAppHazeState provides hazeState,
         LocalCarConnected provides isCarMode,
     ) {
         if (showSpotifyImportDialog) {
@@ -5728,6 +5901,7 @@ private fun BitChordApp(
 
     CompositionLocalProvider(
         LocalAppBackdrop provides effectiveAppBackdrop,
+        LocalAppHazeState provides hazeState,
         LocalCarConnected provides isCarMode,
     ) {
         MainDialogsHost(

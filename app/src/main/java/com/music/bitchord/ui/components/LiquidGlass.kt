@@ -28,6 +28,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DockStyle
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.util.lerp
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
@@ -39,6 +40,9 @@ import com.music.bitchord.ui.components.backdrop.highlight.HighlightElement
 import com.music.bitchord.ui.components.backdrop.internal.ShapeProvider
 import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
 
 /** Whether the liquid glass nav bar is turned on — see [AppSettings.liquidGlass]. */
 val LocalLiquidGlassEnabled = staticCompositionLocalOf { false }
@@ -48,6 +52,9 @@ val LocalAppBackdrop = staticCompositionLocalOf<Backdrop> { error("No AppBackdro
 
 /** True while app-level motion is active so glass surfaces hold their last capture. */
 val LocalAppBackdropFrozen = staticCompositionLocalOf<() -> Boolean> { { false } }
+
+/** Shared app [HazeState] so Adaptive dock surfaces can blur live content behind them. */
+val LocalAppHazeState = staticCompositionLocalOf<HazeState?> { null }
 
 /**
  * Where a [liquidGlass] surface composed under it also records the glass it
@@ -184,18 +191,59 @@ fun Modifier.liquidGlass(
     val isSupported = isGlassSupported()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
+    val adaptiveBlurIntensity by AppSettings.adaptiveDockBlurIntensity.collectAsStateWithLifecycle()
     val liquidGlassActive = AppSettings.liquidGlass.collectAsStateWithLifecycle().value
+    val hazeState = LocalAppHazeState.current
 
-    // If device doesn't support AGSL lens or user selected Adaptive/Normal Dock (or reduced blur),
-    // provide an adaptive frosted glass surface with elevation and subtle glass rim!
-    if (!isSupported || reduceDynamicBlur || (!liquidGlassActive && dockStyle != DockStyle.LIQUID)) {
+    // Adaptive Dock mode: apply real backdrop-sampling Haze blur when dynamic blur is enabled,
+    // scaled by the user's Adaptive dock blur intensity slider in Appearance settings.
+    if (dockStyle == DockStyle.ADAPTIVE && !reduceDynamicBlur && hazeState != null && adaptiveBlurIntensity > 0.01f) {
         val surfaceColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        val clamped = adaptiveBlurIntensity.coerceIn(0f, 1f)
+        val blurRadius = lerp(6f, 32f, clamped).dp
+        val tintAlpha = lerp(0.76f, 0.34f, clamped)
+        val adaptiveStyle = HazeStyle(
+            backgroundColor = surfaceColor,
+            tints = listOf(HazeTint(surfaceColor.copy(alpha = tintAlpha))),
+            blurRadius = blurRadius,
+            noiseFactor = 0.05f,
+            fallbackTint = HazeTint(surfaceColor),
+        )
         return this
+            .clip(shape)
+            .optimizedHazeEffect(state = hazeState, style = adaptiveStyle)
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        surfaceColor.copy(alpha = 0.88f),
-                        surfaceColor.copy(alpha = 0.82f),
+                        surfaceColor.copy(alpha = lerp(0.32f, 0.14f, clamped)),
+                        surfaceColor.copy(alpha = lerp(0.22f, 0.08f, clamped)),
+                    ),
+                ),
+                shape,
+            )
+            .border(
+                width = 0.8.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.06f),
+                    ),
+                ),
+                shape = shape,
+            )
+    }
+
+    // If device doesn't support AGSL lens or user selected Adaptive/Normal Dock (with blur reduced/off),
+    // provide a clean translucent surface with elevation and subtle glass rim.
+    if (!isSupported || reduceDynamicBlur || (!liquidGlassActive && dockStyle != DockStyle.LIQUID)) {
+        val surfaceColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        return this
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        surfaceColor.copy(alpha = 0.90f),
+                        surfaceColor.copy(alpha = 0.84f),
                     ),
                 ),
                 shape,

@@ -271,4 +271,21 @@
     <string name="live_cat_hits">Bản hit</string>
     <string name="live_cat_rock_pop">Rock &amp; Pop</string>
     <string name="live_stations_empty">Hiện không tìm thấy đài phát trực tiếp nào cho danh mục này.</string>
+    <string name="featured_pick">Nổi bật</string>
+    <string name="find_your_mood">Tìm tâm trạng</string>
+    <string name="live_all_stations">Tất cả đài phát trực tiếp</string>
+    <string name="live_cat_electronic">Nhạc điện tử &amp; EDM</string>
+    <string name="live_cat_hiphop">Hip-Hop &amp; R&amp;B</string>
+    <string name="live_cat_jazz">Jazz &amp; Cà phê</string>
+    <string name="live_listen">Nghe trực tiếp</string>
+    <string name="live_search_hint">Tìm đài phát trực tiếp…</string>
+    <string name="live_see_all">Xem tất cả</string>
+    <string name="live_sort_category">Danh mục</string>
+    <string name="live_sort_name">Tiêu đề (A–Z)</string>
+    <string name="live_sort_viewers">Nghe nhiều nhất</string>
+    <string name="made_for_you">Dành riêng cho bạn</string>
+    <string name="mixes_quick">Mix nhanh</string>
+    <string name="mixes_your">Mix của bạn</string>
+    <string name="mood_feel_good">Yêu đời</string>
+    <string name="mood_relax">Thư giãn</string>
 </resources>

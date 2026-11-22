@@ -271,4 +271,21 @@
     <string name="live_cat_hits">Хиты</string>
     <string name="live_cat_rock_pop">Рок и Поп</string>
     <string name="live_stations_empty">Сейчас в этой категории нет активных прямых эфиров.</string>
+    <string name="featured_pick">Рекомендуемое</string>
+    <string name="find_your_mood">Выберите настроение</string>
+    <string name="live_all_stations">Все эфиры</string>
+    <string name="live_cat_electronic">Электроника и EDM</string>
+    <string name="live_cat_hiphop">Хип-хоп и R&amp;B</string>
+    <string name="live_cat_jazz">Джаз и Кафе</string>
+    <string name="live_listen">Слушать эфир</string>
+    <string name="live_search_hint">Поиск эфиров…</string>
+    <string name="live_see_all">Показать все</string>
+    <string name="live_sort_category">Категория</string>
+    <string name="live_sort_name">Название (А–Я)</string>
+    <string name="live_sort_viewers">Популярные</string>
+    <string name="made_for_you">Создано для вас</string>
+    <string name="mixes_quick">Быстрые миксы</string>
+    <string name="mixes_your">Ваши миксы</string>
+    <string name="mood_feel_good">Хорошее настроение</string>
+    <string name="mood_relax">Релакс</string>
 </resources>

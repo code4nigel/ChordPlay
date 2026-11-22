@@ -57,6 +57,8 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
+import com.music.bitchord.data.model.HomeShelfSlot
+import com.music.bitchord.data.model.KeyedMix
 import com.music.bitchord.data.model.orderHomeShelfIds
 import com.music.bitchord.data.model.orderRawHomeShelves
 import com.music.bitchord.data.model.withoutRepeatsOf
@@ -171,6 +173,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * declared after [init] would still be null when that runs.
      */
     private var homeContinuation: String? = null
+    private var homeContinuationInFlight = false
 
     /** Titles already on screen, so a later page can't repeat a shelf. */
     private val homeSeenTitles = mutableSetOf<String>()
@@ -201,6 +204,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val liveStations: StateFlow<UiState<List<ShelfItem>>> = _liveStations.asStateFlow()
     private var liveStationsJob: Job? = null
     private val mergedHomeLiveIds = mutableSetOf<String>()
+
+    private val _radioMixes = MutableStateFlow<UiState<List<KeyedMix>>>(UiState.Loading)
+    val radioMixes: StateFlow<UiState<List<KeyedMix>>> = _radioMixes.asStateFlow()
+
+    private val _fallbackMoodMixes = MutableStateFlow<List<HomeShelf>>(emptyList())
+    val fallbackMoodMixes: StateFlow<List<HomeShelf>> = _fallbackMoodMixes.asStateFlow()
+
+    private var radioMixesLoadedIdentity: String? = null
+    private var radioMixesJob: Job? = null
 
     private val _selectedMoodGenre = MutableStateFlow<MoodGenre?>(null)
     val selectedMoodGenre: StateFlow<MoodGenre?> = _selectedMoodGenre.asStateFlow()
@@ -1955,7 +1967,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 .collect { reloadRemoteDetail(com.music.bitchord.data.smb.SmbConfig.BROWSE_ID) }
         }
         viewModelScope.launch {
-            AppSettings.homeShelfOrder.drop(1).collect { publishHome() }
+            AppSettings.homeShelfOrder.drop(1).collect {
+                publishHome()
+                prefetchPrioritizedHomeShelves(listenerKey(), homeLoadGeneration.get())
+            }
         }
         viewModelScope.launch {
             AppSettings.hiddenHomeShelves.drop(1).collect { publishHome() }
@@ -2070,8 +2085,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 Feed.EXPLORE -> coroutineScope {
                     val exploreJob = async { fetchExplore() }
                     val liveJob = async { fetchLiveStations(force = true) }
+                    val mixesJob = async { fetchRadioMixes() }
                     exploreJob.await()
                     liveJob.await()
+                    mixesJob.await()
                 }
                 Feed.LIBRARY -> fetchLibrary(identity)
             }
@@ -2083,10 +2100,73 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _explore.value = UiState.Loading
         viewModelScope.launch { fetchExplore() }
         loadLiveStations()
+        viewModelScope.launch { fetchRadioMixes() }
     }
 
     fun ensureExploreLoaded() {
         if (_explore.value is UiState.Error) loadExplore()
+    }
+
+    /** Loads personalised mixes (signed in) or public mood mix shelves (guest) for the Radio tab. */
+    fun onRadioShown() {
+        val identity = listenerKey()
+        val alreadyLoaded = radioMixesLoadedIdentity == identity &&
+            (
+                if (_signedIn.value) {
+                    (_radioMixes.value as? UiState.Success)?.data?.isNotEmpty() == true
+                } else {
+                    _fallbackMoodMixes.value.isNotEmpty()
+                }
+            )
+        if (alreadyLoaded) return
+        if (radioMixesJob?.isActive == true) return
+        radioMixesJob = viewModelScope.launch {
+            try {
+                fetchRadioMixes()
+            } finally {
+                radioMixesJob = null
+            }
+        }
+    }
+
+    private suspend fun fetchRadioMixes() {
+        val identity = listenerKey()
+        val signed = _signedIn.value
+        if (!signed) {
+            _radioMixes.value = UiState.Success(emptyList())
+            val shelves = YtMusicRepository.publicMoodMixShelves().getOrDefault(emptyList())
+            if (identity != listenerKey() || _signedIn.value) return
+            _fallbackMoodMixes.value = shelves
+            if (shelves.isNotEmpty()) radioMixesLoadedIdentity = identity
+            return
+        }
+
+        if (_radioMixes.value !is UiState.Success) {
+            _radioMixes.value = UiState.Loading
+        }
+        val result = YtMusicRepository.mixedForYouKeyed()
+        if (identity != listenerKey()) return
+        result.fold(
+            onSuccess = { mixes ->
+                _radioMixes.value = UiState.Success(mixes)
+                radioMixesLoadedIdentity = identity
+                if (mixes.isEmpty()) {
+                    val shelves = YtMusicRepository.publicMoodMixShelves().getOrDefault(emptyList())
+                    if (identity == listenerKey()) _fallbackMoodMixes.value = shelves
+                } else {
+                    _fallbackMoodMixes.value = emptyList()
+                }
+            },
+            onFailure = { err ->
+                if ((_radioMixes.value as? UiState.Success)?.data.isNullOrEmpty()) {
+                    _radioMixes.value = UiState.Error(err.friendly())
+                }
+                if (_fallbackMoodMixes.value.isEmpty()) {
+                    val shelves = YtMusicRepository.publicMoodMixShelves().getOrDefault(emptyList())
+                    if (identity == listenerKey()) _fallbackMoodMixes.value = shelves
+                }
+            },
+        )
     }
 
     fun loadLiveStations(force: Boolean = false) {
@@ -2251,7 +2331,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             val synthesizedTopPicks = if (topPicksItems.isNotEmpty()) {
                                 HomeShelf(
                                     title = "Top Picks for You",
-                                    subtitle = "Stations, mixes & fresh drops",
+                                    subtitle = "",
                                     items = topPicksItems,
                                 )
                             } else null
@@ -2261,6 +2341,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                 feed.shelves
                             }
                             publishHomeShelves(shelvesToPublish)
+                            prefetchPrioritizedHomeShelves(identity, generation)
                         }
                         .onFailure { failure ->
                             if (isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
@@ -2403,7 +2484,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val synthesizedTopPicks = if (topPicksItems.isNotEmpty()) {
                 HomeShelf(
                     title = "Top Picks for You",
-                    subtitle = "Stations, mixes & fresh drops",
+                    subtitle = "",
                     items = topPicksItems,
                 )
             } else null
@@ -2414,10 +2495,61 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _homeRaw.value = shelves
                 publishHome()
                 maybeMergeHomeLiveStations(shelves)
+                prefetchPrioritizedHomeShelves(identity, homeLoadGeneration.get())
             }
         }
         quickPicks.await().onSuccess { shelf ->
             if (identity == listenerKey()) shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+        }
+    }
+
+    private fun prefetchPrioritizedHomeShelves(identity: String?, generation: Long) {
+        if (homeContinuationInFlight || homeContinuation == null) return
+        val hidden = AppSettings.hiddenHomeShelves.value
+        val prioritizedTitles = AppSettings.homeShelfOrder.value.filter {
+            it !in hidden &&
+                it != HomeShelfSlot.SPEED_DIAL &&
+                it != HomeShelfSlot.MELODY &&
+                it != HomeShelfSlot.REPLAY
+        }
+        if (prioritizedTitles.isEmpty()) return
+
+        fun hasMissingPrioritized(): Boolean {
+            val loadedTitles = _homeRaw.value.map { it.title }
+            return prioritizedTitles.any { wanted ->
+                loadedTitles.none { it.equals(wanted, ignoreCase = true) }
+            }
+        }
+        if (!hasMissingPrioritized()) return
+
+        homeContinuationInFlight = true
+        viewModelScope.launch {
+            var pages = 0
+            try {
+                while (pages < 5 &&
+                    hasMissingPrioritized() &&
+                    isCurrentHomeLoad(identity, generation)
+                ) {
+                    val token = homeContinuation ?: break
+                    val result = YtMusicRepository.moreHome(token)
+                    val feed = result.getOrNull() ?: break
+                    if (!isCurrentHomeLoad(identity, generation)) break
+                    val existing = _homeRaw.value
+                    val added = feed.shelves.withoutRepeatsOf(existing)
+                        .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+                    homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
+                    if (added.isNotEmpty()) {
+                        _homeRaw.value = existing + added
+                        publishHome()
+                        maybeMergeHomeLiveStations(added)
+                    } else {
+                        break
+                    }
+                    pages++
+                }
+            } finally {
+                homeContinuationInFlight = false
+            }
         }
     }
 
@@ -2428,26 +2560,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun loadMoreHome() {
         val token = homeContinuation ?: return
-        if (_homeLoadingMore.value) return
+        if (_homeLoadingMore.value || homeContinuationInFlight) return
         val identity = listenerKey()
+        homeContinuationInFlight = true
         _homeLoadingMore.value = true
         viewModelScope.launch {
-            YtMusicRepository.moreHome(token).onSuccess { feed ->
-                if (identity == listenerKey()) {
-                    val existing = _homeRaw.value
-                    val added = feed.shelves.withoutRepeatsOf(existing)
-                        .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-                    // A page with nothing new signals the feed has looped back on
-                    // itself rather than run dry with a token still attached —
-                    // treat it the same as exhausted so scrolling can't spin here.
-                    homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
-                    if (added.isNotEmpty()) {
-                        _homeRaw.value = existing + added
-                        publishHome()
+            try {
+                YtMusicRepository.moreHome(token).onSuccess { feed ->
+                    if (identity == listenerKey()) {
+                        val existing = _homeRaw.value
+                        val added = feed.shelves.withoutRepeatsOf(existing)
+                            .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+                        // A page with nothing new signals the feed has looped back on
+                        // itself rather than run dry with a token still attached —
+                        // treat it the same as exhausted so scrolling can't spin here.
+                        homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
+                        if (added.isNotEmpty()) {
+                            _homeRaw.value = existing + added
+                            publishHome()
+                        }
                     }
                 }
+            } finally {
+                homeContinuationInFlight = false
+                if (identity == listenerKey()) _homeLoadingMore.value = false
             }
-            if (identity == listenerKey()) _homeLoadingMore.value = false
         }
     }
 
@@ -4124,6 +4261,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _songMenu.value = null
         _library.value = UiState.Loading
         _history.value = UiState.Loading
+        radioMixesJob?.cancel()
+        radioMixesJob = null
+        radioMixesLoadedIdentity = null
+        _radioMixes.value = UiState.Loading
+        _fallbackMoodMixes.value = emptyList()
         if (restoreCached) listenerCache[listenerKey()]?.let { cached ->
             _account.value = cached.account
             _library.value = cached.library
@@ -4185,6 +4327,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _playlistOwned.value = emptyMap()
         ownershipInFlight.clear()
         _songMenu.value = null
+        radioMixesJob?.cancel()
+        radioMixesJob = null
+        radioMixesLoadedIdentity = null
+        _radioMixes.value = UiState.Loading
+        _fallbackMoodMixes.value = emptyList()
         loadHome()
     }
 

@@ -271,4 +271,21 @@
     <string name="live_cat_hits">Sucessos</string>
     <string name="live_cat_rock_pop">Rock e Pop</string>
     <string name="live_stations_empty">Nenhuma estação ao vivo encontrada para esta categoria no momento.</string>
+    <string name="featured_pick">Destaque</string>
+    <string name="find_your_mood">Encontre o seu clima</string>
+    <string name="live_all_stations">Todas as estações ao vivo</string>
+    <string name="live_cat_electronic">Eletrônica e EDM</string>
+    <string name="live_cat_hiphop">Hip-Hop e R&amp;B</string>
+    <string name="live_cat_jazz">Jazz e Café</string>
+    <string name="live_listen">Ouvir ao vivo</string>
+    <string name="live_search_hint">Pesquisar estações ao vivo…</string>
+    <string name="live_see_all">Ver tudo</string>
+    <string name="live_sort_category">Categoria</string>
+    <string name="live_sort_name">Título (A–Z)</string>
+    <string name="live_sort_viewers">Mais ouvidas</string>
+    <string name="made_for_you">Feito para você</string>
+    <string name="mixes_quick">Mixes rápidos</string>
+    <string name="mixes_your">Seus mixes</string>
+    <string name="mood_feel_good">Alto-astral</string>
+    <string name="mood_relax">Relaxar</string>
 </resources>

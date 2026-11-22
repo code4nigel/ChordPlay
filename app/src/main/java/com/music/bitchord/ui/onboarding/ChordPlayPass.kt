@@ -10,10 +10,22 @@
  */
 package com.music.bitchord.ui.onboarding
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +36,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,39 +60,107 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.stats.WaveIdentitySignature
 import com.music.bitchord.ui.player.MeshPalette
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Creative acoustic / vinyl-chord orbital hero visual rendered purely with
- * Compose [Canvas] + frosted glass styling (tinted by [MeshPalette], with
- * subtle [rememberDeviceTilt] parallax gated by `reduceAnimation`).
+ * Interactive frosted-glass ChordPlay Wave Identity Card.
+ *
+ * Typing a name morphs the card's acoustic waves, colors, harmonic frequencies,
+ * orbital geometry, and 11-bar spectrum fingerprint deterministically — giving
+ * every listener a unique ChordPlay visual identity backed locally under
+ * `Downloads/Music/ChordPlay/you`.
  */
 @Composable
-internal fun ChordPlayCommunityHero(
-    modifier: Modifier = Modifier,
+internal fun ChordPlayIdentityCard(
+    name: String,
+    onName: (String) -> Unit,
+    onRestoreClick: () -> Unit,
+    restoredStatus: String? = null,
     palette: MeshPalette? = null,
     tilt: () -> Pair<Float, Float> = { 0f to 0f },
+    modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(24.dp)
-    val primaryGlow = palette?.colors?.getOrNull(0) ?: Color(0xFFFD3F69)
-    val secondaryGlow = palette?.colors?.getOrNull(1) ?: Color(0xFF7C4DFF)
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val sig = remember(name) { WaveIdentitySignature.fromName(name) }
+    val hasCustomName = name.isNotBlank()
+
+    val targetPrimary = if (hasCustomName) sig.primaryColor else (palette?.colors?.getOrNull(0) ?: sig.primaryColor)
+    val targetSecondary = if (hasCustomName) sig.secondaryColor else (palette?.colors?.getOrNull(1) ?: sig.secondaryColor)
+    val targetTertiary = if (hasCustomName) sig.tertiaryColor else (palette?.colors?.getOrNull(2) ?: sig.tertiaryColor)
+
+    val primaryGlow by animateColorAsState(
+        targetValue = targetPrimary,
+        animationSpec = tween(420),
+        label = "identityPrimaryGlow",
+    )
+    val secondaryGlow by animateColorAsState(
+        targetValue = targetSecondary,
+        animationSpec = tween(420),
+        label = "identitySecondaryGlow",
+    )
+    val tertiaryGlow by animateColorAsState(
+        targetValue = targetTertiary,
+        animationSpec = tween(420),
+        label = "identityTertiaryGlow",
+    )
+    val waveAmplitude by animateFloatAsState(
+        targetValue = sig.amplitude,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "identityWaveAmp",
+    )
+    val primaryFreq by animateFloatAsState(
+        targetValue = sig.primaryFreq,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "identityFreq1",
+    )
+    val secondaryFreq by animateFloatAsState(
+        targetValue = sig.secondaryFreq,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "identityFreq2",
+    )
+
+    val phase = if (reduceAnimation) {
+        0f
+    } else {
+        val infinite = rememberInfiniteTransition(label = "identityWaveMotion")
+        val rawPhase by infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 4800, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "identityPhase",
+        )
+        rawPhase * sig.phaseSpeed
+    }
+
+    val shape = remember { RoundedCornerShape(26.dp) }
+    val inputShape = remember { RoundedCornerShape(50) }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(198.dp)
             .graphicsLayer {
                 val (rx, ry) = tilt()
                 rotationX = -rx
@@ -77,64 +168,70 @@ internal fun ChordPlayCommunityHero(
                 cameraDistance = 18f * density
             }
             .onbSurface(shape = shape, elevated = true)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(Color(0xFF1A1424), Color(0xFF12121A), Color(0xFF0B0B10)),
-                    start = Offset.Zero,
-                    end = Offset(900f, 540f),
-                ),
-            )
-            .border(1.dp, Onb.Hairline, shape),
+            .clip(shape),
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            // Soft atmospheric glows
+        // Unique animated wave & orbital identity artwork inside the glass card
+        Canvas(Modifier.matchParentSize()) {
+            // Atmospheric color aura glows keyed to the name signature
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(primaryGlow.copy(alpha = 0.42f), Color.Transparent),
-                    center = Offset(size.width * 0.78f, size.height * 0.30f),
-                    radius = size.width * 0.54f,
+                    colors = listOf(primaryGlow.copy(alpha = if (hasCustomName) 0.42f else 0.30f), Color.Transparent),
+                    center = Offset(size.width * 0.82f, size.height * 0.24f),
+                    radius = size.width * 0.56f,
                 ),
-                radius = size.width * 0.54f,
-                center = Offset(size.width * 0.78f, size.height * 0.30f),
+                radius = size.width * 0.56f,
+                center = Offset(size.width * 0.82f, size.height * 0.24f),
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(secondaryGlow.copy(alpha = 0.32f), Color.Transparent),
-                    center = Offset(size.width * 0.16f, size.height * 0.84f),
-                    radius = size.width * 0.44f,
+                    colors = listOf(secondaryGlow.copy(alpha = if (hasCustomName) 0.34f else 0.24f), Color.Transparent),
+                    center = Offset(size.width * 0.14f, size.height * 0.78f),
+                    radius = size.width * 0.50f,
                 ),
-                radius = size.width * 0.44f,
-                center = Offset(size.width * 0.16f, size.height * 0.84f),
+                radius = size.width * 0.50f,
+                center = Offset(size.width * 0.14f, size.height * 0.78f),
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(tertiaryGlow.copy(alpha = 0.22f), Color.Transparent),
+                    center = Offset(size.width * 0.52f, size.height * 0.56f),
+                    radius = size.width * 0.42f,
+                ),
+                radius = size.width * 0.42f,
+                center = Offset(size.width * 0.52f, size.height * 0.56f),
             )
 
-            // Vinyl-chord orbital geometry centered behind the emblem focal axis
-            val orbit = Offset(size.width * 0.80f, size.height * 0.36f)
-            val baseRadius = size.height * 0.24f
-            repeat(4) { idx ->
+            // Orbital harmonic rings + orbiting node
+            val orbit = Offset(size.width * 0.84f, size.height * 0.32f)
+            val baseRadius = size.height * 0.19f
+            for (idx in 0 until sig.ringCount) {
+                val ringRadius = baseRadius * (1f + idx * 0.36f)
                 drawCircle(
-                    color = Color.White.copy(alpha = 0.11f - idx * 0.02f),
-                    radius = baseRadius * (1f + idx * 0.38f),
+                    color = Color.White.copy(alpha = (0.14f - idx * 0.022f).coerceAtLeast(0.03f)),
+                    radius = ringRadius,
                     center = orbit,
-                    style = Stroke(width = 1.2f * density),
+                    style = Stroke(width = 1.15f * density),
                 )
             }
-            // Orbiting harmonic node dot
+            val orbitAngle = phase * 0.75f + 2.2f
             drawCircle(
                 color = primaryGlow.copy(alpha = 0.92f),
                 radius = 3.5f * density,
-                center = Offset(orbit.x - baseRadius * 0.92f, orbit.y + baseRadius * 0.42f),
+                center = Offset(
+                    orbit.x + cos(orbitAngle) * baseRadius,
+                    orbit.y + sin(orbitAngle) * baseRadius,
+                ),
             )
 
-            // Dual acoustic soundwave arcs across the lower horizon
-            val waveMidY = size.height * 0.72f
+            // Multi-layer acoustic waves whose intensity & harmonics respond to the name
+            val waveMidY = size.height * 0.52f
+            val steps = 48
             val primaryWave = Path().apply {
-                val steps = 40
                 for (i in 0..steps) {
-                    val fraction = i / steps.toFloat()
-                    val x = size.width * fraction
-                    val envelope = sin(fraction * PI).toFloat()
-                    val y = waveMidY + sin(fraction * PI * 3.5f).toFloat() * (14f * density) * envelope
+                    val f = i / steps.toFloat()
+                    val x = size.width * f
+                    val env = sin(f * PI).toFloat()
+                    val y = waveMidY + sin(f * PI * primaryFreq + phase).toFloat() * (16f * density * waveAmplitude) * env
                     if (i == 0) moveTo(x, y) else lineTo(x, y)
                 }
             }
@@ -143,42 +240,85 @@ internal fun ChordPlayCommunityHero(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        secondaryGlow.copy(alpha = 0.50f),
-                        primaryGlow.copy(alpha = 0.75f),
+                        secondaryGlow.copy(alpha = 0.55f),
+                        primaryGlow.copy(alpha = 0.85f),
+                        tertiaryGlow.copy(alpha = 0.65f),
                         Color.Transparent,
                     ),
                 ),
-                style = Stroke(width = 1.8f * density, cap = StrokeCap.Round),
+                style = Stroke(width = 2.0f * density, cap = StrokeCap.Round),
             )
 
             val secondaryWave = Path().apply {
-                val steps = 40
                 for (i in 0..steps) {
-                    val fraction = i / steps.toFloat()
-                    val x = size.width * fraction
-                    val envelope = sin(fraction * PI).toFloat()
-                    val y = waveMidY + sin((fraction + 0.18f) * PI * 2.5f).toFloat() * (9f * density) * envelope
+                    val f = i / steps.toFloat()
+                    val x = size.width * f
+                    val env = sin(f * PI).toFloat()
+                    val y = waveMidY + sin(f * PI * secondaryFreq - phase * 0.8f + 0.9f).toFloat() * (11f * density * waveAmplitude) * env
                     if (i == 0) moveTo(x, y) else lineTo(x, y)
                 }
             }
             drawPath(
                 path = secondaryWave,
-                color = Color.White.copy(alpha = 0.16f),
-                style = Stroke(width = 1.1f * density, cap = StrokeCap.Round),
+                color = Color.White.copy(alpha = 0.24f),
+                style = Stroke(width = 1.2f * density, cap = StrokeCap.Round),
             )
 
-            // Crisp miniature acoustic spectrum bars on the right side
-            val barCount = 9
-            val barWidth = 3.dp.toPx()
-            val barGap = 4.5.dp.toPx()
-            val startX = size.width - 20.dp.toPx() - barCount * (barWidth + barGap)
-            val baseBottom = size.height - 20.dp.toPx()
-            val heights = floatArrayOf(0.36f, 0.62f, 0.90f, 0.54f, 0.82f, 1.0f, 0.68f, 0.44f, 0.28f)
-            heights.forEachIndexed { i, h ->
-                val barHeight = 28.dp.toPx() * h
+            if (sig.waveCount >= 3) {
+                val harmonicWave = Path().apply {
+                    for (i in 0..steps) {
+                        val f = i / steps.toFloat()
+                        val x = size.width * f
+                        val env = sin(f * PI).toFloat()
+                        val y = waveMidY + sin(f * PI * (primaryFreq + 1.4f) + phase * 1.25f).toFloat() * (7.5f * density * waveAmplitude) * env
+                        if (i == 0) moveTo(x, y) else lineTo(x, y)
+                    }
+                }
+                drawPath(
+                    path = harmonicWave,
+                    color = tertiaryGlow.copy(alpha = 0.42f),
+                    style = Stroke(width = 1.0f * density, cap = StrokeCap.Round),
+                )
+            }
+
+            if (sig.waveCount >= 4) {
+                val microWave = Path().apply {
+                    for (i in 0..steps) {
+                        val f = i / steps.toFloat()
+                        val x = size.width * f
+                        val env = sin(f * PI).toFloat()
+                        val y = waveMidY + cos(f * PI * (secondaryFreq + 2.1f) - phase * 1.1f).toFloat() * (5.5f * density * waveAmplitude) * env
+                        if (i == 0) moveTo(x, y) else lineTo(x, y)
+                    }
+                }
+                drawPath(
+                    path = microWave,
+                    color = primaryGlow.copy(alpha = 0.34f),
+                    style = Stroke(width = 0.9f * density, cap = StrokeCap.Round),
+                )
+            }
+
+            // Unique 11-bar acoustic identity fingerprint at bottom-right
+            val bars = sig.spectrumBars
+            val barWidth = 2.8.dp.toPx()
+            val barGap = 4.dp.toPx()
+            val startX = size.width - 18.dp.toPx() - bars.size * (barWidth + barGap)
+            val baseBottom = size.height - 14.dp.toPx()
+            bars.forEachIndexed { idx, baseHeight ->
+                val pulseFactor = if (reduceAnimation) {
+                    1f
+                } else {
+                    0.82f + 0.18f * sin(phase * 1.4f + idx * 0.65f)
+                }
+                val barHeight = (20.dp.toPx() * baseHeight * waveAmplitude.coerceIn(0.75f, 1.15f) * pulseFactor)
+                    .coerceAtLeast(3.dp.toPx())
                 drawRoundRect(
-                    color = if (i % 2 == 0) primaryGlow.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.36f),
-                    topLeft = Offset(startX + i * (barWidth + barGap), baseBottom - barHeight),
+                    color = when (idx % 3) {
+                        0 -> primaryGlow.copy(alpha = 0.78f)
+                        1 -> secondaryGlow.copy(alpha = 0.65f)
+                        else -> Color.White.copy(alpha = 0.40f)
+                    },
+                    topLeft = Offset(startX + idx * (barWidth + barGap), baseBottom - barHeight),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(barWidth / 2f),
                 )
@@ -187,71 +327,164 @@ internal fun ChordPlayCommunityHero(
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // Top Header: Emblem, Identity Code, Clean Tagline & Restore Action
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                val iconShape = RoundedCornerShape(16.dp)
+                val iconShape = RoundedCornerShape(15.dp)
                 Image(
                     painter = painterResource(R.drawable.ic_chordplay_squircle),
                     contentDescription = "ChordPlay",
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(48.dp)
                         .clip(iconShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.22f), iconShape),
+                        .border(1.dp, Color.White.copy(alpha = 0.24f), iconShape),
                 )
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "CHORDPLAY",
-                        color = primaryGlow.copy(alpha = 0.92f),
+                        text = "CHORDPLAY · ${sig.code}",
+                        color = primaryGlow,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
-                        letterSpacing = 0.20.em,
+                        letterSpacing = 0.16.em,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Built with Passion",
+                        text = stringResource(R.string.onboarding_hero_tagline),
                         color = Onb.Title,
-                        fontSize = 20.sp,
+                        fontSize = 17.sp,
+                        lineHeight = 21.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = OnbSubtitleTracking,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(0.75.dp, Color.White.copy(alpha = 0.20f), CircleShape)
+                        .clickable(onClick = onRestoreClick)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FileOpen,
+                        contentDescription = stringResource(R.string.onboarding_restore_identity),
+                        tint = Onb.Title,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.onboarding_restore_identity),
+                        color = Onb.Title,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
                     )
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Open-source music streaming,\nno ads & zero compromises.",
-                    color = Onb.Title.copy(alpha = 0.88f),
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
+            // Integrated Name Field directly inside the Identity Card
+            BasicTextField(
+                value = name,
+                onValueChange = onName,
+                singleLine = true,
+                textStyle = TextStyle(
+                    color = Onb.Title,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
+                    letterSpacing = OnbSubtitleTracking,
+                ),
+                cursorBrush = SolidColor(primaryGlow),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                decorationBox = { inner ->
+                    Row(
                         modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .border(0.75.dp, Color.White.copy(alpha = 0.16f), CircleShape)
-                            .padding(horizontal = 9.dp, vertical = 3.dp),
+                            .fillMaxWidth()
+                            .clip(inputShape)
+                            .background(Color.Black.copy(alpha = 0.28f))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = "by Shivanshu (@code4nigel)",
-                            color = Onb.Title.copy(alpha = 0.86f),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
+                        Icon(
+                            imageVector = Icons.Rounded.Person,
+                            contentDescription = null,
+                            tint = if (hasCustomName) primaryGlow else Onb.Subtitle,
+                            modifier = Modifier.size(18.dp),
                         )
+                        Spacer(Modifier.width(10.dp))
+                        Box(Modifier.weight(1f)) {
+                            if (name.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.onboarding_identity_placeholder),
+                                    color = Onb.Faint,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            inner()
+                        }
+                        if (name.isNotEmpty()) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = null,
+                                tint = Onb.Muted,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { onName("") },
+                                    ),
+                            )
+                        }
                     }
+                },
+            )
+
+            // Bottom local-storage or restored badge (leaves bottom-right room for the spectrum bars)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 92.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (!restoredStatus.isNullOrBlank()) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF4ADE80),
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                        text = restoredStatus,
+                        color = Color(0xFF86EFAC),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.onboarding_identity_saved_hint),
+                        color = Onb.Muted,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }

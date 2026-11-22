@@ -176,7 +176,6 @@ internal fun FullscreenVideoPlayer(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
-                            if (isLive) LiveBadge(compact = true)
                         }
                         Text(
                             text = song.artist,
@@ -434,11 +433,7 @@ private fun MusicVideoQualityUi.selected(): Int? =
 private fun VideoQualityBox(onClick: () -> Unit) {
     val selectedQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     val quality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
-    val label = when {
-        quality.held != null -> "${quality.held}p"
-        selectedQuality.isAuto -> "Auto"
-        else -> "${selectedQuality.maxHeight}p"
-    }
+    val label = videoQualityBadge(quality, selectedQuality)
     Box(
         modifier = Modifier
             .height(28.dp)

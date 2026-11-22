@@ -22,8 +22,8 @@ import com.music.bitchord.data.model.Song
 
 fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
     this.border(
-        width = 1.dp,
-        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.15f),
+        width = 0.5.dp,
+        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f),
         shape = shape
     )
 }

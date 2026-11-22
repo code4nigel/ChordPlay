@@ -60,22 +60,51 @@ object Backup {
      * has no path to and no permission for. The picker grants access to that one
      * document and nothing else, which is the correct amount.
      */
+    /**
+     * Captures the current device's typed preferences and listening stats into a
+     * serializable [BackupFile] snapshot (must be called off the main thread).
+     */
+    internal suspend fun createSnapshot(): BackupFile {
+        val buckets = ListeningStats.exportAll()
+        return BackupFile(
+            versionName = BuildConfig.VERSION_NAME,
+            exportedAt = Instant.now().toString(),
+            settings = AppSettings.exportPrefs().mapNotNull { (key, value) ->
+                PrefValue.of(value)?.let { key to it }
+            }.toMap(),
+            listening = buckets,
+        )
+    }
+
+    /**
+     * Validates and applies [file] onto this device's [ListeningStats] and [AppSettings].
+     */
+    internal suspend fun applySnapshot(file: BackupFile): Summary {
+        require(file.app == APP_TAG) { "That backup is from another app" }
+        require(file.version <= SCHEMA_VERSION) {
+            "That backup was written by a newer version of BitChord"
+        }
+        ListeningStats.importAll(file.listening)
+        AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
+        // Shares AppSettings' preference file, so it has already been
+        // overwritten by the line above — it just doesn't know yet.
+        SearchHistory.reload()
+        return Summary(
+            months = file.listening.size,
+            settings = file.settings.size,
+            from = file.versionName,
+            at = file.exportedAt,
+        )
+    }
+
     suspend fun exportTo(context: Context, target: Uri): Result<Int> = withContext(Dispatchers.IO) {
         runCatching {
-            val buckets = ListeningStats.exportAll()
-            val file = BackupFile(
-                versionName = BuildConfig.VERSION_NAME,
-                exportedAt = Instant.now().toString(),
-                settings = AppSettings.exportPrefs().mapNotNull { (key, value) ->
-                    PrefValue.of(value)?.let { key to it }
-                }.toMap(),
-                listening = buckets,
-            )
+            val file = createSnapshot()
             val text = json.encodeToString(BackupFile.serializer(), file)
             context.contentResolver.openOutputStream(target, "wt")
                 ?.use { it.write(text.toByteArray()) }
                 ?: error("Couldn't open that file for writing")
-            buckets.size
+            file.listening.size
         }
     }
 
@@ -94,22 +123,7 @@ object Backup {
                 ?: error("Couldn't open that file")
             val file = runCatching { json.decodeFromString(BackupFile.serializer(), text) }
                 .getOrElse { error("That doesn't look like a BitChord backup") }
-            require(file.app == APP_TAG) { "That backup is from another app" }
-            require(file.version <= SCHEMA_VERSION) {
-                "That backup was written by a newer version of BitChord"
-            }
-
-            ListeningStats.importAll(file.listening)
-            AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
-            // Shares AppSettings' preference file, so it has already been
-            // overwritten by the line above — it just doesn't know yet.
-            SearchHistory.reload()
-            Summary(
-                months = file.listening.size,
-                settings = file.settings.size,
-                from = file.versionName,
-                at = file.exportedAt,
-            )
+            applySnapshot(file)
         }
     }
 

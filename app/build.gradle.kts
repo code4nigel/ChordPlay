@@ -80,8 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 94
-        versionName = "2.2.5"
+        versionCode = 100
+        versionName = "2.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -303,6 +303,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -410,12 +411,9 @@ dependencies {
     // the app for a saving that does not matter in a self-distributed APK.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 
-    // ---- Casting: Google Cast sender + the route discovery it sits on ----
-    // The framework and the router only. media3-cast is left out on purpose:
-    // its CastPlayer hands the receiver whatever URI a MediaItem carries, and
-    // ours are `bitchord://` addresses that only the service's resolver can
-    // turn into a real stream — see [com.music.bitchord.playback.cast.CastPlayback].
+    // ---- Casting & Drive Authorization ----
     implementation("com.google.android.gms:play-services-cast-framework:22.2.0")
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
     implementation("androidx.mediarouter:mediarouter:1.8.1")
 
     testImplementation("junit:junit:4.13.2")

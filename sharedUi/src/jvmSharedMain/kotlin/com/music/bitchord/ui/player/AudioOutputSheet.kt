@@ -1,19 +1,37 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
@@ -22,7 +40,6 @@ import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Speaker
@@ -32,182 +49,332 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.*
+import com.music.bitchord.ui.components.menuFrost
+import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
-import java.util.Locale
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 /**
- * Where the music is coming out, and how loud.
- *
- * Replaces two things that did not work. On Android 14 and up the headphones
- * glyph opened the *system* output switcher — a panel this app does not control,
- * styled like nothing else here, and one that routes the whole phone rather than
- * this player. Below that it opened a stock [android.app.AlertDialog] driven by
- * [android.media.MediaRouter], whose `selectRoute` is a request the framework is
- * free to ignore, and usually did.
- *
- * This one switches by telling our own player which sink to render into, which
- * is the only routing decision the app owns and the one that actually takes
- * effect — see [AudioRouting].
- *
- * A [PlayerDrawer] off the bottom edge, as the rest of the app's sheets are.
- * Outputs come first and volume follows. Every available device stays visible:
- * on a phone there are usually two, so a disclosure would cost a tap merely to
- * reveal a single row.
+ * Shared floating glass / tinted-dark modal surface used across [AudioOutputSheet]
+ * and [VideoQualitySheet] so every player sheet matches Add-to-Playlist's depth and
+ * artwork-tinted opaque fallback when Reduce Dynamic Blur is turned on.
  */
+@Composable
+internal fun playerModalSurfaceModifier(
+    shape: Shape,
+    hazeState: HazeState?,
+    accentColor: Color?,
+    reduceDynamicBlur: Boolean,
+): Modifier {
+    val effectiveAccent = accentColor ?: Color(0xFF4F5D8A)
+    val tintedDarkBase = remember(effectiveAccent) {
+        lerpColor(Color(0xFF14151B), effectiveAccent, 0.16f)
+    }
+    val glassGradient = remember(effectiveAccent, tintedDarkBase) {
+        Brush.verticalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                effectiveAccent.copy(alpha = 0.14f),
+                tintedDarkBase.copy(alpha = 0.26f),
+                Color.White.copy(alpha = 0.06f),
+            ),
+        )
+    }
+    val opaqueTintedGradient = remember(effectiveAccent) {
+        Brush.verticalGradient(
+            listOf(
+                effectiveAccent.copy(alpha = 0.16f),
+                Color.Transparent,
+            ),
+        )
+    }
+    val rimBrush = remember(reduceDynamicBlur, hazeState, effectiveAccent) {
+        val useOpaque = reduceDynamicBlur || hazeState == null
+        Brush.verticalGradient(
+            listOf(
+                if (useOpaque) effectiveAccent.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.46f),
+                if (useOpaque) Color.White.copy(alpha = 0.08f) else effectiveAccent.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.14f),
+            ),
+        )
+    }
+
+    return if (reduceDynamicBlur || hazeState == null) {
+        Modifier
+            .clip(shape)
+            .background(tintedDarkBase.copy(alpha = 0.95f), shape)
+            .background(opaqueTintedGradient, shape)
+            .border(0.8.dp, rimBrush, shape)
+    } else {
+        val frostStyle = remember(tintedDarkBase) { menuFrost(tintedDarkBase, alpha = 0.16f) }
+        Modifier
+            .clip(shape)
+            .optimizedHazeEffect(state = hazeState, style = frostStyle)
+            .background(glassGradient, shape)
+            .border(1.1.dp, rimBrush, shape)
+    }
+}
+private val AUDIO_SHEET_SHAPE = RoundedCornerShape(30.dp)
+private val AUDIO_PILL_SHAPE = RoundedCornerShape(22.dp)
+private const val SHEET_DISMISS_FRACTION = 0.25f
+
 @Composable
 internal fun AudioOutputSheet(
     hazeState: HazeState,
     accountName: String?,
     onDismiss: () -> Unit,
-    onOpenPipeline: () -> Unit,
     onOpenCast: () -> Unit,
+    accentColor: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val animationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
 
-    PlayerDrawer(
-        hazeState = hazeState,
-        title = stringResource(Res.string.audio_output),
-        onDismiss = onDismiss,
-        modifier = modifier,
-    ) {
-        // Flat, with the playing one marked, rather than folded behind a
-        // chevron. There are two outputs on a phone most of the time; one
-        // of them is the answer and the other is the only alternative, so a
-        // disclosure control costs a tap to reveal a single row.
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            outputs.forEach { device ->
-                OutputRow(
-                    device = device,
-                    accountName = accountName,
-                    onSelect = { PlayerPlatform.host.selectAudioOutput(device.id) },
-                )
-            }
-            // One more place to send the music, listed with the others. The
-            // receivers behind it are chosen in a popup of their own — there
-            // can be any number of them, and they come and go while it is open.
-            if (cast.supported) CastRow(cast = cast, onClick = onOpenCast)
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val slideOffsetPx = with(density) { 44.dp.toPx() }
+    val enterProgress = remember { Animatable(0f) }
+    var dismissing by remember { mutableStateOf(false) }
+
+    var dragY by remember { mutableFloatStateOf(0f) }
+    var sheetHeight by remember { mutableIntStateOf(0) }
+    val animatedDragY by animateFloatAsState(
+        targetValue = dragY,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "audioSheetDragY",
+    )
+
+    val speed = animationSpeed.coerceIn(0.5f, 2.0f)
+
+    LaunchedEffect(Unit) {
+        if (reduceAnimation) {
+            enterProgress.snapTo(1f)
+        } else {
+            enterProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.86f,
+                    stiffness = 460f * speed * speed,
+                ),
+            )
         }
-
-        Spacer(Modifier.height(10.dp))
-        VolumeRow(routeKey = outputs)
-
-        Spacer(Modifier.height(6.dp))
-        AudioPipelineRow(onClick = onOpenPipeline)
     }
-}
 
-/**
- * Drills into [com.music.bitchord.ui.components.AudioPipelineDialog] — the
- * subtitle is the negotiated output itself, read live off
- * [AudioOutputStatus], so the row states what's actually leaving the phone
- * before anyone taps in for the rest of the chain.
- */
-@Composable
-private fun AudioPipelineRow(onClick: () -> Unit) {
-    val haptics = rememberHaptics()
-    val outputFormat by PlayerPlatform.host.outputFormat.collectAsStateWithLifecycle()
-    val subtitle = outputFormat.summary
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = 0.05f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) {
-                haptics.play(Haptic.Select)
-                onClick()
+    val requestDismiss: () -> Unit = {
+        if (!dismissing) {
+            dismissing = true
+            if (reduceAnimation) {
+                onDismiss()
+            } else {
+                scope.launch {
+                    val outDuration = (160f / speed).roundToInt().coerceIn(70, 260)
+                    enterProgress.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = outDuration, easing = FastOutSlowInEasing),
+                    )
+                    onDismiss()
+                }
             }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        }
+    }
+
+    PlayerBackHandler(enabled = true, onBack = requestDismiss)
+
+    val p = enterProgress.value.coerceIn(0f, 1f)
+    val dragAlpha = if (sheetHeight > 0) (1f - animatedDragY / sheetHeight).coerceIn(0f, 1f) else 1f
+    val combinedAlpha = p * dragAlpha
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .containSheetGestures()
+            .background(Color.Black.copy(alpha = 0.44f * combinedAlpha))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = requestDismiss,
+            ),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.GraphicEq,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        Spacer(Modifier.width(13.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = stringResource(Res.string.audio_pipeline),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White.copy(alpha = 0.85f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.55f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Icon(
-            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(20.dp),
+        val surfaceModifier = playerModalSurfaceModifier(
+            shape = AUDIO_SHEET_SHAPE,
+            hazeState = hazeState,
+            accentColor = accentColor,
+            reduceDynamicBlur = reduceDynamicBlur,
         )
+
+        Column(
+            modifier = Modifier
+                .widthIn(max = DRAWER_MAX_WIDTH)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+                .heightIn(max = 560.dp)
+                .onSizeChanged { sheetHeight = it.height }
+                .offset { IntOffset(0, animatedDragY.roundToInt()) }
+                .graphicsLayer {
+                    alpha = p
+                    if (!reduceAnimation) {
+                        translationY = (1f - p) * slideOffsetPx
+                        val s = lerp(0.95f, 1f, p)
+                        scaleX = s
+                        scaleY = s
+                    }
+                }
+                .shadow(elevation = 24.dp, shape = AUDIO_SHEET_SHAPE, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
+                .then(surfaceModifier)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = {},
+                )
+                .pointerInput(sheetHeight) {
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (sheetHeight > 0 && dragY > sheetHeight * SHEET_DISMISS_FRACTION) {
+                                requestDismiss()
+                            } else {
+                                dragY = 0f
+                            }
+                        },
+                        onDragCancel = { dragY = 0f },
+                    ) { _, delta ->
+                        dragY = (dragY + delta).coerceAtLeast(0f)
+                    }
+                }
+                .padding(horizontal = 16.dp)
+                .padding(top = 10.dp, bottom = 18.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier
+                    .padding(bottom = 12.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.28f)),
+            )
+
+            Text(
+                text = stringResource(Res.string.audio_output),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, bottom = 12.dp),
+            )
+
+            // Volume slider pinned at the very top inside a rounded-rectangle pill container
+            VolumeRow(routeKey = outputs, opaque = reduceDynamicBlur)
+
+            Spacer(Modifier.height(10.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                outputs.forEach { device ->
+                    OutputRow(
+                        device = device,
+                        accountName = accountName,
+                        opaque = reduceDynamicBlur,
+                        onSelect = { PlayerPlatform.host.selectAudioOutput(device.id) },
+                    )
+                }
+                if (cast.supported) {
+                    CastRow(cast = cast, opaque = reduceDynamicBlur, onClick = onOpenCast)
+                }
+            }
+        }
     }
 }
 
 /**
  * Opens the receiver picker. Lit like the playing output while the music is on
- * a receiver, with that receiver's name in place of the generic title — at that
- * point it *is* the output, and the rows above it are the way back.
+ * a receiver, with that receiver's name in place of the generic title.
  */
 @Composable
-private fun CastRow(cast: CastUi, onClick: () -> Unit) {
+private fun CastRow(cast: CastUi, opaque: Boolean, onClick: () -> Unit) {
     val haptics = rememberHaptics()
     val casting = cast.connectedName != null
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "castRowScale",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            opaque && casting -> Color.White.copy(alpha = 0.14f)
+            opaque -> Color.White.copy(alpha = 0.06f)
+            casting -> Color.White.copy(alpha = 0.16f)
+            else -> Color.White.copy(alpha = 0.07f)
+        },
+        animationSpec = tween(220),
+        label = "castRowBg",
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (casting) 0.10f else 0.05f))
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(AUDIO_PILL_SHAPE)
+            .background(bgColor)
+            .border(
+                width = 0.75.dp,
+                color = Color.White.copy(alpha = if (casting) 0.22f else 0.09f),
+                shape = AUDIO_PILL_SHAPE,
+            )
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
             ) {
                 haptics.play(Haptic.Select)
@@ -220,13 +387,13 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (casting) 0.16f else 0.08f)),
+                .background(Color.White.copy(alpha = if (casting) 0.18f else 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = if (casting) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = if (casting) 1f else 0.7f),
+                tint = Color.White.copy(alpha = if (casting) 1f else 0.78f),
                 modifier = Modifier.size(21.dp),
             )
         }
@@ -235,9 +402,9 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
             Text(
                 text = cast.connectedName ?: stringResource(Res.string.cast),
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (casting) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (casting) FontWeight.SemiBold else FontWeight.Medium,
                 ),
-                color = Color.White.copy(alpha = if (casting) 1f else 0.85f),
+                color = Color.White.copy(alpha = if (casting) 1f else 0.90f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -251,7 +418,7 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
                     },
                 ),
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.55f),
+                color = Color.White.copy(alpha = 0.60f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -259,31 +426,59 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.35f),
+            tint = Color.White.copy(alpha = 0.45f),
             modifier = Modifier.size(20.dp),
         )
     }
 }
 
 /**
- * One output. The playing one is lit and says so; the rest are there to be
- * tapped.
+ * One output. The playing one is lit and says so; the rest are there to be tapped.
  */
 @Composable
 private fun OutputRow(
     device: AudioOutputDevice,
     accountName: String?,
+    opaque: Boolean,
     onSelect: () -> Unit,
 ) {
     val haptics = rememberHaptics()
     val active = device.isActive
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && !active) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "outputRowScale",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            opaque && active -> Color.White.copy(alpha = 0.14f)
+            opaque -> Color.White.copy(alpha = 0.06f)
+            active -> Color.White.copy(alpha = 0.16f)
+            else -> Color.White.copy(alpha = 0.07f)
+        },
+        animationSpec = tween(220),
+        label = "outputRowBg",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = Color.White.copy(alpha = if (active) 0.24f else 0.09f),
+        animationSpec = tween(220),
+        label = "outputRowBorder",
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(AUDIO_PILL_SHAPE)
+            .background(bgColor)
+            .border(0.75.dp, borderColor, AUDIO_PILL_SHAPE)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interaction,
                 indication = null,
                 enabled = !active,
             ) {
@@ -297,13 +492,13 @@ private fun OutputRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
+                .background(Color.White.copy(alpha = if (active) 0.20f else 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = iconFor(device.kind),
                 contentDescription = null,
-                tint = Color.White.copy(alpha = if (active) 1f else 0.7f),
+                tint = Color.White.copy(alpha = if (active) 1f else 0.78f),
                 modifier = Modifier.size(21.dp),
             )
         }
@@ -312,9 +507,9 @@ private fun OutputRow(
             Text(
                 text = outputLabel(device, accountName),
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                 ),
-                color = Color.White.copy(alpha = if (active) 1f else 0.85f),
+                color = Color.White.copy(alpha = if (active) 1f else 0.90f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -323,7 +518,7 @@ private fun OutputRow(
                 Text(
                     text = stringResource(Res.string.audio_output_playing),
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = Color.White.copy(alpha = 0.62f),
                 )
             }
         }
@@ -339,29 +534,15 @@ private fun OutputRow(
 }
 
 /**
- * The phone's media volume, on the player's own slider rather than Material's.
- *
- * Two things move it, and only one of them announces itself. The hardware keys
- * broadcast `VOLUME_CHANGED_ACTION`, which is easy. A *route* change does not:
- * Android keeps one media volume index per output and silently swaps which one
- * is in force, so the number behind this bar changes with no event at all. Read
- * once at composition, as this was, the bar went on showing the level of the
- * device the listener had just moved away from.
- *
- * So [routeKey] — the outputs and the current choice — re-reads it, and re-reads
- * it again a beat later, because the framework swaps the index a moment after
- * the device list changes rather than in the same breath.
+ * Media volume inside a rounded-rectangle pill container at the top of the sheet.
  */
 @Composable
-private fun VolumeRow(routeKey: Any) {
+private fun VolumeRow(routeKey: Any, opaque: Boolean) {
     val system = PlayerPlatform.host.volume
     val systemLevel by system.level.collectAsStateWithLifecycle()
     var level by remember(system) { mutableFloatStateOf(systemLevel) }
     var dragging by remember { mutableStateOf(false) }
 
-    // The hardware keys move the system level; follow it, but never over a
-    // finger: the listener's own drag is the one source of truth this must
-    // not fight.
     LaunchedEffect(systemLevel) {
         if (!dragging) level = systemLevel
     }
@@ -376,15 +557,16 @@ private fun VolumeRow(routeKey: Any) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = 0.05f))
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .clip(AUDIO_PILL_SHAPE)
+            .background(Color.White.copy(alpha = if (opaque) 0.08f else 0.11f))
+            .border(0.75.dp, Color.White.copy(alpha = 0.14f), AUDIO_PILL_SHAPE)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = if (level > 0f) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.6f),
+            tint = Color.White.copy(alpha = 0.80f),
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(12.dp))
@@ -400,6 +582,13 @@ private fun VolumeRow(routeKey: Any) {
             activeHeight = 10.dp,
             modifier = Modifier.weight(1f),
         )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            text = "${(level * 100f).roundToInt()}%",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.72f),
+        )
     }
 }
 
@@ -412,6 +601,5 @@ private fun iconFor(kind: AudioOutputKind): ImageVector = when (kind) {
     AudioOutputKind.OTHER -> Icons.Rounded.Speaker
 }
 
-/** How many times the level is re-read after a route change, and how far apart. */
 private const val VOLUME_REREADS = 4
 private const val VOLUME_REREAD_GAP_MS = 250L

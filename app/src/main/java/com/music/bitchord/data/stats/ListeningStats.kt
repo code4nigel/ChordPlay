@@ -157,6 +157,11 @@ object ListeningStats {
             if (track.artistId == null) track.artistId = song.artistId
             if (track.art == null) track.art = song.thumbnailUrl
             if (countsAsPlay) track.plays++
+            val dateStr = "%04d-%02d-%02d".format(Locale.ROOT, at.year, at.monthValue, at.dayOfMonth)
+            track.days.getOrPut(dateStr) { DayStats() }.also {
+                it.ms += playedMs
+                if (countsAsPlay) it.plays++
+            }
 
             // The lead artist, not the credit as a string. A track billed
             // "Cheema Y & Gur Sidhu" is not a third artist who happens to share
@@ -297,12 +302,60 @@ object ListeningStats {
         }?.let { return@withContext it.summary }
 
         val merged = MergedBucket()
-        months().filter { period.covers(it, today) }
-            .forEach { month -> read(month.toString())?.let(merged::add) }
+        allMonths().filter { period.covers(it, today) }
+            .forEach { month -> bucketsOf(month).forEach(merged::add) }
         merged.toSummary(period, today).also {
             cached = Cached(period, version, facts, today, it)
         }
     }
+
+    /**
+     * One calendar [year] in full, for the Replay year story.
+     * Peers are merged in alongside this device's own buckets.
+     */
+    suspend fun year(year: Int): ReplayYearData = withContext(Dispatchers.IO) {
+        flushAndAwait()
+        val today = LocalDate.now()
+        val months = allMonths().filter { it.year == year }
+        val merged = MergedBucket()
+        val dayMs = HashMap<String, Long>()
+        val monthTops = ArrayList<ReplayMonthTop>()
+        months.forEach { month ->
+            val buckets = bucketsOf(month)
+            buckets.forEach(merged::add)
+            buckets.forEach { bucket ->
+                bucket.days.forEach { (day, ms) ->
+                    val date = "${bucket.month}-%02d".format(Locale.ROOT, day)
+                    dayMs[date] = (dayMs[date] ?: 0L) + ms
+                }
+            }
+            val single = MergedBucket().apply { buckets.forEach(::add) }
+            single.toSummary(ReplayPeriod.THIS_YEAR, today).songs.firstOrNull()
+                ?.let { monthTops += ReplayMonthTop(month, it) }
+        }
+        val summary = merged.toSummary(ReplayPeriod.THIS_YEAR, today).copy(label = year.toString())
+        val busiestDaySong = summary.busiestDay?.let { date ->
+            val month = runCatching { YearMonth.parse(date.take(7)) }.getOrNull() ?: return@let null
+            val best = bucketsOf(month).flatMap { it.tracks }
+                .groupBy { it.id }
+                .mapValues { (_, entries) -> entries.sumOf { it.days[date]?.ms ?: 0L } }
+                .filterValues { it > 0 }
+                .maxByOrNull { it.value }
+                ?.key ?: return@let null
+            summary.songs.firstOrNull { it.song.videoId == best }?.song
+        }
+        ReplayYearData(year, summary, dayMs, monthTops, busiestDaySong)
+    }
+
+    fun peersChanged() {
+        version++
+        cached = null
+    }
+
+    private fun allMonths(): List<YearMonth> = (months() + PeerListening.months()).distinct().sorted()
+
+    private fun bucketsOf(month: YearMonth): List<StoredBucket> =
+        listOfNotNull(read(month.toString())) + PeerListening.buckets(month.toString())
 
     /** Every month with a file, oldest first. */
     fun months(): List<YearMonth> {
@@ -661,6 +714,13 @@ object ListeningStats {
     private const val MAX_NAMES = 400
 }
 
+/** Per-day ms and play counters embedded in [TrackEntry]. */
+@Serializable
+data class DayStats(
+    var ms: Long = 0L,
+    var plays: Int = 0,
+)
+
 /** One track's totals inside a bucket. */
 @Serializable
 data class TrackEntry(
@@ -674,6 +734,7 @@ data class TrackEntry(
     var ms: Long = 0L,
     var plays: Int = 0,
     var last: Long = 0L,
+    var days: MutableMap<String, DayStats> = mutableMapOf(),
 ) {
     fun absorb(other: TrackEntry) {
         ms += other.ms
@@ -683,6 +744,12 @@ data class TrackEntry(
         if (albumId == null) albumId = other.albumId
         if (artistId == null) artistId = other.artistId
         if (art == null) art = other.art
+        other.days.forEach { (day, stats) ->
+            days.getOrPut(day) { DayStats() }.also {
+                it.ms += stats.ms
+                it.plays += stats.plays
+            }
+        }
     }
 }
 
@@ -743,6 +810,18 @@ data class RankedEntry(
 
 /** A song row, which keeps the whole [Song] so tapping it can play it. */
 data class RankedSong(val song: Song, val ms: Long, val plays: Int)
+
+/** A calendar year, for the Replay year story. See [ListeningStats.year]. */
+data class ReplayYearData(
+    val year: Int,
+    val summary: ReplaySummary,
+    val dayMs: Map<String, Long>,
+    val monthTops: List<ReplayMonthTop>,
+    val busiestDaySong: Song?,
+)
+
+/** One month's top song. */
+data class ReplayMonthTop(val month: YearMonth, val song: RankedSong)
 
 /** How far back a Replay reaches. */
 enum class ReplayPeriod(val chip: String) {

@@ -56,6 +56,7 @@ import dev.chrisbanes.haze.HazeState
 fun CastDialog(
     hazeState: HazeState,
     onDismiss: () -> Unit,
+    accentColor: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val cast by CastController.state.collectAsStateWithLifecycle()
@@ -78,6 +79,7 @@ fun CastDialog(
         subtitle = stringResource(R.string.cast_dialog_subtitle),
         doneLabel = stringResource(R.string.done),
         onDismiss = onDismiss,
+        accentColor = accentColor,
         modifier = modifier,
     ) {
         Column(Modifier.fillMaxWidth()) {

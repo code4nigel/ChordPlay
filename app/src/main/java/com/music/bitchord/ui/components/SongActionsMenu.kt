@@ -161,6 +161,8 @@ fun SongActionsMenu(
     var pickingSleepTimer by remember { mutableStateOf(false) }
     var pickingVideoQuality by remember { mutableStateOf(false) }
     val currentVideoQuality by AppSettings.videoQuality.collectAsStateWithLifecycle()
+    val mvQuality by com.music.bitchord.ui.player.PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
+    val videoQualityText = com.music.bitchord.ui.player.videoQualitySummary(mvQuality, currentVideoQuality)
 
     if (showingSongInfo) {
         SongInfoDialog(song) { showingSongInfo = false }
@@ -266,7 +268,7 @@ fun SongActionsMenu(
                 ActionRow(
                     icon = Icons.Rounded.Tune,
                     label = "Video quality",
-                    value = currentVideoQuality.label,
+                    value = videoQualityText,
                     accent = palette.accent,
                     onClick = { pickingVideoQuality = true },
                 )
@@ -303,6 +305,9 @@ fun SongActionsMenu(
                             thumbnailUrl = song.thumbnailUrl,
                             videoId = song.videoId,
                             browseId = null,
+                            isVideo = song.isVideo || song.isLive,
+                            isLive = song.isLive,
+                            liveViewersText = song.liveViewersText,
                         )
                     )
                 },

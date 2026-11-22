@@ -179,6 +179,12 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.ui.player.LiveBadge
+import com.music.bitchord.ui.screens.matchesCurrentlyPlaying
+import com.music.bitchord.data.innertube.InnertubeParser
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -321,6 +327,8 @@ fun DetailScreen(
      * photo, not in this header.
      */
     songSort: SongSort = SongSort.DEFAULT,
+    liveStations: List<ShelfItem> = emptyList(),
+    onLiveStationClick: ((List<ShelfItem>, Int) -> Unit)? = null,
 ) {
     val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     val songs = remember(rawSongs, songSort) { rawSongs.sortedForDetail(songSort) }
@@ -331,6 +339,7 @@ fun DetailScreen(
         rawSongs.withIndex().associate { (i, s) -> s.videoId to i + 1 }
     }
     val isArtist = page.type == BrowseType.ARTIST
+    var fetchedArtistLiveStations by remember(page.browseId) { mutableStateOf<List<ShelfItem>>(emptyList()) }
     // Whether the top release card's album is already saved isn't on the shelf
     // item; it is read off the album once, as soon as the card is known.
     val topReleaseId = if (isArtist) page.sections.topRelease()?.browseId else null
@@ -347,6 +356,28 @@ fun DetailScreen(
     val nameSettled = !page.title.looksLikeCredit() || page.songs !is UiState.Loading
     LaunchedEffect(page.browseId, page.title, nameSettled) {
         if (isArtist && nameSettled) appleArt = AppleArtistArtRepository.artFor(page.title) ?: appleArt
+    }
+    LaunchedEffect(page.browseId, page.title, nameSettled) {
+        if (isArtist && nameSettled && page.title.isNotBlank()) {
+            fetchedArtistLiveStations = withContext(Dispatchers.IO) {
+                YtMusicRepository.artistLiveStations(page.title).getOrDefault(emptyList())
+            }
+        }
+    }
+    val artistLiveStations = remember(page.title, liveStations, page.sections, fetchedArtistLiveStations) {
+        if (!isArtist) emptyList()
+        else {
+            val fromPage = page.sections.flatMap { it.items }.filter {
+                YtMusicRepository.isDedicatedArtistLiveStation(it, page.title)
+            }
+            val fromGlobal = liveStations.filter { station ->
+                YtMusicRepository.isDedicatedArtistLiveStation(station, page.title)
+            }
+            val fromFetched = fetchedArtistLiveStations.filter { station ->
+                YtMusicRepository.isDedicatedArtistLiveStation(station, page.title)
+            }
+            (fromPage + fromGlobal + fromFetched).distinctBy { it.videoId }
+        }
     }
     val palette = rememberArtworkPalette(
         imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
@@ -803,6 +834,53 @@ fun DetailScreen(
                     }
                 }
             }
+
+            // Live Stations shelf at the bottom after all release categories, directly above About.
+            if (isArtist && artistLiveStations.isNotEmpty()) {
+                item(key = "artist:live_stations", contentType = LazyContent.SHELF) {
+                    val liveStationsTitle = stringResource(R.string.live_stations)
+                    val canShowAll = artistLiveStations.size > ARTIST_ROW_MAX_ITEMS
+                    val displayStations = remember(artistLiveStations) {
+                        if (canShowAll) artistLiveStations.take(ARTIST_ROW_MAX_ITEMS) else artistLiveStations
+                    }
+                    Column(Modifier.padding(top = 22.dp)) {
+                        SectionHeading(
+                            title = liveStationsTitle,
+                            palette = palette,
+                            onShowAll = if (canShowAll) {
+                                { onActiveShelfChange(HomeShelf(liveStationsTitle, artistLiveStations)) }
+                            } else {
+                                null
+                            },
+                            horizontalPadding = ARTIST_CONTENT_GUTTER,
+                        )
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = ARTIST_CONTENT_GUTTER),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            itemsIndexed(
+                                items = displayStations,
+                                key = { index, item -> "artist:live:${item.videoId ?: index}:${item.title}" },
+                                contentType = { _, _ -> LazyContent.CARD },
+                            ) { index, item ->
+                                val isCurrent = item.matchesCurrentlyPlaying(currentSong)
+                                ArtistLiveStationCard(
+                                    item = item,
+                                    palette = palette,
+                                    isCurrent = isCurrent,
+                                    isPlaying = isCurrent && isPlaying,
+                                    onClick = {
+                                        onLiveStationClick?.invoke(artistLiveStations, index)
+                                            ?: onSectionItemClick(item)
+                                    },
+                                    onLongPress = onSectionItemLongPress?.let { { it(item) } },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             if (isArtist) aboutItem()
         }
     }
@@ -812,7 +890,15 @@ fun DetailScreen(
     ArtistShelfGridPage(
         shelf = targetShelf,
         palette = palette,
-        onItemClick = onSectionItemClick,
+        currentSong = currentSong,
+        isPlaying = isPlaying,
+        onItemClick = { index, item ->
+            if (item.isLive && onLiveStationClick != null) {
+                onLiveStationClick(targetShelf.items, index)
+            } else {
+                onSectionItemClick(item)
+            }
+        },
         onItemLongPress = onSectionItemLongPress,
         contentPadding = contentPadding,
     )
@@ -2073,11 +2159,85 @@ private fun SectionCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ArtistLiveStationCard(
+    item: ShelfItem,
+    palette: ArtworkPalette,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
+    modifier: Modifier = Modifier.width(236.dp),
+) {
+    val shape = remember { RoundedCornerShape(14.dp) }
+    val subtitleText = item.liveViewersText?.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.live_station_fallback)
+    Column(
+        modifier = modifier.longPressMenuClickable(onClick = onClick, onLongClick = onLongPress),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(shape)
+                .thumbnailBorder(shape)
+                .background(palette.elevated),
+        ) {
+            AsyncImage(
+                model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+                contentDescription = item.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.20f),
+                            0.55f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.65f),
+                        ),
+                    ),
+            )
+            LiveBadge(
+                compact = true,
+                showSoundwaves = true,
+                animated = isPlaying || !isCurrent,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp),
+            )
+            if (isCurrent && isPlaying) {
+                SearchPlayingBars(Modifier.align(Alignment.Center))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (isCurrent) palette.accent else palette.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = subtitleText,
+            style = MaterialTheme.typography.bodyMedium,
+            color = palette.onBackgroundVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 @Composable
 private fun ArtistShelfGridPage(
     shelf: HomeShelf,
     palette: ArtworkPalette,
-    onItemClick: (ShelfItem) -> Unit,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    onItemClick: (Int, ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
@@ -2088,15 +2248,17 @@ private fun ArtistShelfGridPage(
         top = topBarContentPadding(),
         bottom = contentPadding.calculateBottomPadding() + 16.dp,
     )
+    val isLiveShelf = shelf.items.firstOrNull()?.isLive == true
     BoxWithConstraints(modifier.fillMaxSize().background(palette.background)) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
+        val columnCount = if (isLiveShelf && grid.columns > 2 && maxWidth < 600.dp) 2 else grid.columns
         FastScroller(
             gridState = gridState,
             contentPadding = gridPadding,
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(grid.columns),
+                columns = GridCells.Fixed(columnCount),
                 state = gridState,
                 contentPadding = gridPadding,
                 horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
@@ -2109,14 +2271,27 @@ private fun ArtistShelfGridPage(
                     shelf.items,
                     key = { index, _ -> keys[index] },
                     contentType = { _, _ -> LazyContent.CARD },
-                ) { _, item ->
-                    SectionCard(
-                        item = item,
-                        palette = palette,
-                        onClick = { onItemClick(item) },
-                        onLongPress = onItemLongPress?.let { { it(item) } },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                ) { index, item ->
+                    if (item.isLive) {
+                        val isCurrent = item.matchesCurrentlyPlaying(currentSong)
+                        ArtistLiveStationCard(
+                            item = item,
+                            palette = palette,
+                            isCurrent = isCurrent,
+                            isPlaying = isCurrent && isPlaying,
+                            onClick = { onItemClick(index, item) },
+                            onLongPress = onItemLongPress?.let { { it(item) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        SectionCard(
+                            item = item,
+                            palette = palette,
+                            onClick = { onItemClick(index, item) },
+                            onLongPress = onItemLongPress?.let { { it(item) } },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
         }

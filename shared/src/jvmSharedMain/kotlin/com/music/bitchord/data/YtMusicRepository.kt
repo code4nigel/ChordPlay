@@ -22,6 +22,7 @@ import com.music.bitchord.data.model.ArtistPage
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
+import com.music.bitchord.data.model.KeyedMix
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
@@ -267,7 +268,7 @@ object YtMusicRepository {
         else HomeShelf(
             title = "Quick picks",
             items = songs.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) },
-            subtitle = "Start a radio from a song",
+            subtitle = "",
         )
     }
 
@@ -280,7 +281,7 @@ object YtMusicRepository {
         else HomeShelf(
             title = "Remixes & Edits",
             items = tracks.take(12).map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) },
-            subtitle = "Club mixes, VIPs & reimagined cuts",
+            subtitle = "",
         )
     }
 
@@ -293,12 +294,15 @@ object YtMusicRepository {
         else HomeShelf(
             title = "Music Videos for You",
             items = tracks.take(12).map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = true) },
-            subtitle = "16:9 widescreen official videos",
+            subtitle = "",
         )
     }
 
     @Volatile
     private var liveStationsCache: Pair<List<ShelfItem>, Long>? = null
+
+    private val artistLiveStationsCache =
+        java.util.concurrent.ConcurrentHashMap<String, Pair<List<ShelfItem>, Long>>()
 
     /**
      * 24/7 Live Artist Stations & active live music radio broadcasts for the Radio tab.
@@ -332,15 +336,19 @@ object YtMusicRepository {
         }
 
         val fetched = coroutineScope {
-            val topArtist = seedArtists.firstOrNull { it.isNotBlank() }
+            val validSeedArtists = seedArtists.filter { it.isNotBlank() }.take(4)
             val queries = buildList {
-                if (topArtist != null) {
-                    add(LiveStationCategory.ARTIST_STATIONS to "$topArtist \"The Station\" live")
+                validSeedArtists.forEach { artist ->
+                    add(LiveStationCategory.ARTIST_STATIONS to "$artist \"The Station\" live")
                 }
                 add(LiveStationCategory.ARTIST_STATIONS to "\"The Station\" live music 24/7")
                 add(LiveStationCategory.LOFI_CHILL to "24/7 lofi hip hop chill beats live radio")
+                add(LiveStationCategory.LOFI_CHILL to "synthwave radio live chill beats")
                 add(LiveStationCategory.HITS to "24/7 top hits pop music live radio")
+                add(LiveStationCategory.HIPHOP_RNB to "24/7 hip hop rap live music radio")
+                add(LiveStationCategory.ELECTRONIC_EDM to "24/7 edm dance music live radio")
                 add(LiveStationCategory.ROCK_POP to "24/7 rock pop classic hits live music radio")
+                add(LiveStationCategory.JAZZ_CAFE to "24/7 jazz cafe relaxing music live radio")
             }
             val searchBatches = queries.map { (category, query) ->
                 async {
@@ -348,7 +356,7 @@ object YtMusicRepository {
                         InnertubeParser.parseYouTubeLiveSearch(
                             Innertube.searchLiveYouTube(query),
                             category = category,
-                        ).take(8)
+                        ).take(12)
                     }.getOrDefault(emptyList())
                 }
             }
@@ -372,7 +380,7 @@ object YtMusicRepository {
                                 liveCategory = LiveStationCategory.ARTIST_STATIONS,
                             )
                         }
-                    }.take(8)
+                    }.take(12)
                 }.getOrDefault(emptyList())
             }
             searchBatches.awaitAll().flatten() + ytMusicStationFallback.await()
@@ -439,6 +447,28 @@ object YtMusicRepository {
         isLibrary: Boolean = false,
     ): Result<SearchPage> =
         call("search:${if (isLibrary) "lib:" else ""}${filter.name}") {
+            if (filter == SearchFilter.LIVE) {
+                val liveItems = runCatching {
+                    InnertubeParser.parseYouTubeLiveSearch(
+                        Innertube.searchLiveYouTube(query),
+                        category = LiveStationCategory.ALL,
+                    )
+                }.getOrDefault(emptyList())
+                val rows = liveItems.map { item ->
+                    SearchResult.Track(
+                        Song(
+                            videoId = item.videoId ?: "",
+                            title = item.title,
+                            artist = item.subtitle,
+                            thumbnailUrl = item.thumbnailUrl,
+                            isVideo = true,
+                            isLive = true,
+                            liveViewersText = item.liveViewersText,
+                        )
+                    )
+                }
+                return@call SearchPage(rows.distinctBy { it.identityKey() }, null)
+            }
             val params = if (isLibrary) filter.libraryParams else filter.params
             InnertubeParser.parseSearchPage(
                 Innertube.search(query, params),
@@ -447,6 +477,108 @@ object YtMusicRepository {
                 SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
             }
         }
+
+    /**
+     * Looks up whether an artist currently has an active 24/7 live station stream.
+     */
+    suspend fun artistLiveStation(artistName: String): Result<ShelfItem?> = call("artist:liveStation:$artistName") {
+        artistLiveStations(artistName).getOrNull()?.firstOrNull()
+    }
+
+    /**
+     * Returns all active live station streams matching [artistName], merging cached
+     * global stations with targeted live YouTube searches.
+     */
+    suspend fun artistLiveStations(artistName: String): Result<List<ShelfItem>> =
+        call("artist:liveStations:$artistName") {
+            val queryName = artistName.trim()
+            if (queryName.isBlank()) return@call emptyList()
+            val cacheKey = queryName.lowercase()
+            val now = MonotonicClock.nowMs()
+
+            val fromGlobal = liveStationsCache?.first.orEmpty().filter { station ->
+                isDedicatedArtistLiveStation(station, queryName)
+            }
+
+            artistLiveStationsCache[cacheKey]?.takeIf { now - it.second < LIVE_STATIONS_TTL_MS }?.let { (cached, _) ->
+                return@call (fromGlobal + cached).distinctBy { it.videoId }
+            }
+
+            val liveItems = coroutineScope {
+                val primary = async {
+                    runCatching {
+                        InnertubeParser.parseYouTubeLiveSearch(
+                            Innertube.searchLiveYouTube("\"$queryName\" live radio"),
+                            category = LiveStationCategory.ARTIST_STATIONS,
+                        ).take(10)
+                    }.getOrDefault(emptyList())
+                }
+                val stationSpecific = async {
+                    runCatching {
+                        InnertubeParser.parseYouTubeLiveSearch(
+                            Innertube.searchLiveYouTube("\"$queryName\" \"The Station\" live"),
+                            category = LiveStationCategory.ARTIST_STATIONS,
+                        ).take(10)
+                    }.getOrDefault(emptyList())
+                }
+                (stationSpecific.await() + primary.await())
+                    .filter { isDedicatedArtistLiveStation(it, queryName) }
+                    .distinctBy { it.videoId }
+            }
+
+            artistLiveStationsCache[cacheKey] = liveItems to now
+            (fromGlobal + liveItems).distinctBy { it.videoId }
+        }
+
+    /**
+     * Strict matcher that only accepts live stations genuinely dedicated to [artistName]
+     * (either broadcast directly on an artist-owned channel or titled specifically as a
+     * single-artist radio/station stream), filtering out multi-artist Billboard / Top 100 /
+     * SEO compilation streams.
+     */
+    fun isDedicatedArtistLiveStation(item: ShelfItem, artistName: String): Boolean {
+        val artist = artistName.trim()
+        if (artist.isBlank() || !item.isLive || item.videoId.isNullOrBlank()) return false
+
+        val channel = InnertubeParser.artistFromSubtitle(item.subtitle).trim()
+        val channelLower = channel.lowercase()
+        val artistLower = artist.lowercase()
+        val channelOwned = channelLower == artistLower ||
+            channelLower == "$artistLower - topic" ||
+            channelLower == "${artistLower}vevo" ||
+            channelLower == "$artistLower vevo" ||
+            channelLower == "$artistLower official" ||
+            channelLower == "$artistLower radio" ||
+            (channelLower.startsWith("$artistLower ") &&
+                !channel.contains(",") &&
+                !channel.contains("&") &&
+                !channelLower.contains(" vs "))
+
+        if (channelOwned) return true
+
+        val rawTitle = item.title.trim()
+        val titleLower = rawTitle.lowercase()
+        if (COMPILATION_KEYWORDS.any { titleLower.contains(it) } || rawTitle.count { it == ',' } >= 2) {
+            return false
+        }
+
+        val cleanedTitle = rawTitle.replace(LEADING_LIVE_PREFIX_REGEX, "").trim()
+        val escapedArtist = Regex.escape(artist)
+        val wordBoundary = Regex("\\b$escapedArtist\\b", RegexOption.IGNORE_CASE)
+        if (!wordBoundary.containsMatchIn(cleanedTitle)) return false
+
+        val dedicatedPrefix = Regex(
+            "^$escapedArtist(?:$|\\s*[-–:|•(/]|\\s+(?:live|radio|station|24/7|24\\\\7|tv|fm|hits|songs|music|mix|chill|beats|stream)\\b)",
+            RegexOption.IGNORE_CASE,
+        )
+        if (dedicatedPrefix.containsMatchIn(cleanedTitle)) return true
+
+        val dedicatedPhrase = Regex(
+            "\\b$escapedArtist\\b\\s*[-–:|]?\\s*(?:the\\s+station|24/7\\s+radio|24/7\\s+live|live\\s+radio|live\\s+station|radio\\s+station|station|24/7|radio)\\b",
+            RegexOption.IGNORE_CASE,
+        )
+        return dedicatedPhrase.containsMatchIn(cleanedTitle)
+    }
 
     /** Fetches the next page of a search only when the result list needs it. */
     suspend fun searchContinuation(token: String, filter: SearchFilter): Result<SearchPage> = call("search:continuation") {
@@ -1221,4 +1353,85 @@ object YtMusicRepository {
                 .onSuccess { Log.d(TAG, "$label ok") }
                 .onFailure { Log.w(TAG, "$label failed: ${it.message}") }
         }
+
+    /** Personalised "Mixed for you" playlists (Supermix, My Mix 1..7, mood mixes). */
+    suspend fun mixedForYou(language: String? = null): Result<List<ShelfItem>> = call("explore:mixedForYou") {
+        InnertubeParser.parseTwoRowItemsDeep(Innertube.browse("FEmusic_mixed_for_you", language = language))
+    }
+
+    /**
+     * Fetches personalised mixes paired with English titles so Radio grouping stays
+     * consistent even when YouTube localises the visible mix names.
+     */
+    suspend fun mixedForYouKeyed(): Result<List<KeyedMix>> = call("explore:mixedForYouKeyed") {
+        val localized = InnertubeParser.parseTwoRowItemsDeep(
+            Innertube.browse("FEmusic_mixed_for_you"),
+        )
+        if (Innertube.currentLanguage.startsWith("en", ignoreCase = true) || localized.isEmpty()) {
+            return@call localized.map { KeyedMix(it, it.title) }
+        }
+        val englishById = runCatching {
+            InnertubeParser.parseTwoRowItemsDeep(
+                Innertube.browse("FEmusic_mixed_for_you", language = "en"),
+            )
+        }.getOrNull()
+            .orEmpty()
+            .mapNotNull { item -> item.browseId?.let { it to item.title } }
+            .toMap()
+        localized.map { item ->
+            KeyedMix(item, item.browseId?.let(englishById::get) ?: item.title)
+        }
+    }
+
+    /**
+     * Signed-out Radio fallback: public mood playlists grouped under Sleep, Energy,
+     * Chill, and Focus from YouTube Music's mood category pages.
+     */
+    suspend fun publicMoodMixShelves(): Result<List<HomeShelf>> = call("explore:publicMoodMixes") {
+        val moodSpecs = listOf(
+            "Sleep" to "ggMPOg1uX1MxaFQ3Z0JMZkN4",
+            "Energy" to "ggMPOg1uX2lRZUZiMnNrQnJW",
+            "Chill" to "ggMPOg1uX1JOQWZFeDByc2Jm",
+            "Focus" to "ggMPOg1uX0NvNGNhWThMYWRh",
+        )
+        coroutineScope {
+            moodSpecs.map { (title, params) ->
+                async {
+                    val shelves = moodGenreShelves("FEmusic_moods_and_genres_category", params)
+                        .getOrNull()
+                        .orEmpty()
+                    val playlists = shelves.asSequence()
+                        .flatMap { it.items.asSequence() }
+                        .filter { !it.browseId.isNullOrBlank() }
+                        .distinctBy { it.browseId ?: it.title }
+                        .take(12)
+                        .toList()
+                    if (playlists.isEmpty()) null
+                    else HomeShelf(title = title, items = playlists, subtitle = "")
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
+    private val COMPILATION_KEYWORDS = listOf(
+        "billboard",
+        "hot 100",
+        "top 100",
+        "top 50",
+        "top 40",
+        "spotify hits",
+        "pop song live",
+        "pop songs 20",
+        "best songs 20",
+        "hits 202",
+        "top hits 20",
+        "various artists",
+        "nonstop hits",
+        "tiktok",
+    )
+
+    private val LEADING_LIVE_PREFIX_REGEX = Regex(
+        "^(?:[^\\p{L}\\p{N}]|(?:live|on\\s+air|24/7|🔴)\\b)+\\s*[:\\-–|•]*\\s*",
+        RegexOption.IGNORE_CASE,
+    )
 }

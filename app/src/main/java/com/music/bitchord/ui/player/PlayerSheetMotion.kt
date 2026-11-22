@@ -31,19 +31,19 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 /**
- * The spring every open and close runs on: critically damped, so it never
- * bounces, with about 0.45s of response — the way Apple Music's player sheet
- * moves. Unlike a timed ease it has no fast end: it leaves briskly and then
- * spends most of its time settling, slower and slower, into place, which is
- * where the eye is following the artwork home.
+ * Snappy, critically-damped springs for expanding and minimizing the player sheet:
+ * fast initial response with a clean, silky settle and minimal exponential tail.
+ * Scaled quadratically by [PlayerSheetMotion.animationSpeed] (default 1.0x).
  */
-private const val SLIDE_STIFFNESS = 195f
+private const val SLIDE_OPEN_STIFFNESS = 480f
+private const val SLIDE_CLOSE_STIFFNESS = 560f
+private const val SLIDE_DAMPING = 0.96f
 
-/** Close enough to stop, in pixels — rather than a spring's whole long tail. */
-private const val SLIDE_SETTLED_PX = 0.5f
+/** Close enough to stop, in pixels — avoids spending frames on an invisible sub-pixel tail. */
+private const val SLIDE_SETTLED_PX = 1.5f
 
 /** How long a panel waits to be laid out before an open starts regardless. */
-private const val LAYOUT_WAIT_MS = 300L
+private const val LAYOUT_WAIT_MS = 120L
 
 /**
  * Where the player panel stands, between fully open and docked on the mini
@@ -102,6 +102,9 @@ class PlayerSheetMotion(
 
     /** How fast a release has to be, in pixels a second, to be a flick. */
     var flingVelocity = 0f
+
+    /** User-configurable multiplier (0.5x to 2.0x) for expand/minimize speed. */
+    var animationSpeed = 1.0f
 
     private var settle: Job? = null
 
@@ -293,13 +296,16 @@ class PlayerSheetMotion(
 
     private suspend fun slide(from: Float, to: Float, velocity: Float = 0f) {
         val travel = travel()
+        val speed = animationSpeed.coerceIn(0.5f, 2.0f)
+        val baseStiffness = if (to > from) SLIDE_CLOSE_STIFFNESS else SLIDE_OPEN_STIFFNESS
+        val effectiveStiffness = baseStiffness * speed * speed
         animate(
             initialValue = from,
             targetValue = to,
             initialVelocity = velocity,
             animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = SLIDE_STIFFNESS,
+                dampingRatio = SLIDE_DAMPING,
+                stiffness = effectiveStiffness,
                 visibilityThreshold = SLIDE_SETTLED_PX,
             ),
         ) { value, _ ->

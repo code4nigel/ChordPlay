@@ -93,6 +93,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.music.bitchord.ui.player.LiveBadge
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
@@ -593,9 +594,17 @@ private fun SongRowContent(
                     modifier = Modifier
                         .matchParentSize()
                         .clip(RoundedCornerShape(8.dp))
-                        .thumbnailBorder(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 )
+                if (song.isLive) {
+                    LiveBadge(
+                        compact = true,
+                        showSoundwaves = false,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.dp),
+                    )
+                }
                 if (searchPlayingStyle && isCurrent && isPlaying) {
                     SearchPlayingBars(Modifier.align(Alignment.Center))
                 }

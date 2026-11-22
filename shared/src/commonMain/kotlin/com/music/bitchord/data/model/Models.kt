@@ -360,6 +360,7 @@ enum class SearchFilter(
     ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA==", "EgWKAQIYAWoKEAUQCRADEAoYBA=="),
     ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA==", "EgWKAQIgAWoKEAUQCRADEAoYBA=="),
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA==", "EgWKAQIoAWoKEAUQCRADEAoYBA=="),
+    LIVE("Live Stations", "EgJAAQ==", null),
 }
 
 /** Filter categories for the 24/7 Live Stations showcase on the Radio tab. */
@@ -368,7 +369,17 @@ enum class LiveStationCategory(val label: String) {
     ARTIST_STATIONS("Artist Stations"),
     LOFI_CHILL("Lo-Fi & Chill"),
     HITS("Hits"),
+    HIPHOP_RNB("Hip-Hop & R&B"),
+    ELECTRONIC_EDM("Electronic & EDM"),
     ROCK_POP("Rock & Pop"),
+    JAZZ_CAFE("Jazz & Cafe"),
+}
+
+/** Sorting criteria for the full Live Stations directory screen. */
+enum class LiveStationSort(val label: String) {
+    VIEWERS("Most Listened"),
+    NAME("Title (A–Z)"),
+    CATEGORY("Category"),
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */
@@ -478,6 +489,12 @@ data class MoodGenre(
     val thumbnailUrl: String? = null,
     /** YouTube Music's own stripe colour for the button, as ARGB; null when the button carries none. */
     val stripeColor: Long? = null,
+)
+
+/** A personalised mix paired with its English title for localization-safe grouping. */
+data class KeyedMix(
+    val item: ShelfItem,
+    val englishTitle: String,
 )
 
 /**

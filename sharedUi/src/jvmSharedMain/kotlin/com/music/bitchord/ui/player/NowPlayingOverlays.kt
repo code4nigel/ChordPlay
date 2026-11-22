@@ -63,14 +63,8 @@ internal fun PlayerOverlays(
             hazeState = playerHaze,
             accountName = accountName,
             onDismiss = { overlays.audioOutput = false },
-            onOpenPipeline = {
-                if (isVideo) {
-                    overlays.videoQuality = true
-                } else {
-                    overlays.audioPipeline = true
-                }
-            },
             onOpenCast = { overlays.cast = true },
+            accentColor = accentColor,
         )
     }
     if (overlays.lyricsProviders) {
@@ -105,9 +99,10 @@ internal fun PlayerOverlays(
         )
     }
     if (overlays.cast) {
-        PlayerPlatform.host.CastDialog(
+        CastDialog(
             hazeState = playerHaze,
             onDismiss = { overlays.cast = false },
+            accentColor = accentColor,
         )
     }
     if (overlays.listenTogetherMembers) {

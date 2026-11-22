@@ -271,4 +271,21 @@
     <string name="live_cat_hits">Hitler</string>
     <string name="live_cat_rock_pop">Rock &amp; Pop</string>
     <string name="live_stations_empty">Şu anda bu kategori için canlı istasyon bulunamadı.</string>
+    <string name="featured_pick">Öne Çıkan</string>
+    <string name="find_your_mood">Modunu Bul</string>
+    <string name="live_all_stations">Tüm Canlı İstasyonlar</string>
+    <string name="live_cat_electronic">Elektronik &amp; EDM</string>
+    <string name="live_cat_hiphop">Hip-Hop &amp; R&amp;B</string>
+    <string name="live_cat_jazz">Caz &amp; Kafe</string>
+    <string name="live_listen">Canlı Dinle</string>
+    <string name="live_search_hint">Canlı istasyonlarda ara…</string>
+    <string name="live_see_all">Tümünü gör</string>
+    <string name="live_sort_category">Kategori</string>
+    <string name="live_sort_name">Başlık (A–Z)</string>
+    <string name="live_sort_viewers">En Çok Dinlenen</string>
+    <string name="made_for_you">Senin İçin Hazırlandı</string>
+    <string name="mixes_quick">Hızlı Miksler</string>
+    <string name="mixes_your">Senin Mikslerin</string>
+    <string name="mood_feel_good">İyi Hisset</string>
+    <string name="mood_relax">Rahatla</string>
 </resources>

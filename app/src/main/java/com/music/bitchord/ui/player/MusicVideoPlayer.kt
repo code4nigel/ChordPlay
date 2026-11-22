@@ -12,6 +12,7 @@ package com.music.bitchord.ui.player
 
 import android.content.Context
 import android.graphics.SurfaceTexture
+import android.net.ConnectivityManager
 import android.os.Build
 import android.view.TextureView
 import android.view.ViewGroup
@@ -42,6 +43,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
@@ -52,6 +54,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import com.metrolist.innertubex.extraction.StreamResolveException
 import com.metrolist.innertubex.sabr.findSabrProtocolException
 import com.music.bitchord.data.Http
@@ -130,6 +133,7 @@ object MusicVideoEngine {
 
     private var controller: Player? = null
     private var player: ExoPlayer? = null
+    private var bandwidthMeter: DefaultBandwidthMeter? = null
     private var appContext: Context? = null
     private var activeVideoSource: SeekableVideoSource? = null
     private class Surface(val view: TextureView, val priority: Int, val videoId: String)
@@ -176,14 +180,32 @@ object MusicVideoEngine {
         return StreamResolver.isKnownLive(videoId)
     }
 
-    private fun applyVideoTrackSelection(exo: ExoPlayer, capHeight: Int?) {
+    private fun applyVideoTrackSelection(exo: ExoPlayer, capHeight: Int?, exactPin: Boolean = false) {
         val builder = exo.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
         if (builder is DefaultTrackSelector.Parameters.Builder) {
             builder.setExceedVideoConstraintsIfNecessary(true)
         }
+        builder.clearOverridesOfType(C.TRACK_TYPE_VIDEO)
         if (capHeight != null && capHeight > 0 && capHeight < Int.MAX_VALUE) {
-            builder.setMaxVideoSize(Int.MAX_VALUE, capHeight)
+            var matchedOverride: TrackSelectionOverride? = null
+            if (exactPin) {
+                outer@ for (group in exo.currentTracks.groups) {
+                    if (group.type != C.TRACK_TYPE_VIDEO) continue
+                    for (i in 0 until group.length) {
+                        if (group.getTrackFormat(i).height == capHeight && group.isTrackSupported(i)) {
+                            matchedOverride = TrackSelectionOverride(group.mediaTrackGroup, i)
+                            break@outer
+                        }
+                    }
+                }
+            }
+            if (matchedOverride != null) {
+                builder.addOverride(matchedOverride)
+                builder.clearVideoSizeConstraints()
+            } else {
+                builder.setMaxVideoSize(Int.MAX_VALUE, capHeight)
+            }
         } else {
             builder.clearVideoSizeConstraints()
         }
@@ -240,11 +262,11 @@ object MusicVideoEngine {
                 prefs?.edit()?.remove(KEY_QUALITY)?.apply()
                 _quality.value = _quality.value.copy(held = null)
                 val id = loadedId ?: return@collect
-                if (isCurrentStreamLive && loadedStream?.isHls == true) {
+                if (loadedStream?.isHls == true) {
                     val cap = liveTrackCapFor(id)
                     loadedCap = cap ?: 0
-                    player?.let { applyVideoTrackSelection(it, cap) }
-                    TrackLog.d(TAG, "video: switched live HLS preference cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
+                    player?.let { applyVideoTrackSelection(it, cap, exactPin = _quality.value.held != null) }
+                    TrackLog.d(TAG, "video: switched HLS preference cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
                     return@collect
                 }
                 streams.remove(id)
@@ -358,7 +380,7 @@ object MusicVideoEngine {
         }
 
         override fun onTracksChanged(tracks: Tracks) {
-            if (!isCurrentStreamLive) return
+            if (!isCurrentStreamLive && loadedStream?.isHls != true) return
             val heights = mutableSetOf<Int>()
             var activeH: Int? = null
             for (group in tracks.groups) {
@@ -378,6 +400,18 @@ object MusicVideoEngine {
                     heights = heights.sortedDescending(),
                     activeHeight = activeH ?: _quality.value.activeHeight,
                 )
+            }
+            // If user picked a specific height before manifest tracks finished loading,
+            // promote the cap to an exact TrackSelectionOverride once that height appears.
+            val heldHeight = _quality.value.held
+            val exo = player
+            if (heldHeight != null && exo != null && loadedStream?.isHls == true) {
+                val hasOverride = exo.trackSelectionParameters.overrides.values.any {
+                    it.type == C.TRACK_TYPE_VIDEO
+                }
+                if (!hasOverride && heldHeight in heights && activeH != heldHeight) {
+                    applyVideoTrackSelection(exo, heldHeight, exactPin = true)
+                }
             }
         }
 
@@ -555,7 +589,9 @@ object MusicVideoEngine {
     private fun ensurePlayer(context: Context): ExoPlayer {
         val app = context.applicationContext
         appContext = app
+        val meter = bandwidthMeter ?: DefaultBandwidthMeter.Builder(app).build().also { bandwidthMeter = it }
         return player ?: ExoPlayer.Builder(app)
+            .setBandwidthMeter(meter)
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(10_000, 30_000, 1_000, 2_000)
@@ -640,11 +676,11 @@ object MusicVideoEngine {
         }?.apply()
         _quality.value = _quality.value.copy(held = height)
         val id = loadedId ?: return
-        if (isCurrentStreamLive && loadedStream?.isHls == true) {
+        if (loadedStream?.isHls == true) {
             val cap = liveTrackCapFor(id)
             loadedCap = cap ?: 0
-            player?.let { applyVideoTrackSelection(it, cap) }
-            TrackLog.d(TAG, "video: switched live HLS quality cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
+            player?.let { applyVideoTrackSelection(it, cap, exactPin = height != null) }
+            TrackLog.d(TAG, "video: switched HLS quality cap to ${cap?.let { "${it}p" } ?: "Auto"} in-place", about = id)
             return
         }
         streams.remove(id)
@@ -652,19 +688,43 @@ object MusicVideoEngine {
         load(id)
     }
 
-    /** The height asked for: the held one, else the active VideoQuality cap (clamped on metered). */
+    private fun estimatedDownstreamBps(): Long {
+        val meterBps = bandwidthMeter?.bitrateEstimate?.takeIf { it > 0L && it != Long.MAX_VALUE }
+        if (meterBps != null) return meterBps
+        val ctx = appContext ?: return -1L
+        return runCatching {
+            val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val caps = cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+            val kbps = caps?.linkDownstreamBandwidthKbps ?: 0
+            if (kbps > 0) kbps * 1000L else -1L
+        }.getOrDefault(-1L)
+    }
+
+    private fun autoNetworkHeightCap(): Int {
+        if (AppSettings.meteredConnection.value == true) return METERED_HEIGHT
+        val bps = estimatedDownstreamBps()
+        return when {
+            bps <= 0L -> AUTO_HEIGHT
+            bps >= 6_000_000L -> AUTO_HEIGHT
+            bps >= 2_500_000L -> 720
+            bps >= 1_100_000L -> 480
+            else -> 360
+        }
+    }
+
+    /** The height asked for: the held one, else network-aware Auto / active VideoQuality cap (clamped on metered). */
     private fun capFor(videoId: String): Int {
         val metered = AppSettings.meteredConnection.value == true
         val pref = AppSettings.videoQuality.value
-        val prefCap = if (pref.isAuto) AUTO_HEIGHT else pref.maxHeight
+        val prefCap = if (pref.isAuto) autoNetworkHeightCap() else pref.maxHeight
         val auto = if (metered) minOf(prefCap, METERED_HEIGHT) else prefCap
         val held = _quality.value.held ?: return auto
         return if (videoId in stepDown) minOf(held, AUTO_HEIGHT) else held
     }
 
     /**
-     * Track-selection ceiling for adaptive live HLS streams: null removes height
-     * constraints so ExoPlayer adapts freely when [VideoQuality.AUTO] is active.
+     * Track-selection ceiling for adaptive HLS streams: null removes height
+     * constraints so ExoPlayer ABR adapts freely to network speed when Auto is active.
      */
     private fun liveTrackCapFor(videoId: String): Int? {
         if (_quality.value.held != null) return capFor(videoId)
@@ -820,7 +880,11 @@ object MusicVideoEngine {
         val isLive = stream.isLive || isLiveTrack(id)
         isCurrentStreamLive = isLive
         if (isLive) StreamResolver.markKnownLive(id)
-        applyVideoTrackSelection(exo, if (isLive) liveTrackCapFor(id) else null)
+        applyVideoTrackSelection(
+            exo,
+            if (stream.isHls) liveTrackCapFor(id) else null,
+            exactPin = _quality.value.held != null,
+        )
 
         val start = if (isLive) 0L else controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
         val initialPos = if (isLive || start < 300L) 0L else start + seekLeadMs

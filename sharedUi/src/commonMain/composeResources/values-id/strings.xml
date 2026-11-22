@@ -271,4 +271,21 @@
     <string name="live_cat_hits">Hits</string>
     <string name="live_cat_rock_pop">Rock &amp; Pop</string>
     <string name="live_stations_empty">Tidak ada stasiun langsung yang ditemukan untuk kategori ini saat ini.</string>
+    <string name="featured_pick">Unggulan</string>
+    <string name="find_your_mood">Temukan Suasana Hati</string>
+    <string name="live_all_stations">Semua Stasiun Langsung</string>
+    <string name="live_cat_electronic">Elektronik &amp; EDM</string>
+    <string name="live_cat_hiphop">Hip-Hop &amp; R&amp;B</string>
+    <string name="live_cat_jazz">Jazz &amp; Kafe</string>
+    <string name="live_listen">Dengar Langsung</string>
+    <string name="live_search_hint">Cari stasiun langsung…</string>
+    <string name="live_see_all">Lihat semua</string>
+    <string name="live_sort_category">Kategori</string>
+    <string name="live_sort_name">Judul (A–Z)</string>
+    <string name="live_sort_viewers">Terbanyak Didengar</string>
+    <string name="made_for_you">Dibuat untuk Anda</string>
+    <string name="mixes_quick">Mix Cepat</string>
+    <string name="mixes_your">Mix Anda</string>
+    <string name="mood_feel_good">Semangat Positif</string>
+    <string name="mood_relax">Santai</string>
 </resources>

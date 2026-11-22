@@ -29,6 +29,7 @@ import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.TransitionWindow
+import com.music.bitchord.data.settings.VideoQuality
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -155,7 +156,7 @@ interface PlayerHost {
 
     /** The device picker the output drawer's Cast row opens, in the pipeline dialog's card. */
     @Composable
-    fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
+    fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color? = null) = Unit
 
     /**
      * Whether lines can be put on a share card here. False hides the pick mode
@@ -204,6 +205,7 @@ interface PlayerSettingsSource {
     val canvasOverCellular: StateFlow<Boolean>
     val fullBleedArtwork: StateFlow<Boolean>
     val hideSongStatus: StateFlow<Boolean>
+    val hideLyricsPreview: StateFlow<Boolean> get() = MutableStateFlow(false)
     val hideVolumeBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
     val legacyMeshGradient: StateFlow<Boolean>
@@ -215,6 +217,7 @@ interface PlayerSettingsSource {
     val preferUsbDac: StateFlow<Boolean>
     val prioritizeSpotifyCanvas: StateFlow<Boolean>
     val reduceAnimation: StateFlow<Boolean>
+    val playerAnimationSpeed: StateFlow<Float> get() = DEFAULT_PLAYER_ANIMATION_SPEED
     val reduceDynamicBlur: StateFlow<Boolean>
     val showNerdStats: StateFlow<Boolean>
     val smartAnalysis: StateFlow<SmartAnalysis>
@@ -251,6 +254,8 @@ interface PlayerSettingsSource {
     val tapArtworkToToggleFullScreen: StateFlow<Boolean> get() = MutableStateFlow(true)
     fun setTapArtworkToToggleFullScreen(value: Boolean) {}
 }
+
+private val DEFAULT_PLAYER_ANIMATION_SPEED = MutableStateFlow(1.0f)
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
 internal val PlayerSettings: PlayerSettingsSource
@@ -331,6 +336,35 @@ internal fun videoQualityLabel(height: Int): String = when {
     height >= 1080 -> "FullHD"
     height >= 720 -> "HD"
     else -> "${height}p"
+}
+
+/** Compact quality badge code for compact UI chrome (e.g. `4K`, `2K`, `FHD`, `HD`, `480P`). */
+internal fun videoQualityHeightBadge(height: Int): String = when {
+    height >= 2160 -> "4K"
+    height >= 1440 -> "2K"
+    height >= 1080 -> "FHD"
+    height >= 720 -> "HD"
+    else -> "${height}P"
+}
+
+/** Resolves the pill quality badge combining explicit stream override with global preference. */
+internal fun videoQualityBadge(mvQuality: MusicVideoQualityUi, fallback: VideoQuality): String = when {
+    mvQuality.held != null -> videoQualityHeightBadge(mvQuality.held)
+    fallback.isAuto -> mvQuality.activeHeight?.takeIf { it > 0 }?.let(::videoQualityHeightBadge) ?: fallback.badge
+    else -> fallback.badge
+}
+
+/** Human-readable quality summary for menus and badges (e.g. `Auto · 1080p` or `2160p (4K)`). */
+fun videoQualitySummary(mvQuality: MusicVideoQualityUi, fallback: VideoQuality): String {
+    val held = mvQuality.held
+    if (held != null) {
+        val label = videoQualityLabel(held)
+        return if (label == "${held}p") label else "${held}p · $label"
+    }
+    if (fallback.isAuto) {
+        return mvQuality.activeHeight?.takeIf { it > 0 }?.let { "Auto · ${it}p" } ?: "Auto"
+    }
+    return fallback.label
 }
 
 /** Whether [song]'s picture can be shown here — a music video or live station, on a platform that plays one. */
@@ -447,4 +481,8 @@ internal fun rememberRemoteArtworkUrl(song: Song?): String? =
 
 @Composable
 internal fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color? = null) =
-    PlayerPlatform.host.AudioPipelineDialog(hazeState, isPlaying, onDismiss)
+    PlayerPlatform.host.AudioPipelineDialog(hazeState, isPlaying, onDismiss, accentColor)
+
+@Composable
+internal fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color? = null) =
+    PlayerPlatform.host.CastDialog(hazeState, onDismiss, accentColor)

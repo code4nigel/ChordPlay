@@ -9,11 +9,17 @@
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />
         <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_drive_backup.xml" />
+        <exclude domain="file" path="listening-peers" />
+        <exclude domain="file" path="listening-synced" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="bitchord_auth.xml" />
         <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
         <exclude domain="sharedpref" path="bitchord_sources.xml" />
         <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_drive_backup.xml" />
+        <exclude domain="file" path="listening-peers" />
+        <exclude domain="file" path="listening-synced" />
     </device-transfer>
 </data-extraction-rules>

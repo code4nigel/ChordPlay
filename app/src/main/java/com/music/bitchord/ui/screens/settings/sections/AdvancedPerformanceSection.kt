@@ -15,6 +15,11 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -85,6 +90,7 @@ fun AdvancedPerformanceSection(
     val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
@@ -147,6 +153,12 @@ fun AdvancedPerformanceSection(
             stringResource(R.string.reduce_animation_subtitle),
             "motion", "animation", "animations",
         )
+        val showPlayerAnimationSpeed = matchesSearch(
+            searchQuery,
+            stringResource(R.string.player_animation_speed),
+            stringResource(R.string.player_animation_speed_subtitle),
+            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
+        )
         val showDisplayDensity = matchesSearch(
             searchQuery,
             stringResource(R.string.display_density),
@@ -174,7 +186,8 @@ fun AdvancedPerformanceSection(
             "nerd", "stats", "bitrate", "codec", "diagnostics",
         )
 
-        val hasDisplayPerf = showHighPerformance || showReduceBlur || showReduceAnimation || showDisplayDensity
+        val hasDisplayPerf = showHighPerformance || showReduceBlur || showReduceAnimation ||
+            showPlayerAnimationSpeed || showDisplayDensity
         val hasAutomix = showAutomixPerf || showStopOnClose
         val hasNerd = showNerdStats
         val anyAdvancedMatch = hasDisplayPerf || hasAutomix || hasNerd
@@ -284,6 +297,29 @@ fun AdvancedPerformanceSection(
                         onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
                     )
                     perfPreceding = true
+                }
+
+                if (showPlayerAnimationSpeed) {
+                    AnimatedVisibility(
+                        visible = !reduceAnimation,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column {
+                            if (perfPreceding) RowDivider()
+                            SliderRow(
+                                icon = Icons.Rounded.Speed,
+                                title = stringResource(R.string.player_animation_speed),
+                                subtitle = stringResource(R.string.player_animation_speed_subtitle),
+                                value = playerAnimationSpeedLabel(playerAnimationSpeed),
+                                sliderValue = playerAnimationSpeed,
+                                onSliderValue = AppSettings::setPlayerAnimationSpeed,
+                                valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
+                                steps = 14,
+                            )
+                        }
+                    }
+                    if (!reduceAnimation) perfPreceding = true
                 }
 
                 if (showDisplayDensity) {

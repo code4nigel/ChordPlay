@@ -18,6 +18,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -89,6 +92,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -150,8 +154,10 @@ fun AppearanceSection(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
+    val adaptiveDockBlurIntensity by AppSettings.adaptiveDockBlurIntensity.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
@@ -235,6 +241,8 @@ fun AppearanceSection(
             "dock", "dock style", "navigation", "adaptive",
             stringResource(R.string.dock_style),
             stringResource(R.string.dock_style_section),
+            stringResource(R.string.adaptive_dock_blur),
+            stringResource(R.string.adaptive_dock_blur_subtitle),
             stringResource(R.string.liquid_glass),
             stringResource(R.string.liquid_glass_subtitle),
             stringResource(R.string.glass_intensity),
@@ -251,6 +259,12 @@ fun AppearanceSection(
             stringResource(R.string.reduce_animation),
             stringResource(R.string.reduce_animation_subtitle),
             "motion", "animations", "performance",
+        )
+        val showPlayerAnimationSpeed = matchesSearch(
+            searchQuery,
+            stringResource(R.string.player_animation_speed),
+            stringResource(R.string.player_animation_speed_subtitle),
+            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
         )
         val showLivePreviewsSetting = matchesSearch(
             searchQuery,
@@ -282,8 +296,8 @@ fun AppearanceSection(
 
         val anyAppearanceMatch = showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
-            showReduceDynamicBlur || showReduceAnimation || showLivePreviewsSetting ||
-            showSwipeGestures || showHighPerformance || showLanguage
+            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
+            showLivePreviewsSetting || showSwipeGestures || showHighPerformance || showLanguage
 
         // Pinned Live Preview (hidden during active search)
         if (searchQuery.isBlank()) {
@@ -531,8 +545,56 @@ fun AppearanceSection(
                     onSelect = { index ->
                         AppSettings.setDockStyle(DockStyle.entries[index])
                     },
-                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 10.dp),
                 )
+
+                AnimatedVisibility(
+                    visible = dockStyle == DockStyle.ADAPTIVE && !reduceDynamicBlur,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = TEXT_INSET, end = ROW_INSET, top = 2.dp, bottom = 12.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                Text(
+                                    text = stringResource(R.string.adaptive_dock_blur),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = stringResource(R.string.adaptive_dock_blur_subtitle),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(
+                                text = "${(adaptiveDockBlurIntensity * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Slider(
+                            value = adaptiveDockBlurIntensity,
+                            onValueChange = AppSettings::setAdaptiveDockBlurIntensity,
+                            valueRange = 0f..1f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                            ),
+                        )
+                    }
+                }
 
                 val liquidGlassTitle = stringResource(R.string.liquid_glass)
                 SettingsRow(
@@ -636,6 +698,25 @@ fun AppearanceSection(
                     },
                     onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
                 )
+            }
+
+            if (showPlayerAnimationSpeed) {
+                AnimatedVisibility(
+                    visible = !reduceAnimation,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    SliderRow(
+                        icon = Icons.Rounded.Speed,
+                        title = stringResource(R.string.player_animation_speed),
+                        subtitle = stringResource(R.string.player_animation_speed_subtitle),
+                        value = playerAnimationSpeedLabel(playerAnimationSpeed),
+                        sliderValue = playerAnimationSpeed,
+                        onSliderValue = AppSettings::setPlayerAnimationSpeed,
+                        valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
+                        steps = 14,
+                    )
+                }
             }
 
             if (showLivePreviewsSetting) {
@@ -976,10 +1057,22 @@ private fun PaletteCarousel(
             val goldBrush = Brush.sweepGradient(
                 listOf(Color(0xFFFFD700), Color(0xFFFFA000), Color(0xFFFFE082), Color(0xFFFFD700)),
             )
+            val cardScale by animateFloatAsState(
+                targetValue = if (isSelected) 1.03f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+                label = "appearancePaletteScale",
+            )
 
             Column(
                 modifier = Modifier
                     .width(112.dp)
+                    .graphicsLayer {
+                        scaleX = cardScale
+                        scaleY = cardScale
+                    }
                     .clip(RoundedCornerShape(16.dp))
                     .background(
                         if (isSelected) primaryColor.copy(alpha = 0.16f)
@@ -1055,5 +1148,16 @@ private fun PaletteCarousel(
                 )
             }
         }
+    }
+}
+
+internal fun playerAnimationSpeedLabel(speed: Float): String {
+    val rounded = (kotlin.math.round(speed * 10f) / 10f)
+    return when {
+        rounded <= 0.55f -> "0.5x · Slow"
+        rounded in 0.95f..1.05f -> "1.0x · Default"
+        rounded in 1.45f..1.55f -> "1.5x · Fast"
+        rounded >= 1.95f -> "2.0x · Instant"
+        else -> String.format(Locale.US, "%.1fx", rounded)
     }
 }

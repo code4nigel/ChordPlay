@@ -68,6 +68,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val fullBleedArtwork get() = AppSettings.fullBleedArtwork
         override val tapArtworkToToggleFullScreen get() = AppSettings.tapArtworkToToggleFullScreen
         override val hideSongStatus get() = AppSettings.hideSongStatus
+        override val hideLyricsPreview get() = AppSettings.hideLyricsPreview
         override val hideVolumeBar get() = AppSettings.hideVolumeBar
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
         override val legacyMeshGradient get() = AppSettings.legacyMeshGradient
@@ -79,6 +80,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val preferUsbDac get() = AppSettings.preferUsbDac
         override val prioritizeSpotifyCanvas get() = AppSettings.prioritizeSpotifyCanvas
         override val reduceAnimation get() = AppSettings.reduceAnimation
+        override val playerAnimationSpeed get() = AppSettings.playerAnimationSpeed
         override val reduceDynamicBlur get() = AppSettings.reduceDynamicBlur
         override val showNerdStats get() = AppSettings.showNerdStats
         override val smartAnalysis get() = AppSettings.smartAnalysis
@@ -237,8 +239,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     }
 
     @Composable
-    override fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) =
-        com.music.bitchord.ui.components.CastDialog(hazeState = hazeState, onDismiss = onDismiss)
+    override fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color?) =
+        com.music.bitchord.ui.components.CastDialog(
+            hazeState = hazeState,
+            onDismiss = onDismiss,
+            accentColor = accentColor,
+        )
 
     @Composable
     override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color?) =

@@ -177,6 +177,7 @@ internal fun BoxScope.PortraitSleeve(
     spotifyCanvasPresentation: Boolean,
     spotifyChromeAlpha: Float,
     syncedLyricsEnabled: Boolean,
+    hideLyricsPreview: Boolean = false,
     fullscreenLyricsStyle: FullscreenArtworkLyricsStyle,
     lyricsTranslation: LyricsTranslationUi,
     lyricsPlayhead: LyricPlayhead,
@@ -609,7 +610,7 @@ internal fun BoxScope.PortraitSleeve(
     }
 
     // Persistent frosted one-line lyrics in fullscreen Canvas mode
-    if (spotifyCanvasPresentation && syncedLyricsEnabled && !panels.lyricsOpen && !panels.queueOpen && deckRevealValue() < 0.999f) {
+    if (spotifyCanvasPresentation && syncedLyricsEnabled && !hideLyricsPreview && !panels.lyricsOpen && !panels.queueOpen && deckRevealValue() < 0.999f) {
         val pillAlpha = (1f - deckRevealValue()).coerceIn(0f, 1f)
         when (fullscreenLyricsStyle) {
             FullscreenArtworkLyricsStyle.FLOATING_CAPSULE -> {

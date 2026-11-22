@@ -12,6 +12,23 @@ package com.music.bitchord.ui.onboarding
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,11 +57,12 @@ import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.MotionPhotosOff
+import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -58,17 +76,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,13 +106,17 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.ChordPlayPalette
+import com.music.bitchord.data.stats.ChordPlayIdentityStore
+import com.music.bitchord.ui.components.GitHubIconBadge
+import com.music.bitchord.ui.components.RedditIconBadge
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------------------
-// 1. Welcome, Community Links & Local Name
+// 1. Welcome, Wave Identity Card & Community Showcase
 // ---------------------------------------------------------------------------
 
 @Composable
@@ -94,117 +124,253 @@ internal fun WelcomeStep(
     name: String,
     palette: MeshPalette,
     onName: (String) -> Unit,
+    onIdentityRestored: (String) -> Unit,
     footer: @Composable ColumnScope.() -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val tilt = rememberDeviceTilt()
+    var discovered by remember { mutableStateOf<List<ChordPlayIdentityStore.DiscoveredIdentity>>(emptyList()) }
+    var restoredStatus by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        discovered = ChordPlayIdentityStore.discoverLocalIdentities(context)
+    }
+
+    fun restoreUri(uri: Uri) {
+        scope.launch {
+            ChordPlayIdentityStore.restoreFromUri(context, uri)
+                .onSuccess { summary ->
+                    restoredStatus = context.getString(
+                        R.string.onboarding_identity_restored,
+                        summary.name,
+                        summary.settings,
+                    )
+                    onIdentityRestored(summary.name)
+                }
+                .onFailure { err ->
+                    restoredStatus = err.message ?: context.getString(R.string.unknown_error)
+                }
+        }
+    }
+
+    val restorePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) restoreUri(uri)
+    }
+
     OnboardingPage(
         badge = { PageBadge(Icons.Rounded.GraphicEq) },
         title = stringResource(R.string.onboarding_name_title),
         subtitle = stringResource(R.string.onboarding_welcome_subtitle),
         footer = footer,
     ) {
-        ChordPlayCommunityHero(palette = palette, tilt = tilt)
-        Spacer(Modifier.height(14.dp))
+        ChordPlayIdentityCard(
+            name = name,
+            onName = onName,
+            onRestoreClick = {
+                restorePicker.launch(arrayOf("image/png", "application/json", "*/*"))
+            },
+            restoredStatus = restoredStatus,
+            palette = palette,
+            tilt = tilt,
+        )
+
+        if (discovered.isNotEmpty() && restoredStatus == null) {
+            Spacer(Modifier.height(10.dp))
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                items(discovered.take(3), key = { "${it.code}:${it.name}" }) { item ->
+                    val pillShape = remember { RoundedCornerShape(50) }
+                    Row(
+                        modifier = Modifier
+                            .onbSurface(shape = pillShape)
+                            .clip(pillShape)
+                            .clickable { restoreUri(item.uri) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.History,
+                            contentDescription = null,
+                            tint = Color(0xFF86EFAC),
+                            modifier = Modifier.size(15.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.onboarding_welcome_back_restore, item.name),
+                            color = Onb.Title,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
         OnbSectionLabel("COMMUNITY & OPEN SOURCE")
-        OnboardingLinkCard(
-            iconRes = R.drawable.ic_github,
-            title = "GitHub",
-            subtitle = stringResource(R.string.github_repository_desc),
-            onClick = {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")),
-                    )
-                }
-            },
-        )
-        Spacer(Modifier.height(9.dp))
-        OnboardingLinkCard(
-            iconRes = R.drawable.ic_reddit,
-            title = "Reddit",
-            subtitle = stringResource(R.string.reddit_community_desc),
-            onClick = {
-                runCatching {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")),
-                    )
-                }
-            },
-        )
-        Spacer(Modifier.height(12.dp))
-        OnbField(
-            value = name,
-            onValueChange = onName,
-            placeholder = stringResource(R.string.onboarding_name_placeholder),
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CommunityShowcaseCard(
+                iconRes = R.drawable.ic_github,
+                title = "GitHub",
+                tagline = stringResource(R.string.onboarding_github_tag),
+                accentPrimary = Color(0xFF818CF8),
+                accentSecondary = Color(0xFFE2E8F0),
+                isReddit = false,
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")),
+                        )
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            )
+            CommunityShowcaseCard(
+                iconRes = R.drawable.ic_reddit,
+                title = "Reddit",
+                tagline = stringResource(R.string.onboarding_reddit_tag),
+                accentPrimary = Color(0xFFFF4500),
+                accentSecondary = Color(0xFFFF7847),
+                isReddit = true,
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")),
+                        )
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
 @Composable
-private fun OnboardingLinkCard(
+private fun CommunityShowcaseCard(
     iconRes: Int,
     title: String,
-    subtitle: String,
+    tagline: String,
+    accentPrimary: Color,
+    accentSecondary: Color,
+    isReddit: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val cardShape = remember { RoundedCornerShape(22.dp) }
+    val cardShape = remember { RoundedCornerShape(24.dp) }
     OnbCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(0.75.dp, Onb.Hairline, cardShape),
+        modifier = modifier.height(136.dp),
         shape = cardShape,
         onClick = onClick,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
+        Box(Modifier.fillMaxSize()) {
+            Canvas(Modifier.matchParentSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(accentPrimary.copy(alpha = 0.34f), Color.Transparent),
+                        center = Offset(size.width * 0.22f, size.height * 0.22f),
+                        radius = size.width * 0.78f,
+                    ),
+                    radius = size.width * 0.78f,
+                    center = Offset(size.width * 0.22f, size.height * 0.22f),
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(accentSecondary.copy(alpha = 0.16f), Color.Transparent),
+                        center = Offset(size.width * 0.88f, size.height * 0.86f),
+                        radius = size.width * 0.55f,
+                    ),
+                    radius = size.width * 0.55f,
+                    center = Offset(size.width * 0.88f, size.height * 0.86f),
+                )
+
+                if (isReddit) {
+                    val center = Offset(size.width * 0.86f, size.height * 0.22f)
+                    repeat(2) { idx ->
+                        drawCircle(
+                            color = accentSecondary.copy(alpha = 0.20f - idx * 0.06f),
+                            radius = size.width * (0.20f + idx * 0.14f),
+                            center = center,
+                            style = Stroke(width = 1.dp.toPx()),
+                        )
+                    }
+                } else {
+                    // Subtle 4-point star sparkle for GitHub
+                    val cx = size.width * 0.76f
+                    val cy = size.height * 0.28f
+                    val r = 7.dp.toPx()
+                    val star = Path().apply {
+                        moveTo(cx, cy - r)
+                        quadraticTo(cx, cy, cx + r, cy)
+                        quadraticTo(cx, cy, cx, cy + r)
+                        quadraticTo(cx, cy, cx - r, cy)
+                        quadraticTo(cx, cy, cx, cy - r)
+                        close()
+                    }
+                    drawPath(star, color = accentSecondary.copy(alpha = 0.38f))
+                }
+            }
+
+            Column(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Onb.SurfaceHigh.copy(alpha = 0.85f))
-                    .border(0.75.dp, Onb.Hairline, RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center,
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    tint = Onb.Title,
-                    modifier = Modifier.size(20.dp),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    if (isReddit) {
+                        RedditIconBadge(size = 44.dp)
+                    } else {
+                        GitHubIconBadge(size = 44.dp)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .border(0.75.dp, Color.White.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.NorthEast,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.88f),
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = title,
+                        color = Onb.Title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = tagline,
+                        color = Onb.Subtitle,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    color = Onb.Title,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    color = Onb.Subtitle,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = Onb.Faint,
-                modifier = Modifier.size(18.dp),
-            )
         }
     }
 }
@@ -262,12 +428,14 @@ internal fun DesignStyleStep(
             amoledDarkMode = amoledDarkMode,
             liquidGlass = liquidGlass && glassAvailable,
             reduceBlur = reduceBlur,
+            reduceAnimation = reduceAnimation,
         )
         Spacer(Modifier.height(14.dp))
         OnbSectionLabel(stringResource(R.string.color_palette))
         PaletteSwatchStrip(
             selected = colorPalette,
             onSelect = onColorPalette,
+            reduceAnimation = reduceAnimation,
         )
         Spacer(Modifier.height(12.dp))
         OnbToggle(
@@ -290,27 +458,33 @@ internal fun DesignStyleStep(
             onCheckedChange = onLiquidGlass,
             enabled = glassAvailable,
         )
-        if (liquidGlass && glassAvailable) {
-            Spacer(Modifier.height(9.dp))
-            OnbCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.onboarding_glass_strength),
-                            color = Onb.Title,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            text = "${(live * 100).toInt()}%",
-                            color = Onb.Muted,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
+        AnimatedVisibility(
+            visible = liquidGlass && glassAvailable,
+            enter = fadeIn(tween(220)) + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
+            exit = fadeOut(tween(160)) + shrinkVertically(),
+        ) {
+            Column {
+                Spacer(Modifier.height(9.dp))
+                OnbCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.onboarding_glass_strength),
+                                color = Onb.Title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                text = "${(live * 100).toInt()}%",
+                                color = Onb.Subtitle,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        GlassStrengthBar(value = live, onChange = { live = it })
                     }
-                    Spacer(Modifier.height(8.dp))
-                    GlassStrengthBar(value = live, onChange = { live = it })
                 }
             }
         }
@@ -363,62 +537,186 @@ internal fun DesignStyleStep(
 private fun PaletteSwatchStrip(
     selected: ChordPlayPalette,
     onSelect: (ChordPlayPalette) -> Unit,
+    reduceAnimation: Boolean,
 ) {
+    val haptics = LocalHapticFeedback.current
     val pillShape = remember { RoundedCornerShape(18.dp) }
+    val prismColors = remember {
+        listOf(
+            Color(0xFFFF3B6B),
+            Color(0xFFA855F7),
+            Color(0xFF38BDF8),
+            Color(0xFF34D399),
+            Color(0xFFFBBF24),
+            Color(0xFFFF3B6B),
+        )
+    }
+    val prismRotation = if (reduceAnimation) {
+        0f
+    } else {
+        val infinite = rememberInfiniteTransition(label = "dynamicArtShimmer")
+        val deg by infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 4800, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "dynamicArtRotation",
+        )
+        deg
+    }
+
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(vertical = 4.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         items(ChordPlayPalette.entries, key = { it.name }) { item ->
             val isSelected = item == selected
+            val isDynamicArt = item == ChordPlayPalette.DYNAMIC_ARTWORK
             val primaryColor = Color(item.primaryColorHex)
             val secondaryColor = Color(item.secondaryColorHex)
-            OnbCard(
-                modifier = Modifier.border(
-                    width = if (isSelected) 1.5.dp else 0.75.dp,
+            val selectScale by animateFloatAsState(
+                targetValue = if (isSelected) 1.03f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+                label = "palettePillScale",
+            )
+
+            val borderModifier = if (isDynamicArt) {
+                Modifier.border(
+                    width = if (isSelected) 2.dp else 1.25.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFFF4D79),
+                            Color(0xFFA855F7),
+                            Color(0xFF38BDF8),
+                        ),
+                    ),
+                    shape = pillShape,
+                )
+            } else {
+                Modifier.border(
+                    width = if (isSelected) 1.6.dp else 0.75.dp,
                     color = if (isSelected) Onb.Title else Onb.Hairline,
                     shape = pillShape,
-                ),
+                )
+            }
+
+            OnbCard(
+                modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = selectScale
+                        scaleY = selectScale
+                    }
+                    .then(borderModifier),
                 shape = pillShape,
-                onClick = { onSelect(item) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onSelect(item)
+                },
             ) {
                 Row(
                     modifier = Modifier
                         .background(
-                            if (isSelected) Onb.SurfaceHigh.copy(alpha = 0.90f)
-                            else Color.Transparent,
+                            when {
+                                isDynamicArt && isSelected -> Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFFFF3B6B).copy(alpha = 0.26f),
+                                        Color(0xFF7C4DFF).copy(alpha = 0.26f),
+                                        Color(0xFF00D2D3).copy(alpha = 0.22f),
+                                    ),
+                                )
+                                isDynamicArt -> Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFFFF3B6B).copy(alpha = 0.12f),
+                                        Color(0xFF7C4DFF).copy(alpha = 0.12f),
+                                    ),
+                                )
+                                isSelected -> Brush.horizontalGradient(
+                                    listOf(
+                                        primaryColor.copy(alpha = 0.24f),
+                                        secondaryColor.copy(alpha = 0.16f),
+                                    ),
+                                )
+                                else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
+                            },
                         )
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Canvas(Modifier.size(18.dp)) {
-                        drawArc(
-                            color = primaryColor,
-                            startAngle = -90f,
-                            sweepAngle = 180f,
-                            useCenter = true,
-                        )
-                        drawArc(
-                            color = secondaryColor,
-                            startAngle = 90f,
-                            sweepAngle = 180f,
-                            useCenter = true,
-                        )
-                        drawCircle(
-                            color = Color.White.copy(alpha = if (isSelected) 0.55f else 0.22f),
-                            radius = size.minDimension / 2f,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
-                        )
+                    if (isDynamicArt) {
+                        Box(
+                            modifier = Modifier.size(22.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Canvas(Modifier.fillMaxSize()) {
+                                rotate(prismRotation) {
+                                    drawCircle(
+                                        brush = Brush.sweepGradient(prismColors),
+                                        radius = size.minDimension / 2f,
+                                    )
+                                }
+                                drawCircle(
+                                    color = Color.Black.copy(alpha = 0.28f),
+                                    radius = size.minDimension / 2f,
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(12.dp),
+                            )
+                        }
+                    } else {
+                        Canvas(Modifier.size(18.dp)) {
+                            drawArc(
+                                color = primaryColor,
+                                startAngle = -90f,
+                                sweepAngle = 180f,
+                                useCenter = true,
+                            )
+                            drawArc(
+                                color = secondaryColor,
+                                startAngle = 90f,
+                                sweepAngle = 180f,
+                                useCenter = true,
+                            )
+                            drawCircle(
+                                color = Color.White.copy(alpha = if (isSelected) 0.55f else 0.22f),
+                                radius = size.minDimension / 2f,
+                                style = Stroke(width = 1.dp.toPx()),
+                            )
+                        }
                     }
                     Text(
                         text = item.shortOnboardingLabel(),
-                        color = if (isSelected) Onb.Title else Onb.Subtitle,
+                        color = if (isSelected || isDynamicArt) Onb.Title else Onb.Subtitle,
                         fontSize = 12.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        fontWeight = if (isSelected || isDynamicArt) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1,
                     )
+                    if (isDynamicArt) {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.18f))
+                                .padding(horizontal = 5.dp, vertical = 1.5.dp),
+                        ) {
+                            Text(
+                                text = "AUTO",
+                                color = Color.White,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.06.em,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -492,11 +790,12 @@ private fun NowPlayingStylePreview(
     amoledDarkMode: Boolean,
     liquidGlass: Boolean,
     reduceBlur: Boolean,
+    reduceAnimation: Boolean,
 ) {
     val shape = remember { RoundedCornerShape(26.dp) }
     var playing by remember { mutableStateOf(false) }
 
-    val (accentPrimary, accentSecondary) = when (colorPalette) {
+    val (rawPrimary, rawSecondary) = when (colorPalette) {
         ChordPlayPalette.DYNAMIC_MONET ->
             MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.secondary
         ChordPlayPalette.DYNAMIC_ARTWORK ->
@@ -505,6 +804,16 @@ private fun NowPlayingStylePreview(
         else ->
             Color(colorPalette.primaryColorHex) to Color(colorPalette.secondaryColorHex)
     }
+    val accentPrimary by animateColorAsState(
+        targetValue = rawPrimary,
+        animationSpec = tween(320),
+        label = "previewAccentPrimary",
+    )
+    val accentSecondary by animateColorAsState(
+        targetValue = rawSecondary,
+        animationSpec = tween(320),
+        label = "previewAccentSecondary",
+    )
     val previewMeshPalette = remember(colorPalette, palette, accentPrimary, accentSecondary) {
         if (colorPalette == ChordPlayPalette.DYNAMIC_ARTWORK) {
             palette
@@ -521,13 +830,18 @@ private fun NowPlayingStylePreview(
     }
     val playIconTint = if (accentPrimary.luminance() > 0.55f) Onb.Ink else Color.White
 
+    val progressFraction by animateFloatAsState(
+        targetValue = if (playing) 0.68f else 0.36f,
+        animationSpec = tween(durationMillis = if (playing) 1800 else 360),
+        label = "previewProgress",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(248.dp)
             .onbSurface(shape = shape, elevated = true)
-            .clip(shape)
-            .border(1.dp, Onb.Hairline, shape),
+            .clip(shape),
     ) {
         when {
             amoledDarkMode -> {
@@ -542,7 +856,7 @@ private fun NowPlayingStylePreview(
                     palette = previewMeshPalette,
                     modifier = Modifier.fillMaxSize(),
                     trackKey = "${colorPalette.name}:${song?.thumbnailUrl.orEmpty()}",
-                    animated = false,
+                    animated = !reduceAnimation,
                     blurRadius = 32.dp,
                 )
             }
@@ -573,7 +887,7 @@ private fun NowPlayingStylePreview(
             ) {
                 Text(
                     text = colorPalette.label.uppercase(),
-                    color = Onb.Title.copy(alpha = 0.72f),
+                    color = Onb.Title.copy(alpha = 0.82f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 0.14.em,
@@ -582,7 +896,7 @@ private fun NowPlayingStylePreview(
                     modifier = Modifier.weight(1f),
                 )
                 if (amoledDarkMode) {
-                    PreviewBadgePill("OLED")
+                    PreviewBadgePill("OLED", opaque = reduceBlur || amoledDarkMode)
                 }
                 PreviewBadgePill(
                     when {
@@ -590,6 +904,7 @@ private fun NowPlayingStylePreview(
                         liquidGlass -> "LIQUID GLASS"
                         else -> "ADAPTIVE"
                     },
+                    opaque = reduceBlur || amoledDarkMode,
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -597,8 +912,10 @@ private fun NowPlayingStylePreview(
                     modifier = Modifier
                         .size(90.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Onb.SurfaceHigh)
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
+                        .background(
+                            if (reduceBlur || amoledDarkMode) Onb.SurfaceHigh else Color.White.copy(alpha = 0.12f),
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(16.dp)),
                 ) {
                     if (song?.thumbnailUrl != null) {
                         AsyncImage(
@@ -623,7 +940,7 @@ private fun NowPlayingStylePreview(
                     Spacer(Modifier.height(3.dp))
                     Text(
                         text = song?.artist ?: "ChordPlay WavePlay",
-                        color = Onb.Title.copy(alpha = 0.68f),
+                        color = Onb.Title.copy(alpha = 0.74f),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -641,7 +958,7 @@ private fun NowPlayingStylePreview(
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.36f)
+                            .fillMaxWidth(progressFraction)
                             .height(4.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(accentPrimary.copy(alpha = 0.94f)),
@@ -656,7 +973,7 @@ private fun NowPlayingStylePreview(
                     Icon(
                         Icons.Rounded.Person,
                         contentDescription = null,
-                        tint = Onb.Title.copy(alpha = 0.5f),
+                        tint = Onb.Title.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(26.dp))
@@ -679,7 +996,7 @@ private fun NowPlayingStylePreview(
                     Icon(
                         Icons.Rounded.Download,
                         contentDescription = null,
-                        tint = Onb.Title.copy(alpha = 0.5f),
+                        tint = Onb.Title.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -689,17 +1006,17 @@ private fun NowPlayingStylePreview(
 }
 
 @Composable
-private fun PreviewBadgePill(label: String) {
+private fun PreviewBadgePill(label: String, opaque: Boolean) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Onb.Surface.copy(alpha = 0.68f))
-            .border(0.5.dp, Onb.Hairline, RoundedCornerShape(50))
+            .background(if (opaque) Onb.Surface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.14f))
+            .border(0.6.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
             .padding(horizontal = 9.dp, vertical = 4.dp),
     ) {
         Text(
             text = label,
-            color = Onb.Title.copy(alpha = 0.88f),
+            color = Onb.Title.copy(alpha = 0.90f),
             fontSize = 9.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.08.em,

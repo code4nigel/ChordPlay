@@ -51,6 +51,7 @@ import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
@@ -199,6 +200,7 @@ fun SettingsScreen(
     homeShelfTitles: List<String> = emptyList(),
     currentSection: SettingsSection? = null,
     onSectionChange: ((SettingsSection?) -> Unit)? = null,
+    driveAlerts: DriveBackupAlerts = remember { DriveBackupAlerts() },
     modifier: Modifier = Modifier,
 ) {
     var internalSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
@@ -216,7 +218,7 @@ fun SettingsScreen(
     }
 
     BackHandler(enabled = effectiveSection != null) {
-        updateSection(null)
+        updateSection(effectiveSection?.parentSection())
     }
 
     AnimatedContent(
@@ -307,9 +309,24 @@ fun SettingsScreen(
             )
             SettingsSection.YOUR_DATA -> YourDataSection(
                 onOpenReplay = onOpenReplay,
+                onOpenDriveBackup = { updateSection(SettingsSection.DRIVE_BACKUP) },
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
+            )
+            SettingsSection.DRIVE_BACKUP -> DriveBackupScreen(
+                contentPadding = contentPadding,
+                onBack = { updateSection(SettingsSection.YOUR_DATA) },
+                onOpenDevices = { updateSection(SettingsSection.DRIVE_DEVICES) },
+                onConfirmDisconnect = { driveAlerts.disconnect = true },
+                onConfirmRemove = { driveAlerts.remove = it },
+                onRename = { driveAlerts.renaming = it },
+            )
+            SettingsSection.DRIVE_DEVICES -> DriveDevicesScreen(
+                contentPadding = contentPadding,
+                onBack = { updateSection(SettingsSection.DRIVE_BACKUP) },
+                onConfirmRestore = { driveAlerts.restore = it },
+                onDone = { updateSection(SettingsSection.DRIVE_BACKUP) },
             )
             SettingsSection.ADVANCED_PERFORMANCE -> AdvancedPerformanceSection(
                 onBack = { updateSection(null) },
@@ -387,13 +404,15 @@ private fun SettingsHub(
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
                     SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe"
-                    SettingsSection.SHELVES -> "shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library"
+                    SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
-                    SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear"
+                    SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear google drive sync identity"
+                    SettingsSection.DRIVE_BACKUP -> "google drive backup cloud sync identity restore devices"
+                    SettingsSection.DRIVE_DEVICES -> "google drive devices restore device"
                     SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced performance 120hz refresh rate display smoothness reduce blur reduce animations automix cpu nerd stats diagnostics"
                     SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates welcome setup onboarding pass"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
@@ -1057,6 +1076,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("scale", "density", "compact", "grid"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.dock_style),
+            subtitle = stringResource(R.string.adaptive_dock_blur),
+            section = SettingsSection.APPEARANCE,
+            icon = Icons.Rounded.ViewAgenda,
+            queryTarget = stringResource(R.string.adaptive_dock_blur),
+            keywords = listOf("dock", "adaptive", "blur", "intensity", "frost"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.liquid_glass),
             subtitle = stringResource(R.string.liquid_glass_subtitle),
             section = SettingsSection.APPEARANCE,
@@ -1079,6 +1106,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.MotionPhotosOff,
             queryTarget = stringResource(R.string.reduce_animation),
             keywords = listOf("animation", "motion", "reduce"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.player_animation_speed),
+            subtitle = stringResource(R.string.player_animation_speed_subtitle),
+            section = SettingsSection.APPEARANCE,
+            icon = Icons.Rounded.Speed,
+            queryTarget = stringResource(R.string.player_animation_speed),
+            keywords = listOf("animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.language),
@@ -1105,14 +1140,30 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("120hz", "90hz", "144hz", "refresh rate", "hz", "fps", "smooth"),
         ),
 
-        // Shelves
+        // Your Preferences (Shelves & Content Preferences)
         GlobalSettingItem(
-            title = stringResource(R.string.home_shelves),
-            subtitle = stringResource(R.string.arrange_home_shelves),
+            title = stringResource(R.string.your_preferences),
+            subtitle = stringResource(R.string.your_preferences_subtitle),
             section = SettingsSection.SHELVES,
             icon = Icons.Rounded.ViewAgenda,
-            queryTarget = stringResource(R.string.home_shelves),
-            keywords = listOf("shelves", "order", "arrange", "reorder", "home", "quick picks", "speed dial", "hide", "show"),
+            queryTarget = stringResource(R.string.your_preferences),
+            keywords = listOf("preferences", "shelves", "order", "arrange", "reorder", "home", "quick picks", "speed dial", "hide", "show"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.hide_home_videos),
+            subtitle = stringResource(R.string.hide_home_videos_subtitle),
+            section = SettingsSection.SHELVES,
+            icon = Icons.Rounded.ViewAgenda,
+            queryTarget = stringResource(R.string.hide_home_videos),
+            keywords = listOf("hide", "videos", "home", "music videos", "preferences"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.square_video_thumbnails),
+            subtitle = stringResource(R.string.square_video_thumbnails_subtitle),
+            section = SettingsSection.SHELVES,
+            icon = Icons.Rounded.ViewAgenda,
+            queryTarget = stringResource(R.string.square_video_thumbnails),
+            keywords = listOf("square", "video", "thumbnails", "aspect", "preferences"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.show_replay_in_library),
@@ -1195,6 +1246,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.VisibilityOff,
             queryTarget = stringResource(R.string.hide_song_status),
             keywords = listOf("status", "playing from", "played by"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.hide_lyrics_on_player),
+            subtitle = stringResource(R.string.hide_lyrics_on_player_subtitle),
+            section = SettingsSection.PLAYER,
+            icon = Icons.Rounded.VisibilityOff,
+            queryTarget = stringResource(R.string.hide_lyrics_on_player),
+            keywords = listOf("hide lyrics", "lyrics preview", "one line", "chip", "player"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.play_next_on_swipe),
@@ -1511,6 +1570,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("repeat", "suggestions", "history"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.drive_backup_title),
+            subtitle = stringResource(R.string.drive_backup_row_subtitle),
+            section = SettingsSection.DRIVE_BACKUP,
+            icon = Icons.Rounded.BarChart,
+            queryTarget = stringResource(R.string.drive_backup_title),
+            keywords = listOf("google", "drive", "backup", "cloud", "sync", "identity", "devices"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.export_data),
             subtitle = stringResource(R.string.export_data_subtitle),
             section = SettingsSection.YOUR_DATA,
@@ -1525,6 +1592,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.FileDownload,
             queryTarget = stringResource(R.string.import_data),
             keywords = listOf("import", "restore", "backup", "json"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.sync_identity_card),
+            subtitle = stringResource(R.string.sync_identity_card_subtitle),
+            section = SettingsSection.YOUR_DATA,
+            icon = Icons.Rounded.Badge,
+            queryTarget = stringResource(R.string.sync_identity_card),
+            keywords = listOf("identity", "wave", "profile", "you", "downloads", "chordplay"),
         ),
 
         // Support

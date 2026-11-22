@@ -59,6 +59,7 @@ import kotlin.math.abs
 
 private val LiveRed = Color(0xFFE53935)
 private val LiveDotBright = Color(0xFFFF5252)
+private val LiveCrimson = Color(0xFFFF2D55)
 
 internal fun formatBehindLive(offsetMs: Long): String {
     val totalSeconds = abs(offsetMs) / 1000L
@@ -74,46 +75,110 @@ internal fun formatBehindLive(offsetMs: Long): String {
 }
 
 @Composable
+fun LiveSoundwaveBars(
+    modifier: Modifier = Modifier,
+    color: Color = LiveCrimson,
+    barCount: Int = 3,
+    animated: Boolean = true,
+) {
+    val heights = if (animated) {
+        val transition = rememberInfiniteTransition(label = "soundwave")
+        val h1 by transition.animateFloat(
+            initialValue = 0.28f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(480, easing = LinearEasing), RepeatMode.Reverse),
+            label = "h1",
+        )
+        val h2 by transition.animateFloat(
+            initialValue = 0.85f,
+            targetValue = 0.22f,
+            animationSpec = infiniteRepeatable(tween(370, easing = LinearEasing), RepeatMode.Reverse),
+            label = "h2",
+        )
+        val h3 by transition.animateFloat(
+            initialValue = 0.42f,
+            targetValue = 0.95f,
+            animationSpec = infiniteRepeatable(tween(540, easing = LinearEasing), RepeatMode.Reverse),
+            label = "h3",
+        )
+        listOf(h1, h2, h3)
+    } else {
+        listOf(0.45f, 0.85f, 0.55f)
+    }
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        heights.take(barCount).forEach { fraction ->
+            Box(
+                Modifier
+                    .width(2.5.dp)
+                    .height((9.dp * fraction).coerceAtLeast(2.5.dp))
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
+    }
+}
+
+@Composable
 fun LiveBadge(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    showSoundwaves: Boolean = true,
+    animated: Boolean = true,
 ) {
-    val pulse = rememberInfiniteTransition(label = "liveBadgePulse")
-    val dotAlpha by pulse.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 850, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "liveDotAlpha",
-    )
-    Row(
+    val shape = RoundedCornerShape(999.dp)
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(if (compact) 4.dp else 6.dp))
-            .background(LiveRed.copy(alpha = 0.92f))
+            .clip(shape)
+            .background(Color(0xFF0F0E17).copy(alpha = 0.78f))
+            .background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    listOf(
+                        LiveCrimson.copy(alpha = 0.35f),
+                        LiveCrimson.copy(alpha = 0.16f),
+                    ),
+                ),
+            )
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                ),
+            )
             .padding(
-                horizontal = if (compact) 5.dp else 8.dp,
-                vertical = if (compact) 2.dp else 3.dp,
+                horizontal = if (compact) 7.dp else 9.dp,
+                vertical = if (compact) 3.dp else 4.dp,
             ),
-        verticalAlignment = Alignment.CenterVertically,
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(if (compact) 5.dp else 6.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = dotAlpha)),
-        )
-        Spacer(Modifier.width(if (compact) 3.dp else 5.dp))
-        Text(
-            text = stringResource(Res.string.live_badge),
-            color = Color.White,
-            fontSize = if (compact) 9.sp else 11.sp,
-            fontWeight = FontWeight.Bold,
-            lineHeight = if (compact) 10.sp else 13.sp,
-            letterSpacing = 0.4.sp,
-            maxLines = 1,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 5.dp),
+        ) {
+            if (showSoundwaves) {
+                LiveSoundwaveBars(color = LiveCrimson, barCount = 3, animated = animated)
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(if (compact) 5.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(LiveCrimson),
+                )
+            }
+            Text(
+                text = stringResource(Res.string.live_badge),
+                color = Color.White,
+                fontSize = if (compact) 9.5.sp else 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp,
+                maxLines = 1,
+            )
+        }
     }
 }
 
@@ -139,16 +204,6 @@ internal fun LiveStationBar(
         animationSpec = tween(500),
         label = "liveAccent",
     )
-    val pulse = rememberInfiniteTransition(label = "liveEdgePulse")
-    val dotAlpha by pulse.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 850, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "liveEdgeDotAlpha",
-    )
     val rightLabel = liveViewersText?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.live_on_air)
 
     @Composable
@@ -159,35 +214,21 @@ internal fun LiveStationBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (isAtLiveEdge || !isSeekable || durationMs <= 0L) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(LiveRed.copy(alpha = 0.22f))
-                        .border(1.dp, LiveDotBright.copy(alpha = 0.55f), RoundedCornerShape(999.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(LiveDotBright.copy(alpha = if (isPlaying) dotAlpha else 0.7f)),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(Res.string.live_badge),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                    )
-                }
+                LiveBadge(
+                    showSoundwaves = true,
+                    animated = isPlaying,
+                )
             } else {
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(accentColor.copy(alpha = 0.24f))
-                        .border(1.dp, accentColor.copy(alpha = 0.65f), RoundedCornerShape(999.dp))
+                        .background(Color(0xFF14121B).copy(alpha = 0.82f))
+                        .background(accentColor.copy(alpha = 0.32f))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+                            ),
+                        )
                         .clickable {
                             haptics.play(Haptic.Select)
                             onJumpToLive()

@@ -123,6 +123,7 @@ internal fun LandscapeAndVideoNowPlaying(
     onOpenArtist: (browseId: String?, name: String) -> Unit,
     onOpenPlaybackSource: () -> Unit,
     syncedLyricsEnabled: Boolean,
+    hideLyricsPreview: Boolean = false,
     lyricsTranslation: LyricsTranslationUi,
     lyrics: List<LyricLine>?,
     lyricsPlayhead: LyricPlayhead,
@@ -484,7 +485,7 @@ internal fun LandscapeAndVideoNowPlaying(
                                 fontScale = landscapeFontScale,
                             )
                         },
-                        lyricStrip = if (syncedLyricsEnabled && !isLive) {
+                        lyricStrip = if (syncedLyricsEnabled && !hideLyricsPreview && !isLive) {
                             {
                                 val stripFontSize = (16 * landscapeFontScale.scaleFactor).sp
                                 CurrentLyricStrip(

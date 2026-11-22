@@ -275,4 +275,21 @@
     <string name="live_cat_hits">हिट्स</string>
     <string name="live_cat_rock_pop">रॉक और पॉप</string>
     <string name="live_stations_empty">इस श्रेणी के लिए अभी कोई लाइव स्टेशन नहीं मिला।</string>
+    <string name="featured_pick">विशेष</string>
+    <string name="find_your_mood">अपना मूड चुनें</string>
+    <string name="live_all_stations">सभी लाइव स्टेशन</string>
+    <string name="live_cat_electronic">इलेक्ट्रॉनिक और EDM</string>
+    <string name="live_cat_hiphop">हिप-हॉप और R&amp;B</string>
+    <string name="live_cat_jazz">जैज़ और कैफ़े</string>
+    <string name="live_listen">लाइव सुनें</string>
+    <string name="live_search_hint">लाइव स्टेशन खोजें…</string>
+    <string name="live_see_all">सभी देखें</string>
+    <string name="live_sort_category">श्रेणी</string>
+    <string name="live_sort_name">शीर्षक (A–Z)</string>
+    <string name="live_sort_viewers">सबसे लोकप्रिय</string>
+    <string name="made_for_you">आपके लिए बनाया गया</string>
+    <string name="mixes_quick">क्विक मिक्स</string>
+    <string name="mixes_your">आपके मिक्स</string>
+    <string name="mood_feel_good">फ़ील गुड</string>
+    <string name="mood_relax">रिलैक्स</string>
 </resources>

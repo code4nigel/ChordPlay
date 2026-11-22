@@ -32,6 +32,7 @@ import com.music.bitchord.ui.player.LyricsSizeScale
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.player.LyricsWeightChoice
 import com.music.bitchord.data.model.HomeShelfSlot
+import com.music.bitchord.data.model.LiveStationCategory
 import com.music.bitchord.data.model.ShelfItem
 import org.json.JSONArray
 import org.json.JSONObject
@@ -41,6 +42,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 
 /**
@@ -511,6 +520,9 @@ object AppSettings {
     /** UI display density scale factor (0.50f = 50% to 1.25f = 125%). 1.0f is native. */
     val displayDensityScale = MutableStateFlow(DEFAULT_DISPLAY_DENSITY_SCALE)
 
+    /** Multiplier for miniplayer expand/minimize animation speed (0.5x to 2.0x). */
+    val playerAnimationSpeed = MutableStateFlow(DEFAULT_PLAYER_ANIMATION_SPEED)
+
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(false)
 
@@ -519,6 +531,9 @@ object AppSettings {
 
     /** Hides the "Playing from" / "Played by" caption at the top of the main player. */
     val hideSongStatus = MutableStateFlow(false)
+
+    /** Hides the one-line inline lyrics preview strip on the main player screen. */
+    val hideLyricsPreview = MutableStateFlow(false)
 
     /** Swiping a song row plays it next instead of adding it to the end of the queue. */
     val swipeToPlayNext = MutableStateFlow(false)
@@ -532,6 +547,12 @@ object AppSettings {
      * metadata appears immediately while the catalogue match is resolved.
      */
     val preferMusicOnly = MutableStateFlow(false)
+
+    /** Hides music video shelves and cards from the Home feed. */
+    val hideHomeVideos = MutableStateFlow(false)
+
+    /** Shows music video artwork in square 1:1 tiles rather than 16:9 cards. */
+    val squareVideoThumbnails = MutableStateFlow(false)
 
     /** Edge-to-edge full-bleed video banner with soft bottom fade (like full-screen artwork). */
     val videoFullBleed = MutableStateFlow(true)
@@ -550,6 +571,7 @@ object AppSettings {
 
     /** Navigation dock style. Defaults to [DockStyle.ADAPTIVE]. */
     val dockStyle = MutableStateFlow(DockStyle.ADAPTIVE)
+    val adaptiveDockBlurIntensity = MutableStateFlow(DEFAULT_ADAPTIVE_DOCK_BLUR_INTENSITY)
     val liquidGlass = MutableStateFlow(false)
     val liquidGlassIntensity = MutableStateFlow(0.75f)
 
@@ -1044,12 +1066,17 @@ object AppSettings {
         )
         displayDensityScale.value = prefs.getFloat(KEY_DISPLAY_DENSITY_SCALE, DEFAULT_DISPLAY_DENSITY_SCALE)
             .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
+        playerAnimationSpeed.value = prefs.getFloat(KEY_PLAYER_ANIMATION_SPEED, DEFAULT_PLAYER_ANIMATION_SPEED)
+            .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
+        hideLyricsPreview.value = prefs.getBoolean(KEY_HIDE_LYRICS_PREVIEW, false)
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
+        hideHomeVideos.value = prefs.getBoolean(KEY_HIDE_HOME_VIDEOS, false)
+        squareVideoThumbnails.value = prefs.getBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, false)
         videoFullBleed.value = prefs.getBoolean(KEY_VIDEO_FULL_BLEED, true)
         videoFill.value = prefs.getBoolean(KEY_VIDEO_FILL, false)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
@@ -1058,6 +1085,10 @@ object AppSettings {
         dockStyle.value = prefs.getString(KEY_DOCK_STYLE, null)?.let {
             runCatching { DockStyle.valueOf(it) }.getOrNull()
         } ?: if (liquidGlass.value) DockStyle.LIQUID else DockStyle.ADAPTIVE
+        adaptiveDockBlurIntensity.value = prefs.getFloat(
+            KEY_ADAPTIVE_DOCK_BLUR_INTENSITY,
+            DEFAULT_ADAPTIVE_DOCK_BLUR_INTENSITY,
+        ).coerceIn(0f, 1f)
         liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
@@ -1687,6 +1718,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_HIDE_SONG_STATUS, value).apply()
     }
 
+    fun setHideLyricsPreview(value: Boolean) {
+        hideLyricsPreview.value = value
+        prefs.edit().putBoolean(KEY_HIDE_LYRICS_PREVIEW, value).apply()
+    }
+
     fun setSwipeToPlayNext(value: Boolean) {
         swipeToPlayNext.value = value
         prefs.edit().putBoolean(KEY_SWIPE_TO_PLAY_NEXT, value).apply()
@@ -1700,6 +1736,16 @@ object AppSettings {
     fun setPreferMusicOnly(value: Boolean) {
         preferMusicOnly.value = value
         prefs.edit().putBoolean(KEY_PREFER_MUSIC_ONLY, value).apply()
+    }
+
+    fun setHideHomeVideos(value: Boolean) {
+        hideHomeVideos.value = value
+        prefs.edit().putBoolean(KEY_HIDE_HOME_VIDEOS, value).apply()
+    }
+
+    fun setSquareVideoThumbnails(value: Boolean) {
+        squareVideoThumbnails.value = value
+        prefs.edit().putBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, value).apply()
     }
 
     fun setVideoFullBleed(value: Boolean) {
@@ -1757,6 +1803,12 @@ object AppSettings {
         editor.apply()
     }
 
+    fun setAdaptiveDockBlurIntensity(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        adaptiveDockBlurIntensity.value = clamped
+        prefs.edit().putFloat(KEY_ADAPTIVE_DOCK_BLUR_INTENSITY, clamped).apply()
+    }
+
     fun setLiquidGlassIntensity(value: Float) {
         val clamped = value.coerceIn(0.1f, 1f)
         liquidGlassIntensity.value = clamped
@@ -1788,6 +1840,13 @@ object AppSettings {
             .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
         displayDensityScale.value = clamped
         prefs.edit().putFloat(KEY_DISPLAY_DENSITY_SCALE, clamped).apply()
+    }
+
+    fun setPlayerAnimationSpeed(value: Float) {
+        val clamped = ((kotlin.math.round(value * 10f)) / 10f)
+            .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
+        playerAnimationSpeed.value = clamped
+        prefs.edit().putFloat(KEY_PLAYER_ANIMATION_SPEED, clamped).apply()
     }
 
     fun setLyricsBlur(value: Boolean) {
@@ -2552,19 +2611,27 @@ object AppSettings {
     }
 
     private fun savePinnedSpeedDial(items: List<ShelfItem>) {
-        val array = JSONArray()
-        items.forEach { item ->
-            val obj = JSONObject().apply {
-                put("title", item.title)
-                put("subtitle", item.subtitle)
-                put("thumbnailUrl", item.thumbnailUrl ?: "")
-                put("videoId", item.videoId ?: "")
-                put("browseId", item.browseId ?: "")
-            }
-            array.put(obj)
-        }
-        prefs.edit().putString(KEY_PINNED_SPEED_DIAL, array.toString()).apply()
+        prefs.edit().putString(KEY_PINNED_SPEED_DIAL, encodePinnedSpeedDial(items)).apply()
     }
+
+    internal fun encodePinnedSpeedDial(items: List<ShelfItem>): String =
+        buildJsonArray {
+            items.forEach { item ->
+                add(
+                    buildJsonObject {
+                        put("title", item.title)
+                        put("subtitle", item.subtitle)
+                        put("thumbnailUrl", item.thumbnailUrl ?: "")
+                        put("videoId", item.videoId ?: "")
+                        put("browseId", item.browseId ?: "")
+                        put("isVideo", item.isVideo || item.isLive)
+                        put("isLive", item.isLive)
+                        put("liveViewersText", item.liveViewersText ?: "")
+                        put("liveCategory", item.liveCategory?.name ?: "")
+                    },
+                )
+            }
+        }.toString()
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -2583,20 +2650,30 @@ object AppSettings {
 
     private fun readPinnedSpeedDial(): List<ShelfItem> {
         val raw = prefs.getString(KEY_PINNED_SPEED_DIAL, null) ?: return emptyList()
-        return runCatching {
-            val array = JSONArray(raw)
-            (0 until array.length()).map { idx ->
-                val obj = array.getJSONObject(idx)
+        return decodePinnedSpeedDial(raw)
+    }
+
+    internal fun decodePinnedSpeedDial(raw: String): List<ShelfItem> =
+        runCatching {
+            json.parseToJsonElement(raw).jsonArray.map { elem ->
+                val obj = elem.jsonObject
+                val live = obj["isLive"]?.jsonPrimitive?.booleanOrNull ?: false
+                val video = (obj["isVideo"]?.jsonPrimitive?.booleanOrNull ?: false) || live
                 ShelfItem(
-                    title = obj.optString("title"),
-                    subtitle = obj.optString("subtitle"),
-                    thumbnailUrl = obj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
-                    videoId = obj.optString("videoId").takeIf { it.isNotBlank() },
-                    browseId = obj.optString("browseId").takeIf { it.isNotBlank() },
+                    title = obj["title"]?.jsonPrimitive?.contentOrNull ?: "",
+                    subtitle = obj["subtitle"]?.jsonPrimitive?.contentOrNull ?: "",
+                    thumbnailUrl = obj["thumbnailUrl"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    videoId = obj["videoId"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    browseId = obj["browseId"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    isVideo = video,
+                    isLive = live,
+                    liveViewersText = obj["liveViewersText"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() },
+                    liveCategory = obj["liveCategory"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }?.let { rawCat ->
+                        runCatching { LiveStationCategory.valueOf(rawCat) }.getOrNull()
+                    },
                 )
             }
         }.getOrDefault(emptyList())
-    }
 
     private fun readDetailSongSorts(): Map<String, SongSort> =
         prefs.getString(KEY_DETAIL_SONG_SORTS, null)
@@ -2771,12 +2848,19 @@ object AppSettings {
     const val DEFAULT_DISPLAY_DENSITY_SCALE = 1.0f
     const val MIN_DISPLAY_DENSITY_SCALE = 0.50f
     const val MAX_DISPLAY_DENSITY_SCALE = 1.25f
+    private const val KEY_PLAYER_ANIMATION_SPEED = "player_animation_speed"
+    const val DEFAULT_PLAYER_ANIMATION_SPEED = 1.0f
+    const val MIN_PLAYER_ANIMATION_SPEED = 0.5f
+    const val MAX_PLAYER_ANIMATION_SPEED = 2.0f
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"
+    private const val KEY_HIDE_LYRICS_PREVIEW = "hide_lyrics_preview"
     private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
+    private const val KEY_HIDE_HOME_VIDEOS = "hide_home_videos"
+    private const val KEY_SQUARE_VIDEO_THUMBNAILS = "square_video_thumbnails"
     private const val KEY_VIDEO_FULL_BLEED = "video_full_bleed"
     private const val KEY_VIDEO_FILL = "video_fill"
     private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
@@ -2784,6 +2868,8 @@ object AppSettings {
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_DOCK_STYLE = "dock_style"
     private const val KEY_PREVIOUS_DOCK_STYLE = "previous_non_liquid_dock_style"
+    private const val KEY_ADAPTIVE_DOCK_BLUR_INTENSITY = "adaptive_dock_blur_intensity"
+    const val DEFAULT_ADAPTIVE_DOCK_BLUR_INTENSITY = 0.60f
     private const val KEY_LIQUID_GLASS_INTENSITY = "liquid_glass_intensity"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"

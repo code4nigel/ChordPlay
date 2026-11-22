@@ -1,6 +1,13 @@
 <resources>
     <string name="app_name">ChordPlay</string>
     <string name="home_shelves">Home Shelves</string>
+    <string name="your_preferences">Your Preferences</string>
+    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="content_preferences_header">Content Preferences</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Hides music video shelves and cards on Home</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music video artwork as squares instead of widescreen</string>
     <string name="playback_channel_name">Now playing</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Songs being saved to your Music folder</string>
@@ -361,6 +368,8 @@
     <string name="hide_volume_bar_subtitle">Removes the volume slider from the main player</string>
     <string name="hide_song_status">Hide Song Status</string>
     <string name="hide_song_status_subtitle">Hides the “Playing from” or “Played by” text in the main player</string>
+    <string name="hide_lyrics_on_player">Hide lyrics on player</string>
+    <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="off">Off</string>
     <string name="low">Low</string>
     <string name="medium">Medium</string>
@@ -1346,6 +1355,8 @@
     <string name="dock_style_normal_desc">Classic floating player above navigation dock</string>
     <string name="dock_style_adaptive_desc">Integrated player dock with adaptive frosted glass</string>
     <string name="dock_style_liquid_desc">Integrated player dock with real refracting liquid glass</string>
+    <string name="adaptive_dock_blur">Dock blur intensity</string>
+    <string name="adaptive_dock_blur_subtitle">Backdrop frost strength for Adaptive dock</string>
 
     <!-- Lyrics Highlight Focus Position -->
     <string name="lyrics_highlight_position">Highlight Line Position</string>
@@ -1517,4 +1528,151 @@
     <string name="melody_mood_focus">Focus</string>
     <string name="melody_mood_party">Party</string>
     <string name="live_stations">Live Stations</string>
+    <string name="live_listen">Live Listen</string>
+    <string name="live_on_air">24/7 ON AIR</string>
+    <string name="live_station_fallback">Live Station</string>
+    <string name="onboarding_hero_tagline">Music sounds better with you</string>
+    <string name="onboarding_identity_placeholder">Your name (local identity)</string>
+    <string name="onboarding_restore_identity">Restore</string>
+    <string name="onboarding_identity_saved_hint">Stored locally · Downloads/Music/ChordPlay/you</string>
+    <string name="onboarding_identity_restored">Restored %1$s (%2$d settings)</string>
+    <string name="onboarding_welcome_back_restore">Welcome back, %1$s · Tap to restore</string>
+    <string name="onboarding_github_tag">Star &amp; Contribute</string>
+    <string name="onboarding_reddit_tag" translatable="false">r/ChordPlay</string>
+    <string name="player_animation_speed">Player animation speed</string>
+    <string name="player_animation_speed_subtitle">Adjust how fast the mini player expands and minimizes</string>
+    <string name="sync_identity_card">Save Pass Card &amp; Identity</string>
+    <string name="sync_identity_card_subtitle">Saves your Pass PNG card, settings &amp; stats to Downloads/Music/ChordPlay/you</string>
+    <string name="sync_identity_saved">Pass Card saved to %1$s</string>
+    <string name="sync_identity_failed">Could not save identity: %1$s</string>
+    <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
+    <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
+
+    <!-- Google Drive Backup -->
+    <string name="drive_backup_title">Google Drive backup</string>
+    <string name="drive_backup_unavailable">Google Drive backup needs Google Play services, which this device doesn\'t have.</string>
+    <string name="drive_backup_never">Never</string>
+    <string name="drive_restore_failed">Restore failed: %1$s</string>
+    <string name="drive_account_header">Google account</string>
+    <string name="drive_connect_failed">Couldn\'t connect: %1$s</string>
+    <string name="drive_connect">Connect Google Drive</string>
+    <string name="drive_connect_subtitle">Choose an account on this phone to back up to</string>
+    <string name="drive_sign_in_again_subtitle">Google Drive access was removed. Sign in again to keep backing up.</string>
+    <string name="drive_sign_in_again">Sign in</string>
+    <string name="drive_restore_header">Restore</string>
+    <string name="drive_backup_footer">Backups are kept in a hidden app folder in your Google Drive and count toward your Drive storage. Passwords and sign-ins are never included.</string>
+    <string name="drive_restore_connect_first">Connect a Google account first</string>
+    <string name="drive_restore_action">Restore</string>
+    <string name="drive_disconnect_confirm_title">Disconnect Google Drive?</string>
+    <string name="drive_backup_restoring">Restoring…</string>
+    <string name="drive_frequency_daily">Daily</string>
+    <string name="drive_frequency_weekly">Weekly</string>
+    <string name="drive_frequency_monthly">Monthly</string>
+    <string name="drive_auto_sync_header">Auto sync</string>
+    <string name="drive_auto_sync_footer">Uploads your ChordPlay identity, settings, and listening, and syncs other devices in the background while battery isn\'t low.</string>
+    <string name="drive_choose_device">Choose this phone\'s device</string>
+    <string name="drive_choose_device_subtitle">Back up as a new device, or restore as one already in Drive</string>
+    <string name="drive_device_not_set">Choose device</string>
+    <string name="drive_device_synced">Synced %1$s</string>
+    <string name="drive_devices_checking">Looking for devices…</string>
+    <string name="drive_devices_failed">Couldn\'t load devices: %1$s</string>
+    <string name="drive_devices_footer">Listening from every device adds up in Replay. Tap a device to delete its backup.</string>
+    <string name="drive_devices_header">Devices</string>
+    <string name="drive_devices_none">No devices in this account yet</string>
+    <string name="drive_devices_none_other">No other devices in this account yet</string>
+    <string name="drive_devices_title">Back up or restore as</string>
+    <string name="drive_forked_notice">Another phone restored as this device, so this phone now syncs as %1$s.</string>
+    <string name="drive_new_device">Back up as a new device</string>
+    <string name="drive_new_device_footer">Keeps this phone\'s listening as its own device. Other devices\' listening adds to Replay alongside it.</string>
+    <string name="drive_remove_confirm_title">Delete the backup of %1$s?</string>
+    <string name="drive_remove_confirm_body">Its backup is deleted from Google Drive and its listening leaves Replay on all your devices. This can\'t be undone.</string>
+    <string name="drive_delete_mine_body">This phone\'s backup is deleted from Google Drive and auto sync is turned off. Replay on this phone keeps everything, and Sync now starts a new backup.</string>
+    <string name="drive_rename">Rename</string>
+    <string name="drive_rename_title">Rename this phone</string>
+    <string name="drive_rename_message">Your other devices show this phone by this name.</string>
+    <string name="drive_restore_as_done">Now syncing as %1$s · %2$s</string>
+    <string name="drive_restore_as_footer">This phone becomes the device you pick: its ChordPlay identity, settings, and listening replace this phone\'s.</string>
+    <string name="drive_restore_as_header">Restore as</string>
+    <string name="drive_restore_as_subtitle">Pick a device in your Drive to continue as</string>
+    <string name="drive_restore_as_title">Restore as another device</string>
+    <string name="drive_sync_done">Synced just now</string>
+    <string name="drive_sync_downloading">Downloading from %1$s · %2$d of %3$d</string>
+    <string name="drive_sync_failed">Sync failed: %1$s</string>
+    <string name="drive_sync_last">Last sync</string>
+    <string name="drive_sync_now">Sync now</string>
+    <string name="drive_sync_preparing">Preparing sync…</string>
+    <string name="drive_sync_uploading">Uploading month %1$d of %2$d</string>
+    <string name="drive_this_phone">This phone</string>
+    <string name="drive_this_phone_header">This phone</string>
+    <string name="drive_this_phone_subtitle">The device this phone backs up as</string>
+    <string name="drive_restore_confirm_title">Restore as %1$s?</string>
+    <string name="drive_restore_confirm_body">This phone becomes %1$s. Its ChordPlay identity, settings, and listening history replace this phone\'s, and this phone will sync as %1$s.</string>
+    <string name="drive_disconnect_confirm_body">Syncing stops. Everything already in your Drive is kept, and your other devices\' listening is removed from Replay until you connect again.</string>
+    <string name="drive_backup_row_subtitle">Back up identity, settings &amp; Replay across devices</string>
+    <string name="drive_over_cellular">Sync over mobile data</string>
+    <string name="drive_over_cellular_subtitle">When off, automatic syncs wait for Wi-Fi</string>
+    <string name="drive_included_identity_header">ChordPlay Identity</string>
+    <string name="drive_included_identity_subtitle">Unique ID %1$s and preferences are included in sync</string>
+    <string name="drive_sync_status_header">Sync status</string>
+
+    <!-- Replay year story -->
+    <string name="replay_year_open">Open your Replay %1$s</string>
+    <string name="replay_year_building">Building your year…</string>
+    <string name="replay_year_opener_start">Your</string>
+    <string name="replay_year_opener_end">in ChordPlay</string>
+    <string name="replay_year_opener_detail">Let’s look back at what you played.</string>
+    <string name="replay_year_minutes_start">This year you listened for</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">minute</item>
+        <item quantity="other">minutes</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">That’s</string>
+    <string name="replay_year_minutes_days_value">%1$s days</string>
+    <string name="replay_year_minutes_hours_value">%1$s hours</string>
+    <string name="replay_year_minutes_days_end">of music.</string>
+    <string name="replay_year_busiest_start">Your biggest day was</string>
+    <string name="replay_year_busiest_minutes">%1$s minutes of music in one day</string>
+    <string name="replay_year_busiest_song">Mostly %1$s</string>
+    <string name="replay_year_clock_start">You came alive around</string>
+    <string name="replay_year_night_owl">Night Owl</string>
+    <string name="replay_year_night_owl_detail">So much of your listening happened after 10 pm.</string>
+    <string name="replay_year_early_bird">Early Riser</string>
+    <string name="replay_year_early_bird_detail">Your days started with music before 10 am.</string>
+    <string name="replay_year_golden_hour">Golden Hour</string>
+    <string name="replay_year_golden_hour_detail">Evenings were when the music came out.</string>
+    <string name="replay_year_daytime">Daytime Drifter</string>
+    <string name="replay_year_daytime_detail">You kept the music going through the day.</string>
+    <string name="replay_year_all_day">Around the Clock</string>
+    <string name="replay_year_all_day_detail">Morning, noon or night, something was playing.</string>
+    <string name="replay_year_genres_start">Your sound this year</string>
+    <string name="replay_year_artist_start">Your top artist this year was…</string>
+    <string name="replay_year_minutes_together">%1$s minutes together</string>
+    <string name="replay_year_top_artists">Your top artists</string>
+    <string name="replay_year_song_start">And your song of the year…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">Played %1$s time</item>
+        <item quantity="other">Played %1$s times</item>
+    </plurals>
+    <string name="replay_year_top_songs">The rest of your top songs</string>
+    <string name="replay_year_albums">Albums you lived in</string>
+    <string name="replay_year_months">Your year, month by month</string>
+    <string name="replay_year_discovery_start">This year you explored</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">song</item>
+        <item quantity="other">songs</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">artist</item>
+        <item quantity="other">artists</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">album</item>
+        <item quantity="other">albums</item>
+    </plurals>
+    <string name="replay_year_summary_title">Your %1$s</string>
+    <string name="replay_year_summary_artists">Top artists</string>
+    <string name="replay_year_summary_songs">Top songs</string>
+    <string name="replay_year_summary_minutes">Minutes listened</string>
+    <string name="replay_year_mute">Mute the story</string>
+    <string name="replay_year_unmute">Unmute the story</string>
 </resources>

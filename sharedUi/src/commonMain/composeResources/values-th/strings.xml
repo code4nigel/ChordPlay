@@ -271,4 +271,21 @@
     <string name="live_cat_hits">เพลงฮิต</string>
     <string name="live_cat_rock_pop">ร็อกและป๊อป</string>
     <string name="live_stations_empty">ไม่พบสถานีถ่ายทอดสดสำหรับหมวดหมู่นี้ในขณะนี้</string>
+    <string name="featured_pick">แนะนำ</string>
+    <string name="find_your_mood">เลือกมู้ดของคุณ</string>
+    <string name="live_all_stations">สถานีถ่ายทอดสดทั้งหมด</string>
+    <string name="live_cat_electronic">อิเล็กทรอนิกส์ &amp; EDM</string>
+    <string name="live_cat_hiphop">ฮิปฮอป &amp; R&amp;B</string>
+    <string name="live_cat_jazz">แจ๊ส &amp; คาเฟ่</string>
+    <string name="live_listen">ฟังสด</string>
+    <string name="live_search_hint">ค้นหาสถานีสด…</string>
+    <string name="live_see_all">ดูทั้งหมด</string>
+    <string name="live_sort_category">หมวดหมู่</string>
+    <string name="live_sort_name">ชื่อ (A–Z)</string>
+    <string name="live_sort_viewers">ผู้ฟังมากที่สุด</string>
+    <string name="made_for_you">สร้างมาเพื่อคุณ</string>
+    <string name="mixes_quick">มิกซ์ด่วน</string>
+    <string name="mixes_your">มิกซ์ของคุณ</string>
+    <string name="mood_feel_good">อารมณ์ดี</string>
+    <string name="mood_relax">ผ่อนคลาย</string>
 </resources>

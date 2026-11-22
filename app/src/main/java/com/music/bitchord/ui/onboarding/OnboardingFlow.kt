@@ -14,6 +14,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +24,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +48,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -69,8 +75,17 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.ChordPlayPalette
+import com.music.bitchord.data.stats.ChordPlayIdentityStore
+import com.music.bitchord.data.stats.WaveIdentitySignature
 import com.music.bitchord.ui.player.MeshGradientBackground
+import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -161,14 +176,54 @@ fun SetupWizard(
     }
 
     fun finish() {
-        OnboardingState.saveName(context, name)
+        val cleanName = name.trim()
+        OnboardingState.saveName(context, cleanName)
         OnboardingState.markCompleted(context)
+        val appContext = context.applicationContext
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            ChordPlayIdentityStore.saveIdentity(appContext, cleanName)
+        }
         leave(onFinished)
     }
 
     BackHandler(enabled = true) {
         if (step > 0) step-- else finish()
     }
+
+    val onbHaze = remember { HazeState() }
+    val identitySig = remember(name) { WaveIdentitySignature.fromName(name) }
+    val backdropPalette = remember(step, name, identitySig, demoPalette, colorPalette) {
+        val anchor = Color(0xFF0E121C)
+        when {
+            step == WELCOME_STEP && name.isNotBlank() -> MeshPalette(
+                listOf(
+                    lerpColor(anchor, identitySig.primaryColor, 0.58f),
+                    lerpColor(anchor, identitySig.secondaryColor, 0.54f),
+                    lerpColor(anchor, identitySig.tertiaryColor, 0.44f),
+                    anchor,
+                ),
+            )
+            step == STYLE_STEP && colorPalette != ChordPlayPalette.DYNAMIC_ARTWORK -> MeshPalette(
+                listOf(
+                    Color(colorPalette.primaryColorHex),
+                    Color(colorPalette.secondaryColorHex),
+                    Color(colorPalette.primaryColorHex).copy(alpha = 0.65f),
+                    Color(0xFF10131C),
+                ),
+            )
+            demoPalette.colors.isNotEmpty() -> demoPalette
+            else -> MeshPalette(
+                listOf(
+                    Color(0xFF28204B),
+                    Color(0xFF6B2D5C),
+                    Color(0xFF1A2942),
+                    Color(0xFF0E121D),
+                ),
+            )
+        }
+    }
+    val sheetShape = remember { RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp) }
+    val sheetBgColor = if (amoledDarkMode) Color.Black else Color(0xFF0E121C)
 
     Box(modifier.fillMaxSize()) {
         Box(
@@ -182,73 +237,98 @@ fun SetupWizard(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer { translationY = (1f - reveal.value) * size.height * 1.12f }
-                .clip(RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp))
-                .background(Onb.Surface.copy(alpha = 0.94f)),
+                .clip(sheetShape)
+                .background(sheetBgColor)
+                .border(0.75.dp, Color.White.copy(alpha = 0.14f), sheetShape),
         ) {
-            if (!reduceBlur) {
+            if (!reduceBlur && !amoledDarkMode) {
                 MeshGradientBackground(
-                    palette = demoPalette,
-                    modifier = Modifier.fillMaxSize(),
-                    trackKey = demo?.thumbnailUrl,
-                    animated = false,
+                    palette = backdropPalette,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeSource(onbHaze),
+                    trackKey = "${step}:${name.trim()}:${colorPalette.name}:${demo?.thumbnailUrl.orEmpty()}",
+                    animated = !reduceAnimation,
                     blurRadius = 54.dp,
                 )
-            }
-            Column(Modifier.fillMaxSize()) {
-                SheetRail(
-                    step = step,
-                    steps = STEP_COUNT,
-                    onBack = { if (step > 0) step-- },
-                    onSkip = ::finish,
+            } else if (!amoledDarkMode) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    (backdropPalette.colors.firstOrNull() ?: Color(0xFF23293E)).copy(alpha = 0.24f),
+                                    Color(0xFF12131A),
+                                ),
+                            ),
+                        ),
                 )
-                AnimatedContent(
-                    targetState = step,
-                    transitionSpec = {
-                        val forward = targetState > initialState
-                        (slideInHorizontally { if (forward) it / 4 else -it / 4 } + fadeIn(tween(220))) togetherWith
-                            (slideOutHorizontally { if (forward) -it / 4 else it / 4 } + fadeOut(tween(160)))
-                    },
-                    label = "chordplayOnboardingStep",
-                    modifier = Modifier.weight(1f),
-                ) { current ->
-                    val advance = remember(current) {
-                        { step = (current + 1).coerceAtMost(STEP_COUNT - 1) }
-                    }
-                    val footer: @Composable ColumnScope.() -> Unit = {
-                        OnbPillButton(
-                            text = if (current == STEP_COUNT - 1) {
-                                stringResource(R.string.onboarding_get_started)
-                            } else {
-                                stringResource(R.string.onboarding_continue)
-                            },
-                            onClick = { if (current == STEP_COUNT - 1) finish() else advance() },
-                        )
-                    }
-                    when (current) {
-                        WELCOME_STEP -> WelcomeStep(
-                            name = name,
-                            palette = demoPalette,
-                            onName = { name = it },
-                            footer = footer,
-                        )
-                        else -> DesignStyleStep(
-                            song = demo,
-                            palette = demoPalette,
-                            colorPalette = colorPalette,
-                            onColorPalette = AppSettings::setColorPalette,
-                            amoledDarkMode = amoledDarkMode,
-                            onAmoledDarkMode = AppSettings::setAmoledDarkMode,
-                            liquidGlass = liquidGlass,
-                            onLiquidGlass = AppSettings::setLiquidGlass,
-                            reduceBlur = reduceBlur,
-                            onReduceBlur = AppSettings::setReduceDynamicBlur,
-                            reduceAnimation = reduceAnimation,
-                            onReduceAnimation = AppSettings::setReduceAnimation,
-                            intensity = intensity,
-                            onIntensity = AppSettings::setLiquidGlassIntensity,
-                            pace = pace.value,
-                            footer = footer,
-                        )
+            }
+            CompositionLocalProvider(
+                LocalOnboardingHazeState provides if (!reduceBlur && !amoledDarkMode) onbHaze else null,
+                LocalOnboardingReduceBlur provides reduceBlur,
+                LocalOnboardingAmoled provides amoledDarkMode,
+            ) {
+                Column(Modifier.fillMaxSize()) {
+                    SheetRail(
+                        step = step,
+                        steps = STEP_COUNT,
+                        onBack = { if (step > 0) step-- },
+                        onSkip = ::finish,
+                    )
+                    AnimatedContent(
+                        targetState = step,
+                        transitionSpec = {
+                            val forward = targetState > initialState
+                            (slideInHorizontally { if (forward) it / 4 else -it / 4 } + fadeIn(tween(220))) togetherWith
+                                (slideOutHorizontally { if (forward) -it / 4 else it / 4 } + fadeOut(tween(160)))
+                        },
+                        label = "chordplayOnboardingStep",
+                        modifier = Modifier.weight(1f),
+                    ) { current ->
+                        val advance = remember(current) {
+                            { step = (current + 1).coerceAtMost(STEP_COUNT - 1) }
+                        }
+                        val footer: @Composable ColumnScope.() -> Unit = {
+                            OnbPillButton(
+                                text = if (current == STEP_COUNT - 1) {
+                                    stringResource(R.string.onboarding_get_started)
+                                } else {
+                                    stringResource(R.string.onboarding_continue)
+                                },
+                                onClick = { if (current == STEP_COUNT - 1) finish() else advance() },
+                            )
+                        }
+                        when (current) {
+                            WELCOME_STEP -> WelcomeStep(
+                                name = name,
+                                palette = demoPalette,
+                                onName = { name = it },
+                                onIdentityRestored = { restoredName ->
+                                    if (restoredName.isNotBlank()) name = restoredName
+                                },
+                                footer = footer,
+                            )
+                            else -> DesignStyleStep(
+                                song = demo,
+                                palette = demoPalette,
+                                colorPalette = colorPalette,
+                                onColorPalette = AppSettings::setColorPalette,
+                                amoledDarkMode = amoledDarkMode,
+                                onAmoledDarkMode = AppSettings::setAmoledDarkMode,
+                                liquidGlass = liquidGlass,
+                                onLiquidGlass = AppSettings::setLiquidGlass,
+                                reduceBlur = reduceBlur,
+                                onReduceBlur = AppSettings::setReduceDynamicBlur,
+                                reduceAnimation = reduceAnimation,
+                                onReduceAnimation = AppSettings::setReduceAnimation,
+                                intensity = intensity,
+                                onIntensity = AppSettings::setLiquidGlassIntensity,
+                                pace = pace.value,
+                                footer = footer,
+                            )
+                        }
                     }
                 }
             }
@@ -305,9 +385,17 @@ private fun SheetRail(
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 repeat(steps) { index ->
+                    val dotWidth by animateDpAsState(
+                        targetValue = if (index == step) 20.dp else 6.dp,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                        label = "stepDotWidth",
+                    )
                     Box(
                         modifier = Modifier
-                            .width(if (index == step) 18.dp else 6.dp)
+                            .width(dotWidth)
                             .height(6.dp)
                             .clip(CircleShape)
                             .background(

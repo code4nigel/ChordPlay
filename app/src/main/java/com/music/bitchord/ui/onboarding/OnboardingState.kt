@@ -26,6 +26,7 @@ object OnboardingState {
 
     private const val FILE = "bitchord_onboarding"
     private const val KEY_COMPLETED = "onboarding_completed"
+    private const val KEY_PASS_PROMPTED = "pass_card_onboarding_prompted"
     private const val KEY_NAME = "listener_name"
 
     private const val SETTINGS_FILE = "bitchord_settings"
@@ -38,11 +39,15 @@ object OnboardingState {
         }.getOrDefault(true)
 
     /**
-     * Raises welcome setup automatically on fresh installs, while upgrades for
-     * existing listeners remain uninterrupted (and can still replay from Settings).
+     * Raises welcome setup on fresh installs, and once for existing users who
+     * haven't been prompted to generate their ChordPlay Pass card yet. Once
+     * completed or skipped, it never re-appears on future updates.
      */
     fun shouldShow(context: Context): Boolean {
         val onboarding = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        if (!onboarding.getBoolean(KEY_PASS_PROMPTED, false) && name(context).isBlank()) {
+            return true
+        }
         if (onboarding.contains(KEY_COMPLETED)) {
             return !onboarding.getBoolean(KEY_COMPLETED, false)
         }
@@ -58,7 +63,10 @@ object OnboardingState {
     fun markCompleted(context: Context) {
         runCatching {
             context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-                .edit().putBoolean(KEY_COMPLETED, true).apply()
+                .edit()
+                .putBoolean(KEY_COMPLETED, true)
+                .putBoolean(KEY_PASS_PROMPTED, true)
+                .apply()
         }
     }
 
@@ -69,9 +77,13 @@ object OnboardingState {
         }.getOrDefault("")
 
     fun saveName(context: Context, name: String) {
+        val trimmed = name.trim()
         runCatching {
             context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-                .edit().putString(KEY_NAME, name.trim()).apply()
+                .edit()
+                .putString(KEY_NAME, trimmed)
+                .apply { if (trimmed.isNotBlank()) putBoolean(KEY_PASS_PROMPTED, true) }
+                .apply()
         }
     }
 

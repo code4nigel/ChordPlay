@@ -86,6 +86,8 @@ object Innertube {
     private const val YOUTUBE_BASE = "https://www.youtube.com/youtubei/v1"
     private const val YOUTUBE_ORIGIN = "https://www.youtube.com"
     private const val WEB_CLIENT_VERSION = "2.20250101.00.00"
+    private const val WEB_HEATMAP_CLIENT_VERSION = "2.20260708.00.00"
+    private const val WEB_CLIENT_ID = "1"
 
     /**
      * Fallback WEB_REMIX version, used until [SessionScope] reads the live one
@@ -524,8 +526,12 @@ object Innertube {
 
     // ---- Public API ---------------------------------------------------------
 
-    suspend fun browse(browseId: String, params: String? = null): JsonObject =
-        postMusic("browse") {
+    suspend fun browse(
+        browseId: String,
+        params: String? = null,
+        language: String? = null,
+    ): JsonObject =
+        postMusic("browse", language = language) {
             put("browseId", browseId)
             params?.let { put("params", it) }
         }
@@ -603,6 +609,37 @@ object Innertube {
         val pId = playlistId ?: videoId?.let { "RDAMVM$it" }
         pId?.let { put("playlistId", it) }
         put("isAudioOnly", true)
+    }
+
+    /**
+     * Plain youtube.com watch page `next`, used for its "Most replayed" heat
+     * markers (`macroMarkersListEntity`). Anonymous on purpose so no watch-page
+     * visit lands in the listener's history.
+     */
+    suspend fun webNext(videoId: String): JsonObject = withRetry(attempts = 2) {
+        client.post("$YOUTUBE_ORIGIN/youtubei/v1/next") {
+            contentType(ContentType.Application.Json)
+            parameter("prettyPrint", "false")
+            header("User-Agent", WEB_USER_AGENT)
+            header("Origin", YOUTUBE_ORIGIN)
+            header("Referer", "$YOUTUBE_ORIGIN/")
+            header("X-YouTube-Client-Name", WEB_CLIENT_ID)
+            header("X-YouTube-Client-Version", WEB_HEATMAP_CLIENT_VERSION)
+            header("Accept-Language", acceptLanguageHeader)
+            setBody(
+                buildJsonObject {
+                    putJsonObject("context") {
+                        putJsonObject("client") {
+                            put("clientName", "WEB")
+                            put("clientVersion", WEB_HEATMAP_CLIENT_VERSION)
+                            put("hl", currentLanguage)
+                            put("gl", currentRegion)
+                        }
+                    }
+                    put("videoId", videoId)
+                },
+            )
+        }.body<JsonObject>()
     }
 
     /** Timed caption transcript used as a last-resort lyrics source. */
@@ -1163,6 +1200,7 @@ object Innertube {
     private suspend fun postMusic(
         endpoint: String,
         query: Map<String, String> = emptyMap(),
+        language: String? = null,
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
         // This is the common authenticated request path: Home, Library,
@@ -1172,12 +1210,18 @@ object Innertube {
         if (cookie != null) ensureSessionScope()
         val session = scope
         val clientVersion = webRemixVersion
+        val effectiveLanguage = language ?: currentLanguage
+        val effectiveAcceptLanguage = if (language != null && language != currentLanguage) {
+            com.music.bitchord.data.LocaleTags.acceptLanguage(language)
+        } else {
+            acceptLanguageHeader
+        }
         val response = withRetry {
             client.post("$MUSIC_BASE/$endpoint") {
                 contentType(ContentType.Application.Json)
                 parameter("prettyPrint", "false")
-                parameter("hl", currentLanguage)
-                header("Accept-Language", acceptLanguageHeader)
+                parameter("hl", effectiveLanguage)
+                header("Accept-Language", effectiveAcceptLanguage)
                 query.forEach { (key, value) -> parameter(key, value) }
                 header("X-Origin", MUSIC_ORIGIN)
                 header("Origin", MUSIC_ORIGIN)
@@ -1203,7 +1247,7 @@ object Innertube {
                             putJsonObject("client") {
                                 put("clientName", "WEB_REMIX")
                                 put("clientVersion", clientVersion)
-                                put("hl", currentLanguage)
+                                put("hl", effectiveLanguage)
                                 put("gl", currentRegion)
                                 visitorData?.let { put("visitorData", it) }
                             }

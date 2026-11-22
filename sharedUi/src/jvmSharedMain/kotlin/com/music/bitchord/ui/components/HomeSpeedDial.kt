@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +76,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -799,6 +801,7 @@ private fun SpeedDialRow3(
 }
 
 private enum class SpeedDialItemType {
+    LIVE,
     MIX,
     SONG,
     ALBUM,
@@ -812,6 +815,7 @@ private fun ShelfItem.detectType(): SpeedDialItemType {
     val sub = subtitle.lowercase()
     val t = title.lowercase()
     return when {
+        isLive -> SpeedDialItemType.LIVE
         bId?.startsWith("RD") == true || bId?.startsWith("VLRD") == true ||
             sub.contains("mix") || sub.contains("radio") || sub.contains("station") ||
             t.contains("supermix") || t.contains("my mix") || t.endsWith(" mix") || t.endsWith(" radio") -> SpeedDialItemType.MIX
@@ -827,14 +831,31 @@ private fun ShelfItem.detectType(): SpeedDialItemType {
 }
 
 private fun cleanTypeSubtitle(subtitle: String, type: SpeedDialItemType): String {
-    if (subtitle.isBlank()) return ""
+    if (subtitle.isBlank()) return if (type == SpeedDialItemType.LIVE) "Live Station" else ""
     return when (type) {
+        SpeedDialItemType.LIVE -> subtitle.removePrefix("Live • ").removePrefix("LIVE • ").trim()
         SpeedDialItemType.MIX -> subtitle.removePrefix("Mix • ").removePrefix("Radio • ").trim()
         SpeedDialItemType.SONG -> subtitle.removePrefix("Song • ").trim()
         SpeedDialItemType.ALBUM -> subtitle.removePrefix("Album • ").removePrefix("Single • ").removePrefix("EP • ").trim()
         SpeedDialItemType.PLAYLIST -> subtitle.removePrefix("Playlist • ").trim()
         SpeedDialItemType.ARTIST -> subtitle.removePrefix("Artist • ").trim()
     }
+}
+
+private fun mutedSpeedDialSurface(
+    palette: ArtworkPalette,
+    isDark: Boolean,
+    isCurrent: Boolean,
+    fallbackSurface: Color,
+): Color {
+    val neutralBase = if (isDark) Color(0xFF1A1B1E) else fallbackSurface
+    val tintWeight = when {
+        isDark && isCurrent -> 0.24f
+        isDark -> 0.14f
+        isCurrent -> 0.18f
+        else -> 0.10f
+    }
+    return lerp(neutralBase, palette.elevated, tintWeight).copy(alpha = if (isDark) 0.88f else 0.92f)
 }
 
 @Composable
@@ -846,31 +867,121 @@ private fun SpeedDialArtwork(
     isDark: Boolean,
     isCompact: Boolean,
     isPinned: Boolean,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onItemClick: (ShelfItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val artContainerSize = if (isCompact) 47.dp else 53.dp
+    val placeholderBg = mutedSpeedDialSurface(
+        palette = palette,
+        isDark = isDark,
+        isCurrent = isCurrent,
+        fallbackSurface = MaterialTheme.colorScheme.surfaceVariant,
+    )
+    val placeholderTint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f)
 
     Box(
         modifier = modifier.size(artContainerSize),
         contentAlignment = Alignment.Center,
     ) {
         when (type) {
+            SpeedDialItemType.LIVE -> {
+                val liveSize = if (isCompact) 44.dp else 50.dp
+                val liveShape = RoundedCornerShape(if (isCompact) 11.dp else 13.dp)
+                val liveBorderBrush = Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFFFF453A).copy(alpha = 0.85f),
+                        palette.accent.copy(alpha = 0.72f),
+                    ),
+                )
+                Box(
+                    modifier = Modifier
+                        .size(liveSize)
+                        .clip(liveShape)
+                        .background(placeholderBg)
+                        .border(1.3.dp, liveBorderBrush, liveShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Sensors,
+                        contentDescription = null,
+                        tint = placeholderTint,
+                        modifier = Modifier.size(if (isCompact) 20.dp else 22.dp),
+                    )
+                    if (!candidateArtUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = candidateArtUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+
+                    // Compact "● LIVE" micro-pill at top-start
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.5.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.74f))
+                            .padding(horizontal = 3.5.dp, vertical = 1.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFF3B30)),
+                        )
+                        Text(
+                            text = "LIVE",
+                            color = Color.White,
+                            fontSize = 6.5.sp,
+                            fontWeight = FontWeight.Black,
+                            lineHeight = 7.sp,
+                        )
+                    }
+
+                    // Broadcast icon badge (bottom-end when not pinned, top-end if pinned so pin sits cleanly)
+                    val broadcastAlignment = if (isPinned) Alignment.TopEnd else Alignment.BottomEnd
+                    val broadcastBadgeSize = if (isCompact) 15.dp else 17.dp
+                    Box(
+                        modifier = Modifier
+                            .align(broadcastAlignment)
+                            .padding(2.5.dp)
+                            .size(broadcastBadgeSize)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.76f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.20f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Sensors,
+                            contentDescription = "Live station",
+                            tint = Color(0xFFFF6961),
+                            modifier = Modifier.size(if (isCompact) 9.5.dp else 11.dp),
+                        )
+                    }
+                }
+            }
+
             SpeedDialItemType.ARTIST -> {
                 val avatarSize = if (isCompact) 43.dp else 49.dp
                 Box(
                     modifier = Modifier
                         .size(avatarSize)
                         .clip(CircleShape)
-                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.5.dp, palette.accent.copy(alpha = 0.55f), CircleShape),
+                        .background(placeholderBg)
+                        .border(1.25.dp, palette.accent.copy(alpha = 0.50f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Person,
                         contentDescription = null,
-                        tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
+                        tint = placeholderTint,
                         modifier = Modifier.size(if (isCompact) 20.dp else 24.dp),
                     )
                     if (!candidateArtUrl.isNullOrBlank()) {
@@ -901,13 +1012,11 @@ private fun SpeedDialArtwork(
                             .border(0.8.dp, Color.White.copy(alpha = 0.22f), CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
-                        // Groove line
                         Box(
                             modifier = Modifier
                                 .size(if (isCompact) 20.dp else 23.dp)
                                 .border(0.6.dp, Color.White.copy(alpha = 0.14f), CircleShape),
                         )
-                        // Center spindle label
                         Box(
                             modifier = Modifier
                                 .size(if (isCompact) 9.dp else 11.dp)
@@ -921,14 +1030,14 @@ private fun SpeedDialArtwork(
                         modifier = Modifier
                             .size(jacketSize)
                             .clip(RoundedCornerShape(if (isCompact) 8.dp else 10.dp))
-                            .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(placeholderBg)
                             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(if (isCompact) 8.dp else 10.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Album,
                             contentDescription = null,
-                            tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
+                            tint = placeholderTint,
                             modifier = Modifier.size(if (isCompact) 18.dp else 22.dp),
                         )
                         if (!candidateArtUrl.isNullOrBlank()) {
@@ -952,29 +1061,27 @@ private fun SpeedDialArtwork(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Subtle stacked back card peek
                     Box(
                         modifier = Modifier
                             .size(width = backW, height = backH)
                             .offset(y = (-2.5).dp)
                             .clip(RoundedCornerShape(if (isCompact) 8.dp else 10.dp))
-                            .background(palette.accent.copy(alpha = 0.35f))
-                            .border(1.dp, palette.accent.copy(alpha = 0.50f), RoundedCornerShape(if (isCompact) 8.dp else 10.dp)),
+                            .background(palette.accent.copy(alpha = 0.30f))
+                            .border(1.dp, palette.accent.copy(alpha = 0.45f), RoundedCornerShape(if (isCompact) 8.dp else 10.dp)),
                     )
 
-                    // Front playlist card
                     Box(
                         modifier = Modifier
                             .size(frontSize)
                             .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
-                            .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(placeholderBg)
                             .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(if (isCompact) 10.dp else 12.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = BitChordIcons.Playlist,
                             contentDescription = null,
-                            tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
+                            tint = placeholderTint,
                             modifier = Modifier.size(if (isCompact) 22.dp else 26.dp),
                         )
                         if (!candidateArtUrl.isNullOrBlank()) {
@@ -986,21 +1093,22 @@ private fun SpeedDialArtwork(
                             )
                         }
 
-                        // Playlist badge at bottom-end
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(3.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color.Black.copy(alpha = 0.72f))
-                                .padding(horizontal = 3.5.dp, vertical = 2.dp),
-                        ) {
-                            Icon(
-                                imageVector = BitChordIcons.Playlist,
-                                contentDescription = "Playlist",
-                                tint = Color.White.copy(alpha = 0.92f),
-                                modifier = Modifier.size(if (isCompact) 12.dp else 14.dp),
-                            )
+                        if (!isPinned) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(3.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color.Black.copy(alpha = 0.72f))
+                                    .padding(horizontal = 3.5.dp, vertical = 2.dp),
+                            ) {
+                                Icon(
+                                    imageVector = BitChordIcons.Playlist,
+                                    contentDescription = "Playlist",
+                                    tint = Color.White.copy(alpha = 0.92f),
+                                    modifier = Modifier.size(if (isCompact) 12.dp else 14.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -1015,14 +1123,14 @@ private fun SpeedDialArtwork(
                     modifier = Modifier
                         .size(mixSize)
                         .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
-                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.5.dp, palette.accent, RoundedCornerShape(if (isCompact) 10.dp else 12.dp)),
+                        .background(placeholderBg)
+                        .border(1.4.dp, palette.accent.copy(alpha = 0.85f), RoundedCornerShape(if (isCompact) 10.dp else 12.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Casino,
                         contentDescription = null,
-                        tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
+                        tint = placeholderTint,
                         modifier = Modifier.size(if (isCompact) 18.dp else 22.dp),
                     )
                     if (!candidateArtUrl.isNullOrBlank()) {
@@ -1034,7 +1142,6 @@ private fun SpeedDialArtwork(
                         )
                     }
 
-                    // "MIX" micro-badge at Alignment.TopStart
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -1052,7 +1159,6 @@ private fun SpeedDialArtwork(
                         )
                     }
 
-                    // Quick Play button at Alignment.BottomEnd (if not pinned)
                     if (!isPinned) {
                         val playBtnSize = if (isCompact) 17.dp else 20.dp
                         Box(
@@ -1084,14 +1190,14 @@ private fun SpeedDialArtwork(
                     modifier = Modifier
                         .size(songSize)
                         .clip(artworkShape)
-                        .background(if (isDark) palette.elevated else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(placeholderBg)
                         .border(1.dp, Color.White.copy(alpha = 0.10f), artworkShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.LibraryMusic,
                         contentDescription = null,
-                        tint = (if (isDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = 0.45f),
+                        tint = placeholderTint,
                         modifier = Modifier.size(if (isCompact) 20.dp else 24.dp),
                     )
                     if (!candidateArtUrl.isNullOrBlank()) {
@@ -1104,6 +1210,13 @@ private fun SpeedDialArtwork(
                     }
                 }
             }
+        }
+
+        // Playing equalizer overlay centered on the artwork (matching all other sections)
+        if (isCurrent && isPlaying) {
+            SearchPlayingBars(
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
 
         // Overlapping Location Pin badge at bottom-right of artwork container
@@ -1123,7 +1236,7 @@ private fun SpeedDialArtwork(
                 Icon(
                     imageVector = BitChordIcons.LocationPin,
                     contentDescription = "Pinned to Your Space",
-                    tint = Color(0xFFD6B27D), // warm golden/tan location pin
+                    tint = Color(0xFFD6B27D),
                     modifier = Modifier.size(pinIconSize),
                 )
             }
@@ -1147,29 +1260,27 @@ private fun SpeedDialTile(
     val type = item.detectType()
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-    // Card dimensions
     val tileHeight = if (isCompact) 56.dp else 64.dp
     val outerShape = RoundedCornerShape(if (isCompact) 18.dp else 22.dp)
     val cardPadding = if (isCompact) 4.5.dp else 5.5.dp
 
-    // Dynamic background derived from the currently playing song's artwork
-    val cardBg = if (isDark) {
-        palette.elevated.copy(alpha = 0.70f)
-    } else {
-        palette.elevated.copy(alpha = 0.88f)
+    val cardBg = mutedSpeedDialSurface(
+        palette = palette,
+        isDark = isDark,
+        isCurrent = isCurrent,
+        fallbackSurface = MaterialTheme.colorScheme.surfaceVariant,
+    )
+    val cardBorder = when {
+        isCurrent -> (if (isDark) palette.accent else PlayingAccent).copy(alpha = 0.42f)
+        isDark -> Color.White.copy(alpha = 0.08f)
+        else -> Color.Black.copy(alpha = 0.08f)
     }
 
     val titleColor = when {
         isCurrent -> if (isDark) palette.accent else PlayingAccent
-        isDark -> palette.onBackground
         else -> MaterialTheme.colorScheme.onSurface
     }
-
-    val subtitleColor = if (isDark) {
-        palette.onBackgroundVariant
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
 
     val clickModifier = if (onItemLongPress != null) {
         Modifier
@@ -1184,13 +1295,13 @@ private fun SpeedDialTile(
 
     val candidateArtUrl = item.thumbnailUrl?.artworkAt(CARD_ART_PX) ?: item.thumbnailUrl
 
-    // Unified card capsule container (borderless clean elevated surface)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(tileHeight)
             .clip(outerShape)
             .background(cardBg)
+            .border(0.5.dp, cardBorder, outerShape)
             .then(clickModifier),
     ) {
         Row(
@@ -1200,7 +1311,6 @@ private fun SpeedDialTile(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isCompact) 7.dp else 9.dp),
         ) {
-            // Artwork container with distinct type treatment
             SpeedDialArtwork(
                 item = item,
                 type = type,
@@ -1209,11 +1319,12 @@ private fun SpeedDialTile(
                 isDark = isDark,
                 isCompact = isCompact,
                 isPinned = isPinned,
+                isCurrent = isCurrent,
+                isPlaying = isPlaying,
                 onPlayMixClick = onPlayMixClick,
                 onItemClick = onItemClick,
             )
 
-            // Title & Subtitle column
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -1262,13 +1373,6 @@ private fun SpeedDialTile(
                     )
                 }
             }
-
-            // Playing animation indicator
-            if (isCurrent && isPlaying) {
-                SearchPlayingBars(
-                    modifier = Modifier.padding(end = 2.dp),
-                )
-            }
         }
     }
 }
@@ -1288,25 +1392,24 @@ private fun LuckyDialCard(
     val artSize = tileHeight - (cardPadding * 2)
     val artworkShape = RoundedCornerShape(if (isCompact) 13.dp else 15.dp)
 
-    // Dynamic accent color for dice box derived from current song's artwork
-    val diceBoxBg = if (isDark) {
-        palette.accent.copy(alpha = 0.85f)
-    } else {
-        palette.accent.copy(alpha = 0.90f)
-    }
+    val diceBoxBg = palette.accent.copy(alpha = if (isDark) 0.85f else 0.90f)
     val isLightAccent = diceBoxBg.luminance() > 0.5f
     val diceIconTint = if (isLightAccent) Color(0xFF0F080B) else Color.White
 
-    // Card background matching other cards + subtle accent glow
-    val cardBg = if (isDark) {
-        palette.elevated.copy(alpha = 0.70f)
+    val cardBg = mutedSpeedDialSurface(
+        palette = palette,
+        isDark = isDark,
+        isCurrent = false,
+        fallbackSurface = MaterialTheme.colorScheme.surfaceVariant,
+    )
+    val cardBorder = if (isDark) {
+        palette.accent.copy(alpha = 0.20f)
     } else {
-        palette.elevated.copy(alpha = 0.88f)
+        Color.Black.copy(alpha = 0.08f)
     }
-    val accentTint = palette.accent.copy(alpha = if (isDark) 0.15f else 0.10f)
 
-    val titleColor = if (isDark) palette.onBackground else MaterialTheme.colorScheme.onSurface
-    val subtitleColor = if (isDark) palette.onBackgroundVariant else MaterialTheme.colorScheme.onSurfaceVariant
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val subtitleColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
 
     Box(
         modifier = modifier
@@ -1314,7 +1417,7 @@ private fun LuckyDialCard(
             .height(tileHeight)
             .clip(outerShape)
             .background(cardBg)
-            .background(accentTint)
+            .border(0.5.dp, cardBorder, outerShape)
             .clickable(onClick = onClick),
     ) {
         Row(
@@ -1324,7 +1427,6 @@ private fun LuckyDialCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (isCompact) 7.dp else 9.dp),
         ) {
-            // Dice squircle container on the left
             Box(
                 modifier = Modifier
                     .size(artSize)
@@ -1340,7 +1442,6 @@ private fun LuckyDialCard(
                 )
             }
 
-            // Title & Subtitle column
             Column(
                 modifier = Modifier
                     .weight(1f)

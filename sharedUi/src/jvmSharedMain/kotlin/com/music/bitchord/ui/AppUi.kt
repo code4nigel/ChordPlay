@@ -95,6 +95,14 @@ interface AppUiHost {
     val homeReplayVisible: StateFlow<Boolean>
         get() = MutableStateFlow(true)
 
+    /** Hides music video shelves and cards from Home. */
+    val hideHomeVideos: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
+    /** Displays music video cards as 1:1 squares rather than 16:9 thumbnails. */
+    val squareVideoThumbnails: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>

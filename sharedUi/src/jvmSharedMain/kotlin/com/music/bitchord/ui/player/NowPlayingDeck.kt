@@ -44,6 +44,7 @@ internal fun PortraitControlDeck(
     spotifyCanvasPresentation: Boolean,
     onSpotifyDeckHeight: (Dp) -> Unit,
     syncedLyricsEnabled: Boolean,
+    hideLyricsPreview: Boolean = false,
     lyricsTranslation: LyricsTranslationUi,
     hasLyrics: Boolean,
     song: Song,
@@ -105,7 +106,8 @@ internal fun PortraitControlDeck(
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (!panels.lyricsOpen && syncedLyricsEnabled) {
+            val showInlineLyricStrip = syncedLyricsEnabled && !hideLyricsPreview
+            if (!panels.lyricsOpen && showInlineLyricStrip) {
                 if (isLive) {
                     Text(
                         text = "\u00A0",
@@ -129,7 +131,7 @@ internal fun PortraitControlDeck(
                     )
                 }
             }
-            if (!panels.lyricsOpen && !syncedLyricsEnabled) {
+            if (!panels.lyricsOpen && !showInlineLyricStrip) {
                 Text(
                     text = "\u00A0",
                     style = MaterialTheme.typography.titleMedium,

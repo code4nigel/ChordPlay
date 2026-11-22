@@ -965,18 +965,7 @@ fun ChordPlayPipelineBottomPill(
     val stats = nerdStats
     val hasMeasuredAudio = stats != null && (stats.mimeType != null || stats.bitrateKbps != null || stats.sampleRateHz != null)
 
-    val qualityBadge = if (videoQuality.isAuto) {
-        mvQuality.activeHeight?.takeIf { it > 0 }?.let { h ->
-            when {
-                h >= 2160 -> "4K"
-                h >= 1080 -> "FHD"
-                h >= 720 -> "HD"
-                else -> "${h}P"
-            }
-        } ?: videoQuality.badge
-    } else {
-        videoQuality.badge
-    }
+    val qualityBadge = videoQualityBadge(mvQuality, videoQuality)
 
     val primaryLabel = when {
         song.isLive -> "LIVE • $qualityBadge"
@@ -1032,7 +1021,7 @@ fun ChordPlayPipelineBottomPill(
                 ),
                 shape = CircleShape,
             )
-            .padding(start = 14.dp, end = 10.dp),
+            .padding(start = 14.dp, end = 4.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1044,7 +1033,7 @@ fun ChordPlayPipelineBottomPill(
                     haptics.play(Haptic.Tap)
                     onOpenPipeline()
                 }
-                .padding(end = 12.dp),
+                .padding(end = 10.dp),
         ) {
             Icon(
                 imageVector = if (song.isVideo) Icons.Rounded.HighQuality else Icons.Rounded.GraphicEq,
@@ -1076,10 +1065,16 @@ fun ChordPlayPipelineBottomPill(
         }
 
         Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(22.dp)
+                .background(Color.White.copy(alpha = 0.18f)),
+        )
+
+        Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(28.dp)
-                .clip(CircleShape)
+                .size(width = 42.dp, height = 40.dp)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -1091,8 +1086,8 @@ fun ChordPlayPipelineBottomPill(
             Icon(
                 imageVector = Icons.Rounded.Headphones,
                 contentDescription = stringResource(Res.string.audio_output),
-                tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.size(16.dp),
+                tint = Color.White.copy(alpha = 0.94f),
+                modifier = Modifier.size(22.dp),
             )
         }
     }

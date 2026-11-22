@@ -271,4 +271,21 @@
     <string name="live_cat_hits">热门金曲</string>
     <string name="live_cat_rock_pop">摇滚与流行</string>
     <string name="live_stations_empty">当前该分类下暂无正在直播的电台。</string>
+    <string name="featured_pick">精选</string>
+    <string name="find_your_mood">发现心情</string>
+    <string name="live_all_stations">全部直播电台</string>
+    <string name="live_cat_electronic">电子与电音</string>
+    <string name="live_cat_hiphop">嘻哈与 R&amp;B</string>
+    <string name="live_cat_jazz">爵士与咖啡馆</string>
+    <string name="live_listen">收听直播</string>
+    <string name="live_search_hint">搜索直播电台…</string>
+    <string name="live_see_all">查看全部</string>
+    <string name="live_sort_category">分类</string>
+    <string name="live_sort_name">名称 (A–Z)</string>
+    <string name="live_sort_viewers">最多收听</string>
+    <string name="made_for_you">为你精选</string>
+    <string name="mixes_quick">快速混音</string>
+    <string name="mixes_your">你的混音</string>
+    <string name="mood_feel_good">好心情</string>
+    <string name="mood_relax">放松</string>
 </resources>

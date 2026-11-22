@@ -224,6 +224,13 @@
     <string name="browse">Browse</string>
     <string name="change">Change</string>
     <string name="music_feels_better">Music feels better with you</string>
+    <string name="find_your_mood">Find Your Mood</string>
+    <string name="mood_feel_good">Feel Good</string>
+    <string name="mood_relax">Relax</string>
+    <string name="featured_pick">Featured</string>
+    <string name="made_for_you">Made for You</string>
+    <string name="mixes_quick">Quick Mixes</string>
+    <string name="mixes_your">Your Mixes</string>
     <string name="shelf_start_radio_desc">Start a radio from a song</string>
     <string name="shelf_top_picks_for_you">Top Picks for You</string>
     <string name="shelf_stations_mixes_desc">Stations, mixes &amp; fresh drops</string>
@@ -276,6 +283,16 @@
     <string name="live_cat_artist_stations">Artist Stations</string>
     <string name="live_cat_lofi_chill">Lo-Fi &amp; Chill</string>
     <string name="live_cat_hits">Hits</string>
+    <string name="live_cat_hiphop">Hip-Hop &amp; R&amp;B</string>
+    <string name="live_cat_electronic">Electronic &amp; EDM</string>
     <string name="live_cat_rock_pop">Rock &amp; Pop</string>
+    <string name="live_cat_jazz">Jazz &amp; Cafe</string>
+    <string name="live_see_all">See all</string>
+    <string name="live_all_stations">All Live Stations</string>
+    <string name="live_search_hint">Search live stations…</string>
+    <string name="live_sort_viewers">Most Listened</string>
+    <string name="live_sort_name">Title (A–Z)</string>
+    <string name="live_sort_category">Category</string>
+    <string name="live_listen">Live Listen</string>
     <string name="live_stations_empty">No live stations found for this category right now.</string>
 </resources>

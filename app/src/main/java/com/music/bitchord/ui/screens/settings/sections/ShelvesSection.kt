@@ -12,6 +12,7 @@ package com.music.bitchord.ui.screens.settings.sections
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,13 +29,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -42,19 +44,31 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.model.HomeShelfSlot
@@ -124,6 +138,8 @@ private fun shelfDisplayMeta(
     }
 }
 
+private const val SHELF_SWAP_THRESHOLD = 0.6f
+
 @Composable
 fun ShelvesSection(
     onBack: () -> Unit,
@@ -135,6 +151,9 @@ fun ShelvesSection(
     val homeShelfOrder by AppSettings.homeShelfOrder.collectAsStateWithLifecycle()
     val hiddenHomeShelves by AppSettings.hiddenHomeShelves.collectAsStateWithLifecycle()
     val libraryReplayVisible by AppSettings.libraryReplayVisible.collectAsStateWithLifecycle()
+    val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
+    val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
+    val squareVideoThumbnails by AppSettings.squareVideoThumbnails.collectAsStateWithLifecycle()
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     val orderedIds = remember(homeShelfTitles, homeShelfOrder) {
@@ -147,7 +166,25 @@ fun ShelvesSection(
         )
     }
 
-    val rowsWithMeta = orderedIds.map { id ->
+    var liveOrder by remember { mutableStateOf(orderedIds) }
+    var draggedId by remember { mutableStateOf<String?>(null) }
+    var totalDrag by remember { mutableFloatStateOf(0f) }
+    var startIndex by remember { mutableIntStateOf(0) }
+    var pitchPx by remember { mutableFloatStateOf(0f) }
+    var lockedPitchPx by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(orderedIds, draggedId) {
+        if (draggedId == null) {
+            liveOrder = orderedIds
+        }
+    }
+
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val fallbackPitchPx = with(density) { 64.dp.toPx() }
+    val outerScrollState = rememberScrollState()
+
+    val rowsWithMeta = liveOrder.map { id ->
         id to shelfDisplayMeta(
             id = id,
             hiddenSet = hiddenHomeShelves,
@@ -158,23 +195,74 @@ fun ShelvesSection(
         matchesSearch(searchQuery, meta.title, meta.subtitle, id)
     }
 
+    val showPreferMusicOnly = matchesSearch(
+        searchQuery,
+        stringResource(R.string.prefer_music_only),
+        stringResource(R.string.prefer_music_only_subtitle),
+        "music only", "audio", "video", "prefer",
+    )
+    val showHideVideos = matchesSearch(
+        searchQuery,
+        stringResource(R.string.hide_home_videos),
+        stringResource(R.string.hide_home_videos_subtitle),
+        "hide", "videos", "home",
+    )
+    val showSquareVideos = matchesSearch(
+        searchQuery,
+        stringResource(R.string.square_video_thumbnails),
+        stringResource(R.string.square_video_thumbnails_subtitle),
+        "square", "thumbnail", "video", "aspect",
+    )
     val showLibraryReplayToggle = matchesSearch(
         searchQuery,
         stringResource(R.string.show_replay_in_library),
         stringResource(R.string.show_replay_in_library_subtitle),
         "replay", "library", "stats", "cards",
     )
+    val hasPreferencesToggles = showPreferMusicOnly || showHideVideos || showSquareVideos || showLibraryReplayToggle
 
     val previewItems = rowsWithMeta.filterNot { (_, meta) -> meta.isHidden }.map { (_, meta) -> meta.title }
+
+    fun advanceDrag(deltaY: Float) {
+        val id = draggedId ?: return
+        val pitch = lockedPitchPx.takeIf { it > 0f } ?: fallbackPitchPx
+        var index = liveOrder.indexOf(id)
+        if (index < 0) return
+
+        totalDrag = (totalDrag + deltaY).coerceIn(
+            -startIndex * pitch,
+            (liveOrder.lastIndex - startIndex) * pitch,
+        )
+
+        var swapped = false
+        while (true) {
+            val travelled = totalDrag / pitch
+            val moved = (index - startIndex).toFloat()
+            if (travelled > moved + SHELF_SWAP_THRESHOLD && index < liveOrder.lastIndex) {
+                liveOrder = liveOrder.moved(index, index + 1)
+                index++
+                swapped = true
+            } else if (travelled < moved - SHELF_SWAP_THRESHOLD && index > 0) {
+                liveOrder = liveOrder.moved(index, index - 1)
+                index--
+                swapped = true
+            } else {
+                break
+            }
+        }
+        if (swapped) {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(outerScrollState, enabled = draggedId == null)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
-            title = stringResource(R.string.home_shelves),
+            title = stringResource(R.string.your_preferences),
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
@@ -184,27 +272,90 @@ fun ShelvesSection(
             ShelvesMiniPreview(activeTitles = previewItems)
         }
 
-        if (searchQuery.isNotBlank() && !showLibraryReplayToggle && filteredRows.isEmpty()) {
+        if (searchQuery.isNotBlank() && !hasPreferencesToggles && filteredRows.isEmpty()) {
             SettingsSearchEmpty(query = searchQuery)
         } else {
-            if (showLibraryReplayToggle) {
-                SettingsGroup(header = stringResource(R.string.shelves_visibility_header)) {
-                    SettingsRow(
-                        icon = Icons.Rounded.BarChart,
-                        title = stringResource(R.string.show_replay_in_library),
-                        subtitle = stringResource(R.string.show_replay_in_library_subtitle),
-                        trailing = {
-                            Switch(
-                                checked = libraryReplayVisible,
-                                onCheckedChange = AppSettings::setLibraryReplayVisible,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        },
-                        onClick = { AppSettings.setLibraryReplayVisible(!libraryReplayVisible) },
-                    )
+            if (hasPreferencesToggles) {
+                SettingsGroup(header = stringResource(R.string.content_preferences_header)) {
+                    var needsDivider = false
+                    if (showPreferMusicOnly) {
+                        needsDivider = true
+                        SettingsRow(
+                            icon = Icons.Rounded.MusicNote,
+                            title = stringResource(R.string.prefer_music_only),
+                            subtitle = stringResource(R.string.prefer_music_only_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = preferMusicOnly,
+                                    onCheckedChange = AppSettings::setPreferMusicOnly,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
+                        )
+                    }
+                    if (showHideVideos) {
+                        if (needsDivider) RowDivider()
+                        needsDivider = true
+                        SettingsRow(
+                            icon = Icons.Rounded.VideocamOff,
+                            title = stringResource(R.string.hide_home_videos),
+                            subtitle = stringResource(R.string.hide_home_videos_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = hideHomeVideos,
+                                    onCheckedChange = AppSettings::setHideHomeVideos,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setHideHomeVideos(!hideHomeVideos) },
+                        )
+                    }
+                    if (showSquareVideos) {
+                        if (needsDivider) RowDivider()
+                        needsDivider = true
+                        SettingsRow(
+                            icon = Icons.Rounded.AspectRatio,
+                            title = stringResource(R.string.square_video_thumbnails),
+                            subtitle = stringResource(R.string.square_video_thumbnails_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = squareVideoThumbnails,
+                                    onCheckedChange = AppSettings::setSquareVideoThumbnails,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setSquareVideoThumbnails(!squareVideoThumbnails) },
+                        )
+                    }
+                    if (showLibraryReplayToggle) {
+                        if (needsDivider) RowDivider()
+                        SettingsRow(
+                            icon = Icons.Rounded.BarChart,
+                            title = stringResource(R.string.show_replay_in_library),
+                            subtitle = stringResource(R.string.show_replay_in_library_subtitle),
+                            trailing = {
+                                Switch(
+                                    checked = libraryReplayVisible,
+                                    onCheckedChange = AppSettings::setLibraryReplayVisible,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setLibraryReplayVisible(!libraryReplayVisible) },
+                        )
+                    }
                 }
             }
 
@@ -213,95 +364,128 @@ fun ShelvesSection(
                     header = stringResource(R.string.arrange_home_shelves),
                     footer = if (homeShelfTitles.isEmpty() && searchQuery.isBlank()) {
                         stringResource(R.string.shelves_empty_feed_hint)
+                    } else if (searchQuery.isBlank()) {
+                        stringResource(R.string.drag_to_reorder)
                     } else {
                         null
                     },
                 ) {
-                    filteredRows.forEachIndexed { rowIdx, (id, meta) ->
-                        if (rowIdx > 0) RowDivider()
-                        val index = orderedIds.indexOf(id)
-                        val canMoveUp = index > 0
-                        val canMoveDown = index in 0 until orderedIds.lastIndex
-                        val isHidden = meta.isHidden
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = meta.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = if (!isHidden) {
-                                        MaterialTheme.colorScheme.onSurface
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    },
-                                )
-                                Text(
-                                    text = meta.subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = if (!isHidden) 1f else 0.55f,
-                                    ),
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            ) {
-                                IconButton(
-                                    onClick = { AppSettings.setHomeShelfOrder(orderedIds.moved(index, index - 1)) },
-                                    enabled = canMoveUp,
-                                    modifier = Modifier.size(32.dp),
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        filteredRows.forEachIndexed { rowIdx, (id, meta) ->
+                            key(id) {
+                                val isHidden = meta.isHidden
+                                val isDragging = draggedId == id
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .zIndex(if (isDragging) 1f else 0f)
+                                        .onSizeChanged { if (it.height > 0 && draggedId == null) pitchPx = it.height.toFloat() }
+                                        .graphicsLayer {
+                                            if (isDragging) {
+                                                val currentIndex = liveOrder.indexOf(id).coerceAtLeast(0)
+                                                val pitch = lockedPitchPx.takeIf { it > 0f } ?: fallbackPitchPx
+                                                translationY = totalDrag - (currentIndex - startIndex) * pitch
+                                                scaleX = 1.015f
+                                                scaleY = 1.015f
+                                            }
+                                        }
+                                        .background(
+                                            if (isDragging) {
+                                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+                                            } else {
+                                                Color.Transparent
+                                            },
+                                        ),
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ArrowUpward,
-                                        contentDescription = stringResource(R.string.move_up),
-                                        tint = if (canMoveUp) {
-                                            MaterialTheme.colorScheme.onSurface
+                                    if (rowIdx > 0 && !isDragging) RowDivider()
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 8.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        if (searchQuery.isBlank()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(width = 40.dp, height = 42.dp)
+                                                    .pointerInput(id) {
+                                                        detectDragGestures(
+                                                            onDragStart = {
+                                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                                draggedId = id
+                                                                startIndex = liveOrder.indexOf(id).coerceAtLeast(0)
+                                                                totalDrag = 0f
+                                                                lockedPitchPx = pitchPx.takeIf { it > 0f } ?: fallbackPitchPx
+                                                            },
+                                                            onDrag = { change, dragAmount ->
+                                                                change.consume()
+                                                                advanceDrag(dragAmount.y)
+                                                            },
+                                                            onDragEnd = {
+                                                                AppSettings.setHomeShelfOrder(liveOrder)
+                                                                draggedId = null
+                                                                totalDrag = 0f
+                                                            },
+                                                            onDragCancel = {
+                                                                draggedId = null
+                                                                totalDrag = 0f
+                                                                liveOrder = orderedIds
+                                                            },
+                                                        )
+                                                    },
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.DragHandle,
+                                                    contentDescription = stringResource(R.string.drag_to_reorder),
+                                                    tint = if (isDragging) {
+                                                        MaterialTheme.colorScheme.primary
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                                                    },
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                            }
                                         } else {
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                        },
-                                        modifier = Modifier.size(18.dp),
-                                    )
+                                            Spacer(Modifier.width(8.dp))
+                                        }
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = meta.title,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                color = if (!isHidden) {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                                },
+                                            )
+                                            Text(
+                                                text = meta.subtitle,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                                    alpha = if (!isHidden) 1f else 0.55f,
+                                                ),
+                                            )
+                                        }
+
+                                        Spacer(Modifier.width(8.dp))
+
+                                        Switch(
+                                            checked = !isHidden,
+                                            onCheckedChange = { enabled -> AppSettings.setHomeShelfHidden(id, !enabled) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                            ),
+                                        )
+                                    }
                                 }
-
-                                IconButton(
-                                    onClick = { AppSettings.setHomeShelfOrder(orderedIds.moved(index, index + 1)) },
-                                    enabled = canMoveDown,
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ArrowDownward,
-                                        contentDescription = stringResource(R.string.move_down),
-                                        tint = if (canMoveDown) {
-                                            MaterialTheme.colorScheme.onSurface
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                        },
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                }
-
-                                Spacer(Modifier.width(6.dp))
-
-                                Switch(
-                                    checked = !isHidden,
-                                    onCheckedChange = { enabled -> AppSettings.setHomeShelfHidden(id, !enabled) },
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
                             }
                         }
                     }

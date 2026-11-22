@@ -388,7 +388,7 @@ fun SupportSection(
                     var linkPreceding = false
                     if (showReddit) {
                         SettingsRow(
-                            iconPainter = painterResource(R.drawable.ic_reddit),
+                            leading = { com.music.bitchord.ui.components.RedditIconBadge(size = 34.dp) },
                             title = stringResource(R.string.reddit_community),
                             subtitle = stringResource(R.string.reddit_community_subtitle),
                             trailing = {
@@ -411,7 +411,7 @@ fun SupportSection(
                     if (showGithub) {
                         if (linkPreceding) RowDivider()
                         SettingsRow(
-                            iconPainter = painterResource(R.drawable.ic_github),
+                            leading = { com.music.bitchord.ui.components.GitHubIconBadge(size = 34.dp) },
                             title = stringResource(R.string.github_repository),
                             subtitle = stringResource(R.string.github_issues_desc),
                             trailing = {
@@ -463,7 +463,7 @@ fun SupportSection(
                         if (showUpstreamRepo) {
                             if (relPreceding) RowDivider()
                             SettingsRow(
-                                iconPainter = painterResource(R.drawable.ic_github),
+                                leading = { com.music.bitchord.ui.components.GitHubIconBadge(size = 34.dp) },
                                 title = stringResource(R.string.bitchord_upstream_repo),
                                 subtitle = stringResource(R.string.bitchord_upstream_subtitle),
                                 trailing = {

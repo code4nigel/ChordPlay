@@ -86,7 +86,12 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.roundToInt
 
 /** Up to this much of the open fraction the mini row is still on the panel. */
-private const val MINI_ROW_UNTIL = 0.2f
+private const val MINI_ROW_UNTIL = 0.24f
+
+private fun smoothStep01(t: Float): Float {
+    val c = t.coerceIn(0f, 1f)
+    return c * c * (3f - 2f * c)
+}
 
 /**
  * The same two, in a light theme. The pill there is pale and the player is
@@ -223,7 +228,7 @@ internal fun PlayerPanel(
                     Box(
                         Modifier
                             .matchParentSize()
-                            .graphicsLayer { alpha = dock.panelFill(fillUntil) }
+                            .graphicsLayer { alpha = smoothStep01(dock.panelFill(fillUntil)) }
                             .background(panelColor, shape),
                     )
                 }
@@ -237,7 +242,7 @@ internal fun PlayerPanel(
                                 alpha = if (dock == null || dock.attached) {
                                     1f
                                 } else {
-                                    (dock.openFraction() / rowUntil).coerceIn(0f, 1f)
+                                    smoothStep01(dock.openFraction() / rowUntil)
                                 }
                             },
                     ) { content() }
@@ -268,7 +273,7 @@ internal fun PlayerPanel(
                                 .fillMaxWidth()
                                 .height(rowHeight)
                                 .graphicsLayer {
-                                    alpha = (1f - dock.openFraction() / rowUntil).coerceIn(0f, 1f)
+                                    alpha = 1f - smoothStep01(dock.openFraction() / rowUntil)
                                 },
                         )
                     }

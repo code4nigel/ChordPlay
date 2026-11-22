@@ -215,6 +215,8 @@ fun SongActionsSheet(
     var pickingSleepTimer by remember { mutableStateOf(false) }
     var pickingVideoQuality by remember { mutableStateOf(false) }
     val currentVideoQuality by AppSettings.videoQuality.collectAsStateWithLifecycle()
+    val mvQuality by com.music.bitchord.ui.player.PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
+    val videoQualityText = com.music.bitchord.ui.player.videoQualitySummary(mvQuality, currentVideoQuality)
     val menu = presentation == SongActionsPresentation.Menu
     // Read from the thumbnail the row that opened this sheet was already
     // showing, not a larger copy of it: the tint is a blur and a handful of
@@ -288,7 +290,7 @@ fun SongActionsSheet(
             if (showVideoQualityAction) {
                 ActionRow(
                     icon = Icons.Rounded.HighQuality,
-                    label = "Video Quality • ${currentVideoQuality.label}",
+                    label = "Video Quality • $videoQualityText",
                     accent = palette.accent,
                     onClick = { pickingVideoQuality = true },
                 )
@@ -329,6 +331,9 @@ fun SongActionsSheet(
                             thumbnailUrl = song.thumbnailUrl,
                             videoId = song.videoId,
                             browseId = null,
+                            isVideo = song.isVideo || song.isLive,
+                            isLive = song.isLive,
+                            liveViewersText = song.liveViewersText,
                         )
                     )
                 },

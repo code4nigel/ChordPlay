@@ -896,6 +896,22 @@ object AudioCache {
         upstreamFactory = factory
     }
 
+    /**
+     * A reader over [videoId]'s YouTube Opus, for share clips and Replay year
+     * story playback, pinned to the plain [videoId] entry regardless of any
+     * substitute audio source used during normal playback.
+     */
+    fun opusShareSource(videoId: String): Pair<DataSource.Factory, Uri>? {
+        if (!::cache.isInitialized) return null
+        val upstream = upstreamFactory ?: return null
+        val factory = CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstream)
+            .setCacheKeyFactory { videoId }
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        return factory to Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+    }
+
     private var job: Job? = null
     private var pendingQueue: List<String> = emptyList()
 

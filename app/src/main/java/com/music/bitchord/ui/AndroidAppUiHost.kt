@@ -62,6 +62,8 @@ object AndroidAppUiHost : AppUiHost {
     override val hiddenHomeShelves = AppSettings.hiddenHomeShelves
     override val homeMelodyVisible = AppSettings.homeMelodyVisible
     override val homeReplayVisible = AppSettings.homeReplayVisible
+    override val hideHomeVideos = AppSettings.hideHomeVideos
+    override val squareVideoThumbnails = AppSettings.squareVideoThumbnails
 
     /**
      * [Downloads.saved]'s ids, mirrored once into snapshot state for every row

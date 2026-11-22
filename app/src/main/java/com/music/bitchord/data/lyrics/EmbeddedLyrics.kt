@@ -115,6 +115,8 @@ object EmbeddedLyrics {
             ?.withBackgroundVocals()
     }
 
+    fun isSynced(lines: List<LyricLine>): Boolean = lines.any { it.timeMs > 0L }
+
     /** The raw LRC text for the file, preferring this app's word-timed field. */
     private fun read(context: Context, uri: Uri): String? =
         sidecar(uri.path.takeIf { uri.scheme == "file" })

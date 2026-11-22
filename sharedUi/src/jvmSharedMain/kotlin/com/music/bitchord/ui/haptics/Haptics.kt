@@ -45,6 +45,9 @@ enum class Haptic {
 
     /** Something growing to fill the screen, e.g. the mini player opening. */
     Expand,
+
+    /** A heavy landing on reveal slides in Replay Year. */
+    Slam,
 }
 
 /**

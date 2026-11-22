@@ -257,6 +257,7 @@ fun NowPlayingScreen(
     }
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideLyricsPreview by PlayerSettings.hideLyricsPreview.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     val lyricsPlayhead = rememberLyricPlayhead(position)
     val seekToLyric: (Long) -> Unit = { lineTimeMs ->
@@ -845,6 +846,7 @@ fun NowPlayingScreen(
             onOpenArtist = onOpenArtist,
             onOpenPlaybackSource = onOpenPlaybackSource,
             syncedLyricsEnabled = syncedLyricsEnabled,
+            hideLyricsPreview = hideLyricsPreview,
             lyricsTranslation = lyricsTranslation,
             lyrics = lyrics,
             lyricsPlayhead = lyricsPlayhead,
@@ -1183,7 +1185,7 @@ fun NowPlayingScreen(
                         fun artTop(): Dp = lerp(groupTop, 0.dp, p())
                         fun artStart(): Dp = lerp((maxWidth - fullArt) / 2, 0.dp, p())
                         fun regularTitleTop(): Dp = lerp(groupTop + fullArt + ART_TITLE_GAP, 0.dp, p())
-                        val lyricsBottomLift = if (fullscreenLyricsStyle == com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle.PLAYER_STRIP && syncedLyricsEnabled) {
+                        val lyricsBottomLift = if (fullscreenLyricsStyle == com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle.PLAYER_STRIP && syncedLyricsEnabled && !hideLyricsPreview) {
                             56.dp + maxOf(navBarBottom, 20.dp)
                         } else {
                             maxOf(navBarBottom, 12.dp)
@@ -1307,6 +1309,7 @@ fun NowPlayingScreen(
                             spotifyCanvasPresentation = spotifyCanvasPresentation,
                             spotifyChromeAlpha = spotifyChromeAlpha,
                             syncedLyricsEnabled = syncedLyricsEnabled,
+                            hideLyricsPreview = hideLyricsPreview,
                             fullscreenLyricsStyle = fullscreenLyricsStyle,
                             lyricsTranslation = lyricsTranslation,
                             lyricsPlayhead = lyricsPlayhead,
@@ -1406,6 +1409,7 @@ fun NowPlayingScreen(
                                 if (it != measures.spotifyDeckHeight) measures.spotifyDeckHeight = it
                             },
                             syncedLyricsEnabled = syncedLyricsEnabled,
+                            hideLyricsPreview = hideLyricsPreview,
                             lyricsTranslation = lyricsTranslation,
                             hasLyrics = !lyrics.isNullOrEmpty(),
                             song = song,
@@ -1465,14 +1469,6 @@ fun NowPlayingScreen(
                         .height(measures.heroHeight)
                         .align(Alignment.TopStart),
                 ) {
-                    if (effectiveIsLive) {
-                        LiveBadge(
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .graphicsLayer { alpha = videoControlsAlpha }
-                                .padding(start = 16.dp, bottom = 14.dp),
-                        )
-                    }
                     VideoControlsDock(
                         videoFill = videoFill,
                         onToggleVideoFill = { PlayerSettings.setVideoFill(!videoFill) },

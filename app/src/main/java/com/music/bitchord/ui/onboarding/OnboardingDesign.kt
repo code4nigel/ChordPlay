@@ -15,9 +15,13 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -53,6 +57,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,25 +78,31 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.components.lightweightLiquidGlass
+import com.music.bitchord.ui.components.menuFrost
+import com.music.bitchord.ui.components.optimizedHazeEffect
+import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
 
+internal val LocalOnboardingHazeState = staticCompositionLocalOf<HazeState?> { null }
+internal val LocalOnboardingReduceBlur = staticCompositionLocalOf { false }
+internal val LocalOnboardingAmoled = staticCompositionLocalOf { false }
+
 /**
- * Monochrome chrome palette for ChordPlay onboarding so the live cover-tinted
- * backdrop and preview card own the colour.
+ * Chrome palette for ChordPlay onboarding so the live cover-tinted
+ * backdrop and frosted glass cards own the surface depth.
  */
 internal object Onb {
     val Title = Color.White
-    val Subtitle = Color(0xFFB7B7C0)
-    val Muted = Color(0xFF8A8A94)
-    val Faint = Color(0xFF5E5E68)
+    val Subtitle = Color.White.copy(alpha = 0.80f)
+    val Muted = Color.White.copy(alpha = 0.68f)
+    val Faint = Color.White.copy(alpha = 0.56f)
     val Ink = Color(0xFF101014)
 
     val Surface = Color(0xFF17171C)
     val SurfaceHigh = Color(0xFF202027)
     val SurfacePressed = Color(0xFF2A2A33)
-    val Hairline = Color.White.copy(alpha = 0.08f)
+    val Hairline = Color.White.copy(alpha = 0.12f)
 
     val PillPrimary = Color(0xFFEDEDF2)
     val PillSecondary = Color(0xFF26262E)
@@ -108,10 +119,51 @@ internal val OnbSubtitleTracking = (-0.035).em
 internal fun Modifier.onbSurface(
     shape: RoundedCornerShape,
     elevated: Boolean = false,
-): Modifier = this.lightweightLiquidGlass(
-    shape = shape,
-    fallbackColor = if (elevated) Onb.SurfaceHigh else Onb.Surface,
-)
+): Modifier {
+    val haze = LocalOnboardingHazeState.current
+    val reduceBlur = LocalOnboardingReduceBlur.current
+    val amoled = LocalOnboardingAmoled.current
+
+    if (reduceBlur || amoled) {
+        val opaqueColor = when {
+            amoled && elevated -> Color(0xFF101015)
+            amoled -> Color(0xFF0A0A0D)
+            elevated -> Onb.SurfaceHigh
+            else -> Onb.Surface
+        }
+        return this
+            .clip(shape)
+            .background(opaqueColor, shape)
+            .border(0.75.dp, Color.White.copy(alpha = 0.12f), shape)
+    }
+
+    val topAlpha = if (elevated) 0.16f else 0.11f
+    val bottomAlpha = if (elevated) 0.36f else 0.28f
+    val glassFill = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = topAlpha),
+            Color(0xFF141824).copy(alpha = bottomAlpha),
+        ),
+    )
+    val rimBrush = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = 0.30f),
+            Color.White.copy(alpha = 0.08f),
+        ),
+    )
+    val base = this.clip(shape)
+    val frosted = if (haze != null) {
+        base.optimizedHazeEffect(
+            state = haze,
+            style = menuFrost(Color(0xFF1A1D28), alpha = if (elevated) 0.22f else 0.16f),
+        )
+    } else {
+        base
+    }
+    return frosted
+        .background(glassFill, shape)
+        .border(0.85.dp, rimBrush, shape)
+}
 
 @Composable
 internal fun OnboardingPage(
@@ -253,16 +305,23 @@ internal fun OnbCard(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed && onClick != null) 0.978f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "onbCardScale",
+    )
     Box(
         modifier = modifier
             .graphicsLayer {
-                val s = if (pressed) 0.988f else 1f
-                scaleX = s
-                scaleY = s
+                scaleX = pressScale
+                scaleY = pressScale
             }
             .onbSurface(shape = shape)
             .clip(shape)
-            .background(if (pressed) Onb.SurfacePressed.copy(alpha = 0.5f) else Color.Transparent)
+            .background(if (pressed && onClick != null) Color.White.copy(alpha = 0.08f) else Color.Transparent)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(interactionSource = interaction, indication = null, onClick = onClick)
@@ -283,6 +342,13 @@ internal fun OnbToggle(
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
 ) {
+    val reduceBlur = LocalOnboardingReduceBlur.current
+    val amoled = LocalOnboardingAmoled.current
+    val badgeBg = if (reduceBlur || amoled) {
+        Onb.SurfaceHigh.copy(alpha = 0.85f)
+    } else {
+        Color.White.copy(alpha = if (checked) 0.16f else 0.10f)
+    }
     OnbCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = { if (enabled) onCheckedChange(!checked) },
@@ -295,13 +361,13 @@ internal fun OnbToggle(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(Onb.SurfaceHigh.copy(alpha = 0.85f)),
+                    .background(badgeBg),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = if (checked) Onb.Title else Onb.Muted,
+                    tint = if (checked) Onb.Title else Onb.Subtitle,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -433,11 +499,11 @@ internal fun OnbSegmented(
 internal fun OnbSectionLabel(text: String) {
     Text(
         text = text.uppercase(),
-        color = Onb.Faint,
-        fontSize = 11.sp,
+        color = Color.White.copy(alpha = 0.86f),
+        fontSize = 11.5.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.12.em,
-        modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = 4.dp, top = 6.dp, bottom = 6.dp),
     )
 }
 

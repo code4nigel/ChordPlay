@@ -271,4 +271,21 @@
     <string name="live_cat_hits">להיטים</string>
     <string name="live_cat_rock_pop">רוק ופופ</string>
     <string name="live_stations_empty">לא נמצאו תחנות בשידור חי עבור קטגוריה זו כרגע.</string>
+    <string name="featured_pick">מומלץ</string>
+    <string name="find_your_mood">מצא את מצב הרוח שלך</string>
+    <string name="live_all_stations">כל התחנות החיות</string>
+    <string name="live_cat_electronic">אלקטרוני ו-EDM</string>
+    <string name="live_cat_hiphop">היפ הופ ו-R&amp;B</string>
+    <string name="live_cat_jazz">ג׳אז ובית קפה</string>
+    <string name="live_listen">האזנה בשידור חי</string>
+    <string name="live_search_hint">חפש תחנות חיות…</string>
+    <string name="live_see_all">הצג הכל</string>
+    <string name="live_sort_category">קטגוריה</string>
+    <string name="live_sort_name">שם (א–ת)</string>
+    <string name="live_sort_viewers">המואזנות ביותר</string>
+    <string name="made_for_you">נוצר עבורך</string>
+    <string name="mixes_quick">מיקסים מהירים</string>
+    <string name="mixes_your">המיקסים שלך</string>
+    <string name="mood_feel_good">הרגשה טובה</string>
+    <string name="mood_relax">הירגעות</string>
 </resources>

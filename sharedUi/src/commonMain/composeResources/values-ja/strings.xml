@@ -271,4 +271,21 @@
     <string name="live_cat_hits">ヒット曲</string>
     <string name="live_cat_rock_pop">ロック &amp; ポップ</string>
     <string name="live_stations_empty">このカテゴリーのライブステーションが見つかりません。</string>
+    <string name="featured_pick">注目</string>
+    <string name="find_your_mood">ムードを探す</string>
+    <string name="live_all_stations">すべてのライブ局</string>
+    <string name="live_cat_electronic">エレクトロニック &amp; EDM</string>
+    <string name="live_cat_hiphop">ヒップホップ &amp; R&amp;B</string>
+    <string name="live_cat_jazz">ジャズ &amp; カフェ</string>
+    <string name="live_listen">ライブを聴く</string>
+    <string name="live_search_hint">ライブ局を検索…</string>
+    <string name="live_see_all">すべて表示</string>
+    <string name="live_sort_category">カテゴリー</string>
+    <string name="live_sort_name">タイトル (A–Z)</string>
+    <string name="live_sort_viewers">人気順</string>
+    <string name="made_for_you">あなたにおすすめ</string>
+    <string name="mixes_quick">クイックミックス</string>
+    <string name="mixes_your">マイミックス</string>
+    <string name="mood_feel_good">ハッピー</string>
+    <string name="mood_relax">リラックス</string>
 </resources>
