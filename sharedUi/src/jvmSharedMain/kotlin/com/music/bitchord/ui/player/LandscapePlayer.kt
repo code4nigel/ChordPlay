@@ -107,7 +107,9 @@ import com.music.bitchord.data.settings.LandscapeFontScale
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 /**
  * Below this height the landscape player tightens its right column — smaller
@@ -158,6 +160,8 @@ internal fun LandscapePlayerLayout(
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
+    val playerAnimationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val animSpeed = playerAnimationSpeed.coerceIn(0.5f, 2.0f)
 
     Box(modifier = modifier.fillMaxSize()) {
         // Dynamic atmospheric background (Mesh Gradient + Synesthesia Nocturne ribbons)
@@ -192,7 +196,7 @@ internal fun LandscapePlayerLayout(
                     PlayerPane.Queue -> if (compact) 8.dp else 14.dp
                     PlayerPane.Main -> if (compact) 40.dp else 48.dp
                 },
-                animationSpec = tween(280),
+                animationSpec = tween((280f / animSpeed).roundToInt().coerceIn(70, 600)),
                 label = "deckTopPadding",
             )
 
@@ -268,10 +272,10 @@ internal fun LandscapePlayerLayout(
                         transitionSpec = {
                             fadeIn(
                                 tween(
-                                    LANDSCAPE_PANE_FADE_IN_MS,
-                                    delayMillis = LANDSCAPE_PANE_FADE_IN_DELAY_MS,
+                                    (LANDSCAPE_PANE_FADE_IN_MS / animSpeed).roundToInt().coerceIn(60, 500),
+                                    delayMillis = (LANDSCAPE_PANE_FADE_IN_DELAY_MS / animSpeed).roundToInt().coerceIn(0, 200),
                                 ),
-                            ) togetherWith fadeOut(tween(LANDSCAPE_PANE_FADE_OUT_MS))
+                            ) togetherWith fadeOut(tween((LANDSCAPE_PANE_FADE_OUT_MS / animSpeed).roundToInt().coerceIn(40, 320)))
                         },
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillMaxSize(),

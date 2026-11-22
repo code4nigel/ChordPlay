@@ -358,12 +358,12 @@ internal fun Modifier.miniPlayerGestures(
                     while (true) {
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == pointer } ?: break
+                        val deltaX = change.positionChange().x
                         change.consume()
                         if (!change.pressed) {
                             completed = true
                             break
                         }
-                        val deltaX = change.positionChange().x
                         if (deltaX != 0f) {
                             totalDragX += deltaX
                             val widthPx = size.width.coerceAtLeast(1).toFloat()

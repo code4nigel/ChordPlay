@@ -1513,6 +1513,8 @@ private fun BitChordApp(
 
             convertedFromVideo = song
             convertedAudioId = audio.videoId
+            keepVideoId = null
+            com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(null)
             TrackLog.d("Player", "audio switch applying '${audio.title}' (${audio.videoId})", song.videoId)
             val target = audio.copy(
                 isVideoOrigin = true,
@@ -1579,6 +1581,8 @@ private fun BitChordApp(
 
             convertedFromAudio = song
             convertedVideoId = video.videoId
+            keepVideoId = video.videoId
+            com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(video.videoId)
             TrackLog.d("Player", "video switch applying '${video.title}' (${video.videoId})", song.videoId)
             val target = video.copy(
                 queueTier = song.queueTier,
@@ -1671,7 +1675,10 @@ private fun BitChordApp(
             optimisticVersionSong = null
         }
         if (activeRadioSeed?.first != player.song?.videoId) activeRadioSeed = null
-        if (keepVideoId != player.song?.videoId) keepVideoId = null
+        if (keepVideoId != player.song?.videoId && optimisticVersionSong?.videoId != keepVideoId) {
+            keepVideoId = null
+            com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(null)
+        }
         if (player.song?.videoId != convertedAudioId) {
             convertedFromVideo = null
             convertedAudioId = null
@@ -5030,6 +5037,7 @@ private fun BitChordApp(
                                 convertedAudioId == optimisticVersionSong?.videoId
                             ) -> {
                             keepVideoId = original.videoId
+                            com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(original.videoId)
                             convertedFromVideo = null
                             convertedAudioId = null
                             if (!versionAlignmentPending(original.videoId)) optimisticVersionSong = original
@@ -5040,6 +5048,8 @@ private fun BitChordApp(
                                 convertedVideoId == versionEffectiveSong.videoId ||
                                 convertedVideoId == optimisticVersionSong?.videoId
                             ) -> {
+                            keepVideoId = null
+                            com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(null)
                             convertedFromAudio = null
                             convertedVideoId = null
                             if (!versionAlignmentPending(originalAudio.videoId)) optimisticVersionSong = originalAudio
@@ -5051,6 +5061,8 @@ private fun BitChordApp(
                             if (cached != null && cached.videoId != song.videoId &&
                                 !versionAlignmentPending(cached.videoId)
                             ) {
+                                keepVideoId = null
+                                com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(null)
                                 optimisticVersionSong = cached.copy(
                                     isVideoOrigin = true,
                                     queueTier = song.queueTier,
@@ -5069,6 +5081,8 @@ private fun BitChordApp(
                             if (cached != null && cached.videoId != song.videoId &&
                                 !versionAlignmentPending(cached.videoId)
                             ) {
+                                keepVideoId = cached.videoId
+                                com.music.bitchord.ui.player.MusicVideoEngine.setExplicitVideoOverride(cached.videoId)
                                 optimisticVersionSong = cached.copy(
                                     queueTier = song.queueTier,
                                     queueEntryId = song.queueEntryId,

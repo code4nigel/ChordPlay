@@ -160,6 +160,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     override fun showsMusicVideoPicture(videoId: String): Boolean =
         (!AppSettings.preferMusicOnly.value ||
+            MusicVideoEngine.isExplicitVideoOverride(videoId) ||
             com.music.bitchord.data.innertube.StreamResolver.isKnownLive(videoId)) &&
             !MusicVideoEngine.isPictureless(videoId)
 

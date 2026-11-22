@@ -77,6 +77,7 @@ import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 /**
  * The portrait player's backdrop: the artwork mesh (or legacy blobs), the
@@ -104,9 +105,10 @@ internal fun BoxScope.PortraitBackdrop(
     fullArtworkBlur: @Composable (Modifier) -> Unit,
     playerHaze: HazeState,
 ) {
+    val animSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val animatedPanelProgress by animateFloatAsState(
         targetValue = if (panelOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = (420f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
         label = "fullArtworkBackdropCrossfade",
     )
     val panelProgress: () -> Float = collapseP?.let { fn ->

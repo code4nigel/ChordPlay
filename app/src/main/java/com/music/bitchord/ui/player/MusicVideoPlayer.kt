@@ -144,6 +144,23 @@ object MusicVideoEngine {
     private fun topSurface(): Surface? = surfaces.lastOrNull { s -> surfaces.none { it.priority > s.priority } }
     private fun top(): TextureView? = topSurface()?.view
 
+    /** Video explicitly switched to by the user even when `preferMusicOnly` is enabled. */
+    @Volatile
+    private var explicitVideoOverrideId: String? = null
+
+    fun setExplicitVideoOverride(videoId: String?) {
+        if (explicitVideoOverrideId == videoId) return
+        explicitVideoOverrideId = videoId
+        if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) {
+            refresh()
+        } else {
+            scope.launch { refresh() }
+        }
+    }
+
+    fun isExplicitVideoOverride(videoId: String?): Boolean =
+        !videoId.isNullOrBlank() && explicitVideoOverrideId == videoId
+
     /** The video loaded (or loading) into [player]. */
     private var loadedId: String? = null
     private var loadJob: Job? = null
@@ -625,7 +642,8 @@ object MusicVideoEngine {
         val surfaceId = topSurface()?.videoId?.takeIf { it.isNotBlank() }
         val song = controller?.currentMediaItem?.toSong()
         val live = song?.isLive == true || (surfaceId != null && StreamResolver.isKnownLive(surfaceId))
-        if (AppSettings.preferMusicOnly.value && !live) {
+        val explicitOverride = isExplicitVideoOverride(surfaceId) || isExplicitVideoOverride(song?.videoId)
+        if (AppSettings.preferMusicOnly.value && !live && !explicitOverride) {
             val skipId = surfaceId ?: song?.videoId
             TrackLog.d(TAG, "video: skipped $skipId (preferMusicOnly=true)", about = skipId)
             return null

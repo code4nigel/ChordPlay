@@ -102,7 +102,6 @@ internal fun LandscapeAndVideoNowPlaying(
     onOpenPipeline: () -> Unit,
     likeBurstState: LikeBurstState,
     playerHaze: HazeState,
-    playerOverlayHaze: HazeState = playerHaze,
     dockHost: Modifier,
     dock: PlayerDock?,
     dockFrame: DockFrame,
@@ -189,8 +188,7 @@ internal fun LandscapeAndVideoNowPlaying(
             LocalPlayerHazeState provides playerHaze,
         ) {
             Box(modifier = modifier.fillMaxSize().then(dockHost)) {
-                Box(Modifier.fillMaxSize().hazeSource(playerOverlayHaze)) {
-                    FullscreenVideoPlayer(
+                FullscreenVideoPlayer(
                     song = song,
                     isPlaying = isPlaying,
                     artRequest = art.request,
@@ -269,7 +267,6 @@ internal fun LandscapeAndVideoNowPlaying(
                         }
                     },
                 )
-                }
                 playerOverlays()
             }
         }
@@ -321,7 +318,6 @@ internal fun LandscapeAndVideoNowPlaying(
         Box(modifier = modifier.fillMaxSize().then(dockHost)) {
             val landscapeFontScale by PlayerSettings.landscapeFontScale.collectAsStateWithLifecycle()
 
-            Box(Modifier.fillMaxSize().hazeSource(playerOverlayHaze)) {
             LandscapePlayerLayout(
                 pane = when {
                     panels.lyricsOpen -> PlayerPane.Lyrics
@@ -674,7 +670,6 @@ internal fun LandscapeAndVideoNowPlaying(
                     )
                 },
             )
-            }
             playerOverlays()
         }
     }

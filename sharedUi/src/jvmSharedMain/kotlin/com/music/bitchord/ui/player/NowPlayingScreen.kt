@@ -247,7 +247,6 @@ fun NowPlayingScreen(
     val isTopBright = (artTopLuminance ?: 0f) > 0.45f
 
     val playerHaze = remember { HazeState() }
-    val playerOverlayHaze = remember { HazeState() }
     val overlays = remember { PlayerOverlayState() }
     val openAudioOutput = rememberOutputPicker { overlays.audioOutput = true }
     val controlsLocked = rememberControlsLocked()
@@ -498,9 +497,11 @@ fun NowPlayingScreen(
         idleMs = LYRICS_CONTROLS_IDLE_MS,
     )
 
+    val playerAnimationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val animSpeed = playerAnimationSpeed.coerceIn(0.5f, 2.0f)
     val animatedCollapse = animateFloatAsState(
         targetValue = if (panels.lyricsOpen || panels.queueOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = (420f / animSpeed).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
         label = "sleeveCollapse",
     )
     val collapse = remember(panels, animatedCollapse) { PlayerCollapse(panels, animatedCollapse) }
@@ -509,11 +510,11 @@ fun NowPlayingScreen(
     val panelFade = remember {
         Animatable(if (Snapshot.withoutReadObservation { collapse.done }) 1f else 0f)
     }
-    LaunchedEffect(collapse) {
+    LaunchedEffect(collapse, animSpeed) {
         snapshotFlow { collapse.done }.collectLatest { settled ->
             panelFade.animateTo(
                 if (settled) 1f else 0f,
-                tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                tween(durationMillis = (200f / animSpeed).roundToInt().coerceIn(50, 450), easing = FastOutSlowInEasing),
             )
         }
     }
@@ -596,7 +597,7 @@ fun NowPlayingScreen(
         } else {
             Color.White.copy(alpha = 0.85f)
         },
-        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = (360f / animSpeed).roundToInt().coerceIn(90, 800), easing = FastOutSlowInEasing),
         label = "topBarGlyphTint",
     )
     StatusBarIcons(dark = darkTopBarIcons)
@@ -698,7 +699,7 @@ fun NowPlayingScreen(
         )
         PlayerOverlays(
             overlays = overlays,
-            playerHaze = playerOverlayHaze,
+            playerHaze = playerHaze,
             accountName = accountName,
             accentColor = synesthesiaPalette.colors.firstOrNull(),
             isVideo = song.isVideo,
@@ -826,7 +827,6 @@ fun NowPlayingScreen(
             },
             likeBurstState = likeBurstState,
             playerHaze = playerHaze,
-            playerOverlayHaze = playerOverlayHaze,
             dockHost = dockHost,
             dock = dock,
             dockFrame = dockFrame,
@@ -900,8 +900,7 @@ fun NowPlayingScreen(
                 .onSizeChanged { measures.playerBounds = it }
                 .background(Color.Black),
         ) {
-            Box(Modifier.fillMaxSize().hazeSource(playerOverlayHaze)) {
-                PortraitBackdrop(
+            PortraitBackdrop(
                 legacyMesh = legacyMeshBackdrop,
                 tablet = tabletArtworkBackdrop,
                 panelOpen = panels.lyricsOpen || panels.queueOpen,
@@ -1493,7 +1492,6 @@ fun NowPlayingScreen(
                             .padding(end = 16.dp, bottom = 14.dp),
                     )
                 }
-            }
             }
             playerOverlays()
         }
