@@ -16,7 +16,7 @@
 
 <br/>
 
-[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Community](#community) • [Lineage & Attribution](#lineage--attribution) • [License](#license) • [Support](#support-the-project)
+[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Community](#community) • [Lineage & Attribution](#lineage--attribution) • [Disclaimer](#disclaimer--legal-notice) • [License](#license) • [Support](#support-the-project)
 
 </div>
 
@@ -195,6 +195,17 @@ ChordPlay is an open-source project built with deep gratitude toward the develop
 | [Haze](https://github.com/chrisbanes/haze) | Chris Banes | High-performance blur and frosted glass rendering for Compose |
 | [am-lyrics](https://github.com/binimum/am-lyrics) | binimum | Synchronized lyrics animation concepts |
 | [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) | Team NewPipe | YouTube stream extraction engine |
+
+---
+
+## Disclaimer & Legal Notice
+
+ChordPlay is an independent, community-driven third-party audio player and client. It is not associated with Google LLC, YouTube Music, Deezer, Telegram, or any of their parent companies.
+
+- **No Media Hosting**: ChordPlay does not host, upload, or store copyrighted music files. It operates strictly as an interface to scan local device storage or stream media directly from public, public-facing, or user-authenticated APIs.
+- **Fair Use & API Usage**: This software is created solely for personal research, educational, and fair-use purposes. The user is entirely responsible for ensuring their usage aligns with their local copyright laws and YouTube Terms of Service.
+- **No Ad-Blocking Guarantee**: While ChordPlay focuses on providing a clean listening environment, it does not guarantee permanent bypasses or modifications to commercial third-party platform conditions.
+- **Copyleft**: ChordPlay is free software under the GPLv3. The license does not let anyone forbid others from selling or redistributing copies, but any distribution must come with the Corresponding Source under the same license.
 
 ---
 
