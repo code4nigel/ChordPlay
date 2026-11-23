@@ -325,7 +325,7 @@
     <string name="studio_outgoing">Fade starts · %1$s</string>
     <string name="studio_incoming">Next track starts · %1$s</string>
     <string name="studio_tempo">Maximum tempo change</string>
-    <string name="studio_tempo_amount">+%1$s%% tempo</string>
-    <string name="studio_percent">%1$s%%</string>
+    <string name="studio_tempo_amount">+%1$s% tempo</string>
+    <string name="studio_percent">%1$s%</string>
     <string name="studio_invalid">There isn’t enough audio left for this blend.</string>
 </resources>
