@@ -20,6 +20,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -102,6 +104,7 @@ internal fun AutomixStudioSheet(
     val cut = current.edit.style == AutomixStyle.OFF
     val shape = RoundedCornerShape(30.dp)
     val highlight = accent ?: Color(0xFFC4B8FF)
+    val timelineAccent = if (highlight.luminance() < 0.35f) lerp(highlight, Color.White, 0.50f) else highlight
     fun change(value: AutomixEdit) {
         applyFailed = false
         studio.edit(pair, value)
@@ -131,7 +134,7 @@ internal fun AutomixStudioSheet(
                 StudioArtwork(current.outgoing, Modifier.weight(1f))
                 StudioArtwork(current.incoming, Modifier.weight(1f))
             }
-            StudioTimeline(current, plan, highlight, reduceAnimation)
+            StudioTimeline(current, plan, timelineAccent, reduceAnimation)
 
             val duration = (plan.fadeSeconds * 10).roundToInt() / 10.0
             val speed = ((maxOf(plan.incomingPlaybackRate, plan.outgoingPlaybackRate) - 1) * 1000).roundToInt() / 10.0
@@ -225,10 +228,25 @@ private fun StudioArtwork(song: Song, modifier: Modifier) {
 
 @Composable
 private fun StudioTimeline(state: AutomixStudioState, plan: TransitionPlan, accent: Color, reduceAnimation: Boolean) {
-    val fadeStart = stringResource(Res.string.studio_outgoing, studioTimestamp(plan.transitionStart))
-    val incomingStart = stringResource(Res.string.studio_incoming, studioTimestamp(plan.incomingCueTime))
+    val outgoingTime = studioTimestamp(plan.transitionStart)
+    val incomingTime = studioTimestamp(plan.incomingCueTime)
+    val fadeStart = stringResource(Res.string.studio_outgoing, outgoingTime)
+    val incomingStart = stringResource(Res.string.studio_incoming, incomingTime)
     val playing = state.audition.phase == AutomixAuditionPhase.PLAYING
-    Canvas(Modifier.fillMaxWidth().height(66.dp).semantics { contentDescription = "$fadeStart. $incomingStart" }) {
+    Box(Modifier.fillMaxWidth().height(66.dp).semantics(mergeDescendants = true) {
+        contentDescription = "$fadeStart. $incomingStart"
+    }) {
+        StudioTimelineLanes(state, plan, accent, playing && !reduceAnimation, Modifier.matchParentSize())
+        Text(outgoingTime, Modifier.align(Alignment.TopEnd).padding(top = 9.dp, end = 10.dp), color = Color.White,
+            style = MaterialTheme.typography.labelSmall)
+        Text(incomingTime, Modifier.align(Alignment.BottomStart).padding(bottom = 7.dp, start = 10.dp), color = Color.White,
+            style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun StudioTimelineLanes(state: AutomixStudioState, plan: TransitionPlan, accent: Color, showPlayhead: Boolean, modifier: Modifier) {
+    Canvas(modifier) {
         val pad = 10.dp.toPx()
         val width = size.width - pad * 2
         val split = 0.40f
@@ -245,13 +263,14 @@ private fun StudioTimeline(state: AutomixStudioState, plan: TransitionPlan, acce
                 val tick = x(split + ((it - plan.transitionStart) / plan.fadeSeconds).toFloat() * (end - split))
                 drawLine(Color.White, Offset(tick, top - bar), Offset(tick, top + bar), 1.dp.toPx())
             }
-            state.incomingBeats.filter { it in plan.incomingCueTime..(plan.incomingCueTime + plan.fadeSeconds) }.forEach {
-                val tick = x(split + ((it - plan.incomingCueTime) / plan.fadeSeconds).toFloat() * (end - split))
+            val incomingSpan = plan.fadeSeconds * plan.incomingPlaybackRate / plan.outgoingPlaybackRate
+            state.incomingBeats.filter { it in plan.incomingCueTime..(plan.incomingCueTime + incomingSpan) }.forEach {
+                val tick = x(split + ((it - plan.incomingCueTime) / incomingSpan).toFloat() * (end - split))
                 drawLine(Color.White, Offset(tick, bottom), Offset(tick, bottom + bar * 2), 1.dp.toPx())
             }
         }
         drawLine(Color.White.copy(alpha = 0.55f), Offset(x(split), top), Offset(x(split), bottom + bar), 1.dp.toPx())
-        if (playing && !reduceAnimation) {
+        if (showPlayhead) {
             val playhead = x(state.audition.position)
             drawLine(Color.White, Offset(playhead, 6.dp.toPx()), Offset(playhead, size.height - 6.dp.toPx()), 2.dp.toPx())
         }
