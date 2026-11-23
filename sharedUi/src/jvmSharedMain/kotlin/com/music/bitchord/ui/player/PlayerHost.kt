@@ -45,6 +45,7 @@ import kotlinx.coroutines.flow.StateFlow
  * [PlayerPlatform.install] before the player is first drawn.
  */
 interface PlayerHost {
+    val automixStudio: AutomixStudio? get() = null
     val settings: PlayerSettingsSource
 
     /** A Canvas already settled for [song], without a lookup. */

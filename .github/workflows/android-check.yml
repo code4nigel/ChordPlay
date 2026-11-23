@@ -19,4 +19,5 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - run: sdkmanager 'platforms;android-36' 'platforms;android-37.0'
       - run: bash ./gradlew :app:testDevDebugUnitTest :shared:jvmTest :sharedUi:jvmTest

@@ -403,6 +403,7 @@ internal fun InlineQueue(
                             locked = controlsLocked,
                             modifier = queueMotion(),
                         )
+                        AutomixQueueLink(controlsLocked)
                     }
                 }
                 if (visibleUser.isNotEmpty()) {

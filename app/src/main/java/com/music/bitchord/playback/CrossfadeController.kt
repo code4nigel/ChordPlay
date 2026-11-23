@@ -19,6 +19,7 @@ import com.music.bitchord.playback.smart.CrossfadeMode
 import com.music.bitchord.playback.smart.FILTER_ECHO_AT
 import com.music.bitchord.playback.smart.FilterTransitionVariant
 import com.music.bitchord.playback.smart.TrackAnalysis
+import com.music.bitchord.playback.smart.TransitionPlan
 import com.music.bitchord.playback.smart.TransitionStyle
 import com.music.bitchord.playback.smart.TransitionTrackInfo
 import com.music.bitchord.playback.smart.echoTailSeconds
@@ -192,7 +193,39 @@ class CrossfadeController(
      * [Phase.IDLE] is the only phase that can still be preempted for free.
      */
     private val versionSwapActive: () -> Boolean = { false },
+    private val audition: Boolean = false,
 ) {
+
+    internal var studioEdit: (AutomixPair) -> TransitionPlan = { it.automatic }
+    internal val studioBusy: Boolean get() = phase != Phase.IDLE || versionSwapActive()
+
+    internal fun studioPair(): AutomixPair? {
+        val player = active()
+        val duration = player.duration
+        if (duration == C.TIME_UNSET || duration <= 0) return null
+        val current = player.currentMediaItem ?: return null
+        val nextIndex = player.nextMediaItemIndex
+        if (nextIndex == C.INDEX_UNSET) return null
+        val next = player.getMediaItemAt(nextIndex)
+        if (current.isVideoOrigin || next.isVideoOrigin || current.isLiveItem || next.isLiveItem) return null
+        val timeline = player.currentTimeline
+        val window = androidx.media3.common.Timeline.Window()
+        fun identity(item: MediaItem, index: Int): Any =
+            item.queueEntryId ?: timeline.getWindow(index, window).uid
+        val currentAnalysis = analysisFor(current)
+        val nextAnalysis = analysisFor(next)
+        val nextDuration = nextItemDurationMs(nextIndex, next)
+        val automatic = automaticPlan(player, current, next, duration, nextDuration, currentAnalysis, nextAnalysis)
+        return AutomixPair(
+            identity(current, player.currentMediaItemIndex) to identity(next, nextIndex),
+            current, next, duration, nextDuration, currentAnalysis, nextAnalysis, automatic,
+        )
+    }
+
+    internal fun armAudition(plan: TransitionPlan): Boolean = beginWithPlan(plan)
+    internal fun advanceAudition() = tick()
+    internal val auditionReady: Boolean get() = incoming?.playbackState == Player.STATE_READY
+    internal val auditionInFlight: Boolean get() = phase != Phase.IDLE
 
     private enum class Phase {
         /** Nothing in flight; watching for the next transition. */
@@ -687,8 +720,10 @@ class CrossfadeController(
         listeningTo?.removeListener(listener)
         listeningTo = null
         active().volume = 1f
-        AppSettings.smartMixInProgress.value = false
-        AppSettings.smartMixBlend.value = null
+        if (!audition) {
+            AppSettings.smartMixInProgress.value = false
+            AppSettings.smartMixBlend.value = null
+        }
         filters.open()
         filters.parkEchoes()
         onBlendHeadroom(1f)
@@ -738,12 +773,12 @@ class CrossfadeController(
         // simply froze on the previous pair, so a track that had not been
         // analysed kept showing the *departing* track's "analysed" until
         // ticking resumed.
-        publishAnalysisState()
+        if (!audition) publishAnalysisState()
 
         if (easing != null && phase == Phase.IDLE) driveEase()
 
         when (phase) {
-            Phase.IDLE -> considerAutoTransition()
+            Phase.IDLE -> if (!audition) considerAutoTransition() else Unit
             Phase.ARMING -> driveArming()
             Phase.FADING -> driveFade()
             Phase.SLEEP_FADE -> driveSleepFade()
@@ -880,39 +915,14 @@ class CrossfadeController(
             AppSettings.smartMixInProgress.value = false
             return
         }
-        val nextDuration = nextItemDurationMs(nextIndex, nextItem)
-
         requestAnalysisAround(player, duration)
 
-        // Only used before analysis lands, or when the evidence is too weak
-        // for more than a plain fade (see [TransitionTier.PLAIN_CROSSFADE]):
-        // once real analysis is available, [planTransition] sizes the overlap
-        // itself from tempo and structure and ignores this entirely. Honours
-        // the manual slider if the listener also set one, so the two settings
-        // don't fight; falls back to a fixed length when it's at "Off".
-        val fallbackSeconds = configuredFadeMs().takeIf { it > 0L }
-            ?.div(1000.0)
-            ?: DEFAULT_SMART_FALLBACK_SECONDS
-
-        // Resolved once and reused: [analysisFor] was being called five separate
-        // times per tick below, and the answer cannot change mid-tick.
-        val currentAnalysis = analysisFor(currentItem)
-        val nextAnalysis = analysisFor(nextItem)
+        val pair = studioPair() ?: return
+        val currentAnalysis = pair.outgoingAnalysis
+        val nextAnalysis = pair.incomingAnalysis
         val analysisState = AppSettings.smartAnalysis.value
-        // The DJ planner is Automix now; there is no separate mode switch.
         val advanced = true
-
-        val plan = planTransition(
-            analysis = currentAnalysis,
-            nextAnalysis = nextAnalysis,
-            currentTrack = currentItem.toTransitionInfo(duration),
-            nextTrack = nextItem.toTransitionInfo(nextDuration),
-            currentTime = player.currentPosition / 1000.0,
-            duration = duration / 1000.0,
-            fadeSeconds = fallbackSeconds,
-            mode = CrossfadeMode.SMART,
-            advanced = advanced,
-        )
+        val plan = studioEdit(pair)
         // One line per distinct verdict rather than one per 250ms tick, so the
         // log says what the planner decided for this pair without burying it.
         val verdict = "${plan.reason}|${plan.transitionStyle}|fade=${plan.fadeMs}" +
@@ -1004,28 +1014,50 @@ class CrossfadeController(
         val fileRemaining = duration - player.currentPosition
         if (remaining > ARM_LEAD_MS + rampMs && fileRemaining > armBeforeReadAheadMs()) return
 
-        begin(
-            fade,
-            endMs = (plan.transitionEnd * 1000).roundToLong(),
-            smart = true,
-            cueTimeMs = (plan.incomingCueTime * 1000).roundToLong(),
-            playbackRate = plan.incomingPlaybackRate,
-            outgoingRate = plan.outgoingPlaybackRate,
-            beatMs = beatMs,
-            renderStyle = Render(
-                style = plan.transitionStyle,
-                bassSwap = plan.bassSwap,
-                bassSwapFraction = plan.bassSwapFraction,
-                filterSweep = plan.filterSweep,
-                filterVariant = plan.filterVariant,
-                vocalOverlap = plan.vocalOverlap,
-                advanced = advanced,
-                beats = if (plan.beatSeconds > 0) plan.fadeSeconds / plan.beatSeconds else 0.0,
-                lockPhase = plan.phaseLock,
-                echoSeconds = plan.echoSeconds,
-            ),
-        )
+        beginWithPlan(plan)
     }
+
+    private fun automaticPlan(
+        player: ExoPlayer,
+        current: MediaItem,
+        next: MediaItem,
+        duration: Long,
+        nextDuration: Long,
+        currentAnalysis: TrackAnalysis,
+        nextAnalysis: TrackAnalysis,
+    ): TransitionPlan = planTransition(
+        analysis = currentAnalysis,
+        nextAnalysis = nextAnalysis,
+        currentTrack = current.toTransitionInfo(duration),
+        nextTrack = next.toTransitionInfo(nextDuration),
+        currentTime = player.currentPosition / 1000.0,
+        duration = duration / 1000.0,
+        fadeSeconds = configuredFadeMs().takeIf { it > 0 }?.div(1000.0) ?: DEFAULT_SMART_FALLBACK_SECONDS,
+        mode = CrossfadeMode.SMART,
+        advanced = true,
+    )
+
+    private fun beginWithPlan(plan: TransitionPlan): Boolean = begin(
+        plan.fadeMs,
+        endMs = (plan.transitionEnd * 1000).roundToLong(),
+        smart = true,
+        cueTimeMs = (plan.incomingCueTime * 1000).roundToLong(),
+        playbackRate = plan.incomingPlaybackRate,
+        outgoingRate = plan.outgoingPlaybackRate,
+        beatMs = (plan.beatSeconds * 1000).roundToLong(),
+        renderStyle = Render(
+            style = plan.transitionStyle,
+            bassSwap = plan.bassSwap,
+            bassSwapFraction = plan.bassSwapFraction,
+            filterSweep = plan.filterSweep,
+            filterVariant = plan.filterVariant,
+            vocalOverlap = plan.vocalOverlap,
+            advanced = true,
+            beats = if (plan.beatSeconds > 0) plan.fadeSeconds / plan.beatSeconds else 0.0,
+            lockPhase = plan.phaseLock,
+            echoSeconds = plan.echoSeconds,
+        ),
+    )
 
     /**
      * Queues the playing track and the one queued after it for analysis.
@@ -1385,10 +1417,10 @@ class CrossfadeController(
         // the old sheen for a mix flag with no blend beside it, and would flash
         // it for a frame otherwise.
         publishBlend(out, into, force = true)
-        AppSettings.smartMixInProgress.value = isRealMix()
+        if (!audition) AppSettings.smartMixInProgress.value = isRealMix()
         // The bar fills to the end through the first half of the blend, which
         // would run straight over the marker for the transition now under way.
-        AppSettings.smartTransitionWindow.value = null
+        if (!audition) AppSettings.smartTransitionWindow.value = null
         phase = Phase.FADING
     }
 
@@ -1582,7 +1614,7 @@ class CrossfadeController(
      * grid moving to the other song — or playback starts or stops.
      */
     private fun publishBlend(out: ExoPlayer, into: ExoPlayer, force: Boolean = false) {
-        if (!smartFadeActive) return
+        if (!smartFadeActive || audition) return
         val session = if (handedOff) into else out
         val playing = session.isPlaying
         val last = AppSettings.smartMixBlend.value
@@ -1721,8 +1753,10 @@ class CrossfadeController(
     private fun bail() {
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         Log.d(TAG, "bail from $phase")
-        AppSettings.smartMixInProgress.value = false
-        AppSettings.smartMixBlend.value = null
+        if (!audition) {
+            AppSettings.smartMixInProgress.value = false
+            AppSettings.smartMixBlend.value = null
+        }
         if (!handedOff && phase != Phase.FADING) {
             // Nothing was ever audible; no ramp to run.
             finish()
@@ -1753,8 +1787,10 @@ class CrossfadeController(
             // caller off for as long as the calls kept coming.
             settledAt = SystemClock.elapsedRealtime()
         }
-        AppSettings.smartMixInProgress.value = false
-        AppSettings.smartMixBlend.value = null
+        if (!audition) {
+            AppSettings.smartMixInProgress.value = false
+            AppSettings.smartMixBlend.value = null
+        }
         // Before anything else: a transition that never handed off leaves the
         // outgoing player as the session, and it must not pause at the end of
         // its track for a blend that is not coming.

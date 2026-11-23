@@ -561,6 +561,7 @@ class PlaybackService : MediaLibraryService() {
     private var spare: ExoPlayer? = null
 
     private var crossfade: CrossfadeController? = null
+    private var automixStudio: AutomixStudioSession? = null
 
     /**
      * What the players currently in hand were built for.
@@ -925,6 +926,7 @@ class PlaybackService : MediaLibraryService() {
             val exoPlayer = player ?: return
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
                 pendingRecovery?.cancel()
+                automixStudio?.cancelPreview()
                 if (exoPlayer.isPlaying) pushDiscordPresence(exoPlayer)
                 updateLyricSubtitle()
             }
@@ -955,6 +957,7 @@ class PlaybackService : MediaLibraryService() {
             // current — or it is the one that moved, and this is the phone
             // catching up, which [CastPlayback] tells apart by track.
             pendingRecovery?.cancel()
+            automixStudio?.cancelPreview()
             castPlayback.onLocalTransition(mediaItem, reason)
 
             // No crossfade case to allow for here any more. A blended advance
@@ -1710,6 +1713,27 @@ class PlaybackService : MediaLibraryService() {
 
         val controller = createCrossfadeController()
         crossfade = controller
+        automixStudio = AutomixStudioSession(
+            scope = scope,
+            player = { player },
+            liveRenderer = { crossfade },
+            eligible = {
+                !castPlayback.active && !ListenTogether.state.value.inParty && !SleepTimer.afterTrack.value &&
+                    player?.repeatMode != Player.REPEAT_MODE_ONE &&
+                    AudioOutputStatus.current.value.let { it.dspAvailable && !it.directPlaybackSelected }
+            },
+            output = { AudioOutputStatus.current.value.let { it.activeDeviceId to it.routeKind } },
+            buildDeck = { filter, loudness ->
+                loudness.gainFor = ::loudnessGainFor
+                val spatial = SpatialAudioProcessor().apply {
+                    enabled = AppSettings.spatialAudio.value && !activeTrackIsDolbyAtmos
+                }
+                val equalizer = EqualizerProcessor().also { configureEqualizers(it) }
+                buildPlayer(spatial, equalizer, filter, loudness, ownsSession = false)
+                    .apply { skipSilenceEnabled = AppSettings.skipSilence.value }
+            },
+            audioAttributes = AUDIO_ATTRIBUTES,
+        )
         controller.start()
 
         mediaSession = MediaLibrarySession.Builder(
@@ -1731,7 +1755,11 @@ class PlaybackService : MediaLibraryService() {
     private fun newSessionPlayer(player: Player, crossfade: CrossfadeController) = SessionPlayer(
         player,
         crossfade,
-        onUserIntent = { partySync?.onLocalIntent() },
+        onUserIntent = {
+            automixStudio?.cancelPreview()
+            partySync?.onLocalIntent()
+        },
+        onReplaceQueue = { automixStudio?.replaceQueue() },
         deferPlayToParty = { partySync?.shouldDeferPlay() == true },
         lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         cast = castPlayback,
@@ -1807,7 +1835,7 @@ class PlaybackService : MediaLibraryService() {
                 loudnessB.setBlendTrim(trim)
             },
             versionSwapActive = { versionSwapJob?.isActive == true },
-        )
+        ).apply { studioEdit = { automixStudio?.livePlan(it) ?: it.automatic } }
 
     /** Favorite and Shuffle: the only actions shown on the phone notification. */
     private fun notificationButtons(): List<CommandButton> {
@@ -6223,7 +6251,9 @@ class PlaybackService : MediaLibraryService() {
      * the make-up attenuation walks the whole response ([EqCurve]), and the
      * audio thread is the one place that must not do that.
      */
-    private fun applyEqualizer() {
+    private fun applyEqualizer() = configureEqualizers(equalizerProcessorA, equalizerProcessorB)
+
+    private fun configureEqualizers(vararg processors: EqualizerProcessor) {
         val enabled = AppSettings.equalizerEnabled.value
         val curve = when (AppSettings.equalizerMode.value) {
             EqualizerMode.DYNAMIC -> toneCurve(
@@ -6234,8 +6264,7 @@ class PlaybackService : MediaLibraryService() {
             EqualizerMode.MANUAL -> manualCurve(AppSettings.equalizerBands.value)
         }
         val balance = AppSettings.equalizerBalance.value
-        equalizerProcessorA.setTuning(enabled, curve, balance)
-        equalizerProcessorB.setTuning(enabled, curve, balance)
+        processors.forEach { it.setTuning(enabled, curve, balance) }
     }
 
     /**
@@ -6672,6 +6701,8 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        automixStudio?.detach()
+        automixStudio = null
         // Let go of the receiver's player but leave its session alone: a
         // service that idles out while casting is not the listener choosing to
         // stop, and the next one picks the session up where it was.
@@ -6894,6 +6925,7 @@ class PlaybackService : MediaLibraryService() {
          * a listener's action from its own corrections. See [PartySync].
          */
         private val onUserIntent: () -> Unit,
+        private val onReplaceQueue: () -> Unit,
         /** @see PartySync.shouldDeferPlay */
         private val deferPlayToParty: () -> Boolean,
         /** @see PartySync.onLockedTransport */
@@ -7201,6 +7233,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
             if (locked()) return
+            onReplaceQueue()
             onUserIntent()
             super.setMediaItems(mediaItems, resetPosition)
         }
@@ -7211,6 +7244,7 @@ class PlaybackService : MediaLibraryService() {
             startPositionMs: Long,
         ) {
             if (locked()) return
+            onReplaceQueue()
             onUserIntent()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
         }
