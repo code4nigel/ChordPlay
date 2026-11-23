@@ -820,6 +820,10 @@ class PlaybackService : MediaLibraryService() {
             // the legs that were measured were the ones running in the
             // background for tracks nobody was waiting on.
             if (isPlaying) {
+                fallbackAwaitingAudio?.takeIf { it == exoPlayer.currentMediaItem }?.let {
+                    TrackLog.d("BitChord", "Playback fallback reached first audio", about = it.mediaId)
+                    fallbackAwaitingAudio = null
+                }
                 trackSelectedAt?.let {
                     TrackLog.d(
                         "BitChord",
@@ -920,6 +924,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             val exoPlayer = player ?: return
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                pendingRecovery?.cancel()
                 if (exoPlayer.isPlaying) pushDiscordPresence(exoPlayer)
                 updateLyricSubtitle()
             }
@@ -949,6 +954,7 @@ class PlaybackService : MediaLibraryService() {
             // A receiver, if it is the speaker, is put on whatever became
             // current — or it is the one that moved, and this is the phone
             // catching up, which [CastPlayback] tells apart by track.
+            pendingRecovery?.cancel()
             castPlayback.onLocalTransition(mediaItem, reason)
 
             // No crossfade case to allow for here any more. A blended advance
@@ -1074,6 +1080,7 @@ class PlaybackService : MediaLibraryService() {
             // stage switches to that track on its own at the boundary.
             activeLoudness().nextMediaId = nextMediaIdOf(exoPlayer)
             if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                pendingRecovery?.cancel()
                 castPlayback.onLocalQueueChanged()
                 saveQueueSnapshot(exoPlayer)
                 refreshCustomLayouts()
@@ -3112,6 +3119,35 @@ class PlaybackService : MediaLibraryService() {
      * the queue genuinely moves on, not when a track merely re-prepares.
      */
     private val recoveries = mutableMapOf<String, Int>()
+    private var pendingRecovery: Job? = null
+    private var fallbackAwaitingAudio: MediaItem? = null
+
+    private fun scheduleRecovery(
+        owner: ExoPlayer,
+        item: MediaItem,
+        discard: Uri?,
+        delayMs: Long = RECOVERY_DELAY_MS,
+        action: (ExoPlayer) -> Unit,
+    ) {
+        val window = Timeline.Window()
+        fun currentWindow(): Any? = owner.currentTimeline
+            .takeUnless { it.isEmpty }
+            ?.getWindow(owner.currentMediaItemIndex, window)?.uid
+
+        val expectedWindow = currentWindow()
+        fun stillCurrent() = player === owner && expectedWindow == currentWindow() &&
+            owner.currentMediaItem == item
+
+        pendingRecovery = scope.launch(TrackLog.about(item.mediaId)) {
+            delay(delayMs)
+            if (!stillCurrent()) return@launch
+            discard?.let { withContext(Dispatchers.IO) { AudioCache.discard(it) } }
+            if (!stillCurrent()) return@launch
+            // The action itself seeks or changes Media3's timeline.
+            pendingRecovery = null
+            action(owner)
+        }
+    }
 
     /**
      * The track [recoverFrom] is about to seek-and-prepare, so that the
@@ -3284,6 +3320,7 @@ class PlaybackService : MediaLibraryService() {
      * starting over.
      */
     private fun recoverFrom(error: PlaybackException, player: ExoPlayer) {
+        if (pendingRecovery?.isActive == true) return
         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
             val mediaId = player.currentMediaItem?.mediaId
             TrackLog.w("BitChord", "live window fell behind for $mediaId; seeking to live edge", about = mediaId)
@@ -3330,7 +3367,7 @@ class PlaybackService : MediaLibraryService() {
         // again. Rebuild it as an explicit YouTube request instead. This also
         // clears a DASH/HLS MIME left on an upgraded item, which otherwise makes
         // Media3 parse YouTube's WebM bytes as a manifest forever.
-        if (fallbackFailedAlternativeToYouTube(item, uri, position)) return
+        if (fallbackFailedAlternativeToYouTube(player, item, uri, position)) return
         // A manifest read as audio is not a broken stream, and everything below
         // this line would treat it as one. Ahead of the verdict and the attempt
         // budget for the same reason as the local-file case above: this is not
@@ -3450,47 +3487,25 @@ class PlaybackService : MediaLibraryService() {
                 StreamResolver.invalidate(mediaId)
             }
         }
-        scope.launch(TrackLog.about(mediaId)) {
-            // Long enough for the released source to let go of the cache keys
-            // about to be removed, short enough to read as a stutter.
-            delay(RECOVERY_DELAY_MS)
-            uri?.let { withContext(Dispatchers.IO) { AudioCache.discard(it) } }
-            // The bytes go even when nothing is going to be prepared after
-            // them. A half-filled entry whose owner has just been forgotten is
-            // the seam this file's [StreamChoice] note is about: the next play
-            // resolves freely, lands on a different source, and streams it into
-            // the middle of the last one. Releasing the choice without dropping
-            // the bytes would trade one stuck track for a corrupt one.
+        scheduleRecovery(player, item, uri) { live ->
             if (givingUp) {
-                // A track nobody can play must not leave the player parked in
-                // IDLE on it. Nothing else in this service calls prepare() again,
-                // so before this the queue simply stopped: the notification kept
-                // showing the song, the play button kept doing nothing, and from
-                // the outside that is indistinguishable from a hung app — which
-                // is what the report describes and what "it was stuck on my
-                // phone too" means. Moving on is the only honest answer.
-                skipReason(verdict, error, neverStarted, attempts)?.let { reason ->
-                    withContext(Dispatchers.Main) { skipPastUnplayable(mediaId, reason) }
+                fallbackAwaitingAudio = null
+                val reason = skipReason(verdict, error, neverStarted, attempts)
+                TrackLog.w("BitChord", "Playback recovery exhausted: ${reason ?: error.errorCodeName}", about = mediaId)
+                if (reason != null) {
+                    skipPastUnplayable(mediaId, reason)
+                } else {
+                    Toast.makeText(applicationContext, R.string.playback_recovery_stopped, Toast.LENGTH_SHORT).show()
                 }
-                return@launch
-            }
-            withContext(Dispatchers.Main) {
-                val player = this@PlaybackService.player ?: return@withContext
-                if (player.currentMediaItem?.mediaId != mediaId) return@withContext
-                TrackLog.d(
-                    "BitChord",
-                    if (isLive) "retrying live $mediaId from live edge" else "retrying $mediaId from ${position}ms",
-                )
-                // Claimed before the seek, so the transition it may fire is
-                // recognised as this retry rather than read as a fresh start and
-                // handed a fresh attempt budget.
+            } else {
+                TrackLog.d("BitChord", "Retrying playback at ${position}ms", about = mediaId)
                 retryingMediaId = mediaId
                 if (isLive) {
-                    player.seekToDefaultPosition(player.currentMediaItemIndex)
+                    live.seekToDefaultPosition(live.currentMediaItemIndex)
                 } else {
-                    player.seekTo(player.currentMediaItemIndex, position)
+                    live.seekTo(live.currentMediaItemIndex, position)
                 }
-                player.prepare()
+                live.prepare()
             }
         }
     }
@@ -3500,6 +3515,7 @@ class PlaybackService : MediaLibraryService() {
      * audio and never offers the failed source again during this playback.
      */
     private fun fallbackFailedAlternativeToYouTube(
+        player: ExoPlayer,
         item: MediaItem,
         uri: Uri?,
         position: Long,
@@ -3525,17 +3541,19 @@ class PlaybackService : MediaLibraryService() {
             about = mediaId,
         )
 
-        scope.launch(TrackLog.about(mediaId)) {
-            delay(RECOVERY_DELAY_MS)
-            withContext(Dispatchers.IO) { AudioCache.discard(playbackUri) }
-            withContext(Dispatchers.Main) {
-                val live = this@PlaybackService.player ?: return@withContext
-                if (live.currentMediaItem?.mediaId != mediaId) return@withContext
-                swappingMediaId = mediaId
-                live.replaceMediaItem(live.currentMediaItemIndex, fallback)
-                live.seekTo(live.currentMediaItemIndex, position)
-                live.prepare()
-            }
+        scheduleRecovery(player, item, playbackUri) { live ->
+            val index = live.currentMediaItemIndex
+            val replacement = fallback.buildUpon()
+                .setMediaMetadata(fallback.mediaMetadata.buildUpon()
+                    .setExtras(Bundle(fallback.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                        item.queueEntryId?.let { putString(EXTRA_QUEUE_ENTRY_ID, it) }
+                    }).build())
+                .build()
+            fallbackAwaitingAudio = replacement
+            swappingMediaId = mediaId
+            live.replaceMediaItem(index, replacement)
+            live.seekTo(index, position)
+            live.prepare()
         }
         return true
     }
@@ -3688,23 +3706,16 @@ class PlaybackService : MediaLibraryService() {
             )
         }
         val declared = declaredBuilder.build()
-        scope.launch(TrackLog.about(mediaId)) {
-            withContext(Dispatchers.IO) { AudioCache.discard(playbackUri) }
-            withContext(Dispatchers.Main) {
-                val live = this@PlaybackService.player ?: return@withContext
-                // The queue can move while the discard runs, and replacing the
-                // current item then would rewrite whatever the listener skipped
-                // to instead.
-                if (live.currentMediaItem?.mediaId != mediaId) return@withContext
-                live.replaceMediaItem(live.currentMediaItemIndex, declared)
-                if (isLiveHls) {
-                    updateLiveTrackSelection(live, true)
-                    live.seekToDefaultPosition(live.currentMediaItemIndex)
-                } else {
-                    live.seekTo(live.currentMediaItemIndex, position)
-                }
-                live.prepare()
+        scheduleRecovery(player, item, playbackUri, delayMs = 0L) { live ->
+            val index = live.currentMediaItemIndex
+            live.replaceMediaItem(index, declared)
+            if (isLiveHls) {
+                updateLiveTrackSelection(live, true)
+                live.seekToDefaultPosition(index)
+            } else {
+                live.seekTo(index, position)
             }
+            live.prepare()
         }
         return true
     }
@@ -3787,9 +3798,11 @@ class PlaybackService : MediaLibraryService() {
         if (exoPlayer.currentMediaItem?.mediaId != mediaId) return
         if (!exoPlayer.hasNextMediaItem()) {
             TrackLog.w("BitChord", "$reason — and nothing after it in the queue", about = mediaId)
+            Toast.makeText(applicationContext, R.string.playback_recovery_stopped, Toast.LENGTH_SHORT).show()
             return
         }
         TrackLog.w("BitChord", "$reason — skipping to the next track", about = mediaId)
+        Toast.makeText(applicationContext, R.string.playback_recovery_skipped, Toast.LENGTH_SHORT).show()
         exoPlayer.seekToNextMediaItem()
         // No play() here: an error does not clear playWhenReady, so prepare()
         // resumes exactly as far as the listener had asked for. Calling play()

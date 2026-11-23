@@ -1675,4 +1675,6 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+    <string name="playback_recovery_stopped">Playback stopped because this track could not be played.</string>
+    <string name="playback_recovery_skipped">This track could not be played. Skipping to the next track.</string>
 </resources>

@@ -1,0 +1,22 @@
+name: Android and shared tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: android-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: bash ./gradlew :app:testDevDebugUnitTest :shared:jvmTest :sharedUi:jvmTest
