@@ -119,8 +119,6 @@ fun GlassNavBar(
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
     onSeek: ((Long) -> Unit)? = null,
-    onPause: (() -> Unit)? = null,
-    onResume: (() -> Unit)? = null,
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
@@ -176,8 +174,6 @@ fun GlassNavBar(
                     playbackPosition = playbackPosition,
                     durationMs = durationMs,
                     onSeek = onSeek,
-                    onPause = onPause,
-                    onResume = onResume,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -201,8 +197,6 @@ fun GlassNavBar(
                     playbackPosition = playbackPosition,
                     durationMs = durationMs,
                     onSeek = onSeek,
-                    onPause = onPause,
-                    onResume = onResume,
                     onPlayPause = onPlayPause,
                     onNext = onNext,
                     onPrevious = onPrevious,
@@ -333,8 +327,6 @@ private fun GlassNowPlaying(
     playbackPosition: PlaybackPosition? = null,
     durationMs: Long = 0L,
     onSeek: ((Long) -> Unit)? = null,
-    onPause: (() -> Unit)? = null,
-    onResume: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -344,15 +336,10 @@ private fun GlassNowPlaying(
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
 
     var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
-    var wasPlayingBeforeScrub by remember(song.videoId) { mutableStateOf(false) }
-    var originalPositionBeforeScrub by remember(song.videoId) { mutableLongStateOf(0L) }
     var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
     val currentDurationMs by rememberUpdatedState(durationMs)
     val currentPlaybackPosition by rememberUpdatedState(playbackPosition)
     val currentOnSeek by rememberUpdatedState(onSeek)
-    val currentIsPlaying by rememberUpdatedState(isPlaying)
-    val currentOnPause by rememberUpdatedState(onPause)
-    val currentOnResume by rememberUpdatedState(onResume)
 
     val pathMeasure = remember { PathMeasure() }
     val fullBorderPath = remember { Path() }
@@ -420,14 +407,8 @@ private fun GlassNowPlaying(
                 currentPositionMs = { currentPlaybackPosition?.positionMs ?: 0L },
                 onScrubStart = {
                     suppressExpandUntilNanos = Long.MAX_VALUE
-                    wasPlayingBeforeScrub = currentIsPlaying
-                    val currentPos = currentPlaybackPosition?.positionMs ?: 0L
-                    originalPositionBeforeScrub = currentPos
-                    if (currentIsPlaying) {
-                        currentOnPause?.invoke()
-                    }
                     scrubFraction = if (currentDurationMs > 0L) {
-                        (currentPos.toFloat() / currentDurationMs.toFloat()).coerceIn(0f, 1f)
+                        ((currentPlaybackPosition?.positionMs ?: 0L).toFloat() / currentDurationMs.toFloat()).coerceIn(0f, 1f)
                     } else {
                         0f
                     }
@@ -438,20 +419,11 @@ private fun GlassNowPlaying(
                     currentOnSeek?.invoke(ms)
                     scrubFraction = null
                     suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
-                    if (wasPlayingBeforeScrub) {
-                        currentOnResume?.invoke()
-                    }
-                    wasPlayingBeforeScrub = false
                 },
                 onScrubCancel = {
                     if (scrubFraction != null) {
                         scrubFraction = null
                         suppressExpandUntilNanos = System.nanoTime() + 250_000_000L
-                        if (wasPlayingBeforeScrub) {
-                            currentOnSeek?.invoke(originalPositionBeforeScrub)
-                            currentOnResume?.invoke()
-                        }
-                        wasPlayingBeforeScrub = false
                     }
                 },
             )
