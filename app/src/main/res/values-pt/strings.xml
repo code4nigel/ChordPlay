@@ -1783,4 +1783,6 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">A reprodução foi interrompida porque não foi possível reproduzir esta faixa.</string>
+    <string name="playback_recovery_skipped">Não foi possível reproduzir esta faixa. A passar para a faixa seguinte.</string>
 </resources>

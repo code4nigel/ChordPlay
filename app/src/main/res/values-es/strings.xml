@@ -1795,4 +1795,6 @@
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">La reproducción se detuvo porque no se pudo reproducir esta canción.</string>
+    <string name="playback_recovery_skipped">No se pudo reproducir esta canción. Se pasa a la siguiente.</string>
 </resources>

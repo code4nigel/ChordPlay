@@ -1756,4 +1756,6 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">Pemutaran dihentikan karena lagu ini tidak dapat diputar.</string>
+    <string name="playback_recovery_skipped">Lagu ini tidak dapat diputar. Beralih ke lagu berikutnya.</string>
 </resources>

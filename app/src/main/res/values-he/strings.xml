@@ -1783,4 +1783,6 @@
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">ההשמעה הופסקה כי לא ניתן היה לנגן את השיר הזה.</string>
+    <string name="playback_recovery_skipped">לא ניתן היה לנגן את השיר הזה. מעבר לשיר הבא.</string>
 </resources>

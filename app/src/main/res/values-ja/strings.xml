@@ -1757,4 +1757,6 @@
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">この曲を再生できなかったため、再生を停止しました。</string>
+    <string name="playback_recovery_skipped">この曲を再生できませんでした。次の曲に進みます。</string>
 </resources>

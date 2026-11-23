@@ -1862,4 +1862,6 @@
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">Odtwarzanie zatrzymano, ponieważ nie można było odtworzyć tego utworu.</string>
+    <string name="playback_recovery_skipped">Nie można było odtworzyć tego utworu. Przechodzenie do następnego.</string>
 </resources>

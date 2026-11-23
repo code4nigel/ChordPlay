@@ -1736,4 +1736,6 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">Bu parça çalınamadığı için oynatma durduruldu.</string>
+    <string name="playback_recovery_skipped">Bu parça çalınamadı. Sonraki parçaya geçiliyor.</string>
 </resources>

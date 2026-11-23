@@ -1762,4 +1762,6 @@
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">หยุดเล่นเนื่องจากไม่สามารถเล่นเพลงนี้ได้</string>
+    <string name="playback_recovery_skipped">ไม่สามารถเล่นเพลงนี้ได้ กำลังข้ามไปยังเพลงถัดไป</string>
 </resources>

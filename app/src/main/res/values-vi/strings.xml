@@ -1695,4 +1695,6 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
     <string name="your_preferences">Your Preferences</string>
     <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="playback_recovery_stopped">Đã dừng phát vì không thể phát bài hát này.</string>
+    <string name="playback_recovery_skipped">Không thể phát bài hát này. Đang chuyển sang bài tiếp theo.</string>
 </resources>
