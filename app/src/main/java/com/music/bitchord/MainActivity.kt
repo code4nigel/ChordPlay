@@ -4892,6 +4892,8 @@ private fun BitChordApp(
                                     }
                                 }
                             },
+                            onPause = { controller?.pause() },
+                            onResume = { controller?.play() },
                             onPlayPause = {
                                 togglePlayPause()
                             },
@@ -4938,6 +4940,8 @@ private fun BitChordApp(
                                             }
                                         }
                                     },
+                                    onPause = { controller?.pause() },
+                                    onResume = { controller?.play() },
                                     onPlayPause = {
                                         togglePlayPause()
                                     },

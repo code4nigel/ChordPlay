@@ -46,6 +46,10 @@ brain/
 # AI agent configuration
 AGENTS.md
 /output/
+/graphify-out/
+.graphifyignore
+__pycache__/
+*.pyc
 
 Inspiration/
 

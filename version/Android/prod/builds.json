@@ -1,5 +1,15 @@
 [
     {
+        "timestamp":  "2026-11-23 13:15:21",
+        "versionCode":  103,
+        "versionName":  "2.2.8",
+        "variant":  "prodRelease",
+        "files":  {
+                      "FileName":  "ChordPlay-v2.2.8-vc103-prodRelease-arm64-v8a.apk",
+                      "SizeMB":  35.35
+                  }
+    },
+    {
         "timestamp":  "2026-11-22 13:50:54",
         "versionCode":  102,
         "versionName":  "2.2.7",

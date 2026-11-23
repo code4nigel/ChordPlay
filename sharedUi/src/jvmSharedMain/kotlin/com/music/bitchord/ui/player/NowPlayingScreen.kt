@@ -446,7 +446,10 @@ fun NowPlayingScreen(
         lyricPicker = lyricPicker,
     )
 
-    LaunchedEffect(panels.queueOpen, panels.queueDragging, panels.queueReleased) {
+    val playerAnimationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val animSpeed = playerAnimationSpeed.coerceIn(0.5f, 2.0f)
+
+    LaunchedEffect(panels.queueOpen, panels.queueDragging, panels.queueReleased, animSpeed) {
         if (panels.queueDragging) return@LaunchedEffect
         val target = if (panels.queueOpen) 1f else 0f
         val from = panels.queueSlide.floatValue
@@ -455,7 +458,9 @@ fun NowPlayingScreen(
             initialValue = from,
             targetValue = target,
             animationSpec = tween(
-                durationMillis = (QUEUE_TRAVEL_MS * abs(target - from)).roundToInt(),
+                durationMillis = ((QUEUE_TRAVEL_MS * abs(target - from)) / animSpeed)
+                    .roundToInt()
+                    .coerceIn(100, 900),
                 easing = FastOutSlowInEasing,
             ),
         ) { value, _ -> panels.queueSlide.floatValue = value }
@@ -497,8 +502,6 @@ fun NowPlayingScreen(
         idleMs = LYRICS_CONTROLS_IDLE_MS,
     )
 
-    val playerAnimationSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
-    val animSpeed = playerAnimationSpeed.coerceIn(0.5f, 2.0f)
     val animatedCollapse = animateFloatAsState(
         targetValue = if (panels.lyricsOpen || panels.queueOpen) 1f else 0f,
         animationSpec = tween(durationMillis = (420f / animSpeed).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
@@ -676,6 +679,7 @@ fun NowPlayingScreen(
                 }
             },
             palette = synesthesiaPalette,
+            animSpeed = animSpeed,
         )
         if (!isWavePlay) {
             Spacer(Modifier.height(18.dp))

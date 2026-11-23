@@ -585,6 +585,7 @@ internal fun PlayerActionRow(
     isModernOrVinyl: Boolean = false,
     onOpenPipeline: (() -> Unit)? = null,
     palette: MeshPalette? = null,
+    animSpeed: Float = 1.0f,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         // Sized for the wider of the two capsules — the three-up one — in both
@@ -615,21 +616,29 @@ internal fun PlayerActionRow(
                 accentColor = primaryAccent,
                 secondaryAccent = secondaryAccent,
             )
+            val speed = animSpeed.coerceIn(0.5f, 2.0f)
             AnimatedContent(
                 targetState = queueOpen,
                 transitionSpec = {
-                    (fadeIn(tween(200, delayMillis = 60)) togetherWith fadeOut(tween(140)))
-                        // Unclipped: the capsule's own rounded ends are what
-                        // the eye follows through the width change, and the
-                        // default clip cuts them square while it happens.
-                        .using(
-                            SizeTransform(clip = false) { _, _ ->
-                                spring(
-                                    dampingRatio = 0.82f,
-                                    stiffness = Spring.StiffnessMediumLow,
-                                )
-                            },
+                    (
+                        fadeIn(
+                            tween(
+                                durationMillis = (200f / speed).roundToInt().coerceIn(50, 450),
+                                delayMillis = (60f / speed).roundToInt().coerceIn(0, 150),
+                            ),
+                        ) togetherWith fadeOut(
+                            tween(
+                                durationMillis = (140f / speed).roundToInt().coerceIn(35, 300),
+                            ),
                         )
+                    ).using(
+                        SizeTransform(clip = false) { _, _ ->
+                            spring(
+                                dampingRatio = 0.82f,
+                                stiffness = Spring.StiffnessMediumLow * speed,
+                            )
+                        },
+                    )
                 },
                 label = "playerBottomPill",
             ) { showQueueModes ->
