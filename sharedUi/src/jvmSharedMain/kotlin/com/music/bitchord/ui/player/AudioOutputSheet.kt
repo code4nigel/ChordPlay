@@ -689,9 +689,24 @@ private fun OutputRow(
 @Composable
 private fun VolumeRow(routeKey: Any, opaque: Boolean) {
     val system = PlayerPlatform.host.volume
+    val haptics = rememberHaptics()
     val systemLevel by system.level.collectAsStateWithLifecycle()
     var level by remember(system) { mutableFloatStateOf(systemLevel) }
+    var pressed by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
+    val active = pressed || dragging
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (active) {
+            if (opaque) 0.12f else 0.16f
+        } else {
+            if (opaque) 0.08f else 0.11f
+        },
+        label = "volumePillBg",
+    )
+    val borderAlpha by animateFloatAsState(
+        targetValue = if (active) 0.30f else 0.14f,
+        label = "volumePillBorder",
+    )
 
     LaunchedEffect(systemLevel) {
         if (!dragging) level = systemLevel
@@ -718,17 +733,23 @@ private fun VolumeRow(routeKey: Any, opaque: Boolean) {
                 label = stringResource(Res.string.player_volume),
                 value = level,
                 steps = 99,
+                onPressChange = { isDown ->
+                    if (isDown && !pressed) haptics.play(Haptic.Select)
+                    pressed = isDown
+                },
                 onValueChange = {
+                    val boundary = (it == 0f || it == 1f) && level != it
                     dragging = true
                     level = it
                     system.set(it)
+                    if (boundary) haptics.play(Haptic.Tick)
                 },
                 onFinished = { dragging = false },
             )
             .clip(AUDIO_PILL_SHAPE)
-            .background(Color.White.copy(alpha = if (opaque) 0.08f else 0.11f))
-            .border(0.75.dp, Color.White.copy(alpha = 0.14f), AUDIO_PILL_SHAPE)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .background(Color.White.copy(alpha = bgAlpha))
+            .border(0.75.dp, Color.White.copy(alpha = borderAlpha), AUDIO_PILL_SHAPE)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -742,7 +763,8 @@ private fun VolumeRow(routeKey: Any, opaque: Boolean) {
             value = level,
             onValueChange = null,
             idleHeight = 6.dp,
-            activeHeight = 10.dp,
+            activeHeight = 18.dp,
+            active = active,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(12.dp))

@@ -174,6 +174,9 @@ internal object DesktopPlayerHost : PlayerHost {
     override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color?) {
         pipelineDialog?.invoke(onDismiss)
     }
+
+    @Composable
+    override fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color?) = Unit
 }
 
 /**

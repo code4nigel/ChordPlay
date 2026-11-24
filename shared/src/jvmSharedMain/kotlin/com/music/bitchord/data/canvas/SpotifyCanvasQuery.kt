@@ -29,9 +29,13 @@ object SpotifyCanvasQuery {
 
     const val ENDPOINT = "https://api-partner.spotify.com/pathfinder/v2/query"
     const val OPERATION = "canvas"
+    const val SEARCH_TRACKS_OPERATION = "searchTracks"
 
     /** The `canvas` query's hash as of January 2026. */
     const val KNOWN_CANVAS_HASH = "575138ab27cd5c1b3e54da54d0a7cc8d85485402de26340c2145f0f6bb5e7a9f"
+
+    /** Fallback persisted query hash for the web player's `searchTracks` operation. */
+    const val KNOWN_SEARCH_TRACKS_HASH = "bc1ca2fcd0ba1013a0fc88e6cc4f190af501851e3dafd3e1ef85840297694428"
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -119,27 +123,33 @@ object SpotifyCanvasQuery {
         private val now: () -> Long = System::currentTimeMillis,
         private val maxScripts: Int = 8,
     ) {
-        @Volatile private var hash: String? = null
-        @Volatile private var checkedAt = 0L
+        private class Entry(var hash: String? = null, var checkedAt: Long = 0L)
+
+        private val entries = mutableMapOf<String, Entry>()
 
         @Synchronized
-        fun canvasHash(forceRefresh: Boolean = false): String {
-            val current = hash
-            val age = now() - checkedAt
-            if (!forceRefresh && checkedAt != 0L && age < (if (current != null) FOUND_TTL_MS else MISSED_TTL_MS)) {
-                return current ?: KNOWN_CANVAS_HASH
+        fun canvasHash(forceRefresh: Boolean = false): String =
+            hashFor(OPERATION, KNOWN_CANVAS_HASH, forceRefresh)
+
+        @Synchronized
+        fun hashFor(operation: String, fallback: String, forceRefresh: Boolean = false): String {
+            val state = entries.getOrPut(operation) { Entry() }
+            val current = state.hash
+            val age = now() - state.checkedAt
+            if (!forceRefresh && state.checkedAt != 0L && age < (if (current != null) FOUND_TTL_MS else MISSED_TTL_MS)) {
+                return current ?: fallback
             }
-            checkedAt = now()
-            val found = lookUp()
-            if (found != null) hash = found
-            return hash ?: KNOWN_CANVAS_HASH
+            state.checkedAt = now()
+            val found = lookUp(operation)
+            if (found != null) state.hash = found
+            return state.hash ?: fallback
         }
 
-        private fun lookUp(): String? {
+        private fun lookUp(operation: String): String? {
             val html = fetch("https://open.spotify.com/") ?: return null
             for (script in webPlayerScripts(html).take(maxScripts)) {
                 val body = fetch(script) ?: continue
-                findQueryHash(body)?.let { return it }
+                findQueryHash(body, operation)?.let { return it }
             }
             return null
         }

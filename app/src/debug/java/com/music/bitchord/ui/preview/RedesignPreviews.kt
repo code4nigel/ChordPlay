@@ -167,6 +167,8 @@ private object PreviewPlayerHost : PlayerHost {
     override fun showMessage(message: String) = Unit
     @Composable
     override fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit, accentColor: Color?) = Unit
+    @Composable
+    override fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color?) = Unit
 }
 
 @Composable

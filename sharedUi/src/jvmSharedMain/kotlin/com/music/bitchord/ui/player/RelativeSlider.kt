@@ -1,7 +1,10 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -12,6 +15,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
@@ -28,10 +32,12 @@ internal fun Modifier.relativeSlider(
     range: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
     enabled: Boolean = true,
+    onPressChange: (Boolean) -> Unit = {},
     onValueChange: (Float) -> Unit,
     onFinished: () -> Unit,
 ): Modifier {
     val currentValue by rememberUpdatedState(value.coerceIn(range))
+    val pressChange by rememberUpdatedState(onPressChange)
     val update by rememberUpdatedState(onValueChange)
     val finish by rememberUpdatedState(onFinished)
     val span = range.endInclusive - range.start
@@ -66,22 +72,38 @@ internal fun Modifier.relativeSlider(
         }
     }.focusable(enabled).then(
         if (!enabled) Modifier else Modifier.pointerInput(range, steps) {
-            var dragValue = currentValue
-            var sentValue = currentValue
-            detectHorizontalDragGestures(
-                onDragStart = {
-                    dragValue = currentValue
-                    sentValue = currentValue
-                },
-                onDragEnd = { finish() },
-                onDragCancel = { finish() },
-            ) { change, distance ->
-                change.consume()
-                dragValue = (dragValue + distance * span / size.width.coerceAtLeast(1)).coerceIn(range)
-                val next = snap(dragValue)
-                if (next != sentValue) {
-                    sentValue = next
-                    update(next)
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                var dragValue = currentValue
+                var sentValue = currentValue
+                var didDrag = false
+                pressChange(true)
+                try {
+                    val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
+                        change.consume()
+                        didDrag = true
+                        dragValue = (dragValue + over * span / size.width.coerceAtLeast(1)).coerceIn(range)
+                        val next = snap(dragValue)
+                        if (next != sentValue) {
+                            sentValue = next
+                            update(next)
+                        }
+                    }
+                    if (drag != null) {
+                        horizontalDrag(drag.id) { change ->
+                            val distance = change.positionChange().x
+                            change.consume()
+                            dragValue = (dragValue + distance * span / size.width.coerceAtLeast(1)).coerceIn(range)
+                            val next = snap(dragValue)
+                            if (next != sentValue) {
+                                sentValue = next
+                                update(next)
+                            }
+                        }
+                    }
+                } finally {
+                    pressChange(false)
+                    if (didDrag) finish()
                 }
             }
         },

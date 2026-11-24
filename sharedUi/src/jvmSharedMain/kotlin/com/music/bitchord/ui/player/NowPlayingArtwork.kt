@@ -369,7 +369,7 @@ internal fun BoxScope.PortraitSleeve(
                 }
             },
     ) {
-        val placeholderVisible = !art.loaded && !clipState.rendered.value &&
+        val placeholderVisible = coverPresentation == null && !art.loaded && !clipState.rendered.value &&
             (!videoMode || docking() || collapse.pastHalf)
         Box(
             modifier = Modifier

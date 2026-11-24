@@ -523,8 +523,12 @@ fun NowPlayingScreen(
     val spotifyCanvasOnPhone = canvas?.source == CanvasSource.SPOTIFY && playerFillsWindow(windowWidth)
     val art = rememberPlayerArtwork(remoteArt, artPx)
     val coverPresentation = rememberCoverPresentation(
-        song, art, artPx, enabled = !reduceAnimation && !videoMode && !effectiveIsLive,
+        song = song,
+        currentArt = art,
+        artPx = artPx,
+        enabled = !reduceAnimation && !videoMode && !effectiveIsLive,
         upcoming = queue.getOrNull(queueIndex + 1).takeIf { hasNext },
+        paletteColors = synesthesiaPalette.colors,
     )
     var stableCanvasHero by remember { mutableStateOf(spotifyCanvasOnPhone) }
     if (coverPresentation == null) SideEffect { stableCanvasHero = spotifyCanvasOnPhone }
@@ -727,9 +731,10 @@ fun NowPlayingScreen(
         }
     }
 
+    val spotifyCanvasOpaque = spotifyCanvasPresentation && clipState.cover.floatValue >= 0.99f
     val landscape = landscapePlayerAvailable(windowWidth, windowHeight)
     val tabletArtworkBackdrop = tabletSizedPlayer(windowWidth)
-    val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
+    val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasOpaque &&
         legacyMesh && !canvasFirstPortrait
     val fullCoverBackdropVisible = landscape ||
         (!legacyMeshBackdrop && (tabletArtworkBackdrop || panels.lyricsOpen || panels.queueOpen))
@@ -925,7 +930,7 @@ fun NowPlayingScreen(
                 panelOpen = panels.lyricsOpen || panels.queueOpen,
                 collapseP = p,
                 canvasFirstPortrait = canvasFirstPortrait,
-                spotifyCanvasPresentation = spotifyCanvasPresentation,
+                spotifyCanvasPresentation = spotifyCanvasOpaque,
                 isWavePlay = isWavePlay,
                 isPlaying = isPlaying,
                 synesthesiaPalette = synesthesiaPalette,
@@ -1021,6 +1026,7 @@ fun NowPlayingScreen(
                             liveRefreshMs
                         },
                         onCoverChanged = { clipState.cover.floatValue = it },
+                        underStillCover = true,
                         bottomFade = when {
                             clipFullscreen -> 0f
                             clipPortrait -> clipFadeFraction

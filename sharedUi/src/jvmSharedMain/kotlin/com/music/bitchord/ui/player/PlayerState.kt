@@ -43,22 +43,22 @@ import kotlinx.coroutines.launch
 internal fun rememberCanvasArtwork(song: Song, enabled: Boolean = true): CanvasArtwork? {
     val canvasEnabled by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by PlayerSettings.canvasOverCellular.collectAsStateWithLifecycle()
-    val prioritizeSpotifyCanvas by PlayerSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
+    val canvasProviderOrder by PlayerSettings.canvasProviderOrder.collectAsStateWithLifecycle()
+    val spotifySpdcToken by PlayerSettings.spotifySpdcToken.collectAsStateWithLifecycle()
     val meteredConnection by PlayerSettings.meteredConnection.collectAsStateWithLifecycle()
     val videoQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     // The switch turns the feature off outright; this is the narrower "not
     // over cellular" case — see [PlayerSettings.canvasOverCellular] for why a
     // clip's own loop makes that worth guarding separately from a still image.
     val canvasAllowedNow = (canvasEnabled && (meteredConnection != true || canvasOverCellular)) || song.isVideo
-    // Keyed on the song's identity rather than its videoId: a version switch
-    // swaps the videoId for another cut of the *same* song, and a canvas is
-    // searched for by title and artist — resetting here threw the clip out
-    // mid-loop, blanked the player down to the still sleeve and restarted it,
-    // which is the flicker. A different song keys differently and starts
-    // clean; the same-titled-impostor case is guarded where the clip is
-    // adopted, by [CanvasArtwork.matches].
-    var canvas by remember(song.videoId, song.isVideo) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, prioritizeSpotifyCanvas, song.isVideo, videoQuality, enabled) {
+    // Initialize synchronously from cache so previously resolved tracks paint on
+    // frame 0 instead of flashing a 1-frame null -> non-null transition.
+    var canvas by remember(song.videoId, song.isVideo, canvasAllowedNow, canvasProviderOrder, spotifySpdcToken, enabled) {
+        mutableStateOf(
+            if (enabled && (canvasAllowedNow || song.isVideo)) PlayerPlatform.host.cachedCanvas(song) else null,
+        )
+    }
+    LaunchedEffect(song.videoId, song.albumName, canvasAllowedNow, canvasProviderOrder, spotifySpdcToken, song.isVideo, videoQuality, enabled) {
         if (!enabled || (!canvasAllowedNow && !song.isVideo)) {
             canvas = null
             return@LaunchedEffect

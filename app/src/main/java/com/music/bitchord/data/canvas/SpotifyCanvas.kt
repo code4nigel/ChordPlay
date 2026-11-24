@@ -5,6 +5,7 @@ import com.music.bitchord.data.Http
 import com.google.protobuf.CodedInputStream
 import com.google.protobuf.CodedOutputStream
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -46,10 +47,8 @@ object SpotifyCanvas {
     private const val ALBUM_TRACKS_URL = "https://api.spotify.com/v1/albums"
     private const val CANVAS_URL = "https://spclient.wg.spotify.com/canvaz-cache/v0/canvases"
     private const val PATHFINDER_URL = "https://api-partner.spotify.com/pathfinder/v1/query"
-
-    /** The persisted query id for the web player's own track search. */
-    private const val PATHFINDER_SEARCH_HASH =
-        "bc1ca2fcd0ba1013a0fc88e6cc4f190af501851e3dafd3e1ef85840297694428"
+    private const val MAX_PATHFINDER_HITS = 5
+    private const val MAX_CANVAS_CANDIDATES = 3
 
     /**
      * spclient gates this path to Spotify's own apps by user agent; the web
@@ -76,66 +75,124 @@ object SpotifyCanvas {
         // outside Spotify. Kept as the fallback rather than dropped, since a
         // client token failing to mint takes Pathfinder down with it but
         // leaves REST still reachable.
-        val hit = searchViaPathfinder(title, artist, album, token)
-            ?: searchViaRest(title, artist, album, token)
-        if (hit == null) {
-            Log.d(TAG, "no canvas for '$title' by '$artist' (no matching track found)")
-            return null
+        val triedUris = HashSet<String>(MAX_CANVAS_CANDIDATES * 2)
+        val pathfinderHits = searchViaPathfinder(title, artist, album, token)
+        for (hit in pathfinderHits.take(MAX_CANVAS_CANDIDATES)) {
+            triedUris.add(hit.uri)
+            val canvasUrl = fetchCanvasUrl(hit.uri, token) ?: continue
+            Log.d(TAG, "canvas for '${hit.title}' by '${hit.artist}'")
+            return CanvasArtwork(
+                url = canvasUrl,
+                title = hit.title,
+                artist = hit.artist,
+                album = hit.album,
+                source = CanvasSource.SPOTIFY,
+            )
         }
 
-        val canvasUrl = fetchCanvasUrl(hit.uri, token)
-        if (canvasUrl == null) {
-            Log.d(TAG, "no canvas for '$title' by '$artist' (matched '${hit.title}', no clip)")
-            return null
+        val restHits = searchViaRest(title, artist, album, token)
+        for (hit in restHits.asSequence().filter { it.uri !in triedUris }.take(MAX_CANVAS_CANDIDATES)) {
+            triedUris.add(hit.uri)
+            val canvasUrl = fetchCanvasUrl(hit.uri, token) ?: continue
+            Log.d(TAG, "canvas for '${hit.title}' by '${hit.artist}' (REST fallback)")
+            return CanvasArtwork(
+                url = canvasUrl,
+                title = hit.title,
+                artist = hit.artist,
+                album = hit.album,
+                source = CanvasSource.SPOTIFY,
+            )
         }
-        Log.d(TAG, "canvas for '${hit.title}' by '${hit.artist}'")
-        return CanvasArtwork(
-            url = canvasUrl,
-            title = hit.title,
-            artist = hit.artist,
-            album = hit.album,
-            source = CanvasSource.SPOTIFY,
-        )
+
+        Log.d(TAG, "no canvas for '$title' by '$artist'")
+        return null
     }
 
     /**
-     * Doesn't re-check the hit's title and artist the way [searchViaRest]
-     * does: the fields a GraphQL response like this carries aren't published
-     * anywhere, so pulling `name`/`artists` back out the way the REST
-     * response's documented shape allows would be a guess. Spotify's own
-     * relevance ranking on a "title artist album" query is trusted instead,
-     * the same way [firstTrackUri] trusts an album's own track listing rather
-     * than re-checking it.
+     * Asks Spotify Pathfinder for up to [MAX_PATHFINDER_HITS] candidate tracks via v2 POST
+     * (refreshing a stale persisted-query hash once), falling back to v1 GET if needed.
+     *
+     * When a hit includes `name`/`artists`, exact matches are ranked first; when those GraphQL
+     * fields are absent, the top hits are preserved in order so Pathfinder relevance still works.
      */
-    private fun searchViaPathfinder(title: String, artist: String, album: String?, token: String): TrackHit? {
+    private fun searchViaPathfinder(
+        title: String,
+        artist: String,
+        album: String?,
+        token: String,
+        isRetry: Boolean = false,
+    ): List<TrackHit> {
         val clientToken = SpotifyToken.clientToken()
         if (clientToken == null) {
             Log.d(TAG, "no client token; skipping pathfinder search")
-            return null
+            return emptyList()
         }
-        val searchTerm = listOfNotNull(title, artist, album).joinToString(" ")
-        val variables = buildJsonObject {
+        val hash = queryHashes.hashFor(
+            operation = SpotifyCanvasQuery.SEARCH_TRACKS_OPERATION,
+            fallback = SpotifyCanvasQuery.KNOWN_SEARCH_TRACKS_HASH,
+            forceRefresh = isRetry,
+        )
+        val searchTerm = listOfNotNull(title, artist, album)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+        val variablesObj = buildJsonObject {
             put("searchTerm", searchTerm)
             put("offset", 0)
             put("limit", 10)
             put("numberOfTopResults", 5)
             put("includeAudiobooks", false)
             put("includePreReleases", false)
-        }.toString()
-        val extensions = buildJsonObject {
-            putJsonObject("persistedQuery") {
-                put("version", 1)
-                put("sha256Hash", PATHFINDER_SEARCH_HASH)
+        }
+        val postBody = buildJsonObject {
+            put("operationName", SpotifyCanvasQuery.SEARCH_TRACKS_OPERATION)
+            put("variables", variablesObj)
+            putJsonObject("extensions") {
+                putJsonObject("persistedQuery") {
+                    put("version", 1)
+                    put("sha256Hash", hash)
+                }
             }
         }.toString()
 
-        val url = PATHFINDER_URL.toHttpUrl().newBuilder()
-            .addQueryParameter("operationName", "searchTracks")
-            .addQueryParameter("variables", variables)
+        val v2Request = Request.Builder()
+            .url(SpotifyCanvasQuery.ENDPOINT)
+            .post(postBody.toRequestBody("application/json".toMediaType()))
+            .header("Authorization", "Bearer $token")
+            .header("Client-Token", clientToken)
+            .header("App-platform", "WebPlayer")
+            .header("Accept", "application/json")
+            .header("Accept-Language", "en")
+            .header("User-Agent", CANVAS_UA)
+            .build()
+        val (v2Code, v2Body) = runCatching {
+            Http.client.newCall(v2Request).execute().use { response ->
+                response.code to if (response.isSuccessful) response.body.string() else null
+            }
+        }.getOrDefault(-1 to null)
+
+        val v2Root = v2Body?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+        val v2Stale = (v2Root?.get("errors") as? JsonArray)
+            ?.mapNotNull { (it as? JsonObject)?.get("message")?.jsonPrimitive?.contentOrNull }
+            ?.any { it.contains("PersistedQueryNotFound", ignoreCase = true) } == true
+        if (v2Stale && !isRetry) {
+            return searchViaPathfinder(title, artist, album, token, isRetry = true)
+        }
+        val v2Hits = parsePathfinderHits(v2Root, title, artist, album)
+        if (v2Hits.isNotEmpty()) return v2Hits
+        if (v2Body == null) Log.w(TAG, "pathfinder v2 search failed, http $v2Code; trying v1")
+
+        val extensions = buildJsonObject {
+            putJsonObject("persistedQuery") {
+                put("version", 1)
+                put("sha256Hash", hash)
+            }
+        }.toString()
+        val v1Url = PATHFINDER_URL.toHttpUrl().newBuilder()
+            .addQueryParameter("operationName", SpotifyCanvasQuery.SEARCH_TRACKS_OPERATION)
+            .addQueryParameter("variables", variablesObj.toString())
             .addQueryParameter("extensions", extensions)
             .build()
             .toString()
-
         val headers = mapOf(
             "Authorization" to "Bearer $token",
             "Client-Token" to clientToken,
@@ -143,34 +200,69 @@ object SpotifyCanvas {
             "Accept" to "application/json",
             "User-Agent" to CANVAS_UA,
         )
-        val (code, body) = canvasGetWithStatus(url, headers)
-        if (body == null) {
-            Log.w(TAG, "pathfinder search failed, http $code")
-            return null
+        val (v1Code, v1Body) = canvasGetWithStatus(v1Url, headers)
+        if (v1Body == null) {
+            Log.w(TAG, "pathfinder search failed, http $v1Code")
+            return emptyList()
         }
-        val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
-        val firstItem = root?.get("data")?.jsonObject
+        val v1Root = runCatching { json.parseToJsonElement(v1Body) as? JsonObject }.getOrNull()
+        val v1Hits = parsePathfinderHits(v1Root, title, artist, album)
+        if (v1Hits.isEmpty()) {
+            Log.w(TAG, "pathfinder response had no hits (http $v1Code): ${v1Body.take(200)}")
+        }
+        return v1Hits
+    }
+
+    private fun parsePathfinderHits(
+        root: JsonObject?,
+        title: String,
+        artist: String,
+        album: String?,
+    ): List<TrackHit> {
+        val items = root?.get("data")?.jsonObject
             ?.get("searchV2")?.jsonObject
             ?.get("tracksV2")?.jsonObject
             ?.get("items")?.jsonArray
-            ?.firstOrNull()
-            ?.jsonObject?.get("item")?.jsonObject
-            ?.get("data")?.jsonObject
-        if (firstItem == null) {
-            Log.w(TAG, "pathfinder response had no hit (http $code): ${body.take(200)}")
-            return null
+            ?: return emptyList()
+
+        val exact = mutableListOf<Pair<TrackHit, Boolean>>()
+        val unlabelled = mutableListOf<TrackHit>()
+        val wantAlbumNorm = album?.takeIf { it.isNotBlank() }?.normalizeForMatch()
+
+        for (entry in items) {
+            val itemObj = (entry as? JsonObject)?.get("item") as? JsonObject ?: continue
+            val data = itemObj["data"] as? JsonObject ?: continue
+            val uri = data["uri"]?.jsonPrimitive?.contentOrNull
+                ?: data["id"]?.jsonPrimitive?.contentOrNull?.let { "spotify:track:$it" }
+                ?: continue
+            val gotName = data["name"]?.jsonPrimitive?.contentOrNull
+            val gotArtists = ((data["artists"] as? JsonObject)?.get("items") as? JsonArray)
+                ?.mapNotNull { artistItem ->
+                    val obj = artistItem as? JsonObject ?: return@mapNotNull null
+                    (obj["profile"] as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull
+                        ?: obj["name"]?.jsonPrimitive?.contentOrNull
+                }
+                .orEmpty()
+            val gotAlbum = (data["albumOfTrack"] as? JsonObject)?.get("name")?.jsonPrimitive?.contentOrNull
+
+            if (gotName != null && gotArtists.isNotEmpty()) {
+                if (!isMatch(gotName, gotArtists, title, artist)) continue
+                val albumExact = wantAlbumNorm != null && gotAlbum?.normalizeForMatch() == wantAlbumNorm
+                val matchedAlbum = gotAlbum?.takeIf { album.isNullOrBlank() || it.normalizeForMatch() == wantAlbumNorm }
+                exact += TrackHit(uri, gotName, gotArtists.joinToString(", "), matchedAlbum) to albumExact
+            } else {
+                unlabelled += TrackHit(uri, title, artist, album)
+            }
         }
-        val uri = firstItem["uri"]?.jsonPrimitive?.contentOrNull
-            ?: firstItem["id"]?.jsonPrimitive?.contentOrNull?.let { "spotify:track:$it" }
-        if (uri == null) {
-            Log.w(TAG, "pathfinder hit had neither uri nor id")
-            return null
-        }
-        return TrackHit(uri, title, artist, album)
+
+        val rankedExact = exact.sortedByDescending { it.second }.map { it.first }
+        return (rankedExact + unlabelled).distinctBy { it.uri }.take(MAX_PATHFINDER_HITS)
     }
 
-    private fun searchViaRest(title: String, artist: String, album: String?, token: String): TrackHit? {
-        val query = listOfNotNull(title, artist, album).joinToString(" ")
+    private fun searchViaRest(title: String, artist: String, album: String?, token: String): List<TrackHit> {
+        val query = listOfNotNull(title, artist, album)
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
         val url = SEARCH_URL.toHttpUrl().newBuilder()
             .addQueryParameter("q", query)
             .addQueryParameter("type", "track")
@@ -181,19 +273,21 @@ object SpotifyCanvas {
         val (code, body) = canvasGetWithStatus(url, authHeaders(token))
         if (body == null) {
             Log.w(TAG, "search request failed, http $code")
-            return null
+            return emptyList()
         }
         val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
         if (root == null) {
             Log.w(TAG, "search response wasn't JSON (http $code)")
-            return null
+            return emptyList()
         }
         val items = root["tracks"]?.jsonObject?.get("items")?.jsonArray
         if (items == null) {
             Log.w(TAG, "search response had no tracks.items (http $code): ${body.take(200)}")
-            return null
+            return emptyList()
         }
 
+        val wantAlbumNorm = album?.takeIf { it.isNotBlank() }?.normalizeForMatch()
+        val matches = mutableListOf<Pair<TrackHit, Boolean>>()
         for (item in items) {
             val track = item as? JsonObject ?: continue
             val trackTitle = track["name"]?.jsonPrimitive?.contentOrNull ?: continue
@@ -204,9 +298,11 @@ object SpotifyCanvas {
 
             val uri = track["uri"]?.jsonPrimitive?.contentOrNull ?: continue
             val albumName = track["album"]?.jsonObject?.get("name")?.jsonPrimitive?.contentOrNull
-            return TrackHit(uri, trackTitle, artists.joinToString(", ").ifBlank { artist }, albumName)
+            val albumExact = wantAlbumNorm != null && albumName?.normalizeForMatch() == wantAlbumNorm
+            val safeAlbum = albumName?.takeIf { album.isNullOrBlank() || it.normalizeForMatch() == wantAlbumNorm }
+            matches += TrackHit(uri, trackTitle, artists.joinToString(", ").ifBlank { artist }, safeAlbum) to albumExact
         }
-        return null
+        return matches.sortedByDescending { it.second }.map { it.first }
     }
 
     /**

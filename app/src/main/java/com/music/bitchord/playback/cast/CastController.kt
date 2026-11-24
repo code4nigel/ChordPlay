@@ -123,8 +123,12 @@ object CastController {
             // main thread of whichever screen happened to ask first.
             CastContext.getSharedInstance(app, Executors.newSingleThreadExecutor())
                 .addOnSuccessListener { ctx -> onReady(app, ctx) }
-                .addOnFailureListener { Log.w(TAG, "Cast framework unavailable", it) }
+                .addOnFailureListener {
+                    started = false
+                    Log.w(TAG, "Cast framework unavailable", it)
+                }
         } catch (e: Exception) {
+            started = false
             Log.w(TAG, "Cast framework unavailable", e)
         }
     }
@@ -134,7 +138,7 @@ object CastController {
         router = MediaRouter.getInstance(app)
         selector = ctx.mergedSelector
         ctx.sessionManager.addSessionManagerListener(sessionListener, CastSession::class.java)
-        update { it.copy(supported = true) }
+        update { it.copy(supported = selector != null) }
         // A session that outlived the process: the framework restores it on its
         // own and reports it through the listener, but one already live by the
         // time this runs would be reported to nobody.

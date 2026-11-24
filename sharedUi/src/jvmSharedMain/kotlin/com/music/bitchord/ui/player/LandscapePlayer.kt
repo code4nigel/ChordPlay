@@ -575,7 +575,7 @@ internal fun LandscapeArtwork(
                 },
             contentAlignment = Alignment.Center,
         ) {
-            if (!artLoaded && !canvasRendered) {
+            if (coverPresentation == null && !artLoaded && !canvasRendered) {
                 Icon(
                     imageVector = BitChordIcons.MusicNote,
                     contentDescription = null,

@@ -282,10 +282,11 @@ fun AppearanceSection(
 
         val coverTitle = stringResource(R.string.settings_cover)
         val showCover = matchesSearch(searchQuery, coverTitle, "artwork", "animation", "canvas", "full screen")
-        val anyAppearanceMatch = showCover || showColorPalette ||
+        val anyBelowCover = showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
             showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
             showLivePreviewsSetting || showHighPerformance || showLanguage
+        val anyAppearanceMatch = showCover || anyBelowCover
 
         // Pinned Live Preview (hidden during active search)
         if (searchQuery.isBlank()) {
@@ -296,8 +297,8 @@ fun AppearanceSection(
             SettingsSearchEmpty(query = searchQuery)
         } else {
             // Single Unified Big Block for all Appearance Settings (duplicate small header removed)
-            if (showCover) {
-                SettingsGroup {
+            SettingsGroup(header = null, topSpacing = 14.dp) {
+                if (showCover) {
                     SettingsRow(
                         icon = com.music.bitchord.ui.screens.settings.SettingsSection.COVER.icon,
                         title = coverTitle,
@@ -305,9 +306,10 @@ fun AppearanceSection(
                         onClick = onOpenCover,
                         trailing = { Chevron() },
                     )
+                    if (anyBelowCover) {
+                        RowDivider()
+                    }
                 }
-            }
-            SettingsGroup(header = null, topSpacing = 14.dp) {
                 // Curated Atmospheric Color Palettes
                 if (showColorPalette) {
 

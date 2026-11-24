@@ -22,6 +22,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.CanvasProvider
 import com.music.bitchord.data.settings.CoverAnimationMode
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.AutomixPerformanceMode
@@ -38,6 +39,8 @@ import kotlinx.coroutines.flow.StateFlow
 
 private val noCoverChange = MutableStateFlow<CoverTrackChange?>(null)
 private val defaultCoverAnimation = MutableStateFlow(CoverAnimationMode.NONE)
+private val defaultCanvasProviderOrder = MutableStateFlow(CanvasProvider.defaultOrder)
+private val emptySpotifySpdcToken = MutableStateFlow("")
 
 /**
  * Everything the player takes from the application it is drawn in.
@@ -163,7 +166,7 @@ interface PlayerHost {
 
     /** The device picker the output drawer's Cast row opens, in the pipeline dialog's card. */
     @Composable
-    fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color? = null) = Unit
+    fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit, accentColor: Color?)
 
     /**
      * Whether lines can be put on a share card here. False hides the pick mode
@@ -224,6 +227,8 @@ interface PlayerSettingsSource {
     val meteredConnection: StateFlow<Boolean?>
     val preferUsbDac: StateFlow<Boolean>
     val prioritizeSpotifyCanvas: StateFlow<Boolean>
+    val canvasProviderOrder: StateFlow<List<CanvasProvider>> get() = defaultCanvasProviderOrder
+    val spotifySpdcToken: StateFlow<String> get() = emptySpotifySpdcToken
     val reduceAnimation: StateFlow<Boolean>
     val playerAnimationSpeed: StateFlow<Float> get() = DEFAULT_PLAYER_ANIMATION_SPEED
     val reduceDynamicBlur: StateFlow<Boolean>
@@ -401,6 +406,46 @@ enum class CanvasContentMode {
     FIT_PORTRAIT,
 }
 
+data class CanvasRevealAlpha(val videoAlpha: Float, val coverAlpha: Float)
+
+fun computeCanvasRevealAlpha(
+    reveal: Float,
+    presentationAlpha: Float,
+    underStillCover: Boolean,
+): CanvasRevealAlpha {
+    val t = reveal.coerceIn(0f, 1f)
+    val p = presentationAlpha.coerceIn(0f, 1f)
+    if (!underStillCover) {
+        val a = t * p
+        return CanvasRevealAlpha(videoAlpha = a, coverAlpha = a)
+    }
+    // Video sits behind the still cover in hero mode: ramp video to 1.0 behind
+    // the opaque still cover first (0..0.25), then dissolve the still cover
+    // away (0.25..1.0) so combined SrcOver opacity stays 1.0 throughout.
+    val video = (t / 0.25f).coerceIn(0f, 1f) * p
+    val cover = ((t - 0.25f) / 0.75f).coerceIn(0f, 1f) * p
+    return CanvasRevealAlpha(videoAlpha = video, coverAlpha = cover)
+}
+
+fun isCanvasFrameReady(
+    rendered: Boolean,
+    awaitingFirstFrame: Boolean,
+    awaitingSurfaceRepaint: Boolean,
+    surfaceAvailable: Boolean,
+    viewSize: IntSize,
+    clipAspect: Float,
+    contentMode: CanvasContentMode,
+    portraitRevealBounds: IntSize,
+): Boolean {
+    if (rendered || awaitingFirstFrame || awaitingSurfaceRepaint) return false
+    if (!surfaceAvailable || viewSize.width <= 0 || viewSize.height <= 0) return false
+    val transformed = clipAspect.isFinite() && clipAspect > 0f
+    val portrait = contentMode == CanvasContentMode.FIT_PORTRAIT && transformed && clipAspect < 1f
+    val layoutReady = !portrait ||
+        (portraitRevealBounds != IntSize.Zero && viewSize == portraitRevealBounds)
+    return (contentMode == CanvasContentMode.CROP || transformed) && layoutReady
+}
+
 /** Everything [CanvasArtworkPlayer] is asked, handed to the platform's decoder as one value. */
 class CanvasVideoSpec(
     val canvas: CanvasArtwork,
@@ -420,6 +465,7 @@ class CanvasVideoSpec(
     val pausedForTransition: Boolean,
     val positionMs: Long = 0L,
     val isScrubbing: Boolean = false,
+    val underStillCover: Boolean = false,
 )
 
 /**
@@ -446,6 +492,7 @@ fun CanvasArtworkPlayer(
     pausedForTransition: Boolean = false,
     positionMs: Long = 0L,
     isScrubbing: Boolean = false,
+    underStillCover: Boolean = false,
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -466,6 +513,7 @@ fun CanvasArtworkPlayer(
             pausedForTransition = pausedForTransition,
             positionMs = positionMs,
             isScrubbing = isScrubbing,
+            underStillCover = underStillCover,
         ),
         modifier,
     )

@@ -27,6 +27,7 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.ui.player.CanvasContentMode
 import com.music.bitchord.ui.player.CanvasVideoSpec
+import com.music.bitchord.ui.player.computeCanvasRevealAlpha
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -59,6 +60,7 @@ internal fun DesktopCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
     val reportFrame by rememberUpdatedState(spec.onFrameCaptured)
     val reportCover by rememberUpdatedState(spec.onCoverChanged)
     val presentationAlpha by rememberUpdatedState(spec.presentationAlpha)
+    val underStillCover by rememberUpdatedState(spec.underStillCover)
 
     LaunchedEffect(canvas) {
         // Round and round for as long as the clip is mounted: a canvas is a few
@@ -135,7 +137,9 @@ internal fun DesktopCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
         label = "canvasAlpha",
     )
     LaunchedEffect(Unit) {
-        snapshotFlow { alpha * presentationAlpha() }.collect { reportCover(it) }
+        snapshotFlow {
+            computeCanvasRevealAlpha(alpha, presentationAlpha(), underStillCover).coverAlpha
+        }.collect { reportCover(it) }
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -148,7 +152,7 @@ internal fun DesktopCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
     val bottomFadeEndPx = spec.bottomFadeEndPx
     Canvas(
         modifier = modifier.graphicsLayer {
-            this.alpha = alpha * presentationAlpha()
+            this.alpha = computeCanvasRevealAlpha(alpha, presentationAlpha(), underStillCover).videoAlpha
             // Offscreen so the bottom dissolve masks the clip, not what is behind it.
             if (bottomFade > 0.001f) compositingStrategy = CompositingStrategy.Offscreen
         },

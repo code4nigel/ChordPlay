@@ -96,6 +96,7 @@ fun ThinSlider(
     transitionWindow: ClosedFloatingPointRange<Float>? = null,
     idleHeight: Dp = 7.dp,
     activeHeight: Dp = 12.dp,
+    active: Boolean = false,
     activeColor: Color = Color.White.copy(alpha = 0.92f),
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
     /** Halfway between the two track colours: visible against unplayed, invisible under played. */
@@ -105,7 +106,7 @@ fun ThinSlider(
     val changeValue by rememberUpdatedState(onValueChange)
     val finishChange by rememberUpdatedState(onValueChangeFinished)
     val height by animateDpAsState(
-        targetValue = if (dragging) activeHeight else idleHeight,
+        targetValue = if (dragging || active) activeHeight else idleHeight,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMediumLow,

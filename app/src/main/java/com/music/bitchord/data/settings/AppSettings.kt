@@ -11,6 +11,7 @@
  */
 package com.music.bitchord.data.settings
 
+import com.music.bitchord.data.settings.CanvasProvider
 import com.music.bitchord.data.settings.CoverAnimationMode
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.data.LocalMediaRepository
@@ -22,6 +23,7 @@ import android.net.NetworkCapabilities
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
@@ -606,7 +608,7 @@ object AppSettings {
      * but it is the better default, and most tracks resolve to no canvas at
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
-    val coverAnimation = MutableStateFlow(CoverAnimationMode.NONE)
+    val coverAnimation = MutableStateFlow(CoverAnimationMode.DIRECTIONAL_SWEEP)
     val animatedCanvas = MutableStateFlow(true)
 
     /**
@@ -627,6 +629,9 @@ object AppSettings {
 
     /** Automatically collapses the lower controls after Spotify Canvas settles. */
     val spotifyCanvasAutoHide = MutableStateFlow(false)
+
+    /** Ordered priority list of animated cover providers, tried in order until one matches. */
+    val canvasProviderOrder = MutableStateFlow(CanvasProvider.defaultOrder)
 
     /** Tries Spotify before Apple Music and the other animated-art providers. */
     val prioritizeSpotifyCanvas = MutableStateFlow(true)
@@ -1108,16 +1113,29 @@ object AppSettings {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
         }
-        coverAnimation.value = runCatching {
-            CoverAnimationMode.valueOf(prefs.getString(KEY_COVER_ANIMATION, null).orEmpty())
-        }.getOrDefault(CoverAnimationMode.NONE)
+        val rawCoverAnim = prefs.getString(KEY_COVER_ANIMATION, null)
+        coverAnimation.value = when (rawCoverAnim) {
+            null -> CoverAnimationMode.DIRECTIONAL_SWEEP
+            "FADE", "THREE_D_FADE" -> {
+                prefs.edit().putString(KEY_COVER_ANIMATION, CoverAnimationMode.DIRECTIONAL_SWEEP.name).apply()
+                CoverAnimationMode.DIRECTIONAL_SWEEP
+            }
+            else -> runCatching { CoverAnimationMode.valueOf(rawCoverAnim) }
+                .getOrDefault(CoverAnimationMode.DIRECTIONAL_SWEEP)
+        }
         if (prefs.contains("cover_follows_automix")) {
             prefs.edit().remove("cover_follows_automix").apply()
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, false)
-        prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, true)
+        canvasProviderOrder.value = if (prefs.contains(KEY_CANVAS_PROVIDER_ORDER)) {
+            CanvasProvider.parse(prefs.getString(KEY_CANVAS_PROVIDER_ORDER, null))
+        } else {
+            CanvasProvider.defaultOrder
+        }
+        prioritizeSpotifyCanvas.value =
+            canvasProviderOrder.value.firstOrNull() == CanvasProvider.SPOTIFY
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
         tapArtworkToToggleFullScreen.value = prefs.getBoolean(KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
@@ -2034,9 +2052,27 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, value).apply()
     }
 
+    fun setCanvasProviderOrder(value: List<CanvasProvider>) {
+        val normalized = CanvasProvider.normalize(value)
+        val spotifyFirst = normalized.firstOrNull() == CanvasProvider.SPOTIFY
+        canvasProviderOrder.value = normalized
+        prioritizeSpotifyCanvas.value = spotifyFirst
+        prefs.edit()
+            .putString(KEY_CANVAS_PROVIDER_ORDER, CanvasProvider.serialize(normalized))
+            .putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, spotifyFirst)
+            .apply()
+    }
+
+    fun resetCanvasProviderOrder() = setCanvasProviderOrder(CanvasProvider.defaultOrder)
+
     fun setPrioritizeSpotifyCanvas(value: Boolean) {
-        prioritizeSpotifyCanvas.value = value
-        prefs.edit().putBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, value).apply()
+        val rest = canvasProviderOrder.value.filterNot { it == CanvasProvider.SPOTIFY }
+        val updated = if (value) {
+            listOf(CanvasProvider.SPOTIFY) + rest
+        } else {
+            rest + CanvasProvider.SPOTIFY
+        }
+        setCanvasProviderOrder(updated)
     }
 
     fun setFullBleedArtwork(value: Boolean) {
@@ -2176,6 +2212,7 @@ object AppSettings {
         spotifySpdcToken.value = value
         prefs.edit().putString(KEY_SPOTIFY_SPDC_TOKEN, value).apply()
         SpotifyToken.invalidate()
+        CanvasRepository.clearCache()
     }
 
     fun setLastfmScrobbleEnabled(value: Boolean) {
@@ -2935,6 +2972,7 @@ object AppSettings {
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
+    private const val KEY_CANVAS_PROVIDER_ORDER = "canvas_provider_order"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK = "tap_artwork_toggle_full_bleed"

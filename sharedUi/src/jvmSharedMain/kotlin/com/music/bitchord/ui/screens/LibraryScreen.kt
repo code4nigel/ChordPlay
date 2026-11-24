@@ -313,46 +313,34 @@ fun LibraryScreen(
                 if (!signedIn) {
                     when (selectedFilter) {
                         LibraryFilter.PLAYLISTS -> {
-                            if (searchQuery.isBlank()) {
-                                item(key = "new_playlist") {
-                                    NewPlaylistActionRow(onClick = onNewPlaylist)
-                                }
-                                if (onImportSpotifyPlaylist != null) {
-                                    item(key = "import_spotify") {
-                                        ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
-                                    }
-                                }
-                                if (onOpenSpotify != null) {
-                                    item(key = "spotify_playlists") {
-                                        SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
-                                    }
-                                }
-                            }
                             val offlinePlaylists = orderedDeviceItems.filter {
                                 it.browseId?.startsWith("local:playlist") == true ||
                                     it.subtitle.contains("playlist", ignoreCase = true) ||
                                     it.title.contains("playlist", ignoreCase = true)
                             }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
-                            if (offlinePlaylists.isNotEmpty()) {
-                                renderLibraryItems(
-                                    columns = columns,
-                                    richArtwork = richLibraryCards,
-                                    items = offlinePlaylists,
-                                    viewMode = libraryViewMode,
-                                    pinnedPlaylists = pinnedPlaylists.toSet(),
-                                    onShelfItemClick = onShelfItemClick,
-                                    onShelfItemLongPress = onShelfItemLongPress,
-                                )
-                            } else {
-                                item(key = "sign_in_prompt") {
-                                    MessageState(
-                                        message = stringResource(Res.string.library_sign_in_description),
-                                        actionLabel = stringResource(Res.string.sign_in),
-                                        onAction = onSignIn,
-                                    )
-                                }
-                            }
+                            renderPlaylistTabContent(
+                                columns = columns,
+                                richArtwork = richLibraryCards,
+                                items = offlinePlaylists,
+                                viewMode = libraryViewMode,
+                                pinnedPlaylists = pinnedPlaylists.toSet(),
+                                showActions = searchQuery.isBlank(),
+                                onNewPlaylist = onNewPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                onOpenSpotify = onOpenSpotify,
+                                onShelfItemClick = onShelfItemClick,
+                                onShelfItemLongPress = onShelfItemLongPress,
+                                emptyContent = {
+                                    item(key = "sign_in_prompt") {
+                                        MessageState(
+                                            message = stringResource(Res.string.library_sign_in_description),
+                                            actionLabel = stringResource(Res.string.sign_in),
+                                            onAction = onSignIn,
+                                        )
+                                    }
+                                },
+                            )
                         }
                         LibraryFilter.ALBUMS -> {
                             val offlineAlbums = orderedDeviceItems.filter {
@@ -414,46 +402,34 @@ fun LibraryScreen(
                     is UiState.Error -> {
                         when (selectedFilter) {
                             LibraryFilter.PLAYLISTS -> {
-                                if (searchQuery.isBlank()) {
-                                    item(key = "new_playlist") {
-                                        NewPlaylistActionRow(onClick = onNewPlaylist)
-                                    }
-                                    if (onImportSpotifyPlaylist != null) {
-                                        item(key = "import_spotify") {
-                                            ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
-                                        }
-                                    }
-                                    if (onOpenSpotify != null) {
-                                        item(key = "spotify_playlists") {
-                                            SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
-                                        }
-                                    }
-                                }
                                 val offlinePlaylists = orderedDeviceItems.filter {
                                     it.browseId?.startsWith("local:playlist") == true ||
                                         it.subtitle.contains("playlist", ignoreCase = true) ||
                                         it.title.contains("playlist", ignoreCase = true)
                                 }.applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
-                                if (offlinePlaylists.isNotEmpty()) {
-                                    renderLibraryItems(
-                                        columns = columns,
-                                        richArtwork = richLibraryCards,
-                                        items = offlinePlaylists,
-                                        viewMode = libraryViewMode,
-                                        pinnedPlaylists = pinnedPlaylists.toSet(),
-                                        onShelfItemClick = onShelfItemClick,
-                                        onShelfItemLongPress = onShelfItemLongPress,
-                                    )
-                                } else {
-                                    item(key = "empty_playlists") {
-                                        MessageState(
-                                            state.message,
-                                            actionLabel = stringResource(Res.string.retry),
-                                            onAction = onRetry,
-                                        )
-                                    }
-                                }
+                                renderPlaylistTabContent(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
+                                    items = offlinePlaylists,
+                                    viewMode = libraryViewMode,
+                                    pinnedPlaylists = pinnedPlaylists.toSet(),
+                                    showActions = searchQuery.isBlank(),
+                                    onNewPlaylist = onNewPlaylist,
+                                    onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                    onOpenSpotify = onOpenSpotify,
+                                    onShelfItemClick = onShelfItemClick,
+                                    onShelfItemLongPress = onShelfItemLongPress,
+                                    emptyContent = {
+                                        item(key = "empty_playlists") {
+                                            MessageState(
+                                                state.message,
+                                                actionLabel = stringResource(Res.string.retry),
+                                                onAction = onRetry,
+                                            )
+                                        }
+                                    },
+                                )
                             }
                             LibraryFilter.ALBUMS -> {
                                 val offlineAlbums = orderedDeviceItems.filter {
@@ -603,21 +579,6 @@ fun LibraryScreen(
                             }
 
                             LibraryFilter.PLAYLISTS -> {
-                                if (searchQuery.isBlank()) {
-                                    item(key = "new_playlist") {
-                                        NewPlaylistActionRow(onClick = onNewPlaylist)
-                                    }
-                                    if (onImportSpotifyPlaylist != null) {
-                                        item(key = "import_spotify") {
-                                            ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
-                                        }
-                                    }
-                                    if (onOpenSpotify != null) {
-                                        item(key = "spotify_playlists") {
-                                            SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
-                                        }
-                                    }
-                                }
                                 val localAndDownloadedPlaylists = orderedDeviceItems.filter {
                                     it.browseId?.startsWith("local:playlist") == true ||
                                         it.subtitle.contains("playlist", ignoreCase = true) ||
@@ -633,23 +594,26 @@ fun LibraryScreen(
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
-                                if (playlists.isEmpty()) {
-                                    item(key = "empty_playlists") {
-                                        MessageState(
-                                            message = if (searchQuery.isNotBlank()) "No playlists match your search" else "No playlists yet",
-                                        )
-                                    }
-                                } else {
-                                    renderLibraryItems(
-                                        columns = columns,
-                                        richArtwork = richLibraryCards,
-                                        items = playlists,
-                                        viewMode = libraryViewMode,
-                                        pinnedPlaylists = pinnedPlaylists.toSet(),
-                                        onShelfItemClick = onShelfItemClick,
-                                        onShelfItemLongPress = onShelfItemLongPress,
-                                    )
-                                }
+                                renderPlaylistTabContent(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
+                                    items = playlists,
+                                    viewMode = libraryViewMode,
+                                    pinnedPlaylists = pinnedPlaylists.toSet(),
+                                    showActions = searchQuery.isBlank(),
+                                    onNewPlaylist = onNewPlaylist,
+                                    onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                                    onOpenSpotify = onOpenSpotify,
+                                    onShelfItemClick = onShelfItemClick,
+                                    onShelfItemLongPress = onShelfItemLongPress,
+                                    emptyContent = {
+                                        item(key = "empty_playlists") {
+                                            MessageState(
+                                                message = if (searchQuery.isNotBlank()) "No playlists match your search" else "No playlists yet",
+                                            )
+                                        }
+                                    },
+                                )
                             }
 
                             LibraryFilter.ALBUMS -> {
@@ -932,6 +896,151 @@ private fun List<ShelfItem>.applyFilterAndSort(
                     .thenByDescending(String.CASE_INSENSITIVE_ORDER) { it.title },
             )
         }
+    }
+}
+
+private sealed interface PlaylistGridSlot {
+    val stableKey: String
+
+    data class Action(
+        override val stableKey: String,
+        val content: @Composable (Modifier) -> Unit,
+    ) : PlaylistGridSlot
+
+    data class Item(
+        override val stableKey: String,
+        val item: ShelfItem,
+    ) : PlaylistGridSlot
+}
+
+private fun LazyListScope.renderPlaylistTabContent(
+    columns: Int,
+    richArtwork: Boolean,
+    items: List<ShelfItem>,
+    viewMode: LibraryViewMode,
+    pinnedPlaylists: Set<String>,
+    showActions: Boolean,
+    onNewPlaylist: () -> Unit,
+    onImportSpotifyPlaylist: (() -> Unit)?,
+    onOpenSpotify: (() -> Unit)?,
+    onShelfItemClick: (ShelfItem) -> Unit,
+    onShelfItemLongPress: (ShelfItem) -> Unit,
+    emptyContent: LazyListScope.() -> Unit,
+) {
+    if (viewMode == LibraryViewMode.LIST) {
+        if (showActions) {
+            item(key = "new_playlist") {
+                NewPlaylistActionRow(onClick = onNewPlaylist)
+            }
+            if (onImportSpotifyPlaylist != null) {
+                item(key = "import_spotify") {
+                    ImportSpotifyActionRow(onClick = onImportSpotifyPlaylist)
+                }
+            }
+            if (onOpenSpotify != null) {
+                item(key = "spotify_playlists") {
+                    SpotifyPlaylistsActionRow(onClick = onOpenSpotify)
+                }
+            }
+        }
+        if (items.isEmpty()) {
+            emptyContent()
+        } else {
+            renderLibraryItems(
+                columns = columns,
+                richArtwork = richArtwork,
+                items = items,
+                viewMode = viewMode,
+                pinnedPlaylists = pinnedPlaylists,
+                onShelfItemClick = onShelfItemClick,
+                onShelfItemLongPress = onShelfItemLongPress,
+            )
+        }
+        return
+    }
+
+    val actionSlots = if (!showActions) emptyList() else buildList {
+        add(PlaylistGridSlot.Action("action:new_playlist") { mod ->
+            NewShelfCard(
+                icon = BitChordIcons.Plus,
+                label = stringResource(Res.string.new_playlist),
+                subtitle = stringResource(Res.string.saved_to_youtube_music),
+                onClick = onNewPlaylist,
+                modifier = mod,
+            )
+        })
+        if (onImportSpotifyPlaylist != null) {
+            add(PlaylistGridSlot.Action("action:import_spotify") { mod ->
+                NewShelfCard(
+                    icon = BitChordIcons.Plus,
+                    logo = Res.drawable.spotify_logo,
+                    label = stringResource(Res.string.import_spotify),
+                    subtitle = stringResource(Res.string.import_spotify_subtitle),
+                    onClick = onImportSpotifyPlaylist,
+                    modifier = mod,
+                )
+            })
+        }
+        if (onOpenSpotify != null) {
+            add(PlaylistGridSlot.Action("action:spotify_playlists") { mod ->
+                val isConnected = remember {
+                    runCatching { com.music.bitchord.data.spotify.SpotifyLibrary.isConnected() }.getOrDefault(false)
+                }
+                NewShelfCard(
+                    icon = BitChordIcons.Plus,
+                    logo = Res.drawable.spotify_logo,
+                    label = "Spotify Playlists",
+                    subtitle = if (isConnected) "Your connected Spotify playlists" else "Connect Spotify",
+                    onClick = onOpenSpotify,
+                    modifier = mod,
+                )
+            })
+        }
+    }
+
+    val itemKeys = uniqueKeys(items) { "grid:" + it.lazyKey() }
+    val itemSlots = items.mapIndexed { index, item ->
+        PlaylistGridSlot.Item(itemKeys[index], item)
+    }
+    val slots = actionSlots + itemSlots
+    if (slots.isNotEmpty()) {
+        val rows = slots.chunked(columns)
+        itemsIndexed(
+            rows,
+            key = { _, row -> "playlists:" + row.joinToString("|") { it.stableKey } },
+            contentType = { _, _ -> LazyContent.CARD },
+        ) { _, rowSlots ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                rowSlots.forEach { slot ->
+                    when (slot) {
+                        is PlaylistGridSlot.Action -> slot.content(Modifier.weight(1f))
+                        is PlaylistGridSlot.Item -> {
+                            val item = slot.item
+                            val isPinned = item.browseId != null && item.browseId in pinnedPlaylists
+                            ShelfCard(
+                                item = item,
+                                isPinned = isPinned,
+                                onClick = { onShelfItemClick(item) },
+                                onLongPress = { onShelfItemLongPress(item) },
+                                modifier = Modifier.weight(1f),
+                                artwork = libraryCardArtwork(item, richArtwork),
+                            )
+                        }
+                    }
+                }
+                repeat(columns - rowSlots.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    if (items.isEmpty()) {
+        emptyContent()
     }
 }
 
@@ -1256,38 +1365,23 @@ private fun AlbumSleeveArtwork(item: ShelfItem, modifier: Modifier) {
  */
 @Composable
 private fun ThumbnailContent(item: ShelfItem) {
-    val isLikedSongs = item.browseId == "LM" || item.browseId == "VLLM" ||
-        item.title.equals("Liked Music", ignoreCase = true) ||
-        item.title.equals("Liked Songs", ignoreCase = true)
+    val specialTile = libraryTileStyle(item)
     val isWatchLater = item.browseId == "WL" || item.title.equals("Watch Later", ignoreCase = true)
-    val isDownloads = item.browseId == "local:downloads" ||
-        item.browseId?.startsWith("local:download") == true ||
-        item.title.equals("Downloads", ignoreCase = true)
-    val isLocalMusic = item.browseId == "local:all" ||
-        item.browseId == "local:cache" ||
-        item.browseId == "local:webdav" ||
-        item.browseId == "local:smb" ||
-        item.browseId?.startsWith("local:") == true ||
-        item.title.equals("Local Music", ignoreCase = true)
     val isPlaylist = item.browseId?.startsWith("local:playlist") == true ||
         item.browseId?.startsWith("VL") == true ||
         item.browseId?.startsWith("PL") == true ||
         item.subtitle.contains("playlist", ignoreCase = true)
 
     when {
-        isLikedSongs -> {
+        specialTile != null -> {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF3358F4), Color(0xFF1D2F80)),
-                        ),
-                    ),
+                    .background(Brush.linearGradient(specialTile.colors)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.ThumbUp,
+                    imageVector = specialTile.icon,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp),
@@ -1310,42 +1404,6 @@ private fun ThumbnailContent(item: ShelfItem) {
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        isDownloads -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = BitChordIcons.Download,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
-        isLocalMusic -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                val icon = when (item.browseId) {
-                    "local:cache" -> Icons.Rounded.Cached
-                    "local:webdav" -> Icons.Rounded.Folder
-                    "local:smb" -> Icons.Rounded.Storage
-                    else -> Icons.Rounded.Folder
-                }
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(26.dp),
                 )
             }
         }

@@ -167,4 +167,36 @@ class SpotifyCanvasQueryTest {
         reachable = false
         assertEquals(hashB, hashes.canvasHash(forceRefresh = true))
     }
+
+    @Test
+    fun `searchTracks hash is discovered and cached independently of canvasHash`() {
+        val page = """<script src="https://open.spotifycdn.com/cdn/build/web-player/web-player.1.js"></script>"""
+        val script = """new o.l("searchTracks","query","$hashB",null),new o.l("canvas","query","$hashA",null)"""
+        val fetched = mutableListOf<String>()
+        val hashes = SpotifyCanvasQuery.QueryHashes(fetch = { url ->
+            fetched += url
+            when {
+                url == "https://open.spotify.com/" -> page
+                url.endsWith("web-player.1.js") -> script
+                else -> null
+            }
+        })
+
+        assertEquals(
+            hashB,
+            hashes.hashFor(
+                SpotifyCanvasQuery.SEARCH_TRACKS_OPERATION,
+                SpotifyCanvasQuery.KNOWN_SEARCH_TRACKS_HASH,
+            ),
+        )
+        assertEquals(
+            hashB,
+            hashes.hashFor(
+                SpotifyCanvasQuery.SEARCH_TRACKS_OPERATION,
+                SpotifyCanvasQuery.KNOWN_SEARCH_TRACKS_HASH,
+            ),
+        )
+        assertEquals(hashA, hashes.canvasHash())
+        assertEquals(4, fetched.size, "searchTracks and canvas should each fetch page+bundle once and cache")
+    }
 }

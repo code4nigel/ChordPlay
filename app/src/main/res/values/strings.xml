@@ -1710,6 +1710,23 @@
     <string name="cover_animation_none">None</string>
     <string name="cover_animation_fade">Fade</string>
     <string name="cover_animation_3d">3D Fade</string>
+    <string name="cover_animation_sweep">3D Sweep</string>
+    <string name="cover_animation_disintegrate">Disintegrate</string>
     <string name="cover_preview_manual">Manual skip</string>
     <string name="cover_preview_automatic">Automatic advance</string>
+    <string name="cover_preview_previous">Previous</string>
+    <string name="cover_preview_next">Next</string>
+    <string name="cover_preview_auto">Auto</string>
+    <string name="cover_priority">Cover priority</string>
+    <string name="cover_priority_subtitle">Drag to choose which animated cover source is tried first</string>
+    <string name="cover_priority_reset">Reset order</string>
+    <string name="cover_provider_spotify">Spotify Canvas</string>
+    <string name="cover_provider_spotify_subtitle">Full-screen looping Canvas</string>
+    <string name="cover_provider_spotify_setup_hint">Set up Spotify Canvas below to enable</string>
+    <string name="cover_provider_apple">Apple Music</string>
+    <string name="cover_provider_apple_subtitle">Animated motion artwork from Apple Music</string>
+    <string name="cover_provider_tidal">Tidal</string>
+    <string name="cover_provider_tidal_subtitle">Square animated video covers from Tidal</string>
+    <string name="cover_provider_community">Community</string>
+    <string name="cover_provider_community_subtitle">Community-curated animated covers</string>
 </resources>

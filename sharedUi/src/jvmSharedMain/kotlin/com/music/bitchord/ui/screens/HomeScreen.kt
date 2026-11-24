@@ -105,6 +105,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.ThumbUp
 import com.music.bitchord.ui.icons.BitChordIcons
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.CARD_ART_PX
@@ -1690,6 +1691,65 @@ internal fun Shelf(
  * of the Library's playlist row, sized to sit in line with the covers beside
  * it rather than as a button bolted above them.
  */
+internal data class LibraryTileStyle(
+    val key: String,
+    val colors: List<Color>,
+    val icon: ImageVector,
+)
+
+internal fun libraryTileStyle(item: ShelfItem): LibraryTileStyle? {
+    val isLikedSongs = item.browseId == "LM" || item.browseId == "VLLM" ||
+        item.title.equals("Liked Music", ignoreCase = true) ||
+        item.title.equals("Liked Songs", ignoreCase = true)
+    if (isLikedSongs) {
+        return LibraryTileStyle(
+            key = "liked_music",
+            colors = listOf(Color(0xFF9C6BFF), Color(0xFFE056B8)),
+            icon = Icons.Rounded.ThumbUp,
+        )
+    }
+    val isDownloads = item.browseId == "local:downloads" ||
+        item.browseId?.startsWith("local:download") == true ||
+        item.title.equals("Downloads", ignoreCase = true)
+    if (isDownloads) {
+        return LibraryTileStyle(
+            key = "local:downloads",
+            colors = listOf(Color(0xFF1E3C72), Color(0xFF2A5298)),
+            icon = BitChordIcons.Download,
+        )
+    }
+    val id = item.browseId
+    return when {
+        id == "local:all" || item.title.equals("Local Music", ignoreCase = true) -> LibraryTileStyle(
+            key = "local:all",
+            colors = listOf(Color(0xFF134E5E), Color(0xFF71B280)),
+            icon = Icons.Rounded.LibraryMusic,
+        )
+        id == "local:cache" -> LibraryTileStyle(
+            key = "local:cache",
+            colors = listOf(Color(0xFF42275A), Color(0xFF734B6D)),
+            icon = Icons.Rounded.Cached,
+        )
+        id == "local:webdav" -> LibraryTileStyle(
+            key = "local:webdav",
+            colors = listOf(Color(0xFF3A1C71), Color(0xFFD76D77)),
+            icon = Icons.Rounded.Folder,
+        )
+        id == "local:smb" -> LibraryTileStyle(
+            key = "local:smb",
+            colors = listOf(Color(0xFF0F2027), Color(0xFF2C5364)),
+            icon = Icons.Rounded.Storage,
+        )
+        id != null && id.startsWith("local:") && !id.startsWith("local:playlist") &&
+            !id.startsWith("local:album") -> LibraryTileStyle(
+            key = id,
+            colors = listOf(Color(0xFF134E5E), Color(0xFF71B280)),
+            icon = Icons.Rounded.Folder,
+        )
+        else -> null
+    }
+}
+
 @Composable
 internal fun NewShelfCard(
     icon: ImageVector,
@@ -1699,15 +1759,20 @@ internal fun NewShelfCard(
     modifier: Modifier = Modifier.width(SHELF_CARD_WIDTH),
     /** A full-colour mark drawn in place of [icon], for a card that stands for a brand. */
     logo: DrawableResource? = null,
+    enableTilt: Boolean = true,
 ) {
+    val cardShape = SmoothCornerShape(16.dp)
     Column(
-        modifier = modifier.clickable(onClick = onClick),
+        modifier = modifier
+            .press3D(enabled = enableTilt)
+            .clickable(onClick = onClick),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp))
+                .clip(cardShape)
+                .thumbnailBorder(cardShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
@@ -1739,22 +1804,33 @@ internal fun NewShelfCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (subtitle.isNotBlank() && !subtitle.equals(label, ignoreCase = true)) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
 /**
  * A device-folder card: mesh gradient in the folder's colours with its glyph
- * on top. One composable for local music, WebDAV and SMB rather than three
- * copies of the same box.
+ * on top. One composable for special library tiles rather than copies of the same box.
  */
 @Composable
 private fun ServiceCard(colors: List<Color>, trackKey: String, icon: ImageVector) {
-    val palette = remember { MeshPalette(colors) }
+    val palette = remember(colors) { MeshPalette(colors) }
+    val cardShape = SmoothCornerShape(16.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .clip(RoundedCornerShape(if (AppUi.host.appDesignStyle.value == AppDesignStyle.CHORDPLAY) 20.dp else 12.dp)),
+            .clip(cardShape)
+            .thumbnailBorder(cardShape),
         contentAlignment = Alignment.Center,
     ) {
         MeshGradientBackground(
@@ -1792,57 +1868,22 @@ internal fun ShelfCard(
     artwork: (@Composable () -> Unit)? = null,
 ) {
     val squareVideoThumbnails by AppUi.host.squareVideoThumbnails.collectAsStateWithLifecycle()
+    val specialTile = if (artwork == null) libraryTileStyle(item) else null
     Column(
         modifier = modifier
             .press3D(enabled = enableTilt)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress),
     ) {
-        if (artwork != null) artwork() else when (item.browseId) {
-            "local:downloads" -> {
-                val palette = remember { MeshPalette(listOf(Color(0xFF1E3C72), Color(0xFF2A5298))) }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(SmoothCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    MeshGradientBackground(
-                        palette = palette,
-                        trackKey = "local:downloads",
-                        continuous = true,
-                        blurRadius = 24.dp,
-                    )
-                    Icon(
-                        imageVector = BitChordIcons.Download,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp),
-                    )
-                }
-            }
-            "local:all" -> ServiceCard(
-                colors = listOf(Color(0xFF134E5E), Color(0xFF71B280)),
-                trackKey = "local:all",
-                icon = Icons.Rounded.LibraryMusic,
+        if (artwork != null) {
+            artwork()
+        } else if (specialTile != null) {
+            ServiceCard(
+                colors = specialTile.colors,
+                trackKey = specialTile.key,
+                icon = specialTile.icon,
             )
-            "local:cache" -> ServiceCard(
-                colors = listOf(Color(0xFF42275A), Color(0xFF734B6D)),
-                trackKey = "local:cache",
-                icon = Icons.Rounded.Cached,
-            )
-            "local:webdav" -> ServiceCard(
-                colors = listOf(Color(0xFF3A1C71), Color(0xFFD76D77)),
-                trackKey = "local:webdav",
-                icon = Icons.Rounded.Folder,
-            )
-            "local:smb" -> ServiceCard(
-                colors = listOf(Color(0xFF0F2027), Color(0xFF2C5364)),
-                trackKey = "local:smb",
-                icon = Icons.Rounded.Storage,
-            )
-            else -> {
+        } else {
                 val cardShape = SmoothCornerShape(16.dp)
                 val wideCard = (isVideo && !squareVideoThumbnails) || isLive
                 Box(
@@ -1886,7 +1927,6 @@ internal fun ShelfCard(
                         }
                     }
                 }
-            }
         }
         Spacer(Modifier.height(8.dp))
         Row(

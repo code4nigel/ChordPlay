@@ -1,9 +1,10 @@
 package com.music.bitchord.ui.player
 
-import com.music.bitchord.data.model.Song
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
+import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.CoverAnimationMode
 
 /** Direction and timing describe the confirmed track change. */
 enum class CoverChange(val direction: Int, automatic: Boolean = false) {
@@ -12,13 +13,21 @@ enum class CoverChange(val direction: Int, automatic: Boolean = false) {
     AUTOMATIC(1, automatic = true),
     SELECTION(0);
 
-    val durationMs: Int = if (automatic) 420 else 220
+    val durationMs: Int = if (automatic) 560 else 380
     val easing: Easing = if (automatic) {
-        CubicBezierEasing(0.42f, 0f, 0.58f, 1f)
+        CubicBezierEasing(0.35f, 0f, 0.25f, 1f)
     } else {
-        CubicBezierEasing(0.35f, 0f, 0.20f, 1f)
+        CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
     }
     val animationSpec = tween<Float>(durationMs, easing = easing)
+
+    fun durationMsFor(mode: CoverAnimationMode): Int = when (mode) {
+        CoverAnimationMode.NONE -> 0
+        CoverAnimationMode.DIRECTIONAL_SWEEP -> 600
+        CoverAnimationMode.DISINTEGRATE -> 680
+    }
+
+    fun animationSpecFor(mode: CoverAnimationMode) = tween<Float>(durationMsFor(mode), easing = AUTOMATIC.easing)
 }
 
 data class CoverTrackChange(

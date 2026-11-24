@@ -1,17 +1,23 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,16 +27,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.model.PlaylistPrivacy
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.QueueHistoryRange
 import com.music.bitchord.ui.QueuePlaylistSaveState
 import com.music.bitchord.ui.QueuePlaylistSaveState.Status
+import java.util.Locale
 
 @Composable
 internal fun QueuePlaylistSaveDialog(
@@ -158,25 +174,86 @@ private fun QueueHistoryOptions(
     onSelect: (QueueHistoryRange?) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp)) {
-        Text(stringResource(R.string.queue_history_title), style = MaterialTheme.typography.titleSmall)
+        Spacer(Modifier.height(10.dp))
         Text(
-            stringResource(R.string.queue_history_count, included, historySize),
+            text = stringResource(R.string.queue_history_title).uppercase(Locale.getDefault()),
+            style = MaterialTheme.typography.labelSmall.copy(
+                letterSpacing = 1.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.queue_history_count, included, historySize),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(10.dp))
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             QueueHistoryRange.entries.forEach { option ->
-                FilterChip(
+                HistoryOptionPill(
+                    label = if (option == QueueHistoryRange.ALL) {
+                        stringResource(R.string.queue_history_all)
+                    } else {
+                        stringResource(R.string.queue_history_last, option.limit)
+                    },
                     selected = selected == option,
                     enabled = historySize > 0,
                     onClick = { onSelect(option.takeUnless { selected == it }) },
-                    label = {
-                        Text(if (option == QueueHistoryRange.ALL) stringResource(R.string.queue_history_all)
-                        else stringResource(R.string.queue_history_last, option.limit))
-                    },
-                    modifier = Modifier.heightIn(min = 48.dp),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HistoryOptionPill(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
+    val content = if (selected) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Box(
+        modifier = Modifier
+            .alpha(if (enabled) 1f else 0.45f)
+            .clip(CircleShape)
+            .then(
+                if (selected) {
+                    Modifier.background(MaterialTheme.colorScheme.primary)
+                } else if (liquidGlass && glassSupported) {
+                    Modifier.lightweightLiquidGlass(
+                        shape = CircleShape,
+                        fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                    )
+                } else {
+                    Modifier
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                        .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+                },
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

@@ -3,6 +3,7 @@ package com.music.bitchord.data.canvas
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.CanvasProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -105,25 +106,19 @@ object CanvasRepository {
         // a second time. [reusable] decides when the earlier answer still
         // stands instead.
         val album = song.albumName
-        val spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value
-        val key = cacheKey("song|${song.videoId}", spotifyFirst)
+        val order = AppSettings.canvasProviderOrder.value
+        val key = cacheKey("song|${song.videoId}", order)
 
         return resolve(key, album != null) {
-            if (spotifyFirst) {
-                firstHit(
-                    { SpotifyCanvas.search(title, artist, album) },
-                    { AppleMusicCanvas.search(title, artist, album) },
-                    { TidalCanvas.search(title, artist, album) },
-                    { CommunityCanvas.search(title, artist, album) },
-                ) { it.matches(title, artist, album) }
-            } else {
-                firstHit(
-                    { AppleMusicCanvas.search(title, artist, album) },
-                    { TidalCanvas.search(title, artist, album) },
-                    { CommunityCanvas.search(title, artist, album) },
-                    { SpotifyCanvas.search(title, artist, album) },
-                ) { it.matches(title, artist, album) }
+            val lookups: List<suspend () -> CanvasArtwork?> = order.map { provider ->
+                when (provider) {
+                    CanvasProvider.SPOTIFY -> suspend { SpotifyCanvas.search(title, artist, album) }
+                    CanvasProvider.APPLE_MUSIC -> suspend { AppleMusicCanvas.search(title, artist, album) }
+                    CanvasProvider.TIDAL -> suspend { TidalCanvas.search(title, artist, album) }
+                    CanvasProvider.COMMUNITY -> suspend { CommunityCanvas.search(title, artist, album) }
+                }
             }
+            firstHit(*lookups.toTypedArray()) { it.matches(title, artist, album) }
         }
     }
 
@@ -138,9 +133,14 @@ object CanvasRepository {
         if (song.isVideo || song.isLive) return null
         val key = cacheKey(
             base = "song|${song.videoId}",
-            spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value,
+            order = AppSettings.canvasProviderOrder.value,
         )
         return synchronized(cache) { cache[key]?.artwork }
+    }
+
+    /** Drops cached lookups so changes to credentials or provider settings take effect immediately. */
+    fun clearCache() {
+        synchronized(cache) { cache.clear() }
     }
 
     /**
@@ -156,29 +156,23 @@ object CanvasRepository {
         val credit = artist.cleaned()
         if (name.isBlank() || credit.isBlank()) return null
 
-        val spotifyFirst = AppSettings.prioritizeSpotifyCanvas.value
-        return resolve(cacheKey("album|$name|$credit", spotifyFirst), withAlbum = true) {
-            if (spotifyFirst) {
-                firstHit(
-                    { SpotifyCanvas.searchAlbum(name, credit) },
-                    { AppleMusicCanvas.searchAlbum(name, credit) },
-                    { TidalCanvas.searchAlbum(name, credit) },
-                    { CommunityCanvas.searchAlbum(name, credit) },
-                ) { it.matches(name, credit, name) }
-            } else {
-                firstHit(
-                    { AppleMusicCanvas.searchAlbum(name, credit) },
-                    { TidalCanvas.searchAlbum(name, credit) },
-                    { CommunityCanvas.searchAlbum(name, credit) },
-                    { SpotifyCanvas.searchAlbum(name, credit) },
-                ) { it.matches(name, credit, name) }
+        val order = AppSettings.canvasProviderOrder.value
+        return resolve(cacheKey("album|$name|$credit", order), withAlbum = true) {
+            val lookups: List<suspend () -> CanvasArtwork?> = order.map { provider ->
+                when (provider) {
+                    CanvasProvider.SPOTIFY -> suspend { SpotifyCanvas.searchAlbum(name, credit) }
+                    CanvasProvider.APPLE_MUSIC -> suspend { AppleMusicCanvas.searchAlbum(name, credit) }
+                    CanvasProvider.TIDAL -> suspend { TidalCanvas.searchAlbum(name, credit) }
+                    CanvasProvider.COMMUNITY -> suspend { CommunityCanvas.searchAlbum(name, credit) }
+                }
             }
+            firstHit(*lookups.toTypedArray()) { it.matches(name, credit, name) }
         }
     }
 
-    /** Priority is part of the question, so a toggle never reuses the other order's answer. */
-    private fun cacheKey(base: String, spotifyFirst: Boolean): String =
-        "$base|spotifyFirst=$spotifyFirst"
+    /** Priority is part of the question, so reordering never reuses another order's answer. */
+    private fun cacheKey(base: String, order: List<CanvasProvider>): String =
+        "$base|order=${CanvasProvider.serialize(order)}"
 
     private suspend fun resolve(
         key: String,
