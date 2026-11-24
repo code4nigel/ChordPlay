@@ -60,9 +60,6 @@ import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.SwipeLeft
-import androidx.compose.material.icons.rounded.SwipeRight
-import com.music.bitchord.data.settings.SongSwipeAction
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -130,6 +127,7 @@ import java.util.Locale
 fun AppearanceSection(
     onBack: () -> Unit,
     onAppLanguage: () -> Unit,
+    onOpenCover: () -> Unit,
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
@@ -161,11 +159,6 @@ fun AppearanceSection(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
-
-    val songSwipeRightAction by AppSettings.songSwipeRightAction.collectAsStateWithLifecycle()
-    val songSwipeLeftAction by AppSettings.songSwipeLeftAction.collectAsStateWithLifecycle()
-    var showRightSwipePicker by remember { mutableStateOf(false) }
-    var showLeftSwipePicker by remember { mutableStateOf(false) }
 
     val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
     val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
@@ -272,13 +265,6 @@ fun AppearanceSection(
             stringResource(R.string.settings_live_previews_desc),
             "preview",
         )
-        val showSwipeGestures = matchesSearch(
-            searchQuery,
-            stringResource(R.string.swipe_gestures),
-            stringResource(R.string.right_swipe_action),
-            stringResource(R.string.left_swipe_action),
-            "swipe", "gestures", "action",
-        )
         val showHighPerformance = matchesSearch(
             searchQuery,
             stringResource(R.string.performance),
@@ -294,10 +280,12 @@ fun AppearanceSection(
             "translate", "english", "locale",
         )
 
-        val anyAppearanceMatch = showColorPalette ||
+        val coverTitle = stringResource(R.string.settings_cover)
+        val showCover = matchesSearch(searchQuery, coverTitle, "artwork", "animation", "canvas", "full screen")
+        val anyAppearanceMatch = showCover || showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
             showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
-            showLivePreviewsSetting || showSwipeGestures || showHighPerformance || showLanguage
+            showLivePreviewsSetting || showHighPerformance || showLanguage
 
         // Pinned Live Preview (hidden during active search)
         if (searchQuery.isBlank()) {
@@ -308,6 +296,17 @@ fun AppearanceSection(
             SettingsSearchEmpty(query = searchQuery)
         } else {
             // Single Unified Big Block for all Appearance Settings (duplicate small header removed)
+            if (showCover) {
+                SettingsGroup {
+                    SettingsRow(
+                        icon = com.music.bitchord.ui.screens.settings.SettingsSection.COVER.icon,
+                        title = coverTitle,
+                        subtitle = stringResource(R.string.cover_animation),
+                        onClick = onOpenCover,
+                        trailing = { Chevron() },
+                    )
+                }
+            }
             SettingsGroup(header = null, topSpacing = 14.dp) {
                 // Curated Atmospheric Color Palettes
                 if (showColorPalette) {
@@ -739,24 +738,6 @@ fun AppearanceSection(
                 )
             }
 
-            // Swipe Gestures
-            if (showSwipeGestures) {
-                SettingsSectionDivider(title = stringResource(R.string.swipe_gestures))
-
-                SettingsRow(
-                    icon = Icons.Rounded.SwipeRight,
-                    title = stringResource(R.string.right_swipe_action),
-                    subtitle = songSwipeRightAction.localizedLabel(),
-                    onClick = { showRightSwipePicker = true },
-                )
-                SettingsRow(
-                    icon = Icons.Rounded.SwipeLeft,
-                    title = stringResource(R.string.left_swipe_action),
-                    subtitle = songSwipeLeftAction.localizedLabel(),
-                    onClick = { showLeftSwipePicker = true },
-                )
-            }
-
             // Performance & Refresh Rates
             if (showHighPerformance) {
                 SettingsSectionDivider(title = stringResource(R.string.performance))
@@ -879,33 +860,6 @@ fun AppearanceSection(
         )
     }
 
-    if (showRightSwipePicker) {
-        SwipeActionPickerDialog(
-            title = stringResource(R.string.right_swipe_action),
-            currentAction = songSwipeRightAction,
-            onSelect = { action ->
-                AppSettings.setSongSwipeRightAction(action)
-                if (action == SongSwipeAction.PLAY_NEXT) {
-                    AppSettings.setSwipeToPlayNext(true)
-                } else if (action == SongSwipeAction.ADD_TO_QUEUE) {
-                    AppSettings.setSwipeToPlayNext(false)
-                }
-            },
-            onDismiss = { showRightSwipePicker = false },
-        )
-    }
-
-    if (showLeftSwipePicker) {
-        SwipeActionPickerDialog(
-            title = stringResource(R.string.left_swipe_action),
-            currentAction = songSwipeLeftAction,
-            onSelect = { action ->
-                AppSettings.setSongSwipeLeftAction(action)
-            },
-            onDismiss = { showLeftSwipePicker = false },
-        )
-    }
-
     if (showRenameDialog && paletteToRename != null) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -966,67 +920,7 @@ fun AppearanceSection(
     }
 }
 
-@Composable
-private fun SwipeActionPickerDialog(
-    title: String,
-    currentAction: SongSwipeAction,
-    onSelect: (SongSwipeAction) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SongSwipeAction.entries.forEach { action ->
-                    val isSelected = action == currentAction
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                onSelect(action)
-                                onDismiss()
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = action.localizedLabel(),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
-}
 
-/**
- * Curated color palette carousel with rich live checkmarks and atmospheric swatches.
- */
 @Composable
 private fun PaletteCarousel(
     selectedPalette: ChordPlayPalette?,

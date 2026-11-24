@@ -72,6 +72,7 @@ internal fun LandscapeAndVideoNowPlaying(
     videoRendered: Boolean,
     onVideoRenderedChange: (Boolean) -> Unit,
     art: PlayerArtwork,
+    coverPresentation: CoverPresentation?,
     song: Song,
     isPlaying: Boolean,
     isLoading: Boolean,
@@ -362,6 +363,7 @@ internal fun LandscapeAndVideoNowPlaying(
                 artwork = { artworkModifier ->
                     LandscapeArtwork(
                         artRequest = art.request,
+                        coverPresentation = coverPresentation,
                         artLoaded = art.loaded,
                         onArtState = art::onState,
                         canvas = canvas,

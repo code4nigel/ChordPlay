@@ -10,7 +10,6 @@
  */
 package com.music.bitchord.ui.screens.settings.sections
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,9 +26,7 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
-import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
@@ -52,7 +49,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import com.music.bitchord.R
-import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -79,27 +75,12 @@ fun StorageSection(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
-    val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
-    val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
 
     var pickingDownloadQuality by remember { mutableStateOf(false) }
     var confirmClearSongCache by remember { mutableStateOf(false) }
     var confirmImport by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
-
-    val localMusicFolderPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { folder ->
-        if (folder == null) return@rememberLauncherForActivityResult
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                folder,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        }
-        AppSettings.setLocalMusicFolderUri(folder.toString())
-    }
 
     val exportPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -193,25 +174,6 @@ fun StorageSection(
             stringResource(R.string.export_compatible_downloads),
             "export", "downloads", "mp3", "folder", "music/chordplay",
         )
-        val showLocalMusicFolder = matchesSearch(
-            searchQuery,
-            stringResource(R.string.local_music_folder),
-            stringResource(R.string.local_music),
-            LocalMediaRepository.selectedFolderLabel(localMusicFolderUri),
-            "local", "folder", "audio", "device",
-        )
-        val showUseAllAudioFolders = localMusicFolderUri.isNotBlank() && matchesSearch(
-            searchQuery,
-            stringResource(R.string.use_all_audio_folders),
-            stringResource(R.string.use_all_audio_folders_subtitle),
-            "all", "folders", "device",
-        )
-        val showFilterNonMusicAudio = matchesSearch(
-            searchQuery,
-            stringResource(R.string.filter_non_music_audio),
-            stringResource(R.string.filter_non_music_audio_subtitle),
-            "filter", "short", "ringtone", "voice notes",
-        )
         val showExportData = matchesSearch(
             searchQuery,
             stringResource(R.string.export_data),
@@ -227,9 +189,8 @@ fun StorageSection(
 
         val hasCacheSection = showCacheFolderRow || showSongCacheLimit || showClearSongCache || showClearImageCache
         val hasDownloadsSection = showDownloadQuality || showDownloadWifiOnly || showExportDownloads
-        val hasLocalMusicSection = showLocalMusicFolder || showUseAllAudioFolders || showFilterNonMusicAudio
         val hasBackupSection = showExportData || showImportData
-        val anyStorageMatch = hasCacheSection || hasDownloadsSection || hasLocalMusicSection || hasBackupSection
+        val anyStorageMatch = hasCacheSection || hasDownloadsSection || hasBackupSection
 
         if (searchQuery.isNotBlank() && !anyStorageMatch) {
             SettingsSearchEmpty(query = searchQuery)
@@ -372,62 +333,9 @@ fun StorageSection(
                     }
                 }
 
-                // Local Music Files Section Divider
-                if (hasLocalMusicSection) {
-                    if (hasCacheSection || hasDownloadsSection) {
-                        SettingsSectionDivider(title = stringResource(R.string.local_music))
-                    }
-
-                    var localPreceding = false
-                    if (showLocalMusicFolder) {
-                        val localMusicFolderTitle = stringResource(R.string.local_music_folder)
-                        SettingsRow(
-                            icon = Icons.Rounded.Folder,
-                            title = localMusicFolderTitle,
-                            subtitle = LocalMediaRepository.selectedFolderLabel(localMusicFolderUri)
-                                ?: stringResource(R.string.all_audio_folders),
-                            onClick = { localMusicFolderPicker.launch(null) },
-                        )
-                        localPreceding = true
-                    }
-
-                    if (showUseAllAudioFolders) {
-                        if (localPreceding) RowDivider()
-                        val useAllAudioFoldersTitle = stringResource(R.string.use_all_audio_folders)
-                        SettingsRow(
-                            icon = Icons.Rounded.LibraryMusic,
-                            title = useAllAudioFoldersTitle,
-                            subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
-                            onClick = { AppSettings.setLocalMusicFolderUri("") },
-                        )
-                        localPreceding = true
-                    }
-
-                    if (showFilterNonMusicAudio) {
-                        if (localPreceding) RowDivider()
-                        val filterNonMusicAudioTitle = stringResource(R.string.filter_non_music_audio)
-                        SettingsRow(
-                            icon = Icons.Rounded.FilterAlt,
-                            title = filterNonMusicAudioTitle,
-                            subtitle = stringResource(R.string.filter_non_music_audio_subtitle),
-                            trailing = {
-                                Switch(
-                                    checked = filterNonMusicAudio,
-                                    onCheckedChange = AppSettings::setFilterNonMusicAudio,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
-                            },
-                            onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
-                        )
-                    }
-                }
-
                 // Backup and Data Restoration Section Divider
                 if (hasBackupSection) {
-                    if (hasCacheSection || hasDownloadsSection || hasLocalMusicSection) {
+                    if (hasCacheSection || hasDownloadsSection) {
                         SettingsSectionDivider(title = stringResource(R.string.your_data))
                     }
 

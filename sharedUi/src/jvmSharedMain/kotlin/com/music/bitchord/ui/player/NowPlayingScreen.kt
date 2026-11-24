@@ -215,6 +215,7 @@ fun NowPlayingScreen(
     onRemoveFromQueue: (Int) -> Unit,
     onMoveInQueue: (Int, Int) -> Unit,
     onPlayNext: ((Song) -> Unit)? = null,
+    queueTools: NowPlayingQueueTools? = null,
     onQueueDragActiveChange: (Boolean) -> Unit = {},
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
@@ -249,6 +250,8 @@ fun NowPlayingScreen(
     val playerHaze = remember { HazeState() }
     val overlays = remember { PlayerOverlayState() }
     val openAudioOutput = rememberOutputPicker { overlays.audioOutput = true }
+    var automixStudioOpen by remember { mutableStateOf(false) }
+    val queueActions = queueTools?.let { QueueActions(it.onSave) { overlays.queueSearch = true } }
     val controlsLocked = rememberControlsLocked()
     val likeBurstState = remember { LikeBurstState() }
     LaunchedEffect(song.videoId) { likeBurstState.clear() }
@@ -312,20 +315,7 @@ fun NowPlayingScreen(
 
     val canvas = rememberCanvasArtwork(song, enabled = !videoMode)?.takeUnless { videoMode }
     val clipState = remember(canvas?.url) { CanvasClipState() }
-    // Throttled WavePlay palette frame so live blur frames never recompose NowPlayingScreen at 8Hz
-    var synesthesiaFrame by remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(clipState) {
-        var lastAt = 0L
-        clipState.frames.frames.collect { frame ->
-            if (frame == null) return@collect
-            val now = System.nanoTime()
-            if (lastAt == 0L || now - lastAt >= LIVE_REFRESH_MS * 1_000_000L) {
-                lastAt = now
-                synesthesiaFrame = frame
-            }
-        }
-    }
-    val synesthesiaPalette = rememberArtworkColors(remoteArt, synesthesiaFrame)
+    val synesthesiaPalette = rememberPlayerArtworkPalette(remoteArt, clipState)
 
     val legacyMesh by PlayerSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
@@ -483,7 +473,7 @@ fun NowPlayingScreen(
     val swipeHintShown by remember(swipeThreshold) {
         derivedStateOf { abs(swipeSettle.value) / swipeThreshold > 0.01f }
     }
-    val swipeHintNext by remember { derivedStateOf { swipeSettle.value > 0f } }
+    val swipeHintNext by remember { derivedStateOf { swipeSettle.value < 0f } }
 
     val artScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.86f,
@@ -499,6 +489,12 @@ fun NowPlayingScreen(
         panels = panels,
         scrub = scrub,
         volume = volume,
+        idleMs = LYRICS_CONTROLS_IDLE_MS,
+    )
+    QueueControlsIdleEffect(
+        panels = panels,
+        suspended = scrub.scrubbing || volume.dragging || panels.queueDragging || panels.queueReordering ||
+            overlays.queueSearch || queueTools?.saveOpen == true || automixStudioOpen || overlays.audioOutput,
         idleMs = LYRICS_CONTROLS_IDLE_MS,
     )
 
@@ -525,12 +521,19 @@ fun NowPlayingScreen(
     val fullBleedArt by PlayerSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val tapArtworkToToggleFullScreen by PlayerSettings.tapArtworkToToggleFullScreen.collectAsStateWithLifecycle()
     val spotifyCanvasOnPhone = canvas?.source == CanvasSource.SPOTIFY && playerFillsWindow(windowWidth)
+    val art = rememberPlayerArtwork(remoteArt, artPx)
+    val coverPresentation = rememberCoverPresentation(
+        song, art, artPx, enabled = !reduceAnimation && !videoMode && !effectiveIsLive,
+        upcoming = queue.getOrNull(queueIndex + 1).takeIf { hasNext },
+    )
+    var stableCanvasHero by remember { mutableStateOf(spotifyCanvasOnPhone) }
+    if (coverPresentation == null) SideEffect { stableCanvasHero = spotifyCanvasOnPhone }
+    val canvasHero = if (coverPresentation == null) spotifyCanvasOnPhone else stableCanvasHero
     val videoHeroMode = videoMode && playerFillsWindow(windowWidth)
     val heroMode = videoHeroMode || (!videoMode && (
-        spotifyCanvasOnPhone || (fullBleedArt && playerFillsWindow(windowWidth))
+        canvasHero || (fullBleedArt && playerFillsWindow(windowWidth))
         ))
 
-    val art = rememberPlayerArtwork(remoteArt, artPx)
     var heroSettled by remember { mutableStateOf(lastHeroSettled) }
     LaunchedEffect(art, clipState.rendered) {
         if (heroSettled) return@LaunchedEffect
@@ -539,14 +542,14 @@ fun NowPlayingScreen(
         lastHeroSettled = true
     }
 
-    val heroClip = canvas?.takeIf { heroMode && !collapse.pastHalf }
+    val heroClip = canvas?.takeIf { heroMode && !collapse.pastHalf && coverPresentation == null }
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone && heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && clipState.rendered.value
-    val canvasActiveOnPlayer = spotifyCanvasPresentation || (heroClip != null && clipState.rendered.value) || (!heroMode && canvas != null && clipState.rendered.value)
+    val canvasActiveOnPlayer = spotifyCanvasPresentation || (heroClip != null && clipState.rendered.value) || (!heroMode && coverPresentation == null && canvas != null && clipState.rendered.value)
     val canvasFirstPortrait = !spotifyCanvasFullscreen &&
         heroClip != null && clipState.aspect > 0f && clipState.aspect < 1f
     val heroClipMounted = canvas?.takeIf {
-        heroMode && (!(panels.lyricsOpen || panels.queueOpen) || !collapse.done)
+        heroMode && coverPresentation == null && (!(panels.lyricsOpen || panels.queueOpen) || !collapse.done)
     }
     val clipFullscreen = spotifyCanvasOnPhone && heroClipMounted?.source == CanvasSource.SPOTIFY
     val clipPortrait = !clipFullscreen &&
@@ -696,7 +699,6 @@ fun NowPlayingScreen(
         }
     }
 
-    var automixStudioOpen by remember { mutableStateOf(false) }
     val openAutomixStudio: () -> Unit = { automixStudioOpen = true }
     val playerOverlays: @Composable () -> Unit = {
         LikeBurstOverlay(
@@ -719,6 +721,9 @@ fun NowPlayingScreen(
         )
         if (automixStudioOpen) {
             AutomixStudioSheet(playerHaze, synesthesiaPalette.colors.firstOrNull()) { automixStudioOpen = false }
+        }
+        if (queueTools != null) {
+            QueueToolDialogs(queueTools, overlays, synesthesiaPalette.colors.firstOrNull(), controlsLocked)
         }
     }
 
@@ -797,7 +802,7 @@ fun NowPlayingScreen(
     )
 
     if ((inPip && videoMode) || landscape) {
-        CompositionLocalProvider(LocalOpenAutomixStudio provides openAutomixStudio) {
+        CompositionLocalProvider(LocalOpenAutomixStudio provides openAutomixStudio, LocalQueueActions provides queueActions) {
             LandscapeAndVideoNowPlaying(
                 inPip = inPip,
                 videoMode = videoMode,
@@ -805,6 +810,7 @@ fun NowPlayingScreen(
                 videoRendered = videoRendered,
                 onVideoRenderedChange = { videoRendered = it },
                 art = art,
+                coverPresentation = coverPresentation,
                 song = song,
                 isPlaying = isPlaying,
                 isLoading = isLoading,
@@ -905,6 +911,7 @@ fun NowPlayingScreen(
         LocalLikeBurstState provides likeBurstState,
         LocalPlayerHazeState provides playerHaze,
         LocalOpenAutomixStudio provides openAutomixStudio,
+        LocalQueueActions provides queueActions,
     ) {
         Box(
             modifier = dockHost
@@ -1257,6 +1264,7 @@ fun NowPlayingScreen(
                         PortraitSleeve(
                             song = song,
                             art = art,
+                            coverPresentation = coverPresentation,
                             clipState = clipState,
                             canvas = canvas,
                             heroClip = heroClip,
@@ -1414,6 +1422,12 @@ fun NowPlayingScreen(
                             (!panels.queueOpen || panels.queueControlsOpen) &&
                             (!spotifyCanvasPresentation || clipState.spotifyControlsOpen || mixing),
                         reveal = playerDeckReveal,
+                        modifier = if (panels.queueOpen) Modifier.pointerInput(panels) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                                panels.queueTransportActivity++
+                            }
+                        } else Modifier,
                         fadeIn = { !panels.lyricsOpen && !panels.queueOpen && p() > 0f },
                     ) {
                         PortraitControlDeck(
@@ -1508,4 +1522,22 @@ fun NowPlayingScreen(
             playerOverlays()
         }
     }
+}
+
+@Composable
+private fun rememberPlayerArtworkPalette(remoteArt: String?, clipState: CanvasClipState): MeshPalette {
+    // Live blur frames can arrive more often than the artwork palette needs to change.
+    var paletteFrame by remember(clipState) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(clipState) {
+        var lastAt = 0L
+        clipState.frames.frames.collect { frame ->
+            if (frame == null) return@collect
+            val now = System.nanoTime()
+            if (lastAt == 0L || now - lastAt >= LIVE_REFRESH_MS * 1_000_000L) {
+                lastAt = now
+                paletteFrame = frame
+            }
+        }
+    }
+    return rememberArtworkColors(remoteArt, paletteFrame)
 }

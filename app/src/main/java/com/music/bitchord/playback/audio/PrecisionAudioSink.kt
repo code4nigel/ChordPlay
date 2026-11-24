@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.LocalPlaybackVolume
 import com.music.bitchord.playback.audio.usb.DirectAudioOutput
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -77,6 +78,21 @@ class PrecisionAudioSink(
      */
     private val isAudible: () -> Boolean = { true },
 ) : ForwardingAudioSink(delegate) {
+
+    private var deckVolume = 1f
+    private var delegateVolume = Float.NaN
+
+    override fun setVolume(volume: Float) {
+        deckVolume = volume
+        applyVolume()
+    }
+
+    private fun applyVolume() {
+        val volume = deckVolume * LocalPlaybackVolume.gain
+        if (volume == delegateVolume) return
+        delegate.setVolume(volume)
+        delegateVolume = volume
+    }
 
     /** Whether the precision Float32 DSP path is currently active for the configured format. */
     var isPrecisionActive: Boolean = false
@@ -267,6 +283,7 @@ class PrecisionAudioSink(
         presentationTimeUs: Long,
         encodedAccessUnitCount: Int,
     ): Boolean {
+        applyVolume()
         if (!isPrecisionActive) {
             return delegate.handleBuffer(inputBuffer, presentationTimeUs, encodedAccessUnitCount)
         }

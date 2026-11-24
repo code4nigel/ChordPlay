@@ -50,7 +50,8 @@ object PlaylistMembershipCache {
         val cleanId = playlistId.removePrefix("VL")
         pendingRemoves[cleanId]?.remove(videoId)
         pendingRemoves[playlistId]?.remove(videoId)
-        membership.computeIfAbsent(cleanId) { ConcurrentHashMap() }[videoId] = setVideoId ?: ""
+        val entries = membership.computeIfAbsent(cleanId) { ConcurrentHashMap() }
+        if (setVideoId == null) entries.putIfAbsent(videoId, "") else entries[videoId] = setVideoId
     }
 
     fun remove(playlistId: String, videoId: String) {
@@ -136,7 +137,7 @@ object PlaylistMembershipCache {
         val cleanId = playlistId.removePrefix("VL")
         val map = membership.computeIfAbsent(cleanId) { ConcurrentHashMap() }
         videoIds.forEach { vid ->
-            map[vid] = ""
+            map.putIfAbsent(vid, "")
             pendingRemoves[cleanId]?.remove(vid)
         }
     }

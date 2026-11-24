@@ -83,11 +83,14 @@ import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.PlaylistDownloadProfile
+import com.music.bitchord.download.PlaylistDownloadSync
 import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -99,6 +102,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.music.bitchord.playback.AndroidAutomixStudio
+import com.music.bitchord.playback.PendingQueuePlaylist
+import com.music.bitchord.playback.queueMixProfile
+import com.music.bitchord.playback.snapshotQueuePlaylist
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -134,7 +141,35 @@ data class BulkAddProgress(
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val savedQueueMixes by lazy { com.music.bitchord.playback.SavedQueueMixes(app) }
+    private val _queuePlaylistSave = MutableStateFlow<QueuePlaylistSaveState?>(null)
+    internal val queuePlaylistSave = _queuePlaylistSave.asStateFlow()
+
     private val authStore = com.music.bitchord.BitChordApplication.authStore
+    internal val playlistDownloadSync = PlaylistDownloadSync(app, viewModelScope, ::playlistDownloadProfile)
+
+    internal fun playlistDownloadProfile(): PlaylistDownloadProfile {
+        val profile = authStore.queueMixProfile()
+        return PlaylistDownloadProfile(profile?.accountId, profile?.profileId)
+    }
+    private val pickerMembership = PlaylistPickerMembership(viewModelScope, authStore::queueMixProfile)
+
+    internal fun observePickerMembership(songId: String): StateFlow<PlaylistPickerMembershipState> {
+        val profile = authStore.queueMixProfile()
+        if (profile != null) {
+            _detailStack.value.forEach { page ->
+                if (page.type != BrowseType.PLAYLIST) return@forEach
+                val songs = (page.songs as? UiState.Success)?.data ?: return@forEach
+                val row = songs.firstOrNull { it.videoId == songId }?.setVideoId ?: return@forEach
+                pickerMembership.seedFromPlaylist(profile, songId, page.browseId, row)
+            }
+        }
+        return pickerMembership.observe(profile, songId)
+    }
+
+    internal fun refreshPickerMembership(songId: String) {
+        pickerMembership.refresh(authStore.queueMixProfile(), songId)
+    }
 
     private val _signedIn = MutableStateFlow(authStore.isSignedIn)
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
@@ -274,6 +309,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Every track in the Local Music folder, read when the Library source is picked. */
     private val _librarySongs = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
+    private var librarySongsJob: Job? = null
+    private var localMusicDetailJob: Job? = null
 
     /**
      * The Library source's answer for the current query: the Local Music
@@ -1057,17 +1094,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         onResult: (added: Int, removed: Int) -> Unit = { _, _ -> },
     ) {
         if (!requireSignIn()) return
+        val writeProfile = authStore.queueMixProfile()
         viewModelScope.launch {
             var addedCount = 0
             var removedCount = 0
 
             toRemove.forEach { playlist ->
+                if (authStore.queueMixProfile() != writeProfile) return@launch
                 if (removeOne(playlist, song)) {
                     removedCount++
                 }
             }
 
             toAdd.forEach { playlist ->
+                if (authStore.queueMixProfile() != writeProfile) return@launch
                 val outcome = addOne(playlist, song)
                 if (outcome == AddOutcome.ADDED) {
                     addedCount++
@@ -1084,8 +1124,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
     ) {
         if (!requireSignIn() || playlists.isEmpty()) return
+        val writeProfile = authStore.queueMixProfile()
         viewModelScope.launch {
-            val outcomes = playlists.map { addOne(it, song) }
+            val outcomes = playlists.map {
+                if (authStore.queueMixProfile() != writeProfile) return@launch
+                addOne(it, song)
+            }
             onResult(
                 outcomes.count { it == AddOutcome.ADDED },
                 outcomes.count { it == AddOutcome.ALREADY_THERE },
@@ -1102,6 +1146,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
     ) {
         if (playlists.isEmpty() || songs.isEmpty()) return
+        val writeProfile = authStore.queueMixProfile()
+        val canWrite = { writeProfile != null && authStore.queueMixProfile() == writeProfile }
         viewModelScope.launch {
             var totalAdded = 0
             var totalAlreadyThere = 0
@@ -1164,12 +1210,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         )
 
                         val videoIds = chunk.map { it.videoId }
-                        val result = YtMusicRepository.addToPlaylist(cleanId, videoIds)
+                        val result = YtMusicRepository.addToPlaylist(cleanId, videoIds, canWrite)
+                        if (!canWrite()) return@launch
                         result.fold(
                             onSuccess = { addedMap ->
                                 libraryStale = true
                                 chunk.forEach { song ->
                                     val newSetVideoId = addedMap[song.videoId]
+                                    pickerMembership.added(writeProfile, song.videoId, cleanId, newSetVideoId)
                                     PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
                                     appendToOpenPlaylist(playlist.browseId, song, newSetVideoId)
                                 }
@@ -1232,31 +1280,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             return false
         }
-        val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
-            ?.songs as? UiState.Success)?.data
-        val cachedSetVideoId = song.setVideoId
-            ?: openSongs?.firstOrNull { it.videoId == song.videoId }?.setVideoId
-            ?: PlaylistMembershipCache.getSetVideoId(playlist.playlistId, song.videoId)
-            ?: PlaylistMembershipCache.getSetVideoId(cleanId, song.videoId)
-            ?: runCatching {
-                YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
-                    ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
-            }.getOrNull()
-
-        if (cachedSetVideoId == null) {
-            // Song is not in the playlist on the server — clear any stale "added" state immediately.
-            PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
-            PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
-            PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
-            PlaylistMembershipCache.remove(cleanId, song.videoId)
+        val writeProfile = authStore.queueMixProfile() ?: return false
+        val canWrite = { authStore.queueMixProfile() == writeProfile }
+        // A picker selection applies to the destination playlist and all its occurrences.
+        val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull() ?: return false
+        if (!canWrite()) return false
+        val matching = entries.filter { it.videoId == song.videoId }
+        if (matching.isEmpty()) {
+            pickerMembership.removed(writeProfile, song.videoId, cleanId)
             return false
         }
+        val removals = matching.map { (it.setVideoId ?: return false) to it.videoId }
 
         return YtMusicRepository.removeFromPlaylist(
             playlist.playlistId,
-            listOf(cachedSetVideoId to song.videoId),
+            removals,
+            canWrite,
         ).fold(
             onSuccess = {
+                if (!canWrite()) return false
+                pickerMembership.removed(writeProfile, song.videoId, cleanId)
                 libraryStale = true
                 PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
                 PlaylistMembershipCache.remove(cleanId, song.videoId)
@@ -1274,22 +1317,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 true
             },
-            onFailure = {
-                PlaylistMembershipCache.clearPendingRemove(playlist.playlistId, song.videoId)
-                PlaylistMembershipCache.clearPendingRemove(cleanId, song.videoId)
-                // Check whether the song is actually still in the playlist before restoring cache.
-                val stillPresent = runCatching {
-                    YtMusicRepository.getPlaylistsContainingSong(song.videoId).getOrNull()
-                        ?.let { cleanId in it }
-                }.getOrNull()
-                if (stillPresent == false) {
-                    PlaylistMembershipCache.remove(playlist.playlistId, song.videoId)
-                    PlaylistMembershipCache.remove(cleanId, song.videoId)
-                } else {
-                    PlaylistMembershipCache.add(cleanId, song.videoId)
-                }
-                false
-            },
+            onFailure = { false },
         )
     }
 
@@ -1304,9 +1332,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             return AddOutcome.ALREADY_THERE
         }
+        val writeProfile = authStore.queueMixProfile() ?: return AddOutcome.FAILED
+        val canWrite = { authStore.queueMixProfile() == writeProfile }
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
             ?.songs as? UiState.Success)?.data
         if (openSongs?.any { it.videoId == song.videoId } == true) {
+            pickerMembership.added(writeProfile, song.videoId, cleanId, openSongs.first { it.videoId == song.videoId }.setVideoId)
             PlaylistMembershipCache.clearPendingAdd(cleanId, song.videoId)
             PlaylistMembershipCache.add(cleanId, song.videoId)
             return AddOutcome.ALREADY_THERE
@@ -1314,24 +1345,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
         // Verify against authoritative server membership before adding to prevent duplicates.
         val alreadyOnServer = runCatching {
-            val containing = YtMusicRepository.getPlaylistsContainingSong(song.videoId).getOrNull()
-            if (containing != null) {
-                cleanId in containing
-            } else {
-                YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
+            val containing = YtMusicRepository.getPlaylistMembership(song.videoId, canWrite).getOrNull()
+            containing?.get(cleanId)
+                ?: YtMusicRepository.browseSongs(playlist.browseId).getOrNull()?.songs
                     ?.any { it.videoId == song.videoId } == true
-            }
         }.getOrDefault(false)
+        if (!canWrite()) return AddOutcome.FAILED
         if (alreadyOnServer) {
+            pickerMembership.added(writeProfile, song.videoId, cleanId)
             PlaylistMembershipCache.clearPendingAdd(cleanId, song.videoId)
             PlaylistMembershipCache.add(cleanId, song.videoId)
             return AddOutcome.ALREADY_THERE
         }
 
-        return YtMusicRepository.addToPlaylist(cleanId, listOf(song.videoId)).fold(
+        return YtMusicRepository.addToPlaylist(cleanId, listOf(song.videoId), canWrite).fold(
             onSuccess = { added ->
+                if (!canWrite()) return AddOutcome.FAILED
                 libraryStale = true
                 val newSetVideoId = added[song.videoId]
+                pickerMembership.added(writeProfile, song.videoId, cleanId, newSetVideoId)
                 val songWithSetId = song.copy(setVideoId = newSetVideoId)
                 PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
                 val existingPending = pendingPlaylistAdditions[cleanId].orEmpty()
@@ -1358,18 +1390,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun createPlaylist(title: String, privacy: PlaylistPrivacy, song: Song? = null) {
         if (!requireSignIn()) return
+        val writeProfile = authStore.queueMixProfile()
+        val canWrite = { writeProfile != null && authStore.queueMixProfile() == writeProfile }
         val name = title.trim().ifBlank { text(R.string.new_playlist) }
         viewModelScope.launch {
             YtMusicRepository.createPlaylist(
                 title = name,
                 privacy = privacy,
                 videoIds = listOfNotNull(song?.videoId),
+                canCreate = canWrite,
             ).fold(
                 onSuccess = { playlistId ->
+                    if (!canWrite()) return@launch
                     AppSettings.addChordplayPlaylistId(playlistId)
                     if (song != null) {
-                        preseededSongs["VL$playlistId"] = listOf(song)
-                        preseededSongs[playlistId] = listOf(song)
+                        pickerMembership.added(writeProfile, song.videoId, playlistId)
+                        val seed = listOf(song.copy(setVideoId = null))
+                        preseededSongs["VL$playlistId"] = seed
+                        preseededSongs[playlistId] = seed
                     }
                     // Nothing to look up for a playlist this account has just
                     // made: it is the owner by construction, so its card is
@@ -1409,6 +1447,103 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 onFailure = {},
             )
         }
+    }
+
+    internal fun prepareQueuePlaylistSave(queue: List<Song>, currentIndex: Int) {
+        val profile = authStore.queueMixProfile()
+        val previous = _queuePlaylistSave.value
+        if (previous == QueuePlaylistSaveState.Creating || previous is QueuePlaylistSaveState.Receipt &&
+            previous.status == QueuePlaylistSaveState.Status.VERIFYING) return
+        if (profile == null) {
+            _queuePlaylistSave.value = QueuePlaylistSaveState.SignIn
+            return
+        }
+        val pending = savedQueueMixes.pending(profile)
+        _queuePlaylistSave.value = if (pending != null) {
+            QueuePlaylistSaveState.Receipt(pending, QueuePlaylistSaveState.Status.VERIFY_FAILED)
+        } else {
+            QueuePlaylistSaveState.Form(profile, snapshotQueuePlaylist(queue, currentIndex))
+        }
+    }
+
+    internal fun createQueuePlaylist(
+        title: String,
+        privacy: PlaylistPrivacy,
+        history: com.music.bitchord.playback.QueueHistoryRange?,
+        skipConfirmed: Boolean,
+    ) {
+        val state = _queuePlaylistSave.value as? QueuePlaylistSaveState.Form ?: return
+        val name = title.trim()
+        val snapshot = state.capture.select(history)
+        val upload = snapshot.upload
+        if (name.isEmpty() || upload.videoIds.isEmpty() ||
+            snapshot.skipped.isNotEmpty() && !skipConfirmed) return
+        if (authStore.queueMixProfile() != state.profile) {
+            _queuePlaylistSave.value = QueuePlaylistSaveState.ProfileChanged
+            return
+        }
+        _queuePlaylistSave.value = QueuePlaylistSaveState.Creating
+        viewModelScope.launch {
+            val playlistId = YtMusicRepository.createPlaylist(name, privacy, upload.videoIds) {
+                authStore.queueMixProfile() == state.profile
+            }.getOrNull()?.removePrefix("VL")
+            if (playlistId.isNullOrBlank()) {
+                _queuePlaylistSave.value = if (authStore.queueMixProfile() == state.profile) {
+                    QueuePlaylistSaveState.CreateUnconfirmed
+                } else QueuePlaylistSaveState.ProfileChanged
+                return@launch
+            }
+            val pending = PendingQueuePlaylist(state.profile, playlistId, name, upload)
+            withContext(Dispatchers.IO) { savedQueueMixes.remember(pending) }
+            verifyQueuePlaylist(pending)
+        }
+    }
+
+    internal fun retryQueuePlaylistVerification() {
+        val receipt = _queuePlaylistSave.value as? QueuePlaylistSaveState.Receipt ?: return
+        if (receipt.status == QueuePlaylistSaveState.Status.VERIFYING) return
+        _queuePlaylistSave.value = receipt.copy(status = QueuePlaylistSaveState.Status.VERIFYING)
+        viewModelScope.launch { verifyQueuePlaylist(receipt.pending) }
+    }
+
+    internal fun finishQueuePlaylistSave() {
+        val receipt = _queuePlaylistSave.value as? QueuePlaylistSaveState.Receipt ?: return
+        savedQueueMixes.finish(receipt.pending.profile)
+        _queuePlaylistSave.value = null
+    }
+
+    private suspend fun verifyQueuePlaylist(pending: PendingQueuePlaylist) {
+        if (authStore.queueMixProfile() != pending.profile) {
+            _queuePlaylistSave.value = QueuePlaylistSaveState.ProfileChanged
+            return
+        }
+        _queuePlaylistSave.value = QueuePlaylistSaveState.Receipt(pending, QueuePlaylistSaveState.Status.VERIFYING)
+        val entries = YtMusicRepository.playlistEntries(pending.browseId).getOrNull()
+        if (authStore.queueMixProfile() != pending.profile) {
+            _queuePlaylistSave.value = QueuePlaylistSaveState.ProfileChanged
+            return
+        }
+        val mix = entries?.let { pending.upload.verifiedMix(pending.profile, pending.playlistId, it) }
+        val status = when {
+            entries == null -> QueuePlaylistSaveState.Status.VERIFY_FAILED
+            mix == null -> QueuePlaylistSaveState.Status.MISMATCH
+            withContext(Dispatchers.IO) { savedQueueMixes.save(mix) } -> QueuePlaylistSaveState.Status.VERIFIED
+            else -> QueuePlaylistSaveState.Status.MIX_SAVE_FAILED
+        }
+        if (authStore.queueMixProfile() != pending.profile) {
+            _queuePlaylistSave.value = QueuePlaylistSaveState.ProfileChanged
+            return
+        }
+        AppSettings.addChordplayPlaylistId(pending.playlistId)
+        setPlaylistOwned(pending.browseId, true)
+        libraryStale = true
+        val created = UserPlaylist(pending.playlistId, pending.title, "", entries?.firstOrNull()?.thumbnailUrl)
+        _playlists.value = listOf(created) + _playlists.value.filterNot { it.playlistId == pending.playlistId }
+        editPlaylistShelf { items ->
+            listOf(ShelfItem(created.title, created.subtitle, created.thumbnailUrl, null, created.browseId)) +
+                items.filterNot { it.browseId == created.browseId }
+        }
+        _queuePlaylistSave.value = QueuePlaylistSaveState.Receipt(pending, status)
     }
 
     fun createPlaylistWithVideoIds(
@@ -1466,8 +1601,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         }
                         if (songs.isNotEmpty()) {
-                            preseededSongs["VL$playlistId"] = songs
-                            preseededSongs[playlistId] = songs
+                            val seed = songs.map { it.copy(setVideoId = null) }
+                            preseededSongs["VL$playlistId"] = seed
+                            preseededSongs[playlistId] = seed
                         }
                         setPlaylistOwned("VL$playlistId", true)
                         libraryStale = true
@@ -1528,77 +1664,83 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Drops [song] from the playlist page it is being read on, and takes the
-     * row out from under the reader rather than waiting for a re-fetch.
-     */
-    fun removeFromPlaylist(browseId: String, song: Song) {
-        val cleanId = browseId.removePrefix("VL")
-        pendingPlaylistAdditions[cleanId]?.let { pending ->
-            pendingPlaylistAdditions[cleanId] = pending.filterNot { it.videoId == song.videoId }
-        }
-        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
-            ?: com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(cleanId)
-        if (local != null) {
-            val removed = com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(local.id, song.videoId)
-            if (removed) {
-                PlaylistMembershipCache.remove(cleanId, song.videoId)
-                PlaylistMembershipCache.remove(browseId, song.videoId)
-                PlaylistMembershipCache.remove(local.id, song.videoId)
-                _detailStack.value = _detailStack.value.map { page ->
-                    val songs = (page.songs as? UiState.Success)?.data
-                    if (page.browseId != browseId || songs == null) {
-                        page
-                    } else {
-                        page.copy(
-                            songs = UiState.Success(
-                                songs.filterNot { it.videoId == song.videoId },
-                            ),
-                        )
-                    }
-                }
-            }
+    internal fun canRemovePlaylistTrack(browseId: String): Boolean {
+        if (com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId) != null) return true
+        val rawId = browseId.removePrefix("VL")
+        return _signedIn.value && !browseId.startsWith("local:") &&
+            listOf("LM", "SE", "RD", "OLAK", "MPRE").none(rawId::startsWith) &&
+            (_playlistOwned.value[browseId] == true || _playlistOwned.value["VL$rawId"] == true)
+    }
+
+    /** Removes the selected occurrence from the playlist that supplied the row. */
+    fun removeFromPlaylist(browseId: String, song: Song, onResult: (Boolean) -> Unit = {}) {
+        if (!canRemovePlaylistTrack(browseId)) {
+            onResult(false)
             return
         }
-
-        val openSongs = (_detailStack.value.firstOrNull { it.browseId == browseId }?.songs as? UiState.Success)?.data
-        val effectiveSetVideoId = song.setVideoId
-            ?: openSongs?.firstOrNull { it.videoId == song.videoId }?.setVideoId
-            ?: PlaylistMembershipCache.getSetVideoId(browseId, song.videoId)
-            ?: PlaylistMembershipCache.getSetVideoId(cleanId, song.videoId)
-
-        if (!requireSignIn()) return
-        val playlistId = cleanId
+        val cleanId = browseId.removePrefix("VL")
+        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
+        if (local != null) {
+            val store = com.music.bitchord.data.spotify.LocalPlaylistStore
+            val removed = store.removeOccurrence(local.id, song)
+            if (removed) {
+                val remaining = store.getPlaylist(local.id)?.songs.orEmpty()
+                if (remaining.none { it.videoId == song.videoId }) {
+                    for (id in setOf(browseId, local.browseId, local.id)) PlaylistMembershipCache.remove(id, song.videoId)
+                }
+                _detailStack.update { pages ->
+                    pages.map { if (it.browseId == browseId) it.copy(songs = UiState.Success(remaining)) else it }
+                }
+            }
+            onResult(removed)
+            return
+        }
+        val writeProfile = authStore.queueMixProfile()
+        if (writeProfile == null) {
+            onResult(false)
+            return
+        }
+        val canWrite = { authStore.queueMixProfile() == writeProfile && canRemovePlaylistTrack(browseId) }
         viewModelScope.launch {
-            val targetSetVideoId = effectiveSetVideoId ?: runCatching {
-                YtMusicRepository.browseSongs(browseId).getOrNull()?.songs
-                    ?.firstOrNull { it.videoId == song.videoId }?.setVideoId
-            }.getOrNull() ?: return@launch
-
-            YtMusicRepository.removeFromPlaylist(
-                playlistId,
-                listOf(targetSetVideoId to song.videoId),
-            ).fold(
-                onSuccess = {
-                    libraryStale = true
-                    PlaylistMembershipCache.remove(playlistId, song.videoId)
-                    PlaylistMembershipCache.remove(browseId, song.videoId)
-                    PlaylistMembershipCache.remove("VL$playlistId", song.videoId)
-                    _detailStack.value = _detailStack.value.map { page ->
-                        val songs = (page.songs as? UiState.Success)?.data
-                        if (page.browseId != browseId || songs == null) {
-                            page
-                        } else {
-                            page.copy(
-                                songs = UiState.Success(
-                                    songs.filterNot { it.setVideoId == targetSetVideoId || it.videoId == song.videoId },
-                                ),
-                            )
-                        }
-                    }
-                },
-                onFailure = {},
-            )
+            val tracks = YtMusicRepository.completePlaylistTracks("VL$cleanId", canWrite).getOrNull()
+            val matches = tracks.orEmpty().filter { it.videoId == song.videoId }
+            val row = if (song.setVideoId == null) matches.singleOrNull()
+                else matches.singleOrNull { it.setVideoId == song.setVideoId }
+            val rowId = row?.setVideoId
+            if (rowId == null || !canWrite()) {
+                onResult(false)
+                return@launch
+            }
+            val removed = YtMusicRepository.removeFromPlaylist(cleanId, listOf(rowId to song.videoId), canWrite)
+            if (removed.isFailure || !canWrite()) {
+                onResult(false)
+                return@launch
+            }
+            libraryStale = true
+            pendingPlaylistAdditions[cleanId]?.let { pending ->
+                pendingPlaylistAdditions[cleanId] = pending.filterNot {
+                    it.setVideoId == rowId || (it.videoId == song.videoId && matches.size == 1)
+                }
+            }
+            val other = matches.firstOrNull { it.setVideoId != rowId }
+            if (other == null) pickerMembership.removed(writeProfile, song.videoId, cleanId)
+            else pickerMembership.added(writeProfile, song.videoId, cleanId, other.setVideoId)
+            for (id in setOf(cleanId, browseId, "VL$cleanId")) {
+                if (other == null) PlaylistMembershipCache.remove(id, song.videoId)
+                else PlaylistMembershipCache.add(id, song.videoId, other.setVideoId)
+            }
+            _detailStack.update { pages ->
+                pages.map { page ->
+                    val songs = (page.songs as? UiState.Success)?.data
+                    if (page.browseId != browseId || songs == null) return@map page
+                    val index = songs.indexOfFirst { it.setVideoId == rowId }
+                        .takeIf { it >= 0 }
+                        ?: if (matches.size == 1) songs.indexOfFirst { it === song } else -1
+                    if (index < 0) page
+                    else page.copy(songs = UiState.Success(songs.toMutableList().apply { removeAt(index) }))
+                }
+            }
+            onResult(true)
         }
     }
 
@@ -1650,11 +1792,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val playlistId = cleanId
+        val writeProfile = authStore.queueMixProfile() ?: run { onComplete?.invoke(false); return }
+        val canWrite = { authStore.queueMixProfile() == writeProfile }
         viewModelScope.launch {
-            YtMusicRepository.addToPlaylist(playlistId, listOf(song.videoId)).fold(
+            YtMusicRepository.addToPlaylist(playlistId, listOf(song.videoId), canWrite).fold(
                 onSuccess = { added ->
+                    if (!canWrite()) return@launch
                     libraryStale = true
                     val newSetVideoId = added[song.videoId]
+                    pickerMembership.added(writeProfile, song.videoId, playlistId, newSetVideoId)
                     val songWithSetId = song.copy(setVideoId = newSetVideoId)
                     PlaylistMembershipCache.add(cleanId, song.videoId, newSetVideoId)
                     val existingPending = pendingPlaylistAdditions[cleanId].orEmpty()
@@ -1935,7 +2081,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             PlaybackTracker.registeredPlays.drop(1).collect { homeStale = true }
         }
         viewModelScope.launch {
-            AppSettings.filterNonMusicAudio.drop(1).collect {
+            combine(AppSettings.localMusicFolderUri, AppSettings.filterNonMusicAudio) { folder, filter ->
+                folder to filter
+            }.drop(1).collect {
+                searchCache.snapshot().keys.filter { it.startsWith("${SearchSource.LOCAL.name}:") }
+                    .forEach(searchCache::remove)
+                if (_searchSource.value == SearchSource.LOCAL && searchSubmitted && _query.value.isNotBlank()) {
+                    runSearch()
+                }
+                if (librarySongsJob != null) loadLibrarySongs()
                 if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
                     reloadLocalDetail("local:all")
                 }
@@ -2851,9 +3005,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * are in the next answer; the last list stays up meanwhile.
      */
     fun loadLibrarySongs() {
-        viewModelScope.launch {
+        librarySongsJob?.cancel()
+        librarySongsJob = viewModelScope.launch {
             val context = getApplication<Application>()
-            _librarySongs.value = if (!LocalMediaRepository.hasStoragePermission(context)) {
+            val state = if (!LocalMediaRepository.hasStoragePermission(context)) {
                 UiState.Error(text(R.string.storage_required_read))
             } else {
                 runCatching { LocalMediaRepository.getLocalMusic(context) }.fold(
@@ -2864,6 +3019,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     onFailure = { UiState.Error(text(R.string.no_local_audio_found)) },
                 )
             }
+            ensureActive()
+            _librarySongs.value = state
         }
     }
 
@@ -3782,7 +3939,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     fun reloadLocalDetail(browseId: String) {
-        viewModelScope.launch {
+        if (browseId == "local:all") localMusicDetailJob?.cancel()
+        val job = viewModelScope.launch {
             val context = getApplication<Application>()
             val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
             val remote = remoteLibrary(browseId)
@@ -3820,6 +3978,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 } else it
             }
         }
+        if (browseId == "local:all") localMusicDetailJob = job
     }
 
     /**
@@ -3891,8 +4050,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val current = stack[index]
                 val existing = (current.songs as? UiState.Success)?.data ?: return@launch
                 val known = existing.mapTo(HashSet()) { it.videoId }
+                val knownEntries = existing.mapTo(HashSet()) { it.videoId to it.setVideoId }
                 val added = fetched.songs
-                    .filter { known.add(it.videoId) }
+                    .filter { song ->
+                        val newSong = known.add(song.videoId)
+                        if (current.type == BrowseType.PLAYLIST) knownEntries.add(song.videoId to song.setVideoId) else newSong
+                    }
                     .withArtwork(artworkFallback)
                 // Suggestions can arrive on a later page than the real
                 // tracks, once the playlist's own continuation runs dry —
@@ -4130,6 +4293,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
             val wasSignedIn = _signedIn.value
             if (wasSignedIn) cacheCurrentListener()
+            pickerMembership.profileChanged()
             authStore.upsertSession(stored)
             authStore.cookie = session.cookie // legacy compatibility only
             _googleAccounts.value = authStore.sessions
@@ -4169,6 +4333,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             profiles = (source.profiles.filterNot { it.profileId == profile.profileId } + profile),
             activeProfileId = profile.profileId,
         )
+        pickerMembership.profileChanged()
         authStore.upsertSession(updated)
         authStore.select(accountId, profile.profileId)
         _googleAccounts.value = authStore.sessions
@@ -4285,6 +4450,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * itself.
      */
     private fun reloadForAccount() {
+        AndroidAutomixStudio.profileChanged(authStore.queueMixProfile())
         viewModelScope.launch {
             Innertube.ensureSessionScope()
             loadHome()
@@ -4304,6 +4470,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         authStore.signOut()
+        AndroidAutomixStudio.profileChanged(null)
         Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing
         // about what an anonymous walk will be told, and the clients stood down
@@ -4316,6 +4483,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _selectedChannelKey.value = null
         _selectedChannelName.value = null
         _googleAccounts.value = emptyList()
+        pickerMembership.profileChanged()
         _activeAccountId.value = null
         _activeProfileId.value = null
         _library.value = UiState.Loading

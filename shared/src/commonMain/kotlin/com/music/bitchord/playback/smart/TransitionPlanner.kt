@@ -1182,6 +1182,7 @@ fun planTransition(
     mode: CrossfadeMode = CrossfadeMode.STANDARD,
     albumSequential: Boolean = false,
     advanced: Boolean = false,
+    allowTempoMatching: Boolean = true,
 ): TransitionPlan {
     val length = max(duration.orZero(), trackDurationSeconds(currentTrack))
     val playbackTime = max(0.0, currentTime.orZero())
@@ -1269,6 +1270,7 @@ fun planTransition(
 
     phraseSwitch(analysis, nextAnalysis, length, nextLength, advanced)
         ?.takeIf { playbackTime < it.transitionEnd }
+        ?.takeIf { allowTempoMatching || (it.incomingPlaybackRate == 1.0 && it.outgoingPlaybackRate == 1.0) }
         ?.let { plan ->
             val started = playbackTime >= plan.transitionStart
             return capIncomingSkip(
@@ -1285,7 +1287,7 @@ fun planTransition(
     val traits = if (advanced) PairTraits(analysis, nextAnalysis) else null
     val filterVariant = if (traits != null) filterVariantFor(currentTrack, nextTrack) else FilterTransitionVariant.SWEEP
     val primary = mixPlan(
-        analysis, nextAnalysis, mixAnchor, mixOutAnchor.type, length, nextLength, traits, filterVariant,
+        analysis, nextAnalysis, mixAnchor, mixOutAnchor.type, length, nextLength, traits, filterVariant, allowTempoMatching,
     )
     // An exit where the outgoing track is still singing over the incoming one
     // is worth trading for another the analysis ranked, if one halves the
@@ -1298,7 +1300,7 @@ fun planTransition(
         rankedMixOuts.asSequence()
             .filter { abs(it.time - mixAnchor) > 1.0 && it.time <= length }
             .take(MAX_REROUTE_CANDIDATES)
-            .map { mixPlan(analysis, nextAnalysis, it.time, it.type, length, nextLength, traits, filterVariant) }
+            .map { mixPlan(analysis, nextAnalysis, it.time, it.type, length, nextLength, traits, filterVariant, allowTempoMatching) }
             .filter { playbackTime < it.transitionStart }
             .minByOrNull { it.vocalOverlap }
             ?.takeIf { it.vocalOverlap <= primary.vocalOverlap * VOCAL_REROUTE_GAIN }
@@ -1332,6 +1334,7 @@ private fun mixPlan(
     nextLength: Double,
     traits: PairTraits?,
     filterVariant: FilterTransitionVariant,
+    allowTempoMatching: Boolean,
 ): TransitionPlan {
     val currentBpm = analysis.bpm.orZero()
     val nextBpm = nextAnalysis.bpm.orZero()
@@ -1341,13 +1344,16 @@ private fun mixPlan(
     } else {
         1.0
     }
-    val (overlap, transitionBeats, incomingPlaybackRate) = adaptiveOverlap(
+    val (overlap, transitionBeats, matchedRate) = adaptiveOverlap(
         analysis, nextAnalysis, traits, energy, filterVariant,
     )
+    val incomingPlaybackRate = if (allowTempoMatching) matchedRate else 1.0
     val handoffBpm = if (currentBpm > 0) currentBpm else nextBpm
     // Advanced also blends any pair a speed-up matches on two trusted grids —
     // the 5-10% apart that used to be left to a filter ride.
-    val sameBeatBlend = (traits == null || incomingPlaybackRate >= 1.0) && (
+    val matchableAtOriginalSpeed = abs(1 - normalizedTempoRatio(currentBpm, nextBpm)) <= 0.005
+    val sameBeatBlend = (allowTempoMatching || matchableAtOriginalSpeed) &&
+        (traits == null || incomingPlaybackRate >= 1.0) && (
         currentBpm > 0 && nextBpm > 0 &&
             abs(1 - normalizedTempoRatio(currentBpm, nextBpm)) <= 0.05 &&
             (analysis.beatConfidence.orZero() >= 0.2 || nextAnalysis.beatConfidence.orZero() >= 0.2) ||

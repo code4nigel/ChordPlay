@@ -6,6 +6,7 @@ import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -38,7 +39,7 @@ import java.util.concurrent.ConcurrentHashMap
  * identical across renditions of the same recording — the whole reason an
  * analysis is worth keeping in the first place.
  *
- * Only fields the planner reads are stored, and the curves are rounded to
+ * Planner data and optional Studio peaks are stored, and the curves are rounded to
  * milliseconds: they are the bulk of the payload and nothing downstream can
  * tell the difference.
  */
@@ -198,6 +199,7 @@ class AnalysisStore(
         val lowEnergyCurve: List<StoredEnergy> = emptyList(),
         val vocalActivityMask: List<Double> = emptyList(),
         val vocalProbability: Double = 0.0,
+        val waveform: StoredWaveform? = null,
     ) {
         fun toAnalysis(trackId: String) = TrackAnalysis(
             status = TrackAnalysis.STATUS_READY,
@@ -224,6 +226,7 @@ class AnalysisStore(
             lowEnergyCurve = lowEnergyCurve.map { it.toSample() },
             vocalActivityMask = vocalActivityMask,
             vocalProbability = vocalProbability,
+            waveform = waveform?.toPeaks(),
         )
 
         companion object {
@@ -250,6 +253,20 @@ class AnalysisStore(
                 lowEnergyCurve = analysis.lowEnergyCurve.map(StoredEnergy::of),
                 vocalActivityMask = analysis.vocalActivityMask.map(::round),
                 vocalProbability = analysis.vocalProbability,
+                waveform = analysis.waveform?.let(StoredWaveform::of),
+            )
+        }
+    }
+
+    @Serializable
+    private data class StoredWaveform(val start: Double, val sampleSeconds: Double, val encoded: String) {
+        fun toPeaks(): WaveformPeaks? = runCatching {
+            WaveformPeaks(start, sampleSeconds, Base64.getDecoder().decode(encoded))
+        }.getOrNull()
+
+        companion object {
+            fun of(waveform: WaveformPeaks) = StoredWaveform(
+                waveform.start, waveform.sampleSeconds, Base64.getEncoder().encodeToString(waveform.peaks),
             )
         }
     }

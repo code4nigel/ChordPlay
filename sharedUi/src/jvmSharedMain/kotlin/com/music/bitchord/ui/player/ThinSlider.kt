@@ -60,7 +60,7 @@ import kotlin.math.cos
 @Composable
 fun ThinSlider(
     value: Float,
-    onValueChange: (Float) -> Unit,
+    onValueChange: ((Float) -> Unit)?,
     modifier: Modifier = Modifier,
     onValueChangeFinished: (() -> Unit)? = null,
     /**
@@ -102,6 +102,8 @@ fun ThinSlider(
     markerColor: Color = Color.White.copy(alpha = 0.5f),
 ) {
     var dragging by remember { mutableStateOf(false) }
+    val changeValue by rememberUpdatedState(onValueChange)
+    val finishChange by rememberUpdatedState(onValueChangeFinished)
     val height by animateDpAsState(
         targetValue = if (dragging) activeHeight else idleHeight,
         animationSpec = spring(
@@ -146,11 +148,12 @@ fun ThinSlider(
             // One gesture loop for both taps and drags. Two separate detectors
             // — a drag one plus a tap one — meant taps never landed: the drag
             // detector took the pointer and a tap has no drag to report.
-            .pointerInput(Unit) {
+            .then(if (onValueChange == null) Modifier else Modifier.pointerInput(Unit) {
                 awaitEachGesture {
+                    val update = changeValue ?: return@awaitEachGesture
                     val down = awaitFirstDown(requireUnconsumed = false)
                     dragging = true
-                    onValueChange((down.position.x / size.width).coerceIn(0f, 1f))
+                    update((down.position.x / size.width).coerceIn(0f, 1f))
 
                     while (true) {
                         val event = awaitPointerEvent()
@@ -160,15 +163,15 @@ fun ThinSlider(
                             break
                         }
                         if (pointer.positionChanged()) {
-                            onValueChange((pointer.position.x / size.width).coerceIn(0f, 1f))
+                            update((pointer.position.x / size.width).coerceIn(0f, 1f))
                             pointer.consume()
                         }
                     }
 
                     dragging = false
-                    onValueChangeFinished?.invoke()
+                    finishChange?.invoke()
                 }
-            },
+            }),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(

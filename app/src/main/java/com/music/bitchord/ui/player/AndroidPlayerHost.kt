@@ -13,8 +13,11 @@ package com.music.bitchord.ui.player
 
 import android.content.Context
 import android.database.ContentObserver
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -32,9 +35,13 @@ import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.playback.AndroidCoverPlayback
 import com.music.bitchord.playback.AndroidAutomixStudio
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.LocalPlaybackVolume
+import com.music.bitchord.playback.LocalVolumeTarget
+import com.music.bitchord.playback.localVolumeTarget
 import com.music.bitchord.playback.cast.CastController
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
@@ -45,10 +52,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * The phone's answers to [PlayerHost]: AppSettings, the Media3 Canvas decoder,
@@ -57,12 +64,14 @@ import kotlin.math.roundToInt
  * moved into the shared module.
  */
 class AndroidPlayerHost(context: Context) : PlayerHost {
+    override val coverTrackChange get() = AndroidCoverPlayback.change
     override val automixStudio: AutomixStudio get() = AndroidAutomixStudio
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
+        override val coverAnimation get() = AppSettings.coverAnimation
         override val animatedCanvas get() = AppSettings.animatedCanvas
         override val audioQualityCellular get() = AppSettings.audioQualityCellular
         override val audioQualityWifi get() = AppSettings.audioQualityWifi
@@ -86,7 +95,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val reduceDynamicBlur get() = AppSettings.reduceDynamicBlur
         override val showNerdStats get() = AppSettings.showNerdStats
         override val smartAnalysis get() = AppSettings.smartAnalysis
-        override val smartFadeEnabled get() = AppSettings.smartFadeEnabled
+        override val smartFadeEnabled get() = AppSettings.activeSmartFadeEnabled
+        override val automixPerformance get() = AppSettings.automixPerformanceMode
+        override val automixTempoMatching get() = AppSettings.activeAutomixTempoMatching
+        override fun setAutomixPerformance(value: com.music.bitchord.data.settings.AutomixPerformanceMode) =
+            AppSettings.setAutomixPerformanceMode(value)
+        override fun setAutomixTempoMatching(value: Boolean) = AppSettings.setActiveAutomixTempoMatching(value)
         override val smartMixInProgress get() = AppSettings.smartMixInProgress
         override val smartMixBlend get() = AppSettings.smartMixBlend
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
@@ -117,7 +131,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setFullBleedArtwork(value: Boolean) = AppSettings.setFullBleedArtwork(value)
         override fun setTapArtworkToToggleFullScreen(value: Boolean) = AppSettings.setTapArtworkToToggleFullScreen(value)
         override fun setSmartFadeEnabled(value: Boolean) {
-            AppSettings.setSmartFadeEnabled(value)
+            AppSettings.setActiveSmartFadeEnabled(value)
             if (value) {
                 com.music.bitchord.playback.smart.AutomixModelManager.ensureModelsDownloaded(app)
             }
@@ -181,7 +195,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     // Lazy, all three: the player is not the first thing the process does, and
     // none of these objects should be woken for a launch that never opens it.
-    override val volume: SystemVolume by lazy { CastAwareVolume(MusicStreamVolume(app), scope) }
+    override val volume: SystemVolume by lazy { CastAwareVolume(MusicStreamVolume(app, scope), scope) }
 
     @Composable
     override fun rememberAudioOutputs(): List<AudioOutputDevice> {
@@ -331,31 +345,75 @@ private class CastAwareVolume(
  * The music stream's volume. Hardware keys and the system panel change it
  * behind the app's back, so Settings is watched and the level follows.
  */
-private class MusicStreamVolume(private val context: Context) : SystemVolume {
+private class MusicStreamVolume(context: Context, scope: CoroutineScope) : SystemVolume {
     private val manager = context.getSystemService(AudioManager::class.java)
-    private val _level = MutableStateFlow(read())
+    private val main = Handler(Looper.getMainLooper())
+    private data class FineSetting(val target: LocalVolumeTarget, val routeId: Int?)
+    private var fineSetting: FineSetting? = null
+    private val _level = MutableStateFlow(readIndex().toFloat() / max())
     override val level: StateFlow<Float> = _level.asStateFlow()
 
     init {
         context.contentResolver.registerContentObserver(
             Settings.System.CONTENT_URI,
             true,
-            object : ContentObserver(Handler(Looper.getMainLooper())) {
+            object : ContentObserver(main) {
                 override fun onChange(selfChange: Boolean) = refresh()
             },
         )
+        manager?.registerAudioDeviceCallback(object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = refresh()
+            override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = refresh()
+        }, main)
+        scope.launch(Dispatchers.Main.immediate) {
+            AudioRouting.selectedId.collect { refresh() }
+        }
     }
 
-    private fun max(): Int = manager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 15
+    private fun max() = manager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC)?.coerceAtLeast(1) ?: 15
+    private fun readIndex() = manager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0
 
-    private fun read(): Float =
-        (manager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat() / max()
+    private fun route() = manager?.let { audio ->
+        AudioRouting.activeOf(audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS), AudioRouting.selectedId.value)
+    }
 
     override fun set(level: Float) {
-        manager?.setStreamVolume(AudioManager.STREAM_MUSIC, (level * max()).roundToInt(), 0)
+        val audio = manager ?: return
+        if (audio.isVolumeFixed) return
+        val route = route()
+        val supportsFine = route?.let { AudioRouting.kindOf(it.type) } in setOf(
+            AudioRouting.Kind.PHONE, AudioRouting.Kind.BLUETOOTH, AudioRouting.Kind.WIRED,
+        )
+        val target = localVolumeTarget(
+            level, max(), supportsFine,
+            min = if (Build.VERSION.SDK_INT >= 28) audio.getStreamMinVolume(AudioManager.STREAM_MUSIC) else 0,
+        ) { index ->
+            if (Build.VERSION.SDK_INT >= 28 && route != null) {
+                runCatching { audio.getStreamVolumeDb(AudioManager.STREAM_MUSIC, index, route.type) }.getOrNull()
+            } else null
+        }
+        val previousIndex = readIndex()
+        if (supportsFine) {
+            fineSetting = FineSetting(target, route?.id)
+            LocalPlaybackVolume.gain = minOf(LocalPlaybackVolume.gain, target.gain)
+        } else {
+            clearFineSetting()
+        }
+        if (previousIndex != target.index) {
+            runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, target.index, 0) }
+        }
+        refresh()
     }
 
     override fun refresh() {
-        _level.value = read()
+        val index = readIndex()
+        val fine = fineSetting?.takeIf { it.target.index == index && it.routeId == route()?.id }
+        if (fine == null) clearFineSetting() else LocalPlaybackVolume.gain = fine.target.gain
+        _level.value = fine?.target?.displayed ?: index.toFloat() / max()
+    }
+
+    private fun clearFineSetting() {
+        fineSetting = null
+        LocalPlaybackVolume.gain = 1f
     }
 }

@@ -21,6 +21,9 @@
 
 package com.music.bitchord.playback.smart
 
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
 /**
  * Stored offline analysis for one track, in that track's own timeline seconds.
  *
@@ -91,6 +94,7 @@ data class TrackAnalysis(
     val vocalActivityMask: List<Double> = emptyList(),
     /** Whole-track vocal likelihood, distinct from the per-sample [vocalActivityMask]. */
     val vocalProbability: Double = 0.0,
+    val waveform: WaveformPeaks? = null,
 ) {
     /**
      * Whether this analysis actually describes a track, as opposed to standing
@@ -107,6 +111,29 @@ data class TrackAnalysis(
 
     companion object {
         const val STATUS_READY = "ready"
+    }
+}
+
+/** One unsigned, quantized PCM peak per bin. Partial decodes retain their actual extent. */
+class WaveformPeaks(val start: Double, val sampleSeconds: Double, val peaks: ByteArray) {
+    val end: Double get() = start + sampleSeconds * peaks.size
+
+    companion object {
+        fun fromPcm(samples: FloatArray, sampleRate: Double, start: Double): WaveformPeaks? {
+            if (samples.isEmpty() || !sampleRate.isFinite() || sampleRate <= 0.0) return null
+            val framesPerBin = maxOf(1, (sampleRate / 40).roundToInt(), (samples.size - 1) / 12_000 + 1)
+            val count = (samples.size - 1) / framesPerBin + 1
+            val peaks = ByteArray(count) { bin ->
+                val offset = bin * framesPerBin
+                var peak = 0f
+                for (index in offset until minOf(offset + framesPerBin, samples.size)) {
+                    val sample = samples[index]
+                    if (sample.isFinite()) peak = maxOf(peak, abs(sample))
+                }
+                (peak.coerceAtMost(1f) * 127).roundToInt().toByte()
+            }
+            return WaveformPeaks(start, framesPerBin / sampleRate, peaks)
+        }
     }
 }
 

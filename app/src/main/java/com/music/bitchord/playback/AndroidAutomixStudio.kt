@@ -1,11 +1,14 @@
 package com.music.bitchord.playback
 
+import com.music.bitchord.ui.player.AutomixWaveformReadiness
+
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.smart.AutomixEdit
 import com.music.bitchord.playback.smart.TrackAnalysis
 import com.music.bitchord.playback.smart.TransitionPlan
@@ -44,6 +47,8 @@ internal data class AutomixPair(
 internal object AndroidAutomixStudio : AutomixStudio {
     override val state = MutableStateFlow<AutomixStudioState?>(null)
     var session: AutomixStudioSession? = null
+    fun profileChanged(profile: QueueMixProfile?) { session?.profileChanged(profile) }
+    override fun open(pair: Long) { session?.open(pair) }
     override fun edit(pair: Long, edit: AutomixEdit) { session?.edit(pair, edit) }
     override fun apply(pair: Long): Boolean = session?.apply(pair) == true
     override fun preview(pair: Long, compare: Boolean) { session?.preview(pair, compare) }
@@ -60,13 +65,18 @@ internal class AutomixStudioSession(
     private val output: () -> Any?,
     private val buildDeck: (TransitionFilterProcessor, LoudnessProcessor) -> ExoPlayer,
     private val audioAttributes: AudioAttributes,
+    private val requestWaveform: (MediaItem, Long) -> Unit,
+    private val waveformPending: (MediaItem) -> Boolean,
 ) {
     private var key: Pair<Any, Any>? = null
     private var pairNumber = 0L
     private var draft = AutomixEdit()
-    private var applied = AutomixEdit()
     private var appliedPlan: TransitionPlan? = null
     private var appliedSources: Pair<MediaItem, MediaItem>? = null
+    private var appliedTempoMatching = false
+    private var replaying: SavedQueueMix? = null
+    private data class EditedJoin(val outgoingId: String, val incomingId: String, val edit: AutomixEdit)
+    private val appliedEdits = mutableMapOf<Pair<Any, Any>, EditedJoin>()
     private var audition = AutomixAudition()
     private var previewJob: Job? = null
     private var resumeAfterPreview = true
@@ -83,12 +93,27 @@ internal class AutomixStudioSession(
 
     private fun currentPair(): AutomixPair? = if (eligible()) liveRenderer()?.studioPair() else null
 
+    private fun appliedEdit(pair: AutomixPair): AutomixEdit = appliedEdits[pair.identity]?.takeIf {
+        it.outgoingId == pair.outgoing.mediaId && it.incomingId == pair.incoming.mediaId
+    }?.edit
+        ?: replaying?.editFor(pair.outgoing.toSong(), pair.incoming.toSong())
+        ?: AutomixEdit()
+
+    fun queueEdits(songs: List<Song>): Map<Int, AutomixEdit> = songs.zipWithNext().mapIndexedNotNull { index, (from, to) ->
+        val id = from.queueEntryId
+        val next = to.queueEntryId
+        val edit = (if (id != null && next != null) appliedEdits[id to next] else null)?.takeIf {
+            it.outgoingId == from.videoId && it.incomingId == to.videoId
+        }?.edit
+            ?: replaying?.editFor(from, to)
+        if (edit == null || edit == AutomixEdit()) null else index to edit
+    }.toMap()
+
     private fun setPair(pair: AutomixPair?) {
         if (key == pair?.identity) return
         key = pair?.identity
         pairNumber++
-        draft = AutomixEdit()
-        applied = AutomixEdit()
+        draft = pair?.let(::appliedEdit) ?: AutomixEdit()
         appliedPlan = null
         appliedSources = null
         cancelPreview(resume = false)
@@ -96,25 +121,31 @@ internal class AutomixStudioSession(
     }
 
     fun livePlan(pair: AutomixPair): TransitionPlan {
-        setPair(pair.takeIf { eligible() && AppSettings.smartFadeEnabled.value })
-        if (appliedSources == (pair.outgoing to pair.incoming)) appliedPlan?.let { return it }
-        return pair.plan(applied)
+        setPair(pair.takeIf { eligible() && AppSettings.activeSmartFadeEnabled.value })
+        if (appliedTempoMatching == AppSettings.activeAutomixTempoMatching.value &&
+            appliedSources == (pair.outgoing to pair.incoming)) appliedPlan?.let { return it }
+        val edit = appliedEdit(pair)
+        val candidate = pair.plan(edit)
+        return if (candidate.blocked && candidate.reason != "studio-off" ||
+            edit.outgoingCue != null && candidate.transitionEnd * 1000 <= (player()?.currentPosition ?: 0L)
+        ) pair.automatic else candidate
     }
 
     private fun refresh() {
         if (AndroidAutomixStudio.session !== this) return
         if (AndroidAutomixStudio.state.subscriptionCount.value == 0 && key == null) return
         val pair = currentPair()
-        setPair(pair.takeIf { AppSettings.smartFadeEnabled.value })
+        setPair(pair.takeIf { AppSettings.activeSmartFadeEnabled.value })
         AndroidAutomixStudio.state.value = pair?.let {
             AutomixStudioState(
                 pair = pairNumber,
                 outgoing = it.outgoing.toSong(), incoming = it.incoming.toSong(),
                 outgoingDuration = it.outgoingDurationMs / 1000.0,
                 incomingDuration = it.incomingDurationMs / 1000.0,
-                plan = it.plan(draft), edit = draft,
-                outgoingBeats = it.outgoingAnalysis.downbeats.takeIf { _ -> it.outgoingAnalysis.beatConfidence >= 0.5 }.orEmpty(),
-                incomingBeats = it.incomingAnalysis.downbeats.takeIf { _ -> it.incomingAnalysis.beatConfidence >= 0.5 }.orEmpty(),
+                plan = it.plan(draft), automaticPlan = it.automatic, edit = draft,
+                outgoingAnalysis = it.outgoingAnalysis, incomingAnalysis = it.incomingAnalysis,
+                outgoingWaveform = waveformReadiness(it, outgoing = true),
+                incomingWaveform = waveformReadiness(it, outgoing = false),
                 busy = liveRenderer()?.studioBusy != false,
                 audition = audition,
             )
@@ -122,12 +153,35 @@ internal class AutomixStudioSession(
     }
 
     private fun editable(pair: Long): AutomixPair? = currentPair()?.takeIf {
-        pair == pairNumber && it.identity == key && AppSettings.smartFadeEnabled.value &&
+        pair == pairNumber && it.identity == key && AppSettings.activeSmartFadeEnabled.value &&
             liveRenderer()?.studioBusy == false
     }
 
+    private fun waveformReadiness(pair: AutomixPair, outgoing: Boolean): AutomixWaveformReadiness {
+        val plan = pair.automatic
+        val peaks = if (outgoing) pair.outgoingAnalysis.waveform else pair.incomingAnalysis.waveform
+        val cue = if (outgoing) {
+            if (plan.blocked) pair.outgoingDurationMs / 1000.0 else plan.transitionStart
+        } else if (plan.blocked) 0.0 else plan.incomingCueTime
+        val rate = if (outgoing) plan.outgoingPlaybackRate else plan.incomingPlaybackRate
+        val overlap = if (plan.blocked) 0.0 else plan.fadeSeconds / plan.outgoingPlaybackRate
+        val context = minOf(2.0, if (plan.blocked) pair.outgoingDurationMs / 1000.0 else plan.transitionStart)
+        val start = cue - context / plan.outgoingPlaybackRate * rate
+        val end = cue + (overlap + 2.0 / plan.incomingPlaybackRate) * rate
+        return when {
+            peaks != null && peaks.end > start && peaks.start < end -> AutomixWaveformReadiness.READY
+            waveformPending(if (outgoing) pair.outgoing else pair.incoming) -> AutomixWaveformReadiness.LOADING
+            else -> AutomixWaveformReadiness.UNAVAILABLE
+        }
+    }
+
+    private fun waveformEditingReady(pair: AutomixPair): Boolean =
+        waveformReadiness(pair, outgoing = true) != AutomixWaveformReadiness.LOADING &&
+            waveformReadiness(pair, outgoing = false) != AutomixWaveformReadiness.LOADING
+
     fun edit(pair: Long, edit: AutomixEdit) {
-        if (editable(pair) == null || previewJob?.isActive == true) return
+        val tracks = editable(pair) ?: return
+        if (!waveformEditingReady(tracks) || previewJob?.isActive == true) return
         draft = edit
         audition = AutomixAudition()
         refresh()
@@ -135,9 +189,11 @@ internal class AutomixStudioSession(
 
     fun apply(pair: Long): Boolean {
         val current = editable(pair) ?: return false
+        if (!waveformEditingReady(current)) return false
         val plan = current.plan(draft)
         if (previewJob?.isActive == true || !canUse(plan, player()?.currentPosition ?: return false)) return false
-        applied = draft
+        appliedEdits[current.identity] = EditedJoin(current.outgoing.mediaId, current.incoming.mediaId, draft)
+        appliedTempoMatching = AppSettings.activeAutomixTempoMatching.value
         appliedPlan = plan.takeUnless { draft == AutomixEdit() }
         appliedSources = current.outgoing to current.incoming
         return true
@@ -150,10 +206,17 @@ internal class AutomixStudioSession(
         if (pair == pairNumber) cancelPreview(resume = true)
     }
 
+    fun open(pair: Long) {
+        val tracks = currentPair()?.takeIf { pair == pairNumber && it.identity == key } ?: return
+        requestWaveform(tracks.outgoing, tracks.outgoingDurationMs)
+        requestWaveform(tracks.incoming, tracks.incomingDurationMs)
+        refresh()
+    }
+
     fun close(pair: Long) {
         if (pair != pairNumber) return
         cancelPreview(resume = true)
-        draft = applied
+        draft = currentPair()?.takeIf { it.identity == key }?.let(::appliedEdit) ?: AutomixEdit()
         audition = AutomixAudition()
         refresh()
     }
@@ -163,11 +226,22 @@ internal class AutomixStudioSession(
         previewJob?.cancel()
     }
 
-    fun replaceQueue() = setPair(null)
+    fun replaceQueue(savedMix: SavedQueueMix? = null) {
+        setPair(null)
+        appliedEdits.clear()
+        replaying = savedMix
+        AppSettings.useQueueAutomix(savedMix?.let { it.automix to it.tempoMatching })
+    }
+
+    fun profileChanged(profile: QueueMixProfile?) {
+        val savedMix = replaying ?: return
+        if (savedMix.profile != profile) replaceQueue()
+    }
 
     fun detach() {
         cancelPreview()
         if (AndroidAutomixStudio.session === this) {
+            AppSettings.useQueueAutomix(null)
             AndroidAutomixStudio.session = null
             AndroidAutomixStudio.state.value = null
         }
@@ -196,7 +270,7 @@ internal class AutomixStudioSession(
             var pausedByPreview = false
             var unavailable = false
             fun stillCurrent() = player() === owner && key == tracks.identity && output() == route &&
-                eligible() && AppSettings.smartFadeEnabled.value && liveRenderer()?.studioBusy == false
+                eligible() && AppSettings.activeSmartFadeEnabled.value && liveRenderer()?.studioBusy == false
 
             try {
                 val left = buildDeck(leftFilter, leftLoudness).also { leftDeck = it }
@@ -282,21 +356,12 @@ internal class AutomixStudioSession(
                         }
                         if (active === right && (active.currentPosition >= incomingEnd || !active.playWhenReady ||
                                 active.playbackState == Player.STATE_ENDED)) break
-                        val progress = if (active === left) {
-                            if (left.currentPosition < start || cut) {
-                                0.40f * (left.currentPosition - startWithContext) / (start - startWithContext).coerceAtLeast(1)
-                            } else {
-                                0.40f + 0.39f * (left.currentPosition - start) / plan.fadeMs.coerceAtLeast(1)
-                            }
+                        val secondsFromCue = if (active === left) {
+                            (left.currentPosition - start) / 1000.0 / plan.outgoingPlaybackRate
                         } else {
-                            val elapsed = (right.currentPosition - incomingCueMs).coerceAtLeast(0)
-                            when {
-                                cut -> 0.40f + 0.60f * elapsed / 2000
-                                elapsed <= incomingOverlapMs -> 0.40f + 0.39f * elapsed / incomingOverlapMs.coerceAtLeast(1)
-                                else -> 0.79f + 0.21f * (elapsed - incomingOverlapMs) / 2000
-                            }
+                            (right.currentPosition - incomingCueMs) / 1000.0 / plan.incomingPlaybackRate
                         }
-                        audition = AutomixAudition(AutomixAuditionPhase.PLAYING, compare, progress.coerceIn(0f, 1f), plan)
+                        audition = AutomixAudition(AutomixAuditionPhase.PLAYING, compare, secondsFromCue, plan)
                         AndroidAutomixStudio.state.value?.takeIf { it.pair == pair }?.let {
                             AndroidAutomixStudio.state.value = it.copy(audition = audition)
                         }

@@ -210,6 +210,8 @@ internal fun DesktopLibrarySortMenu() {
                         Text(
                             when (option) {
                                 LibrarySort.DEFAULT -> DesktopStrings["sort_default", "Default order"]
+                                LibrarySort.DATE_NEWEST -> DesktopStrings["sort_date_added", "Date added (newest first)"]
+                                LibrarySort.DATE_OLDEST -> DesktopStrings["sort_date_added_oldest", "Date added (oldest first)"]
                                 LibrarySort.TITLE_ASC -> DesktopStrings["sort_title_ascending", "Alphabetical (A to Z)"]
                                 LibrarySort.TITLE_DESC -> DesktopStrings["sort_title_descending", "Alphabetical (Z to A)"]
                             },

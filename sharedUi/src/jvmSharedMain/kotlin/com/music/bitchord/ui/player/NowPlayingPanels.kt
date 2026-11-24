@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.lyrics.LyricLine
@@ -54,8 +55,10 @@ internal class PlayerPanelState(restored: LastPlayerScreen) {
 
     var lyricsControlsOpen by mutableStateOf(restored == LastPlayerScreen.LYRICS)
     var queueControlsOpen by mutableStateOf(true)
+    var queueTransportActivity by mutableIntStateOf(0)
 
     var queueDragging by mutableStateOf(false)
+    var queueReordering by mutableStateOf(false)
     var queueReleased by mutableIntStateOf(0)
 
     val openLyrics: () -> Unit = {
@@ -218,9 +221,15 @@ internal fun PortraitQueuePane(
             onMove = onMoveInQueue,
             onClear = onClearQueue,
             onScrollingChange = { panels.queueScrolling = it },
-            onDragActiveChange = onQueueDragActiveChange,
+            onDragActiveChange = {
+                panels.queueReordering = it
+                onQueueDragActiveChange(it)
+            },
             collapsePlayerOnScroll = true,
-            onRevealPlayer = { panels.queueControlsOpen = true },
+            onRevealPlayer = {
+                panels.queueControlsOpen = true
+                panels.queueTransportActivity++
+            },
             onHidePlayer = { panels.queueControlsOpen = false },
             onPlayNext = onPlayNext,
             modifier = Modifier.weight(1f),
@@ -243,6 +252,19 @@ internal fun LyricsControlsIdleEffect(
         if (panels.lyricsOpen && panels.lyricsControlsOpen && !scrub.scrubbing && !volume.dragging) {
             delay(idleMs)
             panels.lyricsControlsOpen = false
+        }
+    }
+}
+
+@Composable
+internal fun QueueControlsIdleEffect(panels: PlayerPanelState, suspended: Boolean, idleMs: Long) {
+    val timeout = LocalAccessibilityManager.current?.calculateRecommendedTimeoutMillis(
+        idleMs, containsIcons = true, containsText = true, containsControls = true,
+    ) ?: idleMs
+    LaunchedEffect(panels.queueOpen, panels.queueControlsOpen, suspended, panels.queueTransportActivity, timeout) {
+        if (panels.queueOpen && panels.queueControlsOpen && !suspended) {
+            delay(timeout)
+            panels.queueControlsOpen = false
         }
     }
 }

@@ -330,13 +330,12 @@ fun FrostedTopBar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (accessory != null) {
-                    Box(Modifier.weight(1f)) {
-                        AccessoryPill(
-                            floating = useFloatingChrome,
-                            hazeState = backButtonHazeState,
-                            content = accessory,
-                        )
-                    }
+                    AccessoryPill(
+                        floating = useFloatingChrome,
+                        hazeState = backButtonHazeState,
+                        modifier = Modifier.weight(1f),
+                        content = accessory,
+                    )
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
@@ -362,14 +361,14 @@ fun FrostedTopBar(
 private fun AccessoryPill(
     floating: Boolean,
     hazeState: HazeState?,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val glass = floating && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
     val shape = remember { SquirclePillShape() }
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .height(TOP_CONTROL_SIZE)
             .then(
                 if (floating) {

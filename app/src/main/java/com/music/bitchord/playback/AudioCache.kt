@@ -1407,6 +1407,9 @@ object AudioCache {
         )
     }
 
+    fun isAnalysisHeadInFlight(uri: Uri): Boolean =
+        uri.isHierarchical && uri.getQueryParameter("v")?.let(analysisHeadsInFlight::contains) == true
+
     fun requestAnalysisHead(uri: Uri) {
         // Each of these gates used to stop a head dead with nothing in the
         // log to show for it: an unwired cache or upstream looked from the

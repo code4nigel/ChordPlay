@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,17 +73,17 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
-import com.music.bitchord.ui.components.AddSongToPlaylistSheet
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -153,6 +154,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.SongSwipeAction
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
@@ -277,11 +279,14 @@ fun DetailScreen(
     onSongSwipe: (Song) -> Unit,
     onSongSwipeRight: ((Song) -> Unit)? = null,
     onSongSwipeLeft: ((Song) -> Unit)? = null,
+    leftSwipeAction: SongSwipeAction? = null,
+    onUpdateDownloads: (() -> Unit)? = null,
+    updatingDownloads: Boolean = false,
     onShuffle: (List<Song>) -> Unit,
     onSectionItemClick: (ShelfItem) -> Unit,
     onArtistClick: (String, String) -> Unit,
     onAddSuggested: (Song) -> Unit,
-    onRemoveSong: ((Song) -> Unit)? = null,
+    onAddSongs: (() -> Unit)? = null,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
@@ -391,7 +396,6 @@ fun DetailScreen(
     // page that appears to have lost most of its tracks.
     var searching by rememberSaveable(page.browseId) { mutableStateOf(false) }
     var query by rememberSaveable(page.browseId) { mutableStateOf("") }
-    var showAddSongSheet by rememberSaveable(page.browseId) { mutableStateOf(false) }
     // Whether the field still owes the keyboard an appearance. Held here rather
     // than in the field, which is a row in a lazy list: scrolled out of sight it
     // is disposed, and a field that asks for focus every time it is composed
@@ -530,11 +534,32 @@ fun DetailScreen(
                                 focusSearch = true
                             }
                         },
-                        onAddSongs = { showAddSongSheet = true },
+                        onAddSongs = onAddSongs,
                         onMore = onMore,
                         onArtistClick = onArtistClick,
                         onToggleLibrary = onToggleLibrary,
                     )
+                }
+            }
+
+            if (onUpdateDownloads != null) {
+                item(key = "update_downloads") {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        TextButton(
+                            onClick = onUpdateDownloads,
+                            enabled = !updatingDownloads,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            colors = ButtonDefaults.textButtonColors(contentColor = palette.accent),
+                        ) {
+                            if (updatingDownloads) {
+                                CircularProgressIndicator(Modifier.size(16.dp), color = palette.accent, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Rounded.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(if (updatingDownloads) R.string.playlist_downloads_updating else R.string.update_playlist_downloads))
+                        }
+                    }
                 }
             }
 
@@ -629,16 +654,7 @@ fun DetailScreen(
             when (val state = page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
                 is UiState.Error -> item(key = "error", contentType = LazyContent.MESSAGE) {
-                    val isMix = page.browseId.startsWith("RD") || page.browseId.startsWith("VLRD") ||
-                        page.title.contains("Mix", ignoreCase = true) || page.subtitle.contains("Mix", ignoreCase = true) ||
-                        page.title.contains("Radio", ignoreCase = true) || page.subtitle.contains("Radio", ignoreCase = true)
-                    val isAlbum = page.type == BrowseType.ALBUM || page.browseId.startsWith("MPREb") ||
-                        page.browseId.startsWith("OLAK") || page.browseId.startsWith("VLOLAK")
-                    val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
-                    val canAddSongs = !isMix && !isAlbum && page.type == BrowseType.PLAYLIST &&
-                        (page.browseId.removePrefix("VL") in chordplayPlaylistIds || page.browseId in chordplayPlaylistIds || page.browseId.startsWith("local:"))
-
-                    if (canAddSongs) {
+                    if (onAddSongs != null) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -652,7 +668,7 @@ fun DetailScreen(
                             )
                             Spacer(Modifier.height(16.dp))
                             Button(
-                                onClick = { showAddSongSheet = true },
+                                onClick = onAddSongs,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = palette.accent,
                                     contentColor = palette.background,
@@ -741,6 +757,7 @@ fun DetailScreen(
                             onSwipeRight = { (onSongSwipeRight ?: onSongSwipe).invoke(song) },
                             onSwipeLeft = { (onSongSwipeLeft ?: onSongSwipe).invoke(song) },
                             onSwipeToQueue = { onSongSwipe(song) },
+                            leftSwipeAction = leftSwipeAction,
                             rowBackground = Color.Transparent,
                             // The track's place on the release, not its place in
                             // what the filter — or a sort — left standing.
@@ -905,24 +922,7 @@ fun DetailScreen(
 }
 }
 
-    if (showAddSongSheet) {
-        val addSongSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { showAddSongSheet = false },
-            sheetState = addSongSheetState,
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        ) {
-            AddSongToPlaylistSheet(
-                playlistTitle = page.title,
-                initialSongs = songs,
-                suggestedSongs = page.suggestedSongs,
-                onAddSong = onAddSuggested,
-                onRemoveSong = onRemoveSong,
-                onDismiss = { showAddSongSheet = false },
-            )
-        }
-    }
+
 }
 
 /**
@@ -1038,13 +1038,7 @@ private fun ReleaseHeader(
 
             // Action buttons — live inside the header so there is zero gap
             // between the cover zone and the first song row.
-            val isMix = page.browseId.startsWith("RD") || page.browseId.startsWith("VLRD") ||
-                page.title.contains("Mix", ignoreCase = true) || page.subtitle.contains("Mix", ignoreCase = true) ||
-                page.title.contains("Radio", ignoreCase = true) || page.subtitle.contains("Radio", ignoreCase = true)
-            val isAlbum = page.type == BrowseType.ALBUM || page.browseId.startsWith("MPREb") ||
-                page.browseId.startsWith("OLAK") || page.browseId.startsWith("VLOLAK")
-            val canAddSongs = !isMix && !isAlbum && page.type == BrowseType.PLAYLIST && onAddSongs != null &&
-                (isChordplayPlaylist || page.library == null || page.browseId.startsWith("local:"))
+            val canAddSongs = onAddSongs != null
             if (songs.isNotEmpty() || canAddSongs) {
                 // Only where YouTube said the release can be saved and the
                 // caller is willing to take the write — see [onToggleLibrary].
@@ -1091,7 +1085,7 @@ private fun ReleaseHeader(
                             icon = BitChordIcons.PlaylistAdd,
                             contentDescription = stringResource(R.string.add_songs_to_playlist),
                             palette = palette,
-                            onClick = { onAddSongs?.invoke() },
+                            onClick = onAddSongs,
                             haptic = Haptic.ToggleOn,
                             size = circleSize,
                         )

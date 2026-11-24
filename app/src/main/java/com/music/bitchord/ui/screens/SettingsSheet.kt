@@ -158,6 +158,7 @@ import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.settings.sections.AboutSection
 import com.music.bitchord.ui.screens.settings.sections.AdvancedPerformanceSection
+import com.music.bitchord.ui.screens.settings.sections.CoverSection
 import com.music.bitchord.ui.screens.settings.sections.AppearanceSection
 import com.music.bitchord.ui.screens.settings.sections.AudioSection
 import com.music.bitchord.ui.screens.settings.sections.DownloadsSection
@@ -165,6 +166,7 @@ import com.music.bitchord.ui.screens.settings.sections.IntegrationsSection
 import com.music.bitchord.ui.screens.settings.sections.LyricsSection
 import com.music.bitchord.ui.screens.settings.sections.PlayerSection
 import com.music.bitchord.ui.screens.settings.sections.ShelvesSection
+import com.music.bitchord.ui.screens.settings.sections.LocalMusicSection
 import com.music.bitchord.ui.screens.settings.sections.StorageSection
 import com.music.bitchord.ui.screens.settings.sections.SupportSection
 import com.music.bitchord.ui.screens.settings.sections.YourDataSection
@@ -267,6 +269,20 @@ fun SettingsScreen(
             SettingsSection.APPEARANCE -> AppearanceSection(
                 onBack = { updateSection(null) },
                 onAppLanguage = onAppLanguage,
+                onOpenCover = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.COVER)
+                },
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
+            )
+            SettingsSection.COVER -> CoverSection(
+                windowWidth = windowWidth,
+                onSpotifyCanvasAuth = onSpotifyCanvasAuth,
+                onBack = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.APPEARANCE)
+                },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
             )
@@ -277,8 +293,6 @@ fun SettingsScreen(
                 initialSearchQuery = query,
             )
             SettingsSection.PLAYER -> PlayerSection(
-                windowWidth = windowWidth,
-                onSpotifyCanvasAuth = onSpotifyCanvasAuth,
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
@@ -298,6 +312,11 @@ fun SettingsScreen(
                 initialSearchQuery = query,
             )
             SettingsSection.DOWNLOADS -> DownloadsSection(
+                onBack = { updateSection(null) },
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
+            )
+            SettingsSection.LOCAL_MUSIC -> LocalMusicSection(
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
@@ -393,6 +412,7 @@ private fun SettingsHub(
                 SettingsSection.LYRICS,
                 SettingsSection.AUDIO,
                 SettingsSection.DOWNLOADS,
+                SettingsSection.LOCAL_MUSIC,
                 SettingsSection.STORAGE,
                 SettingsSection.YOUR_DATA,
                 SettingsSection.ADVANCED_PERFORMANCE,
@@ -404,12 +424,14 @@ private fun SettingsHub(
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
                     SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe"
+                    SettingsSection.COVER -> "cover artwork animation fade 3d canvas spotify fullscreen"
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
-                    SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import local music folder"
+                    SettingsSection.LOCAL_MUSIC -> "local music folder device audio filter recording wav"
+                    SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import"
                     SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear google drive sync identity"
                     SettingsSection.DRIVE_BACKUP -> "google drive backup cloud sync identity restore devices"
                     SettingsSection.DRIVE_DEVICES -> "google drive devices restore device"
@@ -1126,7 +1148,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.swipe_gestures),
             subtitle = stringResource(R.string.right_swipe_action),
-            section = SettingsSection.APPEARANCE,
+            section = SettingsSection.SHELVES,
             icon = Icons.Rounded.SwipeRight,
             queryTarget = stringResource(R.string.swipe_gestures),
             keywords = listOf("swipe", "gesture", "right", "left"),
@@ -1192,9 +1214,17 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("aura", "breathing", "glow", "ambient"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.cover_animation),
+            subtitle = stringResource(R.string.settings_cover),
+            section = SettingsSection.COVER,
+            icon = Icons.Rounded.Animation,
+            queryTarget = stringResource(R.string.cover_animation),
+            keywords = listOf("cover", "artwork", "fade", "3d"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.full_screen_cover_art),
             subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
-            section = SettingsSection.PLAYER,
+            section = SettingsSection.COVER,
             icon = Icons.Rounded.Fullscreen,
             queryTarget = stringResource(R.string.full_screen_cover_art),
             keywords = listOf("full bleed", "full screen", "cover", "edges"),
@@ -1202,7 +1232,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.tap_artwork_toggle_fullscreen),
             subtitle = stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
-            section = SettingsSection.PLAYER,
+            section = SettingsSection.COVER,
             icon = Icons.Rounded.TouchApp,
             queryTarget = stringResource(R.string.tap_artwork_toggle_fullscreen),
             keywords = listOf("tap", "artwork", "toggle", "full bleed", "full screen", "cover"),
@@ -1218,23 +1248,23 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.animated_cover_art),
             subtitle = stringResource(R.string.animated_cover_art_subtitle),
-            section = SettingsSection.PLAYER,
+            section = SettingsSection.COVER,
             icon = Icons.Rounded.Animation,
             queryTarget = stringResource(R.string.animated_cover_art),
             keywords = listOf("canvas", "spotify", "video", "loop"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.animated_cover_cellular),
-            subtitle = stringResource(R.string.playback),
-            section = SettingsSection.PLAYER,
+            subtitle = stringResource(R.string.settings_cover),
+            section = SettingsSection.COVER,
             icon = Icons.Rounded.SignalCellularAlt,
             queryTarget = stringResource(R.string.animated_cover_cellular),
             keywords = listOf("cellular", "mobile data", "canvas"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.integrate_spotify_canvas),
-            subtitle = stringResource(R.string.playback),
-            section = SettingsSection.PLAYER,
+            subtitle = stringResource(R.string.settings_cover),
+            section = SettingsSection.COVER,
             icon = Icons.Rounded.Link,
             queryTarget = stringResource(R.string.integrate_spotify_canvas),
             keywords = listOf("spotify", "canvas", "auth", "token", "spdc"),
@@ -1530,7 +1560,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.local_music_folder),
             subtitle = stringResource(R.string.local_music),
-            section = SettingsSection.STORAGE,
+            section = SettingsSection.LOCAL_MUSIC,
             icon = Icons.Rounded.Folder,
             queryTarget = stringResource(R.string.local_music_folder),
             keywords = listOf("local", "folder", "device audio"),
@@ -1538,7 +1568,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.filter_non_music_audio),
             subtitle = stringResource(R.string.filter_non_music_audio_subtitle),
-            section = SettingsSection.STORAGE,
+            section = SettingsSection.LOCAL_MUSIC,
             icon = Icons.Rounded.FilterAlt,
             queryTarget = stringResource(R.string.filter_non_music_audio),
             keywords = listOf("filter", "ringtones", "voice notes"),

@@ -538,6 +538,7 @@ private fun SideRailItem(
 @Composable
 internal fun LandscapeArtwork(
     artRequest: ImageRequest,
+    coverPresentation: CoverPresentation?,
     artLoaded: Boolean,
     onArtState: (AsyncImagePainter.State) -> Unit,
     canvas: CanvasArtwork?,
@@ -589,9 +590,10 @@ internal fun LandscapeArtwork(
                 onState = onArtState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .drawWithContent { if (artLoaded || !canvasRendered) drawContent() },
+                    .drawWithContent { if (coverPresentation == null && (artLoaded || !canvasRendered)) drawContent() },
             )
-            canvas?.let { clip ->
+            if (coverPresentation != null) CoverMotion(coverPresentation)
+            canvas?.takeIf { coverPresentation == null }?.let { clip ->
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = isPlaying,

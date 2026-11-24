@@ -338,13 +338,15 @@ fun SongRow(
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
     badge: (@Composable () -> Unit)? = null,
+    leftSwipeAction: SongSwipeAction? = null,
 ) {
     val haptics = rememberHaptics()
     val swipeStateHolder = remember { mutableStateOf<SwipeToDismissBoxState?>(null) }
     var boxWidth by remember { mutableFloatStateOf(0f) }
 
     val rightAction by AppUi.host.songSwipeRightAction.collectAsStateWithLifecycle()
-    val leftAction by AppUi.host.songSwipeLeftAction.collectAsStateWithLifecycle()
+    val configuredLeftAction by AppUi.host.songSwipeLeftAction.collectAsStateWithLifecycle()
+    val leftAction = leftSwipeAction ?: configuredLeftAction
 
     val currentOnSwipeToQueue by rememberUpdatedState(onSwipeToQueue)
     val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)

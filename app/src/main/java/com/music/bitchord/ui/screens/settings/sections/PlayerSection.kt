@@ -10,7 +10,6 @@
  */
 package com.music.bitchord.ui.screens.settings.sections
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,8 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.FormatSize
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicOff
@@ -43,15 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LandscapeFontScale
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import com.music.bitchord.ui.screens.*
 import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.localizedDetail
@@ -62,8 +56,6 @@ import com.music.bitchord.ui.screens.settings.previews.PlayerLivePreview
  */
 @Composable
 fun PlayerSection(
-    windowWidth: Dp,
-    onSpotifyCanvasAuth: () -> Unit,
     onBack: () -> Unit,
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
@@ -71,10 +63,6 @@ fun PlayerSection(
 ) {
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
-    val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
-    val tapArtworkToToggleFullScreen by AppSettings.tapArtworkToToggleFullScreen.collectAsStateWithLifecycle()
-    val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
-    val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
@@ -111,31 +99,11 @@ fun PlayerSection(
             stringResource(R.string.breathing_artwork_aura_desc),
             "aura", "breathing", "glow",
         )
-        val showFullScreenCoverArt = fullBleedArtworkAvailable(windowWidth) && matchesSearch(
-            searchQuery,
-            stringResource(R.string.full_screen_cover_art),
-            stringResource(R.string.full_screen_cover_art_subtitle),
-            "full bleed", "full screen", "artwork",
-        )
-        val showTapArtworkToggleFullScreen = fullBleedArtworkAvailable(windowWidth) && matchesSearch(
-            searchQuery,
-            stringResource(R.string.tap_artwork_toggle_fullscreen),
-            stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
-            "tap", "artwork", "toggle", "full bleed", "full screen", "cover",
-        )
         val showLegacyMeshGradient = matchesSearch(
             searchQuery,
             stringResource(R.string.legacy_mesh_gradient),
             stringResource(R.string.legacy_mesh_gradient_subtitle),
             "mesh", "gradient", "backdrop",
-        )
-        val showAnimatedCoverArt = matchesSearch(
-            searchQuery,
-            stringResource(R.string.animated_cover_art),
-            stringResource(R.string.animated_cover_art_subtitle),
-            stringResource(R.string.animated_cover_cellular),
-            stringResource(R.string.integrate_spotify_canvas),
-            "canvas", "spotify", "video", "loop", "cellular",
         )
         val showHideSongStatus = matchesSearch(
             searchQuery,
@@ -182,7 +150,7 @@ fun PlayerSection(
         )
 
         val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
-            showFullScreenCoverArt || showTapArtworkToggleFullScreen || showLegacyMeshGradient || showAnimatedCoverArt ||
+            showLegacyMeshGradient ||
             showHideSongStatus || showHideLyricsPreview || showPlayNextOnSwipe || showStopMusicOnClose ||
             showLandscapeFontScale || showSmartAlignment || showNerdStats
 
@@ -231,49 +199,10 @@ fun PlayerSection(
 
                 // Artwork & Video Visuals Section Divider
                 val hasTopVisuals = showPlayerLayout || showBreathingAura
-                val hasArtworkVisuals = showFullScreenCoverArt || showTapArtworkToggleFullScreen || showLegacyMeshGradient || showAnimatedCoverArt
+                val hasArtworkVisuals = showLegacyMeshGradient
                 if (hasArtworkVisuals) {
                     if (hasTopVisuals) {
                         SettingsSectionDivider(title = stringResource(R.string.artwork_and_visuals))
-                    }
-
-                    if (showFullScreenCoverArt) {
-                        val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
-                        SettingsRow(
-                            icon = Icons.Rounded.Fullscreen,
-                            title = fullScreenCoverArtTitle,
-                            subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
-                            trailing = {
-                                Switch(
-                                    checked = fullBleedArtwork,
-                                    onCheckedChange = AppSettings::setFullBleedArtwork,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
-                            },
-                            onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
-                        )
-                    }
-
-                    if (showTapArtworkToggleFullScreen) {
-                        SettingsRow(
-                            icon = Icons.Rounded.TouchApp,
-                            title = stringResource(R.string.tap_artwork_toggle_fullscreen),
-                            subtitle = stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
-                            trailing = {
-                                Switch(
-                                    checked = tapArtworkToToggleFullScreen,
-                                    onCheckedChange = AppSettings::setTapArtworkToToggleFullScreen,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
-                            },
-                            onClick = { AppSettings.setTapArtworkToToggleFullScreen(!tapArtworkToToggleFullScreen) },
-                        )
                     }
 
                     if (showLegacyMeshGradient) {
@@ -296,53 +225,6 @@ fun PlayerSection(
                         )
                     }
 
-                    if (showAnimatedCoverArt) {
-                        val animatedCoverArtTitle = stringResource(R.string.animated_cover_art)
-                        SettingsRow(
-                            icon = Icons.Rounded.Animation,
-                            title = animatedCoverArtTitle,
-                            subtitle = stringResource(R.string.animated_cover_art_subtitle),
-                            trailing = {
-                                Switch(
-                                    checked = animatedCanvas,
-                                    onCheckedChange = AppSettings::setAnimatedCanvas,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
-                                )
-                            },
-                            onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
-                        )
-
-                        if (animatedCanvas) {
-                            val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
-                            SettingsSubRow(
-                                title = coverCellularTitle,
-                                checked = canvasOverCellular,
-                                onCheckedChange = AppSettings::setCanvasOverCellular,
-                            )
-
-                            val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(onClick = onSpotifyCanvasAuth)
-                                    .padding(start = ROW_INSET, end = ROW_INSET, top = 4.dp, bottom = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = spotifyCanvasTitle,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.weight(1f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Chevron()
-                            }
-                        }
-                    }
                 }
 
                 // Preferences Section Divider

@@ -393,6 +393,8 @@ data class ShelfItem(
     val isLive: Boolean = false,
     val liveViewersText: String? = null,
     val liveCategory: LiveStationCategory? = null,
+    val libraryAddedAt: Long? = null,
+    val browseType: BrowseType? = null,
 )
 
 /** The signed-in Google account, as YouTube Music reports it. */

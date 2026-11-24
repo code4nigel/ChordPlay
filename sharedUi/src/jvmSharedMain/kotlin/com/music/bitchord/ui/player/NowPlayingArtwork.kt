@@ -114,6 +114,7 @@ internal class PlayerMeasures {
 internal fun BoxScope.PortraitSleeve(
     song: Song,
     art: PlayerArtwork,
+    coverPresentation: CoverPresentation?,
     clipState: CanvasClipState,
     canvas: CanvasArtwork?,
     heroClip: CanvasArtwork?,
@@ -426,12 +427,13 @@ internal fun BoxScope.PortraitSleeve(
             modifier = Modifier
                 .fillMaxSize()
                 .drawWithContent {
-                    if ((art.loaded || !clipState.rendered.value) && (!videoMode || docking() || collapse.pastHalf)) {
+                    if (coverPresentation == null && (art.loaded || !clipState.rendered.value) && (!videoMode || docking() || collapse.pastHalf)) {
                         drawContent()
                     }
                 },
         )
-        if (!heroMode && canvas != null) {
+        if (coverPresentation != null) CoverMotion(coverPresentation)
+        if (!heroMode && canvas != null && coverPresentation == null) {
             WhileShown({ !collapse.pastHalf }) {
                 CanvasArtworkPlayer(
                     canvas = canvas,

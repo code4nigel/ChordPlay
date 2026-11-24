@@ -2,9 +2,12 @@ package com.music.bitchord.playback.smart
 
 import kotlin.math.abs
 import kotlin.math.round
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class AutomixStyle { AUTO, GENTLE, DJ, OFF }
 
+@Serializable
 data class AutomixEdit(
     val style: AutomixStyle = AutomixStyle.AUTO,
     val overlapSeconds: Double? = null,

@@ -42,6 +42,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import java.util.Locale
@@ -175,9 +177,26 @@ object YtMusicRepository {
     /**
      * Recommended discovery tracks for Quick Picks, strictly excluding listening history and recents.
      */
-    suspend fun quickPicks(excludeSongIds: Set<String> = emptySet()): Result<List<Song>> = call("quickPicks") {
+    suspend fun quickPicks(
+        excludeSongIds: Set<String> = emptySet(),
+        songsOnly: Boolean = false,
+    ): Result<List<Song>> = call("quickPicks") {
         val homeRaw = runCatching { Innertube.browse("FEmusic_home") }.getOrNull()
         val shelves = if (homeRaw != null) InnertubeParser.parseHome(homeRaw) else emptyList()
+
+        val videoIdPattern = Regex("[A-Za-z0-9_-]{11}")
+        fun track(item: ShelfItem): Song? {
+            val id = item.videoId ?: return null
+            if (songsOnly && (item.isLive || item.isVideo || item.browseId != null ||
+                    item.browseType != null || !videoIdPattern.matches(id))
+            ) return null
+            return Song(
+                videoId = id,
+                title = item.title,
+                artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                thumbnailUrl = item.thumbnailUrl,
+            )
+        }
 
         // 1. Direct "Quick picks" or "Mix" or "Recommendations" shelf
         val qpShelf = shelves.firstOrNull {
@@ -187,16 +206,8 @@ object YtMusicRepository {
                 it.title.contains("mix", ignoreCase = true) ||
                 it.title.contains("recommend", ignoreCase = true)
         }
-        val qpSongs = qpShelf?.items?.mapNotNull { item ->
-            item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                Song(
-                    videoId = vid,
-                    title = item.title,
-                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                    thumbnailUrl = item.thumbnailUrl,
-                )
-            }
-        }.orEmpty()
+        val qpSongs = qpShelf?.items.orEmpty().mapNotNull(::track)
+            .filterNot { it.videoId in excludeSongIds }.distinctBy(Song::videoId)
         if (qpSongs.isNotEmpty()) return@call qpSongs
 
         // 2. All shelves on Home (excluding shelves mentioning recent/history, and skipping top shelf if multiple exist)
@@ -209,57 +220,26 @@ object YtMusicRepository {
             }
         } else shelves
 
-        val homeShelfSongs = candidateShelves.flatMap { shelf ->
-            shelf.items.mapNotNull { item ->
-                item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
-            }
-        }.distinctBy { it.videoId }
+        val homeShelfSongs = candidateShelves.flatMap { shelf -> shelf.items.mapNotNull(::track) }
+            .filterNot { it.videoId in excludeSongIds }.distinctBy(Song::videoId)
 
         if (homeShelfSongs.isNotEmpty()) return@call homeShelfSongs
 
         // 3. Any shelf items on Home that have videoId
-        val allHomeTrackSongs = shelves.flatMap { shelf ->
-            shelf.items.mapNotNull { item ->
-                item.videoId?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
-            }
-        }.distinctBy { it.videoId }
+        val allHomeTrackSongs = shelves.flatMap { shelf -> shelf.items.mapNotNull(::track) }
+            .distinctBy(Song::videoId)
 
         val uniqueAllHome = allHomeTrackSongs.filterNot { it.videoId in excludeSongIds }
         if (uniqueAllHome.isNotEmpty()) return@call uniqueAllHome
 
         // 4. Explore / New releases
         val explore = runCatching { shelvesOf("FEmusic_new_releases") }.getOrDefault(emptyList())
-        val exploreSongs = explore.flatMap { shelf ->
-            shelf.items.mapNotNull { item ->
-                item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(
-                        videoId = vid,
-                        title = item.title,
-                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                        thumbnailUrl = item.thumbnailUrl,
-                    )
-                }
-            }
-        }.distinctBy { it.videoId }
-
+        val exploreSongs = explore.flatMap { shelf -> shelf.items.mapNotNull(::track) }
+            .filterNot { it.videoId in excludeSongIds }.distinctBy(Song::videoId)
         if (exploreSongs.isNotEmpty()) return@call exploreSongs
 
-        // 5. Fallback if everything was filtered out
-        allHomeTrackSongs.ifEmpty { exploreSongs }
+        // The editor must never suggest tracks that are already on the playlist.
+        if (songsOnly) emptyList() else allHomeTrackSongs
     }
 
     suspend fun homeQuickPicksShelf(): Result<HomeShelf?> = call("home:quickPicks") {
@@ -1041,8 +1021,8 @@ object YtMusicRepository {
      *
      * Takes as long as the list is long — see [songsPaged].
      */
-    suspend fun allSongs(browseId: String): Result<List<Song>> = call("all:$browseId") {
-        songsPaged(browseId).ifEmpty { error("No tracks here") }
+    suspend fun allSongs(browseId: String, requireComplete: Boolean = false): Result<List<Song>> = call("all:$browseId") {
+        songsPaged(browseId, requireComplete).ifEmpty { error("No tracks here") }
     }
 
     /**
@@ -1057,8 +1037,8 @@ object YtMusicRepository {
      * nobody is watching — the library sync, an artist's back catalogue. For
      * anything a screen is waiting on, use [browseSongs] and [moreSongs].
      */
-    private suspend fun songsPaged(browseId: String): List<Song> {
-        val out = LinkedHashMap<String, Song>()
+    private suspend fun songsPaged(browseId: String, requireComplete: Boolean = false): List<Song> {
+        val out = LinkedHashMap<Pair<String, String?>, Song>()
         var response = Innertube.browse(browseId)
         if (browseId.startsWith("MPREb")) {
             InnertubeParser.parseAlbumPlaylistId(response)?.let { playlistId ->
@@ -1071,10 +1051,20 @@ object YtMusicRepository {
             // Library Songs auto-playlist included) is read from its own
             // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
-            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { out[it.videoId] = it }
+            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach {
+                out[it.videoId to it.setVideoId.takeIf { shelf != null }] = it
+            }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
-            if (token == null || page++ >= MAX_PAGES) break
-            response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            if (token == null) break
+            if (page++ >= MAX_PAGES) {
+                check(!requireComplete) { "Could not load every track in $browseId" }
+                break
+            }
+            response = if (requireComplete) {
+                Innertube.browseContinuation(token)
+            } else {
+                runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            }
         }
         return out.values.toList()
     }
@@ -1210,8 +1200,9 @@ object YtMusicRepository {
         title: String,
         privacy: PlaylistPrivacy,
         videoIds: List<String> = emptyList(),
+        canCreate: (() -> Boolean)? = null,
     ): Result<String> = call("playlist:create") {
-        Innertube.createPlaylist(title, privacy, videoIds = videoIds)
+        Innertube.createPlaylist(title, privacy, videoIds = videoIds, canCreate = canCreate)
     }
 
     /**
@@ -1223,23 +1214,67 @@ object YtMusicRepository {
     suspend fun addToPlaylist(
         playlistId: String,
         videoIds: List<String>,
+        canRequest: (() -> Boolean)? = null,
     ): Result<Map<String, String>> =
-        call("playlist:add") { Innertube.addToPlaylist(playlistId, videoIds) }
+        call("playlist:add") { Innertube.addToPlaylist(playlistId, videoIds, canRequest) }
 
     /** [entries] are (setVideoId, videoId) pairs — see [Song.setVideoId]. */
     suspend fun removeFromPlaylist(
         playlistId: String,
         entries: List<Pair<String, String>>,
+        canRequest: (() -> Boolean)? = null,
     ): Result<Unit> = call("playlist:remove") {
-        Innertube.removeFromPlaylist(playlistId, entries)
+        Innertube.removeFromPlaylist(playlistId, entries, canRequest)
     }
 
     /**
-     * Queries which of the user's playlists currently contain [videoId] using
-     * YouTube Music's single-call get_add_to_playlist endpoint.
+     * Queries which of the user's playlists currently contain [videoId].
      */
     suspend fun getPlaylistsContainingSong(videoId: String): Result<Set<String>> =
-        call("playlist:membership:$videoId") { Innertube.getPlaylistsContaining(videoId) }
+        getPlaylistMembership(videoId).map { rows -> rows.filterValues { it }.keys }
+
+    suspend fun getPlaylistMembership(
+        videoId: String,
+        canRequest: (() -> Boolean)? = null,
+    ): Result<Map<String, Boolean>> = call("playlist:membership:$videoId") {
+        val destinations = Innertube.getPlaylistMembership(videoId, canRequest)
+        val permits = Semaphore(3)
+        coroutineScope {
+            destinations.map { (id, selected) ->
+                async {
+                    val present = selected ?: permits.withPermit {
+                        completePlaylistTracks("VL$id", canRequest).getOrNull()?.any { it.videoId == videoId }
+                    }
+                    present?.let { id to it }
+                }
+            }.awaitAll().filterNotNull().toMap().also {
+                check(destinations.isEmpty() || it.isNotEmpty()) { "Could not confirm playlist membership" }
+            }
+        }
+    }
+
+    /** Reads the playlist's own tracks, including empty playlists, or fails on an incomplete result. */
+    suspend fun completePlaylistTracks(
+        browseId: String,
+        canRequest: (() -> Boolean)? = null,
+    ): Result<List<Song>> = call("playlist:complete:$browseId") {
+        val songs = mutableListOf<Song>()
+        val seenTokens = mutableSetOf<String>()
+        var response = Innertube.browse(browseId, canRequest = canRequest)
+        while (true) {
+            val page = InnertubeParser.parsePlaylistShelf(response, playlistContinuation = seenTokens.isNotEmpty())
+            if (page?.endsWithSuggestions == true) break
+            check(page != null && page.hasTrackShelf && !page.hasUnparsedTracks) {
+                "Could not confirm every track in $browseId"
+            }
+            songs += page.trackOccurrences
+            val token = page.continuation ?: break
+            check(seenTokens.size < MAX_PAGES - 1 && seenTokens.add(token)) { "Incomplete playlist $browseId" }
+            response = Innertube.browseContinuation(token, canRequest)
+        }
+        check(canRequest?.invoke() != false) { "The active YouTube Music profile changed" }
+        songs
+    }
 
     /**
      * A playlist's entries in their current order, every page of them, for

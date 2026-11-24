@@ -21,6 +21,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -64,6 +65,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import kotlinx.coroutines.delay
+import com.music.bitchord.data.settings.LibrarySort
+import com.music.bitchord.ui.screens.LibrarySortMenu
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -71,14 +74,11 @@ import java.util.concurrent.ConcurrentHashMap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
-import com.music.bitchord.data.YtMusicRepository
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.music.bitchord.ui.PlaylistPickerMembershipState
+import com.music.bitchord.data.spotify.LocalPlaylistStore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -126,18 +126,6 @@ private val UserPlaylist.id: String get() = playlistId
 private fun UserPlaylist.isPinned(pinned: List<String>): Boolean =
     id in pinned || browseId in pinned || "VL$id" in pinned || (id.removePrefix("VL") in pinned)
 
-enum class PlaylistSortOrder(val label: String) {
-    A_TO_Z("Alphabetical (A–Z)"),
-    Z_TO_A("Alphabetical (Z–A)"),
-    DEFAULT("Default");
-
-    fun next(): PlaylistSortOrder = when (this) {
-        A_TO_Z -> Z_TO_A
-        Z_TO_A -> DEFAULT
-        DEFAULT -> A_TO_Z
-    }
-}
-
 /**
  * Where a track goes: one of the account's playlists, or a new one.
  *
@@ -148,7 +136,7 @@ enum class PlaylistSortOrder(val label: String) {
  * - Clicking Done executes both additions and removals.
  */
 @Composable
-fun PlaylistPickerSheet(
+internal fun PlaylistPickerSheet(
     playlists: List<UserPlaylist>,
     loading: Boolean,
     onAdd: (List<UserPlaylist>) -> Unit,
@@ -164,6 +152,7 @@ fun PlaylistPickerSheet(
     collectionArtworkUrl: String? = null,
     collectionSongs: List<Song> = emptyList(),
     excludePlaylistId: String? = null,
+    membership: PlaylistPickerMembershipState = PlaylistPickerMembershipState(),
 ) {
     val chordplayPlaylistIds by AppSettings.chordplayPlaylistIds.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -175,106 +164,29 @@ fun PlaylistPickerSheet(
 
     var creating by remember { mutableStateOf(startCreating) }
     var playlistSearchQuery by remember { mutableStateOf("") }
-    var sortOrder by remember { mutableStateOf(PlaylistSortOrder.DEFAULT) }
+    var sortOrder by remember { mutableStateOf(LibrarySort.DEFAULT) }
     var sortMenuOpen by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    var isCheckingMembership by remember(song?.videoId, collectionTitle) {
-        mutableStateOf(song != null && collectionTitle == null)
+    val localPlaylists by LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
+    val localMembership = remember(song?.videoId, localPlaylists) {
+        localPlaylists.filter { playlist -> playlist.songs.any { it.videoId == song?.videoId } }
+            .mapTo(hashSetOf()) { it.id }
     }
-
-    // Seed initiallyPresent from local memory cache
-    var initiallyPresent by remember(song?.videoId, collectionTitle) {
-        mutableStateOf(
-            if (collectionTitle != null) emptySet()
-            else song?.videoId?.let { vid ->
-                playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
-                    .map { it.playlistId }.toSet()
-            } ?: emptySet()
-        )
-    }
-
-    // Selected state begins identical to initiallyPresent:
-    // Any playlist containing the song is checked; others are unchecked.
-    var selected by remember(song?.videoId, collectionTitle) {
-        mutableStateOf(
-            if (collectionTitle != null) emptySet()
-            else song?.videoId?.let { vid ->
-                playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
-                    .map { it.playlistId }.toSet()
-            } ?: emptySet()
-        )
-    }
-
-    val userToggledPlaylists = remember(song?.videoId, collectionTitle) { mutableSetOf<String>() }
-
-    // When playlists finishes loading or changes, update initiallyPresent from cache if user hasn't toggled yet
-    LaunchedEffect(playlists, song?.videoId, collectionTitle) {
-        if (collectionTitle != null) return@LaunchedEffect
-        val vid = song?.videoId ?: return@LaunchedEffect
-        if (playlists.isNotEmpty() && initiallyPresent.isEmpty() && userToggledPlaylists.isEmpty()) {
-            val fromCache = playlists.filter { pl -> PlaylistMembershipCache.contains(pl.playlistId, vid) }
-                .map { it.playlistId }.toSet()
-            if (fromCache.isNotEmpty()) {
-                initiallyPresent = fromCache
-                selected = fromCache
-            }
+    val initiallyPresent = remember(playlists, localMembership, membership.present, song?.videoId) {
+        if (song == null) emptySet()
+        else playlists.mapNotNullTo(hashSetOf()) { playlist ->
+            val id = playlist.playlistId.removePrefix("VL")
+            val localId = id.removePrefix("local:playlist:")
+            playlist.playlistId.takeIf { localId in localMembership || id in membership.present }
         }
     }
-
-    // Fast, single-call membership check using YouTube Music's native get_add_to_playlist endpoint.
-    LaunchedEffect(song?.videoId, collectionTitle) {
-        if (collectionTitle != null) return@LaunchedEffect
-        val target = song ?: return@LaunchedEffect
-        isCheckingMembership = true
-        withContext(Dispatchers.IO) {
-            val localIds = com.music.bitchord.data.spotify.LocalPlaylistStore.playlists.value
-                .filter { pl -> pl.songs.any { it.videoId == target.videoId } }
-                .map { it.id }
-                .toSet()
-
-            val result = YtMusicRepository.getPlaylistsContainingSong(target.videoId)
-            val containingIds = result.getOrNull()
-            if (containingIds != null) {
-                // Safely reconcile remote with cache without wiping in-flight pending adds!
-                PlaylistMembershipCache.reconcileRemote(target.videoId, containingIds, playlists)
-
-                val cleanLocalIds = localIds.map { it.removePrefix("VL") }.toSet()
-                val cleanRemoteIds = containingIds.map { it.removePrefix("VL") }.toSet()
-                val effectiveContaining = playlists
-                    .filter { pl ->
-                        val cleanId = pl.playlistId.removePrefix("VL")
-                        (cleanId in cleanRemoteIds || cleanId in cleanLocalIds) &&
-                            PlaylistMembershipCache.contains(pl.playlistId, target.videoId)
-                    }
-                    .map { it.playlistId }
-                    .toSet()
-
-                withContext(Dispatchers.Main) {
-                    initiallyPresent = effectiveContaining
-                    val unmodified = effectiveContaining.filter { it !in userToggledPlaylists }
-                    val toggledSelected = selected.filter { it in userToggledPlaylists }
-                    selected = (unmodified + toggledSelected).toSet()
-                    isCheckingMembership = false
-                }
-            } else {
-                // If offline or on failure, fall back to LocalPlaylistStore + PlaylistMembershipCache
-                val cached = playlists
-                    .filter { pl ->
-                        pl.playlistId in localIds ||
-                            pl.playlistId.removePrefix("VL") in localIds ||
-                            PlaylistMembershipCache.contains(pl.playlistId, target.videoId)
-                    }
-                    .map { it.playlistId }
-                    .toSet()
-                withContext(Dispatchers.Main) {
-                    initiallyPresent = cached
-                    val unmodified = cached.filter { it !in userToggledPlaylists }
-                    val toggledSelected = selected.filter { it in userToggledPlaylists }
-                    selected = (unmodified + toggledSelected).toSet()
-                    isCheckingMembership = false
-                }
-            }
+    val isCheckingMembership = membership.checking && membership.present.isEmpty()
+    var userSelection by remember(song?.videoId, collectionTitle) { mutableStateOf(emptyMap<String, Boolean>()) }
+    val selected = remember(playlists, userSelection, initiallyPresent) {
+        playlists.mapNotNullTo(hashSetOf()) { playlist ->
+            val id = playlist.playlistId
+            id.takeIf { userSelection[id] ?: (id in initiallyPresent) }
         }
     }
 
@@ -294,19 +206,28 @@ fun PlaylistPickerSheet(
 
     val sortedPlaylists = remember(displayedPlaylists, pinnedPlaylists, sortOrder, initiallyPresent) {
         val inPlaylistComparator = compareByDescending<UserPlaylist> {
-            it.playlistId in initiallyPresent || PlaylistMembershipCache.contains(it.playlistId, song?.videoId.orEmpty())
+            it.playlistId in initiallyPresent
         }
         val pinnedComparator = compareByDescending<UserPlaylist> {
             it.id in pinnedPlaylists || it.isPinned(pinnedPlaylists)
         }
         when (sortOrder) {
-            PlaylistSortOrder.A_TO_Z -> displayedPlaylists.sortedWith(
+            LibrarySort.TITLE_ASC -> displayedPlaylists.sortedWith(
                 pinnedComparator.thenBy { it.title.lowercase(Locale.getDefault()) }
             )
-            PlaylistSortOrder.Z_TO_A -> displayedPlaylists.sortedWith(
+            LibrarySort.TITLE_DESC -> displayedPlaylists.sortedWith(
                 pinnedComparator.thenByDescending { it.title.lowercase(Locale.getDefault()) }
             )
-            PlaylistSortOrder.DEFAULT -> displayedPlaylists.sortedWith(
+            LibrarySort.DATE_NEWEST, LibrarySort.DATE_OLDEST -> {
+                val (local, cloud) = displayedPlaylists.partition { it.playlistId.startsWith("local:playlist:") }
+                val byDate = if (sortOrder == LibrarySort.DATE_NEWEST) {
+                    local + cloud
+                } else {
+                    local.asReversed() + cloud.asReversed()
+                }
+                byDate.sortedWith(pinnedComparator)
+            }
+            LibrarySort.DEFAULT -> displayedPlaylists.sortedWith(
                 inPlaylistComparator.then(pinnedComparator)
             )
         }
@@ -325,10 +246,6 @@ fun PlaylistPickerSheet(
 
     val commitAction: () -> Unit = {
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        song?.videoId?.let { vid ->
-            toAdd.forEach { pl -> PlaylistMembershipCache.markPendingAdd(pl.playlistId, vid) }
-            toRemove.forEach { pl -> PlaylistMembershipCache.markPendingRemove(pl.playlistId, vid) }
-        }
         if (onCommit != null) {
             onCommit(toAdd, toRemove)
         } else {
@@ -654,7 +571,7 @@ fun PlaylistPickerSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         // Circular Sort Button + Menu
-                        val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
+                        val isSorted = sortOrder != LibrarySort.DEFAULT
                         Box {
                             Box(
                                 modifier = Modifier
@@ -677,38 +594,15 @@ fun PlaylistPickerSheet(
                                     modifier = Modifier.size(18.dp),
                                 )
                             }
-                            DropdownMenu(
+                            LibrarySortMenu(
                                 expanded = sortMenuOpen,
-                                onDismissRequest = { sortMenuOpen = false },
-                            ) {
-                                PlaylistSortOrder.entries.forEach { option ->
-                                    val optionSelected = option == sortOrder
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = option.label,
-                                                fontWeight = if (optionSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                                color = if (optionSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        },
-                                        trailingIcon = if (optionSelected) {
-                                            {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Check,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(18.dp),
-                                                )
-                                            }
-                                        } else null,
-                                        onClick = {
-                                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            sortOrder = option
-                                            sortMenuOpen = false
-                                        },
-                                    )
-                                }
-                            }
+                                selected = sortOrder,
+                                onSelect = { option ->
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    sortOrder = option
+                                },
+                                onDismiss = { sortMenuOpen = false },
+                            )
                         }
 
                         // Close button
@@ -782,12 +676,7 @@ fun PlaylistPickerSheet(
                                 isPinned = isPinned,
                                 onClick = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    userToggledPlaylists.add(playlist.playlistId)
-                                    selected = if (isTicked) {
-                                        selected - playlist.playlistId
-                                    } else {
-                                        selected + playlist.playlistId
-                                    }
+                                    userSelection = userSelection + (playlist.playlistId to !isTicked)
                                 },
                             )
                         }
@@ -1053,7 +942,7 @@ fun PlaylistPickerSheet(
                 }
 
                 // Right: Circular Sort / Filter Icon Button + Menu
-                val isSorted = sortOrder != PlaylistSortOrder.DEFAULT
+                val isSorted = sortOrder != LibrarySort.DEFAULT
                 Box {
                     Box(
                         modifier = Modifier
@@ -1086,38 +975,15 @@ fun PlaylistPickerSheet(
                             modifier = Modifier.size(20.dp),
                         )
                     }
-                    DropdownMenu(
+                    LibrarySortMenu(
                         expanded = sortMenuOpen,
-                        onDismissRequest = { sortMenuOpen = false },
-                    ) {
-                        PlaylistSortOrder.entries.forEach { option ->
-                            val optionSelected = option == sortOrder
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = option.label,
-                                        fontWeight = if (optionSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (optionSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                },
-                                trailingIcon = if (optionSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Check,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp),
-                                        )
-                                    }
-                                } else null,
-                                onClick = {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    sortOrder = option
-                                    sortMenuOpen = false
-                                },
-                            )
-                        }
-                    }
+                        selected = sortOrder,
+                        onSelect = { option ->
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            sortOrder = option
+                        },
+                        onDismiss = { sortMenuOpen = false },
+                    )
                 }
             }
 
@@ -1207,12 +1073,7 @@ fun PlaylistPickerSheet(
                                         isPinned = isPinned,
                                         onClick = {
                                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            userToggledPlaylists.add(playlist.playlistId)
-                                            selected = if (isTicked) {
-                                                selected - playlist.playlistId
-                                            } else {
-                                                selected + playlist.playlistId
-                                            }
+                                            userSelection = userSelection + (playlist.playlistId to !isTicked)
                                         },
                                     )
                                 }
@@ -1428,11 +1289,13 @@ private fun PlaylistRow(
 }
 
 @Composable
-private fun NewPlaylistForm(
+internal fun NewPlaylistForm(
     onBack: (() -> Unit)?,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     modifier: Modifier = Modifier,
     onDismiss: (() -> Unit)? = null,
+    title: String? = null,
+    additionalOptions: @Composable () -> Unit = {},
 ) {
     var name by remember { mutableStateOf("") }
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
@@ -1482,7 +1345,7 @@ private fun NewPlaylistForm(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.new_playlist),
+                    text = title ?: stringResource(R.string.new_playlist),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground,
                 )
@@ -1593,11 +1456,12 @@ private fun NewPlaylistForm(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 8.dp),
         )
-        Row(
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             PlaylistPrivacy.entries.forEach { option ->
                 PrivacyPill(
@@ -1609,6 +1473,7 @@ private fun NewPlaylistForm(
             }
         }
 
+        additionalOptions()
         Spacer(Modifier.height(24.dp))
         Box(
             modifier = Modifier
@@ -1861,6 +1726,8 @@ private fun PrivacyPill(
             text = label,
             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
             color = content,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

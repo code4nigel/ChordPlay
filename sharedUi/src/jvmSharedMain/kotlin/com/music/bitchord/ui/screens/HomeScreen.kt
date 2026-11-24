@@ -1789,6 +1789,7 @@ internal fun ShelfCard(
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
     enableTilt: Boolean = true,
+    artwork: (@Composable () -> Unit)? = null,
 ) {
     val squareVideoThumbnails by AppUi.host.squareVideoThumbnails.collectAsStateWithLifecycle()
     Column(
@@ -1797,7 +1798,7 @@ internal fun ShelfCard(
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress),
     ) {
-        when (item.browseId) {
+        if (artwork != null) artwork() else when (item.browseId) {
             "local:downloads" -> {
                 val palette = remember { MeshPalette(listOf(Color(0xFF1E3C72), Color(0xFF2A5298))) }
                 Box(

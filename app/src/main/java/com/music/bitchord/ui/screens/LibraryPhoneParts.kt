@@ -66,7 +66,7 @@ fun libraryLinks(): List<LibraryLink> {
             stringResource(R.string.audio_files_on_device),
             "local:all",
         ),
-        // Opt-in from Settings → Storage: what the song cache is holding from
+        // Controlled by Settings → Storage: what the song cache is holding from
         // YouTube and JioSaavn. See [com.music.bitchord.playback.AudioCache.cachedSongs].
         link(
             Icons.Rounded.Storage,
@@ -118,6 +118,9 @@ fun libraryDeviceItems(downloadedReleases: List<SavedCollection>): List<ShelfIte
             thumbnailUrl = release.thumbnailUrl,
             videoId = null,
             browseId = Downloads.pageIdFor(release),
+            libraryAddedAt = release.addedAt,
+            browseType = if (release.playlist) com.music.bitchord.data.model.BrowseType.PLAYLIST
+                else com.music.bitchord.data.model.BrowseType.ALBUM,
         )
     }
 }

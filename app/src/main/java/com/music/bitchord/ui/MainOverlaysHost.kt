@@ -74,7 +74,6 @@ import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceKind
@@ -678,13 +677,6 @@ internal fun MainDialogsHost(
             onDismiss = onDismissConfirmJioSaavn,
         )
     }
-}
-
-@Composable
-internal fun LibrarySort.localizedLabel(): String = when (this) {
-    LibrarySort.DEFAULT -> stringResource(R.string.sort_default)
-    LibrarySort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
-    LibrarySort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
 }
 
 @OptIn(ExperimentalHazeMaterialsApi::class)

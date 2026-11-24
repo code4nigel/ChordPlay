@@ -85,7 +85,7 @@ object LocalPlaylistStore {
 
     fun savePlaylist(title: String, songs: List<Song>): LocalPlaylist {
         val id = "sp_local_" + System.currentTimeMillis()
-        val playlist = LocalPlaylist(id = id, title = title, songs = songs)
+        val playlist = LocalPlaylist(id = id, title = title, songs = songs.map { it.copy() })
         _playlists.update { current -> listOf(playlist) + current.filterNot { it.id == id } }
         persist()
         return playlist
@@ -160,6 +160,22 @@ object LocalPlaylistStore {
             persist()
         }
         return changed
+    }
+
+    fun removeOccurrence(id: String, song: Song): Boolean {
+        var removed = false
+        _playlists.update { current ->
+            removed = false
+            current.map { playlist ->
+                if (playlist.id != id) return@map playlist
+                val index = playlist.songs.indexOfFirst { it === song }
+                if (index < 0) return@map playlist
+                removed = true
+                playlist.copy(songs = playlist.songs.toMutableList().apply { removeAt(index) })
+            }
+        }
+        if (removed) persist()
+        return removed
     }
 
     /**

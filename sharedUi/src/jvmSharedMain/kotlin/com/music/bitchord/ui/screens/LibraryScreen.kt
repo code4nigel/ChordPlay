@@ -11,11 +11,13 @@
  */
 package com.music.bitchord.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -44,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -77,8 +81,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,6 +92,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.ShelfItem
@@ -95,6 +102,16 @@ import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.albums
+import com.music.bitchord.sharedui.resources.clear_search
+import com.music.bitchord.sharedui.resources.library_search_hint
+import com.music.bitchord.sharedui.resources.sort_library
+import com.music.bitchord.sharedui.resources.sort_default
+import com.music.bitchord.sharedui.resources.sort_date_added
+import com.music.bitchord.sharedui.resources.sort_date_added_oldest
+import com.music.bitchord.sharedui.resources.sort_title_ascending
+import com.music.bitchord.sharedui.resources.sort_title_descending
+import com.music.bitchord.sharedui.resources.switch_to_grid_view
+import com.music.bitchord.sharedui.resources.switch_to_list_view
 import com.music.bitchord.sharedui.resources.artists
 import com.music.bitchord.sharedui.resources.downloaded
 import com.music.bitchord.sharedui.resources.import_spotify
@@ -177,13 +194,21 @@ fun LibraryScreen(
     deviceItems: List<ShelfItem>,
     /** Heading visibility. */
     showTitle: Boolean = true,
-) {
+    richLibraryCards: Boolean = false,
+) = BoxWithConstraints(modifier.fillMaxSize()) {
+    val columns = if (richLibraryCards) {
+        compactLibraryColumns(maxWidth - PAGE_GUTTER * 2, LocalDensity.current.fontScale)
+    } else 2
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val librarySort by AppUi.host.librarySort.collectAsStateWithLifecycle()
     val libraryViewMode by AppUi.host.libraryViewMode.collectAsStateWithLifecycle()
     val downloadedLabel = stringResource(Res.string.downloaded)
     var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.ALL) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    val orderedDeviceItems = remember(deviceItems, librarySort) {
+        deviceItems.withDeviceDateOrder(librarySort)
+    }
 
     LaunchedEffect(selectedFilter) {
         listState.scrollToItem(0)
@@ -193,7 +218,7 @@ fun LibraryScreen(
         refreshing = refreshing,
         onRefresh = onRefresh,
         state = pullState,
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
     ) {
         FastScroller(
             listState = listState,
@@ -261,7 +286,7 @@ fun LibraryScreen(
                             videoId = null,
                             browseId = "local:downloads",
                         )
-                    val downloadItems = (listOf(downloadsItem) + deviceItems)
+                    val downloadItems = (listOf(downloadsItem) + orderedDeviceItems)
                         .distinctBy { it.browseId ?: it.title }
                         .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
                     if (downloadItems.isEmpty()) {
@@ -272,6 +297,8 @@ fun LibraryScreen(
                         }
                     } else {
                         renderLibraryItems(
+                            columns = columns,
+                            richArtwork = richLibraryCards,
                             items = downloadItems,
                             viewMode = libraryViewMode,
                             pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -301,7 +328,7 @@ fun LibraryScreen(
                                     }
                                 }
                             }
-                            val offlinePlaylists = deviceItems.filter {
+                            val offlinePlaylists = orderedDeviceItems.filter {
                                 it.browseId?.startsWith("local:playlist") == true ||
                                     it.subtitle.contains("playlist", ignoreCase = true) ||
                                     it.title.contains("playlist", ignoreCase = true)
@@ -309,6 +336,8 @@ fun LibraryScreen(
 
                             if (offlinePlaylists.isNotEmpty()) {
                                 renderLibraryItems(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
                                     items = offlinePlaylists,
                                     viewMode = libraryViewMode,
                                     pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -326,7 +355,7 @@ fun LibraryScreen(
                             }
                         }
                         LibraryFilter.ALBUMS -> {
-                            val offlineAlbums = deviceItems.filter {
+                            val offlineAlbums = orderedDeviceItems.filter {
                                 val id = it.browseId
                                 !id.isNullOrBlank() &&
                                     (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
@@ -334,6 +363,8 @@ fun LibraryScreen(
 
                             if (offlineAlbums.isNotEmpty()) {
                                 renderLibraryItems(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
                                     items = offlineAlbums,
                                     viewMode = libraryViewMode,
                                     pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -352,10 +383,12 @@ fun LibraryScreen(
                         }
                         else -> {
                             if (links.isNotEmpty() && selectedFilter == LibraryFilter.ALL) {
-                                val filteredLinks = (links.map { it.item } + deviceItems)
+                                val filteredLinks = (links.map { it.item } + orderedDeviceItems)
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
                                 renderLibraryItems(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
                                     items = filteredLinks,
                                     viewMode = libraryViewMode,
                                     pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -396,7 +429,7 @@ fun LibraryScreen(
                                         }
                                     }
                                 }
-                                val offlinePlaylists = deviceItems.filter {
+                                val offlinePlaylists = orderedDeviceItems.filter {
                                     it.browseId?.startsWith("local:playlist") == true ||
                                         it.subtitle.contains("playlist", ignoreCase = true) ||
                                         it.title.contains("playlist", ignoreCase = true)
@@ -404,6 +437,8 @@ fun LibraryScreen(
 
                                 if (offlinePlaylists.isNotEmpty()) {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = offlinePlaylists,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -421,7 +456,7 @@ fun LibraryScreen(
                                 }
                             }
                             LibraryFilter.ALBUMS -> {
-                                val offlineAlbums = deviceItems.filter {
+                                val offlineAlbums = orderedDeviceItems.filter {
                                     val id = it.browseId
                                     !id.isNullOrBlank() &&
                                         (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
@@ -429,6 +464,8 @@ fun LibraryScreen(
 
                                 if (offlineAlbums.isNotEmpty()) {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = offlineAlbums,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -446,11 +483,13 @@ fun LibraryScreen(
                                 }
                             }
                             LibraryFilter.ALL -> {
-                                val offlineItems = (links.map { it.item } + deviceItems)
+                                val offlineItems = (links.map { it.item } + orderedDeviceItems)
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
                                 if (offlineItems.isNotEmpty()) {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = offlineItems,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -483,7 +522,7 @@ fun LibraryScreen(
 
                         when (selectedFilter) {
                             LibraryFilter.ALL -> {
-                                // Quick links: Liked Music, Downloads, Local Music
+                                // Quick links also include the cache when its Storage switch is on.
                                 val likedMusicItem = shelves.flatMap { it.items }.firstOrNull {
                                     it.browseId == "VLLM" || it.browseId == "LM" ||
                                         it.title.equals("Liked Music", ignoreCase = true) ||
@@ -514,7 +553,8 @@ fun LibraryScreen(
                                         browseId = "local:all",
                                     )
 
-                                val quickItems = listOf(likedMusicItem, downloadsItem, localMusicItem)
+                                val cachedSongsItem = links.firstOrNull { it.item.browseId == "local:cache" }?.item
+                                val quickItems = listOfNotNull(likedMusicItem, downloadsItem, localMusicItem, cachedSongsItem)
                                 val filteredQuick = if (searchQuery.isBlank()) {
                                     quickItems
                                 } else {
@@ -524,6 +564,8 @@ fun LibraryScreen(
 
                                 if (filteredQuick.isNotEmpty()) {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = filteredQuick,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -534,12 +576,12 @@ fun LibraryScreen(
                                 }
 
                                 // Recent items across all categories
-                                val quickKeys = setOfNotNull("VLLM", "LM", "local:downloads", "local:all")
+                                val quickKeys = quickItems.mapNotNullTo(mutableSetOf("VLLM", "LM")) { it.browseId }
                                 val recentItems = shelves.flatMap { shelf ->
                                     if (shelf.title == PLAYLISTS || shelf.title.equals("Playlists", ignoreCase = true)) {
-                                        shelf.pinnedFirst(pinnedPlaylists).items
+                                        shelf.copy(items = shelf.items.withCloudDateOrder(librarySort)).pinnedFirst(pinnedPlaylists).items
                                     } else {
-                                        shelf.items
+                                        shelf.items.withCloudDateOrder(librarySort)
                                     }
                                 }.filter {
                                     it.browseId !in quickKeys &&
@@ -549,6 +591,8 @@ fun LibraryScreen(
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
                                 renderLibraryItems(
+                                    columns = columns,
+                                    richArtwork = richLibraryCards,
                                     items = recentItems,
                                     viewMode = libraryViewMode,
                                     pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -574,7 +618,7 @@ fun LibraryScreen(
                                         }
                                     }
                                 }
-                                val localAndDownloadedPlaylists = deviceItems.filter {
+                                val localAndDownloadedPlaylists = orderedDeviceItems.filter {
                                     it.browseId?.startsWith("local:playlist") == true ||
                                         it.subtitle.contains("playlist", ignoreCase = true) ||
                                         it.title.contains("playlist", ignoreCase = true)
@@ -582,7 +626,9 @@ fun LibraryScreen(
                                 val playlistShelf = shelves.firstOrNull {
                                     it.title == PLAYLISTS || it.title.equals("Playlists", ignoreCase = true)
                                 }
-                                val remotePlaylists = playlistShelf?.pinnedFirst(pinnedPlaylists)?.items.orEmpty()
+                                val remotePlaylists = playlistShelf?.let { shelf ->
+                                    shelf.copy(items = shelf.items.withCloudDateOrder(librarySort)).pinnedFirst(pinnedPlaylists).items
+                                }.orEmpty()
                                 val playlists = (localAndDownloadedPlaylists + remotePlaylists)
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
@@ -595,6 +641,8 @@ fun LibraryScreen(
                                     }
                                 } else {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = playlists,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -605,7 +653,7 @@ fun LibraryScreen(
                             }
 
                             LibraryFilter.ALBUMS -> {
-                                val localAndDownloadedAlbums = deviceItems.filter {
+                                val localAndDownloadedAlbums = orderedDeviceItems.filter {
                                     val id = it.browseId
                                     !id.isNullOrBlank() &&
                                         (id.startsWith("local:album") || (!id.startsWith("local:playlist") && !it.subtitle.contains("playlist", ignoreCase = true)))
@@ -613,7 +661,7 @@ fun LibraryScreen(
                                 val albumShelf = shelves.firstOrNull {
                                     it.title.equals("Albums", ignoreCase = true)
                                 }
-                                val remoteAlbums = albumShelf?.items.orEmpty()
+                                val remoteAlbums = albumShelf?.items.orEmpty().withCloudDateOrder(librarySort)
                                 val albums = (localAndDownloadedAlbums + remoteAlbums)
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
@@ -626,6 +674,8 @@ fun LibraryScreen(
                                     }
                                 } else {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = albums,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -640,7 +690,7 @@ fun LibraryScreen(
                                     it.title.equals("Artists", ignoreCase = true) ||
                                         it.title.equals("Subscriptions", ignoreCase = true)
                                 }
-                                val artists = artistShelves.flatMap { it.items }.distinctBy { it.browseId ?: it.title }
+                                val artists = artistShelves.flatMap { it.items.withCloudDateOrder(librarySort) }.distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
                                 if (artists.isEmpty()) {
@@ -651,6 +701,8 @@ fun LibraryScreen(
                                     }
                                 } else {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = artists,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -661,7 +713,7 @@ fun LibraryScreen(
                             }
 
                             LibraryFilter.DOWNLOADS -> {
-                                val downloadItems = (links.map { it.item } + deviceItems)
+                                val downloadItems = (links.map { it.item } + orderedDeviceItems)
                                     .distinctBy { it.browseId ?: it.title }
                                     .applyFilterAndSort(searchQuery, librarySort, pinnedPlaylists.toSet())
 
@@ -673,6 +725,8 @@ fun LibraryScreen(
                                     }
                                 } else {
                                     renderLibraryItems(
+                                        columns = columns,
+                                        richArtwork = richLibraryCards,
                                         items = downloadItems,
                                         viewMode = libraryViewMode,
                                         pinnedPlaylists = pinnedPlaylists.toSet(),
@@ -705,117 +759,147 @@ private fun LibrarySearchField(
 ) {
     var sortMenuOpen by remember { mutableStateOf(false) }
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 4.dp)
-            .height(46.dp)
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                remember { SquirclePillShape() },
-            )
-            .padding(start = 12.dp, end = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Rounded.Search,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Box(Modifier.weight(1f)) {
-            if (query.isEmpty()) {
-                Text(
-                    text = "Search library",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onBackground,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        if (query.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .clickable { onQueryChange("") },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = "Clear search",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-            Spacer(Modifier.width(4.dp))
-        }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .clickable { onViewModeToggle() },
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, remember { SquirclePillShape() })
+                .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = if (viewMode == LibraryViewMode.GRID) BitChordIcons.ListView else BitChordIcons.GridView,
-                contentDescription = if (viewMode == LibraryViewMode.GRID) "Switch to list view" else "Switch to grid view",
+                Icons.Rounded.Search,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(20.dp),
             )
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        text = stringResource(Res.string.library_search_hint),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onBackground,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (query.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable { onQueryChange("") },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.Close,
+                        contentDescription = stringResource(Res.string.clear_search),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
         }
-        Spacer(Modifier.width(2.dp))
-        Box {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable { sortMenuOpen = true },
-                contentAlignment = Alignment.Center,
-            ) {
+        Row(
+            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, remember { SquirclePillShape() }),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onViewModeToggle, modifier = Modifier.size(48.dp)) {
                 Icon(
-                    Icons.Rounded.Sort,
-                    contentDescription = "Sort library",
+                    imageVector = if (viewMode == LibraryViewMode.GRID) BitChordIcons.ListView else BitChordIcons.GridView,
+                    contentDescription = stringResource(
+                        if (viewMode == LibraryViewMode.GRID) Res.string.switch_to_list_view else Res.string.switch_to_grid_view,
+                    ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(19.dp),
                 )
             }
-            DropdownMenu(
-                expanded = sortMenuOpen,
-                onDismissRequest = { sortMenuOpen = false },
-            ) {
-                LibrarySort.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        trailingIcon = if (option == sortOrder) {
-                            {
-                                Icon(
-                                    Icons.Rounded.Check,
-                                    contentDescription = "Selected",
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        onClick = {
-                            onSortOrderChange(option)
-                            sortMenuOpen = false
-                        },
+            Box {
+                IconButton(onClick = { sortMenuOpen = true }, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        Icons.Rounded.Sort,
+                        contentDescription = stringResource(Res.string.sort_library),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp),
                     )
                 }
+                LibrarySortMenu(
+                    expanded = sortMenuOpen,
+                    selected = sortOrder,
+                    onSelect = onSortOrderChange,
+                    onDismiss = { sortMenuOpen = false },
+                )
             }
         }
     }
+}
+
+@Composable
+fun LibrarySortMenu(
+    expanded: Boolean,
+    selected: LibrarySort,
+    onSelect: (LibrarySort) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = lerp(scheme.surface, scheme.surfaceVariant, 0.72f),
+        tonalElevation = 0.dp,
+        modifier = Modifier.widthIn(min = 184.dp, max = 300.dp),
+    ) {
+        LibrarySort.entries.forEach { option ->
+            val label = stringResource(when (option) {
+                LibrarySort.DEFAULT -> Res.string.sort_default
+                LibrarySort.DATE_NEWEST -> Res.string.sort_date_added
+                LibrarySort.DATE_OLDEST -> Res.string.sort_date_added_oldest
+                LibrarySort.TITLE_ASC -> Res.string.sort_title_ascending
+                LibrarySort.TITLE_DESC -> Res.string.sort_title_descending
+            })
+            DropdownMenuItem(
+                text = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+                trailingIcon = if (option == selected) {
+                    { Icon(Icons.Rounded.Check, contentDescription = null, tint = scheme.primary) }
+                } else null,
+                onClick = {
+                    onSelect(option)
+                    onDismiss()
+                },
+                modifier = Modifier.heightIn(min = 48.dp),
+            )
+        }
+    }
+}
+
+// YouTube Music returns separate shelves without item-level timestamps.
+private fun List<ShelfItem>.withCloudDateOrder(sort: LibrarySort): List<ShelfItem> =
+    if (sort == LibrarySort.DATE_OLDEST) asReversed() else this
+
+private fun List<ShelfItem>.withDeviceDateOrder(sort: LibrarySort): List<ShelfItem> {
+    val oldestFirst = compareBy<ShelfItem> { it.libraryAddedAt }
+    val byDate = when (sort) {
+        LibrarySort.DATE_NEWEST -> oldestFirst.reversed()
+        LibrarySort.DATE_OLDEST -> oldestFirst
+        else -> return this
+    }
+    return sortedWith(compareBy<ShelfItem> { it.libraryAddedAt == null }.then(byDate))
 }
 
 private fun List<ShelfItem>.applyFilterAndSort(
@@ -833,7 +917,7 @@ private fun List<ShelfItem>.applyFilterAndSort(
         }
     }
     return when (sort) {
-        LibrarySort.DEFAULT -> {
+        LibrarySort.DEFAULT, LibrarySort.DATE_NEWEST, LibrarySort.DATE_OLDEST -> {
             filtered.sortedByDescending { it.browseId != null && it.browseId in pinned }
         }
         LibrarySort.TITLE_ASC -> {
@@ -852,6 +936,8 @@ private fun List<ShelfItem>.applyFilterAndSort(
 }
 
 private fun LazyListScope.renderLibraryItems(
+    columns: Int,
+    richArtwork: Boolean,
     items: List<ShelfItem>,
     viewMode: LibraryViewMode,
     pinnedPlaylists: Set<String>,
@@ -860,12 +946,12 @@ private fun LazyListScope.renderLibraryItems(
     keyPrefix: String = "",
 ) {
     if (viewMode == LibraryViewMode.GRID) {
-        val pairs = items.chunked(2)
-        val pairKeys = uniqueKeys(pairs) { pair ->
+        val rows = items.chunked(columns)
+        val pairKeys = uniqueKeys(rows) { pair ->
             keyPrefix + "grid:" + (pair.firstOrNull()?.lazyKey() ?: "")
         }
         itemsIndexed(
-            pairs,
+            rows,
             key = { index, _ -> pairKeys[index] },
             contentType = { _, _ -> LazyContent.CARD },
         ) { _, rowItems ->
@@ -883,9 +969,10 @@ private fun LazyListScope.renderLibraryItems(
                         onClick = { onShelfItemClick(item) },
                         onLongPress = { onShelfItemLongPress(item) },
                         modifier = Modifier.weight(1f),
+                        artwork = libraryCardArtwork(item, richArtwork),
                     )
                 }
-                if (rowItems.size == 1) {
+                repeat(columns - rowItems.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
@@ -903,6 +990,7 @@ private fun LazyListScope.renderLibraryItems(
                 item = item,
                 isPinned = isPinned,
                 isArtist = isArtist,
+                albumSleeve = richArtwork && libraryArtworkType(item) == BrowseType.ALBUM,
                 onClick = { onShelfItemClick(item) },
                 onLongPress = { onShelfItemLongPress(item) },
             )
@@ -942,6 +1030,7 @@ private fun LibraryItemRow(
     item: ShelfItem,
     isPinned: Boolean,
     isArtist: Boolean,
+    albumSleeve: Boolean = false,
     onClick: () -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
@@ -957,6 +1046,10 @@ private fun LibraryItemRow(
     ) {
         if (isArtist) {
             ArtistAvatarThumbnail(item = item)
+        } else if (albumSleeve) {
+            Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) {
+                AlbumSleeveArtwork(item, Modifier.size(56.dp))
+            }
         } else {
             LandscapeFolderThumbnail(item = item)
         }
@@ -1064,11 +1157,10 @@ private fun LandscapeFolderThumbnail(
 @Composable
 private fun ArtistAvatarThumbnail(
     item: ShelfItem,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.size(50.dp),
 ) {
     Box(
         modifier = modifier
-            .size(50.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .border(
@@ -1092,6 +1184,68 @@ private fun ArtistAvatarThumbnail(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(26.dp),
             )
+        }
+    }
+}
+
+private fun compactLibraryColumns(available: androidx.compose.ui.unit.Dp, fontScale: Float): Int =
+    if (fontScale >= 1.5f || (available - LIBRARY_GRID_SPACING * 2) / 3 < 96.dp) 2 else 3
+
+private fun libraryArtworkType(item: ShelfItem): BrowseType? {
+    item.browseType?.takeUnless { it == BrowseType.OTHER }?.let { return it }
+    val id = item.browseId ?: return null
+    return when {
+        id.startsWith("UC") || id.startsWith("MPLA") -> BrowseType.ARTIST
+        id.startsWith("MPRE") || id.removePrefix("VL").startsWith("OLAK") ||
+            id.startsWith("local:album:") -> BrowseType.ALBUM
+        id.startsWith("VL") || id.startsWith("PL") ||
+            id.startsWith("local:playlist:") -> BrowseType.PLAYLIST
+        else -> null
+    }
+}
+
+private fun libraryCardArtwork(item: ShelfItem, enabled: Boolean): (@Composable () -> Unit)? {
+    if (!enabled) return null
+    return when {
+        isArtistItem(item) -> {
+            { ArtistAvatarThumbnail(item, Modifier.fillMaxWidth().aspectRatio(1f)) }
+        }
+        libraryArtworkType(item) == BrowseType.ALBUM -> {
+            { AlbumSleeveArtwork(item, Modifier.fillMaxWidth().aspectRatio(1f)) }
+        }
+        else -> null
+    }
+}
+
+@Composable
+private fun AlbumSleeveArtwork(item: ShelfItem, modifier: Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    BoxWithConstraints(modifier, contentAlignment = Alignment.BottomCenter) {
+        val sleeve = minOf(maxWidth, maxHeight) * 0.86f
+        Canvas(Modifier.align(Alignment.TopCenter).size(sleeve * 0.89f)) {
+            val radius = size.minDimension / 2
+            drawCircle(scheme.inverseSurface, radius)
+            for (fraction in listOf(0.80f, 0.88f, 0.95f)) {
+                drawCircle(
+                    scheme.inverseOnSurface.copy(alpha = 0.28f),
+                    radius * fraction,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5.dp.toPx()),
+                )
+            }
+        }
+        val shape = RoundedCornerShape(3.dp)
+        Box(
+            Modifier.size(sleeve).clip(shape).background(scheme.surfaceVariant),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (item.thumbnailUrl.isNullOrBlank()) {
+                Icon(Icons.Rounded.Album, contentDescription = null, tint = scheme.onSurfaceVariant)
+            } else {
+                AsyncImage(
+                    item.thumbnailUrl.artworkAt(320), contentDescription = null,
+                    modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+                )
+            }
         }
     }
 }
@@ -1464,8 +1618,8 @@ private fun SpotifyPlaylistsActionRow(
 
 /** Determines whether a shelf item represents an artist or channel. */
 private fun isArtistItem(item: ShelfItem): Boolean {
-    val id = item.browseId
-    if (id != null && id.startsWith("UC")) return true
+    val type = libraryArtworkType(item)
+    if (type != null && type != BrowseType.OTHER) return type == BrowseType.ARTIST
     val sub = item.subtitle
     return sub.equals("Artist", ignoreCase = true) ||
         sub.contains("subscriber", ignoreCase = true) ||
@@ -1533,13 +1687,15 @@ fun LibraryGridPage(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     onNewPlaylist: (() -> Unit)? = null,
+    richLibraryCards: Boolean = false,
 ) {
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()
     val librarySort by AppUi.host.librarySort.collectAsStateWithLifecycle()
     val libraryViewMode by AppUi.host.libraryViewMode.collectAsStateWithLifecycle()
 
     val sortedShelf = remember(shelf, pinnedPlaylists, librarySort) {
-        shelf.pinnedFirst(pinnedPlaylists).sortedForLibrary(librarySort)
+        shelf.copy(items = shelf.items.withCloudDateOrder(librarySort))
+            .sortedForLibrary(librarySort).pinnedFirst(pinnedPlaylists)
     }
     val pinned = remember(pinnedPlaylists) { pinnedPlaylists.toHashSet() }
     val keys = rememberShelfKeys(sortedShelf.items)
@@ -1561,14 +1717,16 @@ fun LibraryGridPage(
     when (libraryViewMode) {
         LibraryViewMode.GRID -> {
             BoxWithConstraints(modifier.fillMaxSize()) {
-                val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
+                val available = maxWidth - PAGE_GUTTER * 2
+                val columns = if (richLibraryCards) compactLibraryColumns(available, LocalDensity.current.fontScale)
+                    else libraryGrid(available).columns
                 FastScroller(
                     gridState = gridState,
                     contentPadding = contentPadding,
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(grid.columns),
+                        columns = GridCells.Fixed(columns),
                         state = gridState,
                         contentPadding = contentPadding,
                         horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
@@ -1597,6 +1755,7 @@ fun LibraryGridPage(
                                 onLongPress = { onItemLongPress(item) },
                                 modifier = Modifier.fillMaxWidth(),
                                 isPinned = item.browseId != null && item.browseId in pinned,
+                                artwork = libraryCardArtwork(item, richLibraryCards),
                             )
                         }
                     }
@@ -1629,6 +1788,7 @@ fun LibraryGridPage(
                             item = item,
                             isPinned = item.browseId != null && item.browseId in pinned,
                             isArtist = isArtistItem(item),
+                            albumSleeve = richLibraryCards && libraryArtworkType(item) == BrowseType.ALBUM,
                             onClick = { onItemClick(item) },
                             onLongPress = { onItemLongPress(item) },
                         )
@@ -1655,7 +1815,7 @@ private fun HomeShelf.pinnedFirst(pinned: List<String>): HomeShelf {
  * Sorts shelf items alphabetically when requested.
  */
 private fun HomeShelf.sortedForLibrary(sort: LibrarySort): HomeShelf = when (sort) {
-    LibrarySort.DEFAULT -> this
+    LibrarySort.DEFAULT, LibrarySort.DATE_NEWEST, LibrarySort.DATE_OLDEST -> this
     LibrarySort.TITLE_ASC -> copy(items = items.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }))
     LibrarySort.TITLE_DESC -> copy(
         items = items.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title }),

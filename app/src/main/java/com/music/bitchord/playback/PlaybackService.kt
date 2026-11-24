@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.SystemClock
 import com.music.bitchord.data.TelemetryProvenance
+import com.music.bitchord.ui.player.CoverChange
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.music.bitchord.playback.audio.usb.UsbDirectManager
@@ -92,6 +93,7 @@ import com.music.bitchord.playback.audio.SourceDescriptor
 import com.music.bitchord.playback.audio.bluetooth.BluetoothAudioTracker
 import com.music.bitchord.playback.audio.bluetooth.BluetoothTelemetry
 import com.music.bitchord.MainActivity
+import com.music.bitchord.BitChordApplication
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.listentogether.partyUpcomingAfter
@@ -109,6 +111,7 @@ import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.QueueTier
+import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.download.Downloads
 import java.util.concurrent.ConcurrentHashMap
@@ -925,6 +928,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             val exoPlayer = player ?: return
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                AndroidCoverPlayback.seekWithinEntry(oldPosition.mediaItem, newPosition.mediaItem)
                 pendingRecovery?.cancel()
                 automixStudio?.cancelPreview()
                 if (exoPlayer.isPlaying) pushDiscordPresence(exoPlayer)
@@ -1671,6 +1675,8 @@ class PlaybackService : MediaLibraryService() {
         } else {
             restoreLastQueue(exoPlayer)
         }
+        // The restored entry was set before the listener was attached.
+        AndroidCoverPlayback.initialize(exoPlayer.currentMediaItem)
         if (restored) {
             publishWidgetState()
         } else {
@@ -1733,7 +1739,22 @@ class PlaybackService : MediaLibraryService() {
                     .apply { skipSilenceEnabled = AppSettings.skipSilence.value }
             },
             audioAttributes = AUDIO_ATTRIBUTES,
+            requestWaveform = { item, durationMs ->
+                item.localConfiguration?.uri?.let { uri ->
+                    val duration = durationMs / 1000.0
+                    trackAnalyzer.request(item.mediaId, uri, duration)
+                    trackAnalyzer.requestLegacyWaveform(item.mediaId, uri, duration)
+                }
+            },
+            waveformPending = { item ->
+                item.localConfiguration?.uri?.let { trackAnalyzer.isWaveformPending(item.mediaId, it) } == true
+            },
         )
+        val restoredContext = exoPlayer.currentMediaItem?.takeIf { it.queueTier == QueueTier.CONTEXT }
+            ?: (0 until exoPlayer.mediaItemCount).firstNotNullOfOrNull { index ->
+                exoPlayer.getMediaItemAt(index).takeIf { it.queueTier == QueueTier.CONTEXT }
+            }
+        replaceAutomixQueue(restoredContext)
         controller.start()
 
         mediaSession = MediaLibrarySession.Builder(
@@ -1759,11 +1780,25 @@ class PlaybackService : MediaLibraryService() {
             automixStudio?.cancelPreview()
             partySync?.onLocalIntent()
         },
-        onReplaceQueue = { automixStudio?.replaceQueue() },
+        onReplaceQueue = ::replaceAutomixQueue,
         deferPlayToParty = { partySync?.shouldDeferPlay() == true },
         lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         cast = castPlayback,
     ) { lastPublishedSubtitle }
+
+    private fun replaceAutomixQueue(item: MediaItem?) {
+        val source = item?.toSong()?.takeIf {
+            it.queueTier == QueueTier.CONTEXT && it.playbackSourceType == PlaybackSourceType.BROWSE
+        }?.playbackSourceId
+        val profile = if (source != null && !ListenTogether.state.value.inParty) {
+            BitChordApplication.authStore.queueMixProfile()
+        } else null
+        val mix = profile?.let { SavedQueueMixes(this).load(it, source) }
+        automixStudio?.replaceQueue(mix)
+        if (mix?.automix == true) {
+            com.music.bitchord.playback.smart.AutomixModelManager.ensureModelsDownloaded(this)
+        }
+    }
 
     /**
      * The stream a Cast receiver can open for [item], or null when there is none
@@ -2924,6 +2959,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        AndroidCoverPlayback.trackChanged(mediaItem, reason)
         currentAudioInputFormat = null
         NerdStats.onTrackTransition()
         AudioOutputStatus.onTrackTransition()
@@ -6925,7 +6961,7 @@ class PlaybackService : MediaLibraryService() {
          * a listener's action from its own corrections. See [PartySync].
          */
         private val onUserIntent: () -> Unit,
-        private val onReplaceQueue: () -> Unit,
+        private val onReplaceQueue: (MediaItem?) -> Unit,
         /** @see PartySync.shouldDeferPlay */
         private val deferPlayToParty: () -> Boolean,
         /** @see PartySync.onLockedTransport */
@@ -7208,10 +7244,12 @@ class PlaybackService : MediaLibraryService() {
         override fun seekToPrevious() {
             if (locked()) return
             onUserIntent()
+            crossfade.onSkipRequested()
             if (cast.active) {
                 castPrevious()
                 return
             }
+            AndroidCoverPlayback.skipRequested(wrappedPlayer, CoverChange.PREVIOUS)
             super.seekToPrevious()
         }
 
@@ -7233,7 +7271,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
             if (locked()) return
-            onReplaceQueue()
+            onReplaceQueue(mediaItems.getOrNull(if (resetPosition) 0 else currentMediaItemIndex))
             onUserIntent()
             super.setMediaItems(mediaItems, resetPosition)
         }
@@ -7244,7 +7282,7 @@ class PlaybackService : MediaLibraryService() {
             startPositionMs: Long,
         ) {
             if (locked()) return
-            onReplaceQueue()
+            onReplaceQueue(mediaItems.getOrNull(startIndex))
             onUserIntent()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
         }
@@ -7304,6 +7342,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun clearMediaItems() {
             if (locked()) return
+            onReplaceQueue(null)
             onUserIntent()
             super.clearMediaItems()
         }
@@ -7378,6 +7417,7 @@ class PlaybackService : MediaLibraryService() {
                 castPrevious()
                 return
             }
+            AndroidCoverPlayback.skipRequested(wrappedPlayer, CoverChange.PREVIOUS)
             wrappedPlayer.seekToPrevious()
         }
 
@@ -7385,6 +7425,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onUserIntent()
             crossfade.onSkipRequested()
+            AndroidCoverPlayback.skipRequested(wrappedPlayer, CoverChange.NEXT)
             wrappedPlayer.seekToNextMediaItem()
         }
 
@@ -7392,6 +7433,7 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) return
             onUserIntent()
             crossfade.onSkipRequested()
+            AndroidCoverPlayback.skipRequested(wrappedPlayer, CoverChange.NEXT)
             wrappedPlayer.seekToNext()
         }
     }

@@ -10,37 +10,28 @@
  */
 package com.music.bitchord.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,17 +45,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.YtMusicRepository
@@ -73,315 +60,135 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
+
+private val playlistSongId = Regex("[A-Za-z0-9_-]{11}")
 
 @Composable
-fun AddSongToPlaylistSheet(
+internal fun AddSongToPlaylistSheet(
     playlistTitle: String,
-    initialSongs: List<Song> = emptyList(),
-    suggestedSongs: List<Song> = emptyList(),
-    onAddSong: (Song) -> Unit,
-    onRemoveSong: ((Song) -> Unit)? = null,
+    thumbnailUrl: String?,
+    initialSongs: List<Song>,
+    suggestedSongs: List<Song>,
+    onAddSong: (Song, (Boolean) -> Unit) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
-    var fallbackSuggestions by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var addedSongIds by remember {
-        mutableStateOf(initialSongs.map { it.videoId }.toSet())
+    val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
+    var results by remember { mutableStateOf<List<Song>?>(null) }
+    var fallback by remember { mutableStateOf<List<Song>?>(null) }
+    var searchFailed by remember { mutableStateOf(false) }
+    var confirmed by remember { mutableStateOf(emptySet<String>()) }
+    var pending by remember { mutableStateOf(emptySet<String>()) }
+    val present = remember(initialSongs, confirmed) {
+        initialSongs.mapTo(confirmed.toMutableSet(), Song::videoId)
     }
-    val haptic = LocalHapticFeedback.current
-    val focusRequester = remember { FocusRequester() }
-
-    // Auto-focus search text field upon entry
-    LaunchedEffect(Unit) {
-        delay(200)
-        runCatching { focusRequester.requestFocus() }
+    val suggestions = remember(suggestedSongs, present) {
+        suggestedSongs.filter {
+            playlistSongId.matches(it.videoId) && !it.isLive && !it.isVideo && it.videoId !in present
+        }.distinctBy(Song::videoId)
     }
 
-    // Load fallback suggestions if playlist has no suggestions and query is empty
-    LaunchedEffect(Unit) {
-        if (suggestedSongs.isEmpty()) {
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val shelf = YtMusicRepository.homeQuickPicksShelf().getOrNull()
-                    if (shelf != null) {
-                        val songs = shelf.items.mapNotNull { item ->
-                            item.videoId?.let { vid ->
-                                Song(
-                                    videoId = vid,
-                                    title = item.title,
-                                    artist = item.subtitle,
-                                    thumbnailUrl = item.thumbnailUrl,
-                                )
-                            }
-                        }
-                        withContext(Dispatchers.Main) {
-                            fallbackSuggestions = songs
-                        }
-                    }
-                }
-            }
+    LaunchedEffect(suggestions.isEmpty()) {
+        if (suggestions.isEmpty() && fallback == null) {
+            fallback = YtMusicRepository.quickPicks(present, songsOnly = true).getOrDefault(emptyList()).take(20)
         }
     }
-
-    // Debounced search query
-    LaunchedEffect(searchQuery) {
-        val q = searchQuery.trim()
-        if (q.isBlank()) {
-            searchResults = emptyList()
-            isSearching = false
-            return@LaunchedEffect
-        }
-        isSearching = true
+    LaunchedEffect(query.trim()) {
+        val text = query.trim()
+        if (text.isBlank()) return@LaunchedEffect
         delay(300)
-        val songs = withContext(Dispatchers.IO) {
-            runCatching {
-                YtMusicRepository.searchPage(q, SearchFilter.SONGS, isLibrary = false).fold(
-                    onSuccess = { page ->
-                        page.rows.mapNotNull { row ->
-                            when (row) {
-                                is SearchResult.Track -> row.song
-                                is SearchResult.TopTrack -> row.song
-                                else -> null
-                            }
-                        }
-                    },
-                    onFailure = { emptyList() },
-                )
-            }.getOrDefault(emptyList())
-        }
-        searchResults = songs
-        isSearching = false
+        YtMusicRepository.searchPage(text, SearchFilter.SONGS, isLibrary = false).fold(
+            onSuccess = { page ->
+                results = page.rows.mapNotNull {
+                    when (it) {
+                        is SearchResult.Track -> it.song
+                        is SearchResult.TopTrack -> it.song
+                        else -> null
+                    }
+                }.filter { playlistSongId.matches(it.videoId) && !it.isLive }.distinctBy(Song::videoId)
+            },
+            onFailure = { searchFailed = true; results = emptyList() },
+        )
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .fillMaxHeight(0.85f)
-            .padding(horizontal = 18.dp)
-            .navigationBarsPadding(),
-    ) {
-        // Handle bar
-        Box(
-            modifier = Modifier
-                .padding(top = 8.dp, bottom = 12.dp)
-                .width(36.dp)
-                .height(4.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-                .align(Alignment.CenterHorizontally),
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+        PlaylistSheetHeader(
+            title = stringResource(R.string.add_songs_to_playlist),
+            subtitle = playlistTitle,
+            thumbnailUrl = thumbnailUrl,
+            onDismiss = onDismiss,
         )
-
-        // Top Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.add_songs_to_playlist),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.3).sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (playlistTitle.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = playlistTitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+        SearchField(
+            query = query,
+            onQueryChange = {
+                if (it.trim() != query.trim()) {
+                    results = null
+                    searchFailed = false
                 }
-            }
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f), CircleShape),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = stringResource(R.string.close),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
+                query = it
+            },
+            onSubmit = {},
+            placeholder = stringResource(R.string.search_songs_to_add),
+        )
+        val searching = query.isNotBlank()
+        val songs = if (searching) results else suggestions.ifEmpty {
+            fallback.orEmpty().filterNot { it.videoId in present }
         }
-
-        // Modern Pill Search Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(46.dp)
-                .clip(RoundedCornerShape(23.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(23.dp),
-                )
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
+        if (songs == null || searching && songs.isEmpty()) {
+            Text(
+                text = stringResource(when {
+                    songs == null -> R.string.searching_songs
+                    searchFailed -> R.string.failed
+                    else -> R.string.no_songs_found
+                }),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
             )
-            Spacer(Modifier.width(10.dp))
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester),
-                decorationBox = { innerTextField ->
-                    if (searchQuery.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.search_songs_to_add),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    }
-                    innerTextField()
-                },
-            )
-            if (searchQuery.isNotEmpty()) {
-                IconButton(
-                    onClick = { searchQuery = "" },
-                    modifier = Modifier.size(24.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.clear_search),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Content Area
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-        ) {
-            when {
-                isSearching -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 48.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            strokeWidth = 2.5.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            text = stringResource(R.string.searching_songs),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        } else {
+            LazyColumn(Modifier.padding(top = 8.dp, bottom = 8.dp)) {
+                if (!searching && songs.isNotEmpty()) {
+                    item {
+                        SheetHeading(stringResource(R.string.recommended_songs))
                     }
                 }
-                searchQuery.isNotBlank() && searchResults.isEmpty() -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.no_songs_found),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-                else -> {
-                    val displayedList = if (searchQuery.isNotBlank()) {
-                        searchResults
-                    } else {
-                        suggestedSongs.ifEmpty { fallbackSuggestions }
-                    }
-
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        if (searchQuery.isBlank() && displayedList.isNotEmpty()) {
-                            item(key = "section_header") {
-                                Text(
-                                    text = stringResource(
-                                        if (suggestedSongs.isNotEmpty()) {
-                                            R.string.suggested_for_playlist
-                                        } else {
-                                            R.string.recommended_songs
-                                        },
-                                    ).uppercase(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
-                                )
+                items(songs, key = Song::videoId) { song ->
+                    val id = song.videoId
+                    val add = {
+                        if (id !in present && id !in pending) {
+                            pending = pending + id
+                            onAddSong(song) { success ->
+                                pending = pending - id
+                                if (success) {
+                                    confirmed = confirmed + id
+                                } else {
+                                    Toast.makeText(context, R.string.failed, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
-
-                        itemsIndexed(
-                            items = displayedList,
-                            key = { _, song -> song.videoId },
-                        ) { index, song ->
-                            val isAdded = song.videoId in addedSongIds
-                            AddSongResultRow(
-                                song = song,
-                                isAdded = isAdded,
-                                onToggleClick = {
-                                    if (isAdded) {
-                                        addedSongIds = addedSongIds - song.videoId
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onRemoveSong?.invoke(song)
-                                    } else {
-                                        addedSongIds = addedSongIds + song.videoId
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onAddSong(song)
-                                    }
-                                },
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SongRow(
+                            song = song,
+                            onClick = add,
+                            modifier = Modifier.weight(1f),
+                            searchPlayingStyle = true,
+                            downloadedTint = null,
+                        )
+                        when {
+                            id in pending -> CircularProgressIndicator(
+                                modifier = Modifier.padding(14.dp).size(20.dp),
+                                strokeWidth = 2.dp,
                             )
-                            if (index < displayedList.size - 1) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 68.dp),
-                                    thickness = 0.5.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                                )
+                            id in present -> Icon(
+                                Icons.Rounded.Check,
+                                contentDescription = stringResource(R.string.in_playlist),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(14.dp).size(20.dp),
+                            )
+                            else -> IconButton(onClick = add) {
+                                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_to_playlist), tint = Color.White)
                             }
                         }
                     }
@@ -392,84 +199,53 @@ fun AddSongToPlaylistSheet(
 }
 
 @Composable
-private fun AddSongResultRow(
-    song: Song,
-    isAdded: Boolean,
-    onToggleClick: () -> Unit,
-    modifier: Modifier = Modifier,
+internal fun PlaylistSheetHeader(
+    title: String,
+    subtitle: String,
+    thumbnailUrl: String?,
+    onDismiss: () -> Unit,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onToggleClick)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AsyncImage(
-            model = song.artworkAt(ROW_ART_PX) ?: song.thumbnailUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .thumbnailBorder(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val sub = listOfNotNull(
-                song.artist.takeIf { it.isNotBlank() },
-                song.durationText.takeIf { !it.isNullOrBlank() },
-            ).joinToString(" • ")
-            if (sub.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = sub,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        Spacer(Modifier.width(8.dp))
+    var drag by remember { mutableStateOf(0f) }
+    val distance = with(LocalDensity.current) { 44.dp.toPx() }
+    val dragState = rememberDraggableState { drag = (drag + it).coerceAtLeast(0f) }
+    Column {
         Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isAdded) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    },
-                )
-                .border(
-                    width = 1.dp,
-                    color = if (isAdded) {
-                        Color.Transparent
-                    } else {
-                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                    },
-                    shape = CircleShape,
-                )
-                .clickable(onClick = onToggleClick),
+            modifier = Modifier.fillMaxWidth().height(22.dp).draggable(
+                state = dragState,
+                orientation = Orientation.Vertical,
+                onDragStarted = { drag = 0f },
+                onDragStopped = { if (drag >= distance) onDismiss() },
+            ),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                imageVector = if (isAdded) Icons.Rounded.Check else Icons.Rounded.Add,
-                contentDescription = if (isAdded) stringResource(R.string.added) else stringResource(R.string.add_to_playlist),
-                tint = if (isAdded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
+            Box(Modifier.size(width = 34.dp, height = 4.dp).background(
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), CircleShape,
+            ))
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!thumbnailUrl.isNullOrBlank()) {
+                val shape = RoundedCornerShape(10.dp)
+                AsyncImage(
+                    model = thumbnailUrl.artworkAt(ROW_ART_PX),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(48.dp).clip(shape).thumbnailBorder(shape),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (subtitle.isNotBlank()) {
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close), tint = Color.White, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

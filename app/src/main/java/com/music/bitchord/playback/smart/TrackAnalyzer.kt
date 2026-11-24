@@ -107,6 +107,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private val resolver by lazy { context.contentResolver }
 
     private val results = ConcurrentHashMap<String, TrackAnalysis>()
+    private val waveformBackfills = ConcurrentHashMap.newKeySet<String>()
+    private val restoreInFlight = ConcurrentHashMap.newKeySet<String>()
     private val running = ConcurrentHashMap.newKeySet<String>()
     private val sourceAnalysisUris = ConcurrentHashMap<String, Uri>()
     private val sourceResolutions = ConcurrentHashMap.newKeySet<String>()
@@ -200,6 +202,25 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      */
     fun analysisFor(trackId: String): TrackAnalysis = results[trackId] ?: TrackAnalysis(trackId = trackId)
 
+    /** Upgrade a pre-Studio analysis only when its audio can already be read from disk. */
+    fun requestLegacyWaveform(trackId: String, playbackUri: Uri, duration: Double) {
+        val analysis = results[trackId]?.takeIf { it.isUsable && it.waveform == null } ?: return
+        if (stopped || duration <= 0 || trackId in running || !waveformBackfills.add(trackId)) return
+        executor.execute {
+            runCatching {
+                val uri = sourceAnalysisUris[trackId] ?: playbackUri
+                val copy = copyToRead(trackId, uri, duration) ?: return@runCatching
+                if (stopped) return@runCatching
+                val (pcm, start) = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, duration) { stopped } }
+                    ?: return@runCatching
+                val peaks = WaveformPeaks.fromPcm(pcm.samples, pcm.sampleRate, start) ?: return@runCatching
+                val updated = analysis.copy(waveform = peaks)
+                if (!stopped && results.replace(trackId, analysis, updated)) store.save(trackId, updated)
+            }
+            waveformBackfills.remove(trackId)
+        }
+    }
+
     /**
      * Looks [trackId] up on disk, once, off the playback thread.
      *
@@ -215,10 +236,15 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // caller, so a track with nothing stored is looked for once per session
         // rather than on every tick.
         if (!restoreAttempted.add(trackId)) return
+        restoreInFlight.add(trackId)
         executor.execute {
-            val stored = store.load(trackId) ?: return@execute
-            Log.d(TAG, "Restored analysis for $trackId: bpm=${stored.bpm} conf=${stored.beatConfidence}")
-            results.putIfAbsent(trackId, stored)
+            try {
+                val stored = store.load(trackId) ?: return@execute
+                Log.d(TAG, "Restored analysis for $trackId: bpm=${stored.bpm} conf=${stored.beatConfidence}")
+                results.putIfAbsent(trackId, stored)
+            } finally {
+                restoreInFlight.remove(trackId)
+            }
         }
     }
 
@@ -234,6 +260,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * taking the several seconds it takes.
      */
     fun isAnalysing(trackId: String): Boolean = trackId in running
+
+    fun isWaveformPending(trackId: String, uri: Uri): Boolean =
+        isAnalysing(trackId) || trackId in waveformBackfills || trackId in restoreInFlight ||
+            trackId in sourceResolutions || cache.isAnalysisHeadInFlight(sourceAnalysisUris[trackId] ?: uri)
 
     /**
      * Queues [trackId] (playing at [uri]) for analysis if it is not already
@@ -679,6 +709,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             introEndTime = entry?.introEndTime ?: 0.0,
             mixInTime = entry?.mixInTime ?: 0.0,
             mixInCandidates = entry?.mixInCandidates.orEmpty(),
+            waveform = head.waveform,
         )
     }
 
@@ -869,6 +900,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private class Structural(
         val features: TrackFeatures.Features?,
         val decodedShort: Boolean = false,
+        val waveform: WaveformPeaks? = null,
     )
 
     /**
@@ -887,7 +919,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val structRate = TrackFeatures.sampleRate
         val decoded = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, effectiveDuration) { stopped } }
             ?: return Structural(null)
-        val (pcm, _) = decoded
+        val (pcm, actualStart) = decoded
 
         // A decode that stops early is indistinguishable, downstream, from a
         // track that simply goes quiet: [TrackFeatures] is handed the
@@ -958,7 +990,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             pcm.samples
         }
 
-        return Structural(TrackFeatures.analyze(samples, effectiveDuration))
+        return Structural(
+            TrackFeatures.analyze(samples, effectiveDuration),
+            waveform = WaveformPeaks.fromPcm(samples, structRate, actualStart),
+        )
     }
 
     /**
@@ -1081,6 +1116,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 vocalActivityMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
                     ?: features.vocalActivityMask,
                 vocalProbability = features.vocalProbability,
+                waveform = structural.waveform,
             ),
         )
     }
@@ -1096,6 +1132,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val seconds: Double,
         /** Only populated when the caller asked for it; see [region]'s `deriveFeatures`. */
         val features: TrackFeatures.Features? = null,
+        val waveform: WaveformPeaks? = null,
     )
 
     /**
@@ -1144,18 +1181,19 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // one. As a local it would nonetheless stay reachable through `tracker.track` and
         // `vocalMask` below, which is where the analysis allocates most heavily and where the
         // process was dying. Same reasoning [derived] already had, one level further out.
-        val inputs = regionInputs(stereo, seconds, deriveFeatures)
+        val inputs = regionInputs(stereo, seconds, actualStart, deriveFeatures)
 
         return Region(
             grid = inputs.forModel?.let { tracker.track(it, offsetSeconds = actualStart) },
             vocalMask = features?.let { vocalMask(stereo, it, actualStart) },
             seconds = seconds,
             features = inputs.derived,
+            waveform = inputs.waveform,
         )
     }
 
     /** A region's model input, and its DSP features when the caller asked for them. */
-    private class RegionInputs(val forModel: FloatArray?, val derived: TrackFeatures.Features?)
+    private class RegionInputs(val forModel: FloatArray?, val derived: TrackFeatures.Features?, val waveform: WaveformPeaks?)
 
     /**
      * Reduces a decoded region to the buffers the models and the DSP actually read.
@@ -1167,6 +1205,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private fun regionInputs(
         stereo: AudioDecoder.StereoPcm,
         seconds: Double,
+        actualStart: Double,
         deriveFeatures: Boolean,
     ): RegionInputs {
         val mono = FloatArray(stereo.left.size) { index -> (stereo.left[index] + stereo.right[index]) * 0.5f }
@@ -1191,7 +1230,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             null
         }
 
-        return RegionInputs(forModel, derived)
+        val waveform = if (deriveFeatures) WaveformPeaks.fromPcm(mono, stereo.sampleRate, actualStart) else null
+        return RegionInputs(forModel, derived, waveform)
     }
 
     /**

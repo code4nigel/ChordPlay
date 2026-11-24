@@ -530,8 +530,9 @@ object Innertube {
         browseId: String,
         params: String? = null,
         language: String? = null,
+        canRequest: (() -> Boolean)? = null,
     ): JsonObject =
-        postMusic("browse", language = language) {
+        postMusic("browse", language = language, canRequest = canRequest) {
             put("browseId", browseId)
             params?.let { put("params", it) }
         }
@@ -542,11 +543,12 @@ object Innertube {
      * query parameters rather than in the body, and answers with a bare
      * continuation envelope carrying the same row renderers.
      */
-    suspend fun browseContinuation(token: String): JsonObject = postMusic(
+    suspend fun browseContinuation(token: String, canRequest: (() -> Boolean)? = null): JsonObject = postMusic(
         endpoint = "browse",
         // The web client passes the token in the body and the older query-string
         // form is still honoured; both are sent so either is enough.
         query = mapOf("ctoken" to token, "continuation" to token, "type" to "next"),
+        canRequest = canRequest,
     ) {
         put("continuation", token)
     }
@@ -1027,9 +1029,10 @@ object Innertube {
         privacy: PlaylistPrivacy,
         description: String? = null,
         videoIds: List<String> = emptyList(),
+        canCreate: (() -> Boolean)? = null,
     ): String {
         requireSession()
-        val response = postMusic("playlist/create") {
+        val response = postMusic("playlist/create", canRequest = canCreate, retryNetwork = canCreate == null) {
             put("title", title)
             put("description", description.orEmpty())
             put("privacyStatus", privacy.apiValue)
@@ -1059,10 +1062,11 @@ object Innertube {
      */
     private suspend fun editPlaylist(
         playlistId: String,
+        canRequest: (() -> Boolean)? = null,
         actions: JsonArrayBuilder.() -> Unit,
     ): JsonObject {
         requireSession()
-        val response = postMusic("browse/edit_playlist") {
+        val response = postMusic("browse/edit_playlist", canRequest = canRequest) {
             // The edit endpoint takes the raw id; `VL` is the browse prefix.
             put("playlistId", playlistId.removePrefix("VL"))
             putJsonArray("actions", actions)
@@ -1088,8 +1092,8 @@ object Innertube {
      * Absences are normal and not an error — the add still happened; only the
      * id for undoing it is unknown.
      */
-    suspend fun addToPlaylist(playlistId: String, videoIds: List<String>): Map<String, String> {
-        val response = editPlaylist(playlistId) {
+    suspend fun addToPlaylist(playlistId: String, videoIds: List<String>, canRequest: (() -> Boolean)? = null): Map<String, String> {
+        val response = editPlaylist(playlistId, canRequest) {
             videoIds.forEach { videoId ->
                 addJsonObject {
                     put("action", "ACTION_ADD_VIDEO")
@@ -1114,35 +1118,19 @@ object Innertube {
     }
 
     /**
-     * Queries which of the user's playlists currently contain [videoId] using
-     * YouTube Music's native get_add_to_playlist endpoint.
-     * Returns the set of playlist IDs where [containsSelectedVideos] is "ALL".
+     * Reads the membership state of the destinations returned for a single track.
      */
-    suspend fun getPlaylistsContaining(videoId: String): Set<String> {
+    suspend fun getPlaylistMembership(
+        videoId: String,
+        canRequest: (() -> Boolean)? = null,
+    ): Map<String, Boolean?> {
         requireSession()
-        val response = postMusic("playlist/get_add_to_playlist") {
+        val response = postMusic("playlist/get_add_to_playlist", canRequest = canRequest) {
             putJsonArray("videoIds") {
                 add(videoId)
             }
         }
-        val contents = response["contents"]
-        val addToPlaylistRenderer = when (contents) {
-            is JsonObject -> contents["addToPlaylistRenderer"] as? JsonObject
-            is JsonArray -> contents.mapNotNull { (it as? JsonObject)?.get("addToPlaylistRenderer") as? JsonObject }.firstOrNull()
-            else -> null
-        }
-        val playlists = (addToPlaylistRenderer?.get("playlists") as? JsonArray).orEmpty()
-        val result = mutableSetOf<String>()
-        for (item in playlists) {
-            val option = (item as? JsonObject)?.get("playlistAddToOptionRenderer") as? JsonObject
-                ?: item as? JsonObject ?: continue
-            val playlistId = (option["playlistId"] as? JsonPrimitive)?.contentOrNull ?: continue
-            val containsSelected = (option["containsSelectedVideos"] as? JsonPrimitive)?.contentOrNull
-            if (containsSelected.equals("ALL", ignoreCase = true)) {
-                result.add(playlistId.removePrefix("VL"))
-            }
-        }
-        return result
+        return InnertubeParser.parsePlaylistMembership(response)
     }
 
     /**
@@ -1150,8 +1138,8 @@ object Innertube {
      * id: the same track added twice is two entries, and only the pair says
      * which of them to drop.
      */
-    suspend fun removeFromPlaylist(playlistId: String, entries: List<Pair<String, String>>) {
-        editPlaylist(playlistId) {
+    suspend fun removeFromPlaylist(playlistId: String, entries: List<Pair<String, String>>, canRequest: (() -> Boolean)? = null) {
+        editPlaylist(playlistId, canRequest) {
             entries.forEach { (setVideoId, videoId) ->
                 addJsonObject {
                     put("action", "ACTION_REMOVE_VIDEO")
@@ -1201,6 +1189,8 @@ object Innertube {
         endpoint: String,
         query: Map<String, String> = emptyMap(),
         language: String? = null,
+        canRequest: (() -> Boolean)? = null,
+        retryNetwork: Boolean = true,
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
         // This is the common authenticated request path: Home, Library,
@@ -1209,6 +1199,11 @@ object Innertube {
         // a special case implemented by whichever screen happened to open.
         if (cookie != null) ensureSessionScope()
         val session = scope
+        val requestCookie = cookie
+        val requestAuthUser = authUserFor(session)
+        val requestPageId = pageIdFor(session)
+        val requestDataSyncId = dataSyncIdFor(session)
+        check(canRequest?.invoke() != false) { "The active YouTube Music profile changed" }
         val clientVersion = webRemixVersion
         val effectiveLanguage = language ?: currentLanguage
         val effectiveAcceptLanguage = if (language != null && language != currentLanguage) {
@@ -1216,7 +1211,7 @@ object Innertube {
         } else {
             acceptLanguageHeader
         }
-        val response = withRetry {
+        val request: suspend () -> JsonObject = {
             client.post("$MUSIC_BASE/$endpoint") {
                 contentType(ContentType.Application.Json)
                 parameter("prettyPrint", "false")
@@ -1232,13 +1227,13 @@ object Innertube {
                 header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
                 header("X-YouTube-Client-Version", clientVersion)
                 visitorData?.let { header("X-Goog-Visitor-Id", it) }
-                cookie?.let { c ->
+                requestCookie?.let { c ->
                     header("Cookie", c)
                     // Which account in the jar, and which brand channel of it.
                     // Both were fixed at "the first one" before — see
                     // [SessionScope].
-                    header("X-Goog-AuthUser", authUserFor(session))
-                    pageIdFor(session)?.let { header("X-Goog-PageId", it) }
+                    header("X-Goog-AuthUser", requestAuthUser)
+                    requestPageId?.let { header("X-Goog-PageId", it) }
                     sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
                 }
                 setBody(
@@ -1258,7 +1253,7 @@ object Innertube {
                                 // `onBehalfOfUser` it cannot tie to the cookie
                                 // with 401, so a guess here would take the
                                 // whole app down rather than just history.
-                                dataSyncIdFor(session)?.let { put("onBehalfOfUser", it) }
+                                requestDataSyncId?.let { put("onBehalfOfUser", it) }
                             }
                             putJsonObject("request") { put("useSsl", true) }
                         }
@@ -1267,6 +1262,7 @@ object Innertube {
                 )
             }.body<JsonObject>()
         }
+        val response = if (retryNetwork) withRetry { request() } else request()
 
         if (visitorData == null) {
             visitorData = response["responseContext"]?.jsonObject

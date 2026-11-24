@@ -14,6 +14,7 @@
     <exclude domain="sharedpref" path="bitchord_sources.xml" />
     <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
     <exclude domain="sharedpref" path="bitchord_drive_backup.xml" />
+    <exclude domain="sharedpref" path="saved_queue_mixes.xml" />
     <exclude domain="file" path="listening-peers" />
     <exclude domain="file" path="listening-synced" />
 </full-backup-content>

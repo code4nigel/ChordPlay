@@ -185,6 +185,7 @@ fun BrowseActionsSheet(
      */
     onRenameInSheet: (() -> Unit)? = null,
     startRenaming: Boolean = false,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val menu = presentation == SongActionsPresentation.Menu
     var renaming by remember { mutableStateOf(startRenaming) }
@@ -214,7 +215,11 @@ fun BrowseActionsSheet(
                 .then(if (menu) Modifier.verticalScroll(rememberScrollState()) else Modifier),
         ) {
             if (!menu) {
-                BrowseSheetHeader(target)
+                if (target.type == BrowseType.PLAYLIST && onDismiss != null) {
+                    PlaylistSheetHeader(target.title, target.subtitle, target.thumbnailUrl, onDismiss)
+                } else {
+                    BrowseSheetHeader(target)
+                }
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
             }
 

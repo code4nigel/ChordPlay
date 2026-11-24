@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.painter.Painter
 import coil3.PlatformContext
 import coil3.compose.LocalPlatformContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -127,6 +128,8 @@ internal class PlayerArtwork(
 
     /** Latched on an error, and only upwards — cleared by the retry itself. */
     internal var failed by mutableStateOf(false)
+    internal var loadedPainter by mutableStateOf<Painter?>(null)
+        private set
 
     /**
      * The one request for this cover, built once.
@@ -165,7 +168,10 @@ internal class PlayerArtwork(
         // it is [failed]'s own effect, and clearing it from a Loading state here
         // would cancel that effect's wait every time the painter passed back
         // through Loading.
-        if (state is AsyncImagePainter.State.Success) failed = false
+        if (state is AsyncImagePainter.State.Success) {
+            failed = false
+            loadedPainter = state.painter
+        }
         if (state is AsyncImagePainter.State.Error) failed = true
     }
 
@@ -312,7 +318,7 @@ internal fun rememberPlayerVolume(): PlayerVolume {
 
     // Glide to the level the system reports, but never fight the finger — a
     // drag writes the level, which calls straight back through here.
-    LaunchedEffect(systemVolume) {
+    LaunchedEffect(systemVolume, volume.dragging) {
         if (!volume.dragging) {
             volume.level.animateTo(systemVolume, tween(durationMillis = 220, easing = FastOutSlowInEasing))
         }

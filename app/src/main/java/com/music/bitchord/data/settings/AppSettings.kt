@@ -11,6 +11,7 @@
  */
 package com.music.bitchord.data.settings
 
+import com.music.bitchord.data.settings.CoverAnimationMode
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.data.LocalMediaRepository
 import android.content.Context
@@ -361,6 +362,10 @@ object AppSettings {
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
     val smartFadeEnabled = MutableStateFlow(false)
+    val automixTempoMatching = MutableStateFlow(false)
+    val activeSmartFadeEnabled = MutableStateFlow(false)
+    val activeAutomixTempoMatching = MutableStateFlow(false)
+    private var queueAutomix: Pair<Boolean, Boolean>? = null
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
@@ -601,6 +606,7 @@ object AppSettings {
      * but it is the better default, and most tracks resolve to no canvas at
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
+    val coverAnimation = MutableStateFlow(CoverAnimationMode.NONE)
     val animatedCanvas = MutableStateFlow(true)
 
     /**
@@ -671,6 +677,7 @@ object AppSettings {
 
     /** Configurable swipe gesture action when swiping left on a track row. */
     val songSwipeLeftAction = MutableStateFlow(SongSwipeAction.ADD_TO_QUEUE)
+    val songSwipeLeftCustomized = MutableStateFlow(false)
 
     /** Breathing artwork aura animation behind the cover during playback. */
     val enableBreathingAura = MutableStateFlow(true)
@@ -728,7 +735,7 @@ object AppSettings {
      * default: the cache is an implementation detail most people never need
      * to look inside.
      */
-    val showCacheFolder = MutableStateFlow(false)
+    val showCacheFolder = MutableStateFlow(true)
 
     // ── Replay ──────────────────────────────────────────────────────────────
 
@@ -1020,6 +1027,9 @@ object AppSettings {
         downloadLyricsOffline.value = prefs.getBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        automixTempoMatching.value = prefs.getBoolean(KEY_AUTOMIX_TEMPO_MATCHING, smartFadeEnabled.value)
+        prefs.edit().putBoolean(KEY_AUTOMIX_TEMPO_MATCHING, automixTempoMatching.value).apply()
+        refreshActiveAutomix()
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
@@ -1098,6 +1108,12 @@ object AppSettings {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
         }
+        coverAnimation.value = runCatching {
+            CoverAnimationMode.valueOf(prefs.getString(KEY_COVER_ANIMATION, null).orEmpty())
+        }.getOrDefault(CoverAnimationMode.NONE)
+        if (prefs.contains("cover_follows_automix")) {
+            prefs.edit().remove("cover_follows_automix").apply()
+        }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, true)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, false)
@@ -1122,6 +1138,7 @@ object AppSettings {
         songSwipeLeftAction.value = runCatching {
             SongSwipeAction.valueOf(prefs.getString(KEY_SONG_SWIPE_LEFT_ACTION, null) ?: SongSwipeAction.ADD_TO_QUEUE.name)
         }.getOrDefault(SongSwipeAction.ADD_TO_QUEUE)
+        songSwipeLeftCustomized.value = prefs.contains(KEY_SONG_SWIPE_LEFT_ACTION)
         enableBreathingAura.value = prefs.getBoolean(KEY_ENABLE_BREATHING_AURA, true)
         landscapeFontScale.value = runCatching {
             LandscapeFontScale.valueOf(prefs.getString(KEY_LANDSCAPE_FONT_SCALE, null) ?: LandscapeFontScale.LARGE.name)
@@ -1179,7 +1196,7 @@ object AppSettings {
         paxSenixApiKey.value = prefs.getString(KEY_PAXSENIX_API_KEY, "").orEmpty()
         com.music.bitchord.data.lyrics.PaxSenix.setApiKey(paxSenixApiKey.value)
         audioCacheLimitBytes.value = clampCacheLimit(prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES))
-        showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, false)
+        showCacheFolder.value = prefs.getBoolean(KEY_SHOW_CACHE_FOLDER, true)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
         lastfmUsername.value = prefs.getString(KEY_LASTFM_USERNAME, "").orEmpty()
         lastfmSessionKey.value = prefs.getString(KEY_LASTFM_SESSION_KEY, "").orEmpty()
@@ -1511,6 +1528,33 @@ object AppSettings {
     fun setSmartFadeEnabled(value: Boolean) {
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
+        refreshActiveAutomix()
+    }
+
+    fun setActiveSmartFadeEnabled(value: Boolean) {
+        val override = queueAutomix
+        if (override == null) setSmartFadeEnabled(value) else useQueueAutomix(value to override.second)
+    }
+
+    fun setActiveAutomixTempoMatching(value: Boolean) {
+        val override = queueAutomix
+        if (override != null) {
+            useQueueAutomix(override.first to value)
+        } else {
+            automixTempoMatching.value = value
+            prefs.edit().putBoolean(KEY_AUTOMIX_TEMPO_MATCHING, value).apply()
+            refreshActiveAutomix()
+        }
+    }
+
+    fun useQueueAutomix(settings: Pair<Boolean, Boolean>?) {
+        queueAutomix = settings
+        refreshActiveAutomix()
+    }
+
+    private fun refreshActiveAutomix() {
+        activeSmartFadeEnabled.value = queueAutomix?.first ?: smartFadeEnabled.value
+        activeAutomixTempoMatching.value = queueAutomix?.second ?: automixTempoMatching.value
     }
 
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
@@ -1970,6 +2014,11 @@ object AppSettings {
         setPrioritizeSyllableSync(false)
     }
 
+    fun setCoverAnimation(value: CoverAnimationMode) {
+        coverAnimation.value = value
+        prefs.edit().putString(KEY_COVER_ANIMATION, value.name).apply()
+    }
+
     fun setAnimatedCanvas(value: Boolean) {
         animatedCanvas.value = value
         prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
@@ -2042,9 +2091,16 @@ object AppSettings {
 
     fun setSongSwipeLeftAction(value: SongSwipeAction) {
         songSwipeLeftAction.value = value
+        songSwipeLeftCustomized.value = true
         if (this::prefs.isInitialized) {
             prefs.edit().putString(KEY_SONG_SWIPE_LEFT_ACTION, value.name).apply()
         }
+    }
+
+    fun resetSongSwipeLeftAction() {
+        songSwipeLeftAction.value = SongSwipeAction.ADD_TO_QUEUE
+        songSwipeLeftCustomized.value = false
+        if (this::prefs.isInitialized) prefs.edit().remove(KEY_SONG_SWIPE_LEFT_ACTION).apply()
     }
 
     fun setEnableBreathingAura(value: Boolean) {
@@ -2814,6 +2870,7 @@ object AppSettings {
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
+    private const val KEY_AUTOMIX_TEMPO_MATCHING = "automix_tempo_matching"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
@@ -2874,6 +2931,7 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_COVER_ANIMATION = "cover_animation"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

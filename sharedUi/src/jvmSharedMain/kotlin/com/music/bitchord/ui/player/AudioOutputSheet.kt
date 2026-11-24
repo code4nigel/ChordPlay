@@ -16,6 +16,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -80,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.components.menuFrost
 import com.music.bitchord.ui.components.optimizedHazeEffect
@@ -337,7 +340,42 @@ internal fun AudioOutputSheet(
                     opaque = reduceDynamicBlur,
                     onToggle = { PlayerSettings.setSmartFadeEnabled(it) },
                 )
+                if (smartFadeEnabled) AutomixPreferences()
             }
+        }
+    }
+}
+
+@Composable
+private fun AutomixPreferences() {
+    val settings = PlayerSettings
+    val performanceFlow = settings.automixPerformance ?: return
+    val tempoFlow = settings.automixTempoMatching ?: return
+    val performance by performanceFlow.collectAsStateWithLifecycle()
+    val tempoMatching by tempoFlow.collectAsStateWithLifecycle()
+    Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
+        Text(stringResource(Res.string.automix_analysis_performance), color = Color.White,
+            style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(Res.string.automix_analysis_description), color = Color.White.copy(alpha = 0.78f),
+            style = MaterialTheme.typography.bodySmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AutomixPerformanceMode.entries.forEach { mode ->
+                val label = when (mode) {
+                    AutomixPerformanceMode.EFFICIENT -> Res.string.automix_efficient
+                    AutomixPerformanceMode.BALANCED -> Res.string.automix_balanced
+                    AutomixPerformanceMode.PERFORMANCE -> Res.string.automix_performance
+                }
+                FilterChip(performance == mode, { settings.setAutomixPerformance(mode) },
+                    label = { Text(stringResource(label)) }, modifier = Modifier.heightIn(min = 48.dp))
+            }
+        }
+        Text(stringResource(Res.string.automix_track_speed), color = Color.White,
+            style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(!tempoMatching, { settings.setAutomixTempoMatching(false) },
+                label = { Text(stringResource(Res.string.automix_original_speed)) }, modifier = Modifier.heightIn(min = 48.dp))
+            FilterChip(tempoMatching, { settings.setAutomixTempoMatching(true) },
+                label = { Text(stringResource(Res.string.automix_tempo_matching)) }, modifier = Modifier.heightIn(min = 48.dp))
         }
     }
 }
@@ -442,7 +480,7 @@ private fun CastRow(cast: CastUi, opaque: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * Toggles Automix (beat-matched transitions) directly from the player's audio output sheet.
+ * Toggles automatic transitions directly from the player's audio output sheet.
  */
 @Composable
 private fun AutomixRow(
@@ -510,7 +548,7 @@ private fun AutomixRow(
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                text = "Automix",
+                text = stringResource(Res.string.automix_output_label),
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Medium,
                 ),
@@ -520,7 +558,7 @@ private fun AutomixRow(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = if (enabled) "Beat-matched transitions" else "Off",
+                text = stringResource(if (enabled) Res.string.automix_output_on else Res.string.automix_output_off),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.60f),
                 maxLines = 1,
@@ -658,6 +696,13 @@ private fun VolumeRow(routeKey: Any, opaque: Boolean) {
     LaunchedEffect(systemLevel) {
         if (!dragging) level = systemLevel
     }
+    LaunchedEffect(dragging) {
+        if (!dragging) {
+            system.refresh()
+            delay(120L)
+            level = system.level.value
+        }
+    }
 
     LaunchedEffect(routeKey) {
         repeat(VOLUME_REREADS) {
@@ -669,6 +714,17 @@ private fun VolumeRow(routeKey: Any, opaque: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .relativeSlider(
+                label = stringResource(Res.string.player_volume),
+                value = level,
+                steps = 99,
+                onValueChange = {
+                    dragging = true
+                    level = it
+                    system.set(it)
+                },
+                onFinished = { dragging = false },
+            )
             .clip(AUDIO_PILL_SHAPE)
             .background(Color.White.copy(alpha = if (opaque) 0.08f else 0.11f))
             .border(0.75.dp, Color.White.copy(alpha = 0.14f), AUDIO_PILL_SHAPE)
@@ -684,12 +740,7 @@ private fun VolumeRow(routeKey: Any, opaque: Boolean) {
         Spacer(Modifier.width(12.dp))
         ThinSlider(
             value = level,
-            onValueChange = {
-                dragging = true
-                level = it
-                system.set(it)
-            },
-            onValueChangeFinished = { dragging = false },
+            onValueChange = null,
             idleHeight = 6.dp,
             activeHeight = 10.dp,
             modifier = Modifier.weight(1f),

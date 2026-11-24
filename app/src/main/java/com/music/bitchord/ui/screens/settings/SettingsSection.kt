@@ -14,11 +14,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.Brush
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
@@ -34,12 +36,14 @@ enum class SettingsSection(
     val titleRes: Int,
     val icon: ImageVector,
 ) {
-    APPEARANCE(R.string.appearance, Icons.Rounded.Brightness4),
+    APPEARANCE(R.string.appearance, Icons.Rounded.Brush),
+    COVER(R.string.settings_cover, Icons.Rounded.Image),
     SHELVES(R.string.your_preferences, Icons.Rounded.ViewAgenda),
     PLAYER(R.string.playback, Icons.Rounded.SmartDisplay),
     LYRICS(R.string.synced_lyrics, Icons.AutoMirrored.Rounded.Notes),
     AUDIO(R.string.audio_quality, Icons.Rounded.GraphicEq),
     DOWNLOADS(R.string.downloads, Icons.Rounded.Download),
+    LOCAL_MUSIC(R.string.local_music, Icons.Rounded.LibraryMusic),
     STORAGE(R.string.storage, Icons.Rounded.Storage),
     YOUR_DATA(R.string.your_data, Icons.Rounded.BarChart),
     DRIVE_BACKUP(R.string.drive_backup_title, Icons.Rounded.CloudQueue),
@@ -50,6 +54,7 @@ enum class SettingsSection(
     ABOUT(R.string.miscellaneous, Icons.AutoMirrored.Rounded.HelpOutline);
 
     fun parentSection(): SettingsSection? = when (this) {
+        COVER -> APPEARANCE
         DRIVE_DEVICES -> DRIVE_BACKUP
         DRIVE_BACKUP -> YOUR_DATA
         else -> null

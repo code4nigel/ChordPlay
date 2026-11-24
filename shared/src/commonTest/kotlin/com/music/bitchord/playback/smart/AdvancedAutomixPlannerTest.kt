@@ -38,7 +38,7 @@ class AdvancedAutomixPlannerTest {
         )
     }
 
-    private fun plan(current: TrackAnalysis, next: TrackAnalysis, advanced: Boolean) = planTransition(
+    private fun plan(current: TrackAnalysis, next: TrackAnalysis, advanced: Boolean, tempoMatching: Boolean = true) = planTransition(
         analysis = current,
         nextAnalysis = next,
         currentTrack = TransitionTrackInfo(current.trackId, (current.duration * 1000).toLong()),
@@ -47,7 +47,31 @@ class AdvancedAutomixPlannerTest {
         duration = current.duration,
         mode = CrossfadeMode.SMART,
         advanced = advanced,
+        allowTempoMatching = tempoMatching,
     )
+
+    @Test
+    fun originalSpeedKeepsBothDecksAtOneAndPlansAnUnmatchedHandoff() {
+        val faster = track("faster", 120.0, "C major", vocal = 0.1)
+        val slower = track("slower", 111.0, "C major", vocal = 0.1)
+        assertEquals(120.0 / 111.0, plan(faster, slower, advanced = true).incomingPlaybackRate, 1e-3)
+        for ((outgoing, incoming) in listOf(faster to slower, slower to faster)) {
+            val original = plan(outgoing, incoming, advanced = true, tempoMatching = false)
+            assertEquals(1.0, original.incomingPlaybackRate)
+            assertEquals(1.0, original.outgoingPlaybackRate)
+            assertEquals(TransitionStyle.DJ_FILTER, original.transitionStyle)
+            assertTrue(original.incomingCueTime >= 0.0)
+            assertTrue(original.fadeSeconds > 0.0)
+        }
+    }
+
+    @Test
+    fun studioPeaksMeasureTheDecodedAudioAndRetainItsOffset() {
+        val waveform = WaveformPeaks.fromPcm(floatArrayOf(0f, -0.25f, 0.75f, -1f), 80.0, 10.0)!!
+        assertEquals(10.0, waveform.start)
+        assertEquals(10.05, waveform.end, 1e-9)
+        assertEquals(listOf(32, 127), waveform.peaks.map(Byte::toInt))
+    }
 
     @Test
     fun offLeavesEveryPlanAsItWas() {

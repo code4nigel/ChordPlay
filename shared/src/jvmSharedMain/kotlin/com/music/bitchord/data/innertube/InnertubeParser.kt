@@ -522,7 +522,15 @@ object InnertubeParser {
     }
 
     /** A playlist page's own tracks, the ones YouTube suggests adding, and the token for the rest. */
-    data class PlaylistShelfPage(val songs: List<Song>, val suggested: List<Song>, val continuation: String?)
+    data class PlaylistShelfPage(
+        val songs: List<Song>,
+        val suggested: List<Song>,
+        val continuation: String?,
+        val hasTrackShelf: Boolean = true,
+        val hasUnparsedTracks: Boolean = false,
+        val trackOccurrences: List<Song> = songs,
+        val endsWithSuggestions: Boolean = false,
+    )
 
     /**
      * A playlist page's own track list, scoped rather than walked — plus
@@ -548,22 +556,27 @@ object InnertubeParser {
      * playlist-shaped in scope (an album, say), so callers fall back to the
      * generic walk.
      */
-    fun parsePlaylistShelf(root: JsonElement): PlaylistShelfPage? {
+    fun parsePlaylistShelf(root: JsonElement, playlistContinuation: Boolean = false): PlaylistShelfPage? {
+        val appendedTracks = if (playlistContinuation) {
+            (root.o("continuationContents") ?: root).a("onResponseReceivedActions")?.singleOrNull()
+                .o("appendContinuationItemsAction").a("continuationItems")
+        } else null
         val scope: JsonElement = root.o("continuationContents")
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
+            ?: root.o("contents").o("singleColumnBrowseResultsRenderer")
+            ?: appendedTracks
             ?: return null
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }
-        if (playlistScope == null && suggestionShelves.isEmpty()) return null
+        if (playlistScope == null && appendedTracks == null && suggestionShelves.isEmpty()) return null
 
         val pageCredit = pageCredit(root)
-        val songs = playlistScope?.let { playlist ->
-            collectRenderers(playlist, "musicResponsiveListItemRenderer")
-                .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
-        }.orEmpty()
+        val shelfContents = playlistScope?.a("contents") ?: playlistScope?.a("items") ?: appendedTracks
+        val trackRows = shelfContents.orEmpty().mapNotNull { it.o("musicResponsiveListItemRenderer") }
+        val parsedTracks = trackRows.mapNotNull { parseResponsiveListItem(it, pageCredit) }
+        val songs = parsedTracks.distinctBy { it.videoId to it.setVideoId }
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves
             .flatMap { collectRenderers(it, "musicResponsiveListItemRenderer") }
@@ -574,12 +587,28 @@ object InnertubeParser {
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
         // continuation means more real tracks.
-        val token = playlistScope?.let { playlist ->
-            collectRenderers(playlist, "continuationItemRenderer").firstOrNull()
-                .o("continuationEndpoint").o("continuationCommand").s("token")
-                ?: collectRenderers(playlist, "nextContinuationData").firstOrNull().s("continuation")
-        }
-        return PlaylistShelfPage(songs, suggested, token)
+        val continuationRows = shelfContents.orEmpty().mapNotNull { it.o("continuationItemRenderer") }
+        val endpoint = continuationRows.singleOrNull().o("continuationEndpoint")
+        val token = endpoint.o("continuationCommand").s("token")
+            ?: endpoint.o("commandExecutorCommand").a("commands").orEmpty()
+                .mapNotNull { it.o("continuationCommand") }
+                .firstOrNull { it.s("request") == "CONTINUATION_REQUEST_TYPE_BROWSE" }.s("token")
+            ?: playlistScope?.let { collectRenderers(it, "nextContinuationData").firstOrNull().s("continuation") }
+        val emptyOwnedShelf = playlistScope != null && shelfContents == null &&
+            "contents" !in playlistScope && "items" !in playlistScope && token == null &&
+            collectRenderers(root, "musicEditablePlaylistDetailHeaderRenderer").isNotEmpty()
+        val unknownRows = shelfContents?.any { row ->
+            row.o("musicResponsiveListItemRenderer") == null && row.o("continuationItemRenderer") == null
+        } == true
+        return PlaylistShelfPage(
+            songs, suggested, token,
+            hasTrackShelf = shelfContents != null || emptyOwnedShelf,
+            hasUnparsedTracks = unknownRows || parsedTracks.size != trackRows.size ||
+                (continuationRows.isNotEmpty() && token == null),
+            trackOccurrences = parsedTracks,
+            endsWithSuggestions = playlistContinuation && root.o("continuationContents").o("sectionListContinuation") != null &&
+                playlistScope == null && appendedTracks == null && suggestionShelves.isNotEmpty(),
+        )
     }
 
     /** One page of saved library cards, plus the token for the next page. */
@@ -594,6 +623,29 @@ object InnertubeParser {
      */
     fun parseLibraryItems(root: JsonElement): List<ShelfItem> = parseLibraryItemPage(root).items
 
+    /** Reads only destinations whose single-track selection the server can resolve. */
+    fun parsePlaylistMembership(root: JsonElement): Map<String, Boolean?> {
+        val playlists = collectRenderers(root, "addToPlaylistRenderer").firstOrNull()?.get("playlists") as? JsonArray
+            ?: error("Unrecognized playlist membership response")
+        val result = playlists.mapNotNull { item ->
+            val row = item as? JsonObject ?: return@mapNotNull null
+            val option = row.o("playlistAddToOptionRenderer") ?: row
+            val id = option.s("playlistId")?.removePrefix("VL")?.takeIf { it.isNotEmpty() }
+                ?: return@mapNotNull null
+            val selected = option.s("containsSelectedVideos")
+            val present = when {
+                selected.equals("ALL", ignoreCase = true) -> true
+                selected.equals("NONE", ignoreCase = true) -> false
+                // The renderer can include both commands for every destination.
+                // Command availability does not report the queried song's membership.
+                else -> null
+            }
+            id to present
+        }.toMap()
+        check(playlists.isEmpty() || result.isNotEmpty()) { "Unrecognized playlist membership entries" }
+        return result
+    }
+
     fun parseLibraryItemPage(root: JsonElement): LibraryItemPage {
         val out = LinkedHashMap<String, ShelfItem>()
         collectRenderers(root, "musicTwoRowItemRenderer").forEach { renderer ->
@@ -604,7 +656,7 @@ object InnertubeParser {
             val item = parseBrowseItem(renderer) ?: return@forEach
             out.putIfAbsent(
                 item.browseId,
-                ShelfItem(item.title, item.subtitle, item.thumbnailUrl, null, item.browseId),
+                ShelfItem(item.title, item.subtitle, item.thumbnailUrl, null, item.browseId, browseType = item.type),
             )
         }
         return LibraryItemPage(out.values.toList(), continuationToken(root))
@@ -1404,6 +1456,8 @@ object InnertubeParser {
         if (title.isBlank()) return null
         val endpoint = renderer.o("navigationEndpoint")
         val browseId = endpoint.o("browseEndpoint").s("browseId")
+        val pageType = endpoint.o("browseEndpoint").o("browseEndpointContextSupportedConfigs")
+            .o("browseEndpointContextMusicConfig").s("pageType")
         // History/"Listen again" cards for tracks YouTube never catalogued
         // as a proper Song carry no watchEndpoint at all — just a browseId
         // to a "non-music audio track page" prefixed MPED<videoId>. That's
@@ -1442,6 +1496,12 @@ object InnertubeParser {
             isVideo = isLive || isWidescreenVideo || VIDEO_WORD.containsMatchIn(title),
             isLive = isLive,
             liveViewersText = viewersText,
+            browseType = when {
+                pageType?.contains("ALBUM") == true -> BrowseType.ALBUM
+                pageType?.contains("ARTIST") == true -> BrowseType.ARTIST
+                pageType?.contains("PLAYLIST") == true -> BrowseType.PLAYLIST
+                else -> null
+            },
         )
     }
 

@@ -11,14 +11,12 @@
  */
 package com.music.bitchord.data.settings
 
-/**
- * Stable persisted ordering for a Library "Show all" grid — playlists or
- * albums. A card there only ever carries a title, so unlike `LocalMusicSort`
- * there is nothing date-based to offer.
- */
+/** Stable persisted ordering for Library lists and grids. */
 enum class LibrarySort(val label: String) {
     /** Whatever order the shelf itself arrived in — YouTube Music's own. */
-    DEFAULT("Date Added"),
+    DEFAULT("Default order"),
+    DATE_NEWEST("Date added (newest first)"),
+    DATE_OLDEST("Date added (oldest first)"),
     TITLE_ASC("Title A-Z"),
     TITLE_DESC("Title Z-A"),
 }

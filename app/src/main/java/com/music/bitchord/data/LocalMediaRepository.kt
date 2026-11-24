@@ -218,6 +218,8 @@ object LocalMediaRepository {
         )
 
         val filterNonMusic = AppSettings.filterNonMusicAudio.value
+        val folderUri = AppSettings.localMusicFolderUri.value
+        val folder = selectedFolder(folderUri)
         val selection = if (filterNonMusic) {
             buildString {
                 append("${MediaStore.Audio.Media.IS_MUSIC} != 0")
@@ -239,7 +241,7 @@ object LocalMediaRepository {
                 }
             }
         } else {
-            "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+            null
         }
         val selectionArgs = if (filterNonMusic) {
             arrayOf(MIN_LOCAL_MUSIC_DURATION_MS.toString())
@@ -280,7 +282,7 @@ object LocalMediaRepository {
                     val path = cursor.getString(dataCol)
 
                     if (filterNonMusic && !isEligibleLocalMusic(durationMs, displayName, path)) continue
-                    if (!isInSelectedFolder(path, AppSettings.localMusicFolderUri.value)) continue
+                    if (folder != null && !isInSelectedFolder(path, folder)) continue
 
                     val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
                     val title = rawTitle.cleanTag()?.removeAudioExtension()
@@ -315,9 +317,7 @@ object LocalMediaRepository {
     /** Human-readable path for the folder setting without exposing provider internals. */
     fun selectedFolderLabel(treeUri: String): String? = selectedFolder(treeUri)?.label
 
-    internal fun isInSelectedFolder(path: String?, treeUri: String): Boolean {
-        if (treeUri.isBlank()) return true
-        val folder = selectedFolder(treeUri) ?: return false
+    private fun isInSelectedFolder(path: String?, folder: SelectedFolder): Boolean {
         val candidate = path?.normalizedPath() ?: return false
         return candidate == folder.absolutePath || candidate.startsWith("${folder.absolutePath}/")
     }
@@ -325,12 +325,18 @@ object LocalMediaRepository {
     internal data class SelectedFolder(val absolutePath: String, val label: String)
 
     internal fun selectedFolder(treeUri: String): SelectedFolder? = runCatching {
-        val documentId = DocumentsContract.getTreeDocumentId(Uri.parse(treeUri))
+        if (treeUri.isBlank()) return null
+        val uri = Uri.parse(treeUri)
+        val documentId = DocumentsContract.getTreeDocumentId(uri)
         if (documentId.startsWith("raw:")) {
-            val path = documentId.removePrefix("raw:").normalizedPath()
-            return@runCatching SelectedFolder(path, path.substringAfterLast('/'))
+            if (uri.authority != "com.android.providers.downloads.documents") return null
+            val path = documentId.removePrefix("raw:")
+            if (!path.startsWith("/storage/")) return null
+            return@runCatching SelectedFolder(path.normalizedPath(), path.trimEnd('/').substringAfterLast('/'))
         }
+        if (uri.authority != "com.android.externalstorage.documents" || ':' !in documentId) return null
         val volume = documentId.substringBefore(':')
+        if (!volume.equals("primary", ignoreCase = true) && !volume.matches(Regex("[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}"))) return null
         val relative = documentId.substringAfter(':', "").trim('/')
         val volumeRoot = if (volume.equals("primary", ignoreCase = true)) {
             "/storage/emulated/0"

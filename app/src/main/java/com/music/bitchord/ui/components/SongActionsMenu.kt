@@ -276,9 +276,9 @@ fun SongActionsMenu(
         }
 
         // Group 2: Playlist & Speed Dial
-        if (canRate) {
+        if (canRate || onRemoveFromPlaylist != null) {
             if (startsGroup()) IosMenuSeparator()
-            ActionRow(
+            if (canRate) ActionRow(
                 icon = BitChordIcons.PlaylistAdd,
                 label = stringResource(R.string.add_to_playlist),
                 accent = palette.accent,
@@ -292,7 +292,7 @@ fun SongActionsMenu(
                     onClick = it,
                 )
             }
-            ActionRow(
+            if (canRate) ActionRow(
                 icon = Icons.Rounded.PushPin,
                 label = if (isSpeedDialPinned) stringResource(R.string.unpin_from_your_space) else stringResource(R.string.pin_to_your_space),
                 value = if (isSpeedDialPinned) "Pinned" else null,

@@ -22,7 +22,9 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.CoverAnimationMode
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
@@ -33,6 +35,9 @@ import com.music.bitchord.data.settings.VideoQuality
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+private val noCoverChange = MutableStateFlow<CoverTrackChange?>(null)
+private val defaultCoverAnimation = MutableStateFlow(CoverAnimationMode.NONE)
 
 /**
  * Everything the player takes from the application it is drawn in.
@@ -45,6 +50,7 @@ import kotlinx.coroutines.flow.StateFlow
  * [PlayerPlatform.install] before the player is first drawn.
  */
 interface PlayerHost {
+    val coverTrackChange: StateFlow<CoverTrackChange?> get() = noCoverChange
     val automixStudio: AutomixStudio? get() = null
     val settings: PlayerSettingsSource
 
@@ -200,6 +206,7 @@ object PlayerPlatform {
 
 /** The settings the player reads, named and typed as the phone's AppSettings has them. */
 interface PlayerSettingsSource {
+    val coverAnimation: StateFlow<CoverAnimationMode> get() = defaultCoverAnimation
     val animatedCanvas: StateFlow<Boolean>
     val audioQualityCellular: StateFlow<AudioQuality>
     val audioQualityWifi: StateFlow<AudioQuality>
@@ -223,6 +230,8 @@ interface PlayerSettingsSource {
     val showNerdStats: StateFlow<Boolean>
     val smartAnalysis: StateFlow<SmartAnalysis>
     val smartFadeEnabled: StateFlow<Boolean>
+    val automixPerformance: StateFlow<AutomixPerformanceMode>? get() = null
+    val automixTempoMatching: StateFlow<Boolean>? get() = null
     /** True only while an analysed Automix transition is audibly mixing two tracks. */
     val smartMixInProgress: StateFlow<Boolean>
     /** The Automix blend in flight, for the scrubber's beat glow; null between blends. */
@@ -255,6 +264,8 @@ interface PlayerSettingsSource {
     val tapArtworkToToggleFullScreen: StateFlow<Boolean> get() = MutableStateFlow(true)
     fun setTapArtworkToToggleFullScreen(value: Boolean) {}
     fun setSmartFadeEnabled(value: Boolean) {}
+    fun setAutomixPerformance(value: AutomixPerformanceMode) {}
+    fun setAutomixTempoMatching(value: Boolean) {}
 }
 
 private val DEFAULT_PLAYER_ANIMATION_SPEED = MutableStateFlow(1.0f)

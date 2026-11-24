@@ -845,7 +845,7 @@ class CrossfadeController(
         // measurement is the same either way, so it may as well be made during
         // the loop rather than after it.
         if (player.repeatMode == Player.REPEAT_MODE_ONE) {
-            if (AppSettings.smartFadeEnabled.value) requestAnalysisAround(player, duration)
+            if (AppSettings.activeSmartFadeEnabled.value) requestAnalysisAround(player, duration)
             // Stale otherwise: the marker would keep describing the transition
             // planned for this pair before the loop went on, at a point the
             // playhead now runs past on every lap without anything happening.
@@ -857,7 +857,7 @@ class CrossfadeController(
         // length: it decides its own duration from each pair of tracks (beats,
         // tempo, structure), so requiring a nonzero [AppSettings.crossfadeSeconds]
         // first would tie an automatic feature to a manual one it doesn't use.
-        if (AppSettings.smartFadeEnabled.value) {
+        if (AppSettings.activeSmartFadeEnabled.value) {
             considerSmartTransition(duration)
             return
         }
@@ -1035,6 +1035,7 @@ class CrossfadeController(
         fadeSeconds = configuredFadeMs().takeIf { it > 0 }?.div(1000.0) ?: DEFAULT_SMART_FALLBACK_SECONDS,
         mode = CrossfadeMode.SMART,
         advanced = true,
+        allowTempoMatching = AppSettings.activeAutomixTempoMatching.value,
     )
 
     private fun beginWithPlan(plan: TransitionPlan): Boolean = begin(
@@ -1580,7 +1581,7 @@ class CrossfadeController(
         // [configuredFadeMs] at zero, and reading that as "turned off" would
         // end every Automix on its first tick.
         val settingSwitchedOff = if (smartFadeActive) {
-            !AppSettings.smartFadeEnabled.value
+            !AppSettings.activeSmartFadeEnabled.value
         } else {
             configuredFadeMs() <= 0L
         }
@@ -1850,7 +1851,10 @@ class CrossfadeController(
 
     /** Still a next track, still playing, still switched on — by whichever setting armed this one. */
     private fun stillWorthFading(): Boolean {
-        val stillOn = if (smartFadeActive) AppSettings.smartFadeEnabled.value else configuredFadeMs() > 0L
+        val stillOn = if (smartFadeActive) {
+            val stretchesTempo = incomingPlaybackRate != 1.0 || outgoingPlaybackRate != 1.0
+            AppSettings.activeSmartFadeEnabled.value && (!stretchesTempo || AppSettings.activeAutomixTempoMatching.value)
+        } else configuredFadeMs() > 0L
         return stillOn && (outgoing ?: active()).hasNextMediaItem()
     }
 

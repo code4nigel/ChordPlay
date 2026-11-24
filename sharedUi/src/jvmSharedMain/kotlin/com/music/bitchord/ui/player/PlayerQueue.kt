@@ -284,10 +284,9 @@ internal fun InlineQueue(
     val onRemoveTrack: (QueueTrack) -> Unit = { track ->
         pendingDismissedKeys = pendingDismissedKeys + track.key
 
-        val rawIndex = queue.indexOfFirst { qSong ->
-            (track.song.queueEntryId != null && qSong.queueEntryId == track.song.queueEntryId) ||
-            (qSong.videoId == track.song.videoId && qSong.title == track.song.title)
-        }.takeIf { it != -1 } ?: track.timelineIndex
+        val rawIndex = track.song.queueEntryId?.let { id ->
+            queue.indexOfFirst { it.queueEntryId == id }.takeIf { it >= 0 }
+        } ?: track.timelineIndex
 
         val allQueueTracks = tracks.history + listOfNotNull(tracks.nowPlaying) + tracks.user + tracks.context + tracks.autoplay
         val pendingAhead = allQueueTracks.count { other ->
@@ -349,6 +348,7 @@ internal fun InlineQueue(
             if (tracks.user.isNotEmpty()) {
                 QueueClearButton(MaterialTheme.typography.titleMedium, controlsLocked, onClear)
             }
+            QueueActionsPill(canSave = nowPlaying != null, locked = controlsLocked)
         }
         Spacer(Modifier.height(4.dp))
         Box(

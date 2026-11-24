@@ -163,6 +163,7 @@ object Downloads {
 
     /** Waiting, in the order asked for. Guarded by [lock]. */
     private val pending = LinkedHashMap<String, Song>()
+    private val managedRequests = mutableSetOf<String>()
 
     private val lock = Any()
 
@@ -260,11 +261,11 @@ object Downloads {
      * catches the rest.
      *
      * @param from what release this track was asked for as part of, when it was
-     *   one of many. Carried no further than [DownloadSession], which is the
-     *   only thing that has to say *why* forty tracks are in the queue.
+     *   one of many. Used by the download manager's progress rows.
      */
-    fun enqueue(context: Context, song: Song, from: String? = null) {
+    fun enqueue(context: Context, song: Song, from: String? = null, managedPlaylist: Boolean = false) {
         val id = song.videoId
+        if (!managedPlaylist) keepDownloads(listOf(id))
         if (!AppSettings.downloadsAllowedNow) {
             // Distinct from the duplicate-tap no-op below: nothing is in flight
             // here to leave alone, and a refusal nobody is told about reads as a
@@ -280,6 +281,7 @@ object Downloads {
         synchronized(lock) {
             if (id in pending || id in running) return
             pending[id] = song
+            if (managedPlaylist) managedRequests.add(id)
         }
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
@@ -292,7 +294,10 @@ object Downloads {
             // means the queue has nothing to drain it and would sit there
             // looking accepted forever.
             Log.w(TAG, "could not start the download service: ${it.message}")
-            synchronized(lock) { pending.remove(id) }
+            synchronized(lock) {
+                pending.remove(id)
+                managedRequests.remove(id)
+            }
             fail(id, "Downloads can't start right now")
         }
     }
@@ -309,6 +314,7 @@ object Downloads {
     fun cancel(videoId: String) {
         val job = synchronized(lock) {
             pending.remove(videoId)
+            managedRequests.remove(videoId)
             if (videoId !in running) return@synchronized null
             running.remove(videoId)
         }
@@ -443,13 +449,20 @@ object Downloads {
      * tracks is actually on disk is answered where it is read — see
      * [collectionsAmong].
      */
-    fun rememberCollection(target: DownloadTarget, songs: List<Song>) {
+    fun rememberCollection(
+        target: DownloadTarget,
+        songs: List<Song>,
+        newPlaylistProfile: PlaylistDownloadProfile? = null,
+    ) {
         if (songs.isEmpty()) return
-        val ids = songs.map { it.videoId }.distinct()
+        val ids = songs.map { it.videoId }
         recordCollections { current ->
-            val existing = current[target.id]
+            val existing = current[target.id] ?: current.values.firstOrNull {
+                it.id.removePrefix("VL") == target.id.removePrefix("VL")
+            }
+            val profile = if (existing == null) newPlaylistProfile else existing.syncProfile
             val record = SavedCollection(
-                id = target.id,
+                id = existing?.id ?: target.id,
                 title = target.title,
                 subtitle = target.subtitle,
                 // Once the remote cover has been cached, do not replace it with
@@ -462,11 +475,87 @@ object Downloads {
                 // different depths of the same page, so the two asks are merged
                 // rather than the second replacing the first — but the new order
                 // leads, since it is the one just seen on screen.
-                videoIds = (ids + (existing?.videoIds ?: emptyList())).distinct(),
+                videoIds = when {
+                    existing?.syncProfile != null -> existing.videoIds
+                    profile != null -> ids
+                    else -> (ids + existing?.videoIds.orEmpty()).distinct()
+                },
+                addedAt = if (existing == null) System.currentTimeMillis() else existing.addedAt,
+                syncProfile = profile,
+                retiredVideoIds = existing?.retiredVideoIds.orEmpty(),
             )
-            current + (target.id to record)
+            current + (record.id to record)
         }
     }
+
+    fun collectionFor(browseId: String): SavedCollection? {
+        val id = (recordIdOf(browseId) ?: browseId).removePrefix("VL")
+        return _collections.value.values.firstOrNull { it.id.removePrefix("VL") == id }
+    }
+
+    /** Explicit tracks and ordinary collections keep their copy independently of playlist sync. */
+    fun keepDownloads(videoIds: Collection<String>) {
+        synchronized(lock) {
+            managedRequests.removeAll(videoIds.toSet())
+            val uris = videoIds.mapNotNull { _saved.value[it] }.toSet()
+            if (_savedMetadata.value.values.none { it.playlistManaged && it.uri in uris }) return
+            record(saved = { it }, meta = { metadata ->
+                metadata.mapValues { (_, entry) ->
+                    if (entry.uri in uris && entry.playlistManaged) entry.copy(playlistManaged = false) else entry
+                }
+            })
+        }
+    }
+
+    /** Only a complete, fresh read may replace a downloaded playlist's membership. */
+    suspend fun updatePlaylistCollection(
+        id: String,
+        profile: PlaylistDownloadProfile,
+        songs: List<Song>,
+        canApply: () -> Boolean,
+    ): Boolean = withContext(Dispatchers.IO) {
+        var applied = false
+        recordCollections { records ->
+            val current = records[id] ?: return@recordCollections records
+            if (!canApply() || (current.syncProfile != null && current.syncProfile != profile)) return@recordCollections records
+            val ids = songs.map { it.videoId }
+            applied = true
+            records + (id to current.withSyncedTracks(profile, ids))
+        }
+        applied
+    }
+
+    suspend fun prunePlaylistDownloads(context: Context, collectionId: String, canApply: () -> Boolean) =
+        withContext(Dispatchers.IO) {
+            val retired = _collections.value[collectionId]?.retiredVideoIds.orEmpty()
+            for (videoId in retired) {
+                if (!canApply()) return@withContext
+                synchronized(collectionLock) {
+                    synchronized(lock) {
+                        synchronized(recordLock) prune@{
+                            val collection = _collections.value[collectionId] ?: return@prune
+                            if (videoId !in collection.retiredVideoIds || !canApply()) return@prune
+                            val uri = _saved.value[videoId]
+                            if (videoId in pending || videoId in running) return@prune
+                            if (uri != null) {
+                                val aliases = _saved.value.filterValues { it == uri }.keys
+                                if (aliases.any { it in pending || it in running }) return@prune
+                                if (canPrunePlaylistDownload(aliases, _savedMetadata.value, _collections.value.values)) {
+                                    val target = uri.toUri()
+                                    if (DownloadStore.exists(context, target) && !DownloadStore.delete(context, target)) {
+                                        return@prune
+                                    }
+                                    record(saved = { it - aliases }, meta = { it - aliases })
+                                }
+                            }
+                            recordCollections {
+                                it + (collectionId to collection.copy(retiredVideoIds = collection.retiredVideoIds - videoId))
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
     /** Replace a collection's remote artwork URL with its durable local copy. */
     fun rememberCollectionArtwork(id: String, thumbnailUrl: String) {
@@ -646,6 +735,7 @@ object Downloads {
         uri: Uri,
         downloadFormat: String? = null,
         artworkUri: String? = null,
+        newlyCreated: Boolean = false,
     ) {
         val ids = setOf(asked.videoId, fetched.videoId)
         // MediaStore supplies this for exported downloads, but app-private and
@@ -696,12 +786,18 @@ object Downloads {
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
         )
-        record(
-            saved = { it + ids.associateWith { id -> uri.toString() } },
-            meta = {
-                it + mapOf(asked.videoId to metaAsked, fetched.videoId to metaFetched)
-            },
-        )
+        synchronized(lock) {
+            val managed = newlyCreated && asked.videoId in managedRequests
+            record(
+                saved = { it + ids.associateWith { uri.toString() } },
+                meta = {
+                    it + mapOf(
+                        asked.videoId to metaAsked.copy(playlistManaged = managed),
+                        fetched.videoId to metaFetched.copy(playlistManaged = managed),
+                    )
+                },
+            )
+        }
     }
 
     /**
@@ -837,12 +933,13 @@ object Downloads {
             val saved = _saved.value
             val metadataByUri = metadata.values.associateBy { it.uri }
             val seenUris = HashSet<String>()
+            val verifiedUris = mutableMapOf<String, Boolean>()
 
             record.videoIds.mapNotNull { videoId ->
                 val uriString = saved[videoId] ?: metadata[videoId]?.uri ?: return@mapNotNull null
-                if (!seenUris.add(uriString)) return@mapNotNull null
+                if (record.syncProfile == null && !seenUris.add(uriString)) return@mapNotNull null
                 val uri = uriString.toUri()
-                if (!DownloadStore.exists(context, uri)) {
+                if (!verifiedUris.getOrPut(uriString) { DownloadStore.exists(context, uri) }) {
                     // Both a video id and its catalogue replacement can name
                     // this file. Prune every alias now that the one disk check
                     // has established that the shared file is gone.
@@ -905,7 +1002,10 @@ object Downloads {
 
     /** [videoId] is finished, one way or another, and no longer holds a worker. */
     internal fun onIdle(videoId: String) {
-        synchronized(lock) { running.remove(videoId) }
+        synchronized(lock) {
+            running.remove(videoId)
+            managedRequests.remove(videoId)
+        }
     }
 
     /** Whether anything is still queued or in flight — see [DownloadService]'s workers. */
@@ -920,7 +1020,10 @@ object Downloads {
      * forever as already in flight.
      */
     internal fun onStopped() {
-        synchronized(lock) { running.clear() }
+        synchronized(lock) {
+            managedRequests.removeAll(running.keys)
+            running.clear()
+        }
     }
 
     /**
@@ -1130,7 +1233,7 @@ object Downloads {
                             artwork = artwork?.await(),
                         )
                     }
-                    remember(song, track, savedUri, route.downloadFormat)
+                    remember(song, track, savedUri, route.downloadFormat, newlyCreated = true)
                     val words = lyrics?.await()
                     if (AppSettings.downloadLyricsOffline.value && words != null) {
                         saveLyricsOffline(context, track, words)
@@ -1161,7 +1264,7 @@ object Downloads {
                     saveLyricsOffline(context, track, words)
                 }
                 pending = null
-                remember(song, track, savedUri, route.downloadFormat, artworkUri)
+                remember(song, track, savedUri, route.downloadFormat, artworkUri, newlyCreated = true)
                 DownloadSession.done(id)
                 clear(id)
                 Log.d(TAG, "saved $name")
@@ -1519,6 +1622,7 @@ internal data class SavedSongMetadata(
     val downloadFormat: String? = null,
     /** Stable creation time for downloads that MediaStore does not index. */
     val dateAddedSeconds: Long? = null,
+    val playlistManaged: Boolean = false,
 )
 
 /**
@@ -1605,6 +1709,14 @@ data class DownloadTarget(
  * see [Downloads.collectionsAmong].
  */
 @kotlinx.serialization.Serializable
+data class PlaylistDownloadProfile(val accountId: String?, val profileId: String?)
+
+internal fun isSyncableYouTubePlaylist(browseId: String): Boolean {
+    val rawId = browseId.removePrefix("VL")
+    return rawId.startsWith("PL") && rawId.length > 2 && rawId.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+}
+
+@kotlinx.serialization.Serializable
 data class SavedCollection(
     val id: String,
     val title: String,
@@ -1613,7 +1725,26 @@ data class SavedCollection(
     val playlist: Boolean = false,
     /** In the order the page listed them, which is the order to play them in. */
     val videoIds: List<String> = emptyList(),
+    val addedAt: Long? = null,
+    val syncProfile: PlaylistDownloadProfile? = null,
+    val retiredVideoIds: Set<String> = emptySet(),
 )
+
+internal fun SavedCollection.withSyncedTracks(profile: PlaylistDownloadProfile, tracks: List<String>): SavedCollection {
+    val retained = tracks.toSet()
+    return copy(
+        videoIds = tracks,
+        syncProfile = profile,
+        retiredVideoIds = (retiredVideoIds + videoIds.filterNot(retained::contains)) - retained,
+    )
+}
+
+internal fun canPrunePlaylistDownload(
+    aliases: Set<String>,
+    metadata: Map<String, SavedSongMetadata>,
+    collections: Collection<SavedCollection>,
+): Boolean = aliases.isNotEmpty() && aliases.all { metadata[it]?.playlistManaged == true } &&
+    collections.none { collection -> collection.videoIds.any(aliases::contains) }
 
 /** A [SavedCollection] with its surviving tracks attached, ready to draw. */
 data class DownloadedCollection(

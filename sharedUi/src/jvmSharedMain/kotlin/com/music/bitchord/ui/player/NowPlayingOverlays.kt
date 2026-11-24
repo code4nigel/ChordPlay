@@ -26,6 +26,7 @@ import dev.chrisbanes.haze.HazeState
  */
 @Stable
 internal class PlayerOverlayState {
+    var queueSearch by mutableStateOf(false)
     var audioOutput by mutableStateOf(false)
     var audioPipeline by mutableStateOf(false)
     var cast by mutableStateOf(false)
