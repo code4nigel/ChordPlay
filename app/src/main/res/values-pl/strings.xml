@@ -1899,4 +1899,25 @@
     <string name="cover_animation_3d">Przenikanie 3D</string>
     <string name="cover_preview_manual">Ręczne pominięcie</string>
     <string name="cover_preview_automatic">Automatyczne przejście</string>
+    <string name="your_space_tab_space">Przestrzeń</string>
+    <string name="your_space_tab_mixes">Miksy</string>
+    <string name="your_space_tab_artists">Wykonawcy</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Harmoniczne odkrywanie</string>
+    <string name="customize_your_space">Dostosuj Twoją przestrzeń</string>
+    <string name="speed_dial_layout">Układ</string>
+    <string name="speed_dial_picks">Źródło propozycji</string>
+    <string name="speed_dial_tile_border">Styl kafelków</string>
+    <string name="speed_dial_mixes_dial">Panel miksów</string>
+    <string name="speed_dial_artist_dial">Panel wykonawców</string>
+    <string name="speed_dial_chord_wave">Kafelek Chord Wave</string>
+    <string name="speed_dial_show_names">Pokaż nazwy kafelków</string>
+    <string name="speed_dial_show_pins">Pokaż ikony przypięcia</string>
+    <string name="speed_dial_reset_hidden">Przywróć ukryte kafelki</string>
+    <string name="hide_from_your_space">Ukryj z Twojej przestrzeni</string>
+    <string name="show_tile_name">Pokaż nazwę kafelka</string>
+    <string name="hide_tile_name">Ukryj nazwę kafelka</string>
+    <string name="your_space_mixes_empty">Odtwórz kilka utworów, aby utworzyć miksy</string>
+    <string name="your_space_artists_empty">Przypnij lub odtwarzaj wykonawców, aby zobaczyć ich tutaj</string>
+    <string name="your_space_drag_hint">Przytrzymaj przypięty kafelek, aby zmienić kolejność</string>
 </resources>

@@ -1848,4 +1848,25 @@
     <string name="cover_animation_3d">Плавный переход 3D</string>
     <string name="cover_preview_manual">Ручное переключение</string>
     <string name="cover_preview_automatic">Автопереход</string>
+    <string name="your_space_tab_space">Пространство</string>
+    <string name="your_space_tab_mixes">Миксы</string>
+    <string name="your_space_tab_artists">Исполнители</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Гармоничный подбор</string>
+    <string name="customize_your_space">Настроить пространство</string>
+    <string name="speed_dial_layout">Макет</string>
+    <string name="speed_dial_picks">Источник подборок</string>
+    <string name="speed_dial_tile_border">Стиль плиток</string>
+    <string name="speed_dial_mixes_dial">Панель миксов</string>
+    <string name="speed_dial_artist_dial">Панель исполнителей</string>
+    <string name="speed_dial_chord_wave">Плитка Chord Wave</string>
+    <string name="speed_dial_show_names">Показывать названия</string>
+    <string name="speed_dial_show_pins">Показывать значки закрепления</string>
+    <string name="speed_dial_reset_hidden">Восстановить скрытые плитки</string>
+    <string name="hide_from_your_space">Скрыть из пространства</string>
+    <string name="show_tile_name">Показать название плитки</string>
+    <string name="hide_tile_name">Скрыть название плитки</string>
+    <string name="your_space_mixes_empty">Включите несколько треков, чтобы собрать миксы</string>
+    <string name="your_space_artists_empty">Закрепите или слушайте исполнителей, чтобы видеть их здесь</string>
+    <string name="your_space_drag_hint">Удерживайте закреплённую плитку для сортировки</string>
 </resources>

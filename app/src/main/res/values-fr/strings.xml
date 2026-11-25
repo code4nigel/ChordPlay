@@ -1817,4 +1817,25 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="cover_animation_3d">Fondu 3D</string>
     <string name="cover_preview_manual">Passage manuel</string>
     <string name="cover_preview_automatic">Passage automatique</string>
+    <string name="your_space_tab_space">Espace</string>
+    <string name="your_space_tab_mixes">Mix</string>
+    <string name="your_space_tab_artists">Artistes</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Découverte harmonique</string>
+    <string name="customize_your_space">Personnaliser Votre Espace</string>
+    <string name="speed_dial_layout">Disposition</string>
+    <string name="speed_dial_picks">Source des sélections</string>
+    <string name="speed_dial_tile_border">Style de tuile</string>
+    <string name="speed_dial_mixes_dial">Cadran des mix</string>
+    <string name="speed_dial_artist_dial">Cadran des artistes</string>
+    <string name="speed_dial_chord_wave">Tuile Chord Wave</string>
+    <string name="speed_dial_show_names">Afficher les noms</string>
+    <string name="speed_dial_show_pins">Afficher les épingles</string>
+    <string name="speed_dial_reset_hidden">Restaurer les tuiles masquées</string>
+    <string name="hide_from_your_space">Masquer de Votre Espace</string>
+    <string name="show_tile_name">Afficher le nom de la tuile</string>
+    <string name="hide_tile_name">Masquer le nom de la tuile</string>
+    <string name="your_space_mixes_empty">Écoutez quelques titres pour créer vos mix</string>
+    <string name="your_space_artists_empty">Épinglez ou écoutez des artistes pour les voir ici</string>
+    <string name="your_space_drag_hint">Maintenez une tuile épinglée pour réorganiser</string>
 </resources>

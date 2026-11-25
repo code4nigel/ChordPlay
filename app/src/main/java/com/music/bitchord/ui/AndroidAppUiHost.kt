@@ -21,6 +21,8 @@ import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.SpeedDialLayoutMode
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.settings.SpeedDialTileStyle
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +30,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -58,6 +61,34 @@ object AndroidAppUiHost : AppUiHost {
     override fun setLibraryViewMode(value: LibraryViewMode) = AppSettings.setLibraryViewMode(value)
     override val speedDialLayoutMode = AppSettings.speedDialLayoutMode
     override fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) = AppSettings.setSpeedDialLayoutMode(value)
+    override val speedDialSource = AppSettings.speedDialSource
+    override fun setSpeedDialSource(value: SpeedDialSource) = AppSettings.setSpeedDialSource(value)
+    override val speedDialTileStyle = AppSettings.speedDialTileStyle
+    override fun setSpeedDialTileStyle(value: SpeedDialTileStyle) = AppSettings.setSpeedDialTileStyle(value)
+    override val speedDialShowLabels = AppSettings.speedDialShowLabels
+    override fun setSpeedDialShowLabels(value: Boolean) = AppSettings.setSpeedDialShowLabels(value)
+    override val speedDialLabelOverrides = AppSettings.speedDialLabelOverrides
+    override fun toggleSpeedDialTileLabel(item: com.music.bitchord.data.model.ShelfItem) = AppSettings.toggleSpeedDialTileLabel(item)
+    override val speedDialShowPinBadge = AppSettings.speedDialShowPinBadge
+    override fun setSpeedDialShowPinBadge(value: Boolean) = AppSettings.setSpeedDialShowPinBadge(value)
+    override val speedDialShowMixes = AppSettings.speedDialShowMixes
+    override fun setSpeedDialShowMixes(value: Boolean) = AppSettings.setSpeedDialShowMixes(value)
+    override val speedDialShowArtists = AppSettings.speedDialShowArtists
+    override fun setSpeedDialShowArtists(value: Boolean) = AppSettings.setSpeedDialShowArtists(value)
+    override val speedDialShowChordWave = AppSettings.speedDialShowChordWave
+    override fun setSpeedDialShowChordWave(value: Boolean) = AppSettings.setSpeedDialShowChordWave(value)
+    override val hiddenSpeedDialIds = AppSettings.hiddenSpeedDialIds
+    override fun hideFromSpeedDial(item: com.music.bitchord.data.model.ShelfItem) = AppSettings.hideFromSpeedDial(item)
+    override fun resetHiddenSpeedDial() = AppSettings.resetHiddenSpeedDial()
+    override fun reorderPinnedSpeedDial(reordered: List<com.music.bitchord.data.model.ShelfItem>) =
+        AppSettings.reorderPinnedSpeedDial(reordered)
+    override val spotifyConnected: StateFlow<Boolean> = AppSettings.spotifySpdcToken
+        .map { it.isNotBlank() }
+        .stateIn(
+            scope = CoroutineScope(Dispatchers.Main.immediate),
+            started = SharingStarted.Eagerly,
+            initialValue = AppSettings.spotifySpdcToken.value.isNotBlank(),
+        )
     override val homeShelfOrder = AppSettings.homeShelfOrder
     override val hiddenHomeShelves = AppSettings.hiddenHomeShelves
     override val homeMelodyVisible = AppSettings.homeMelodyVisible

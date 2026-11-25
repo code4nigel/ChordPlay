@@ -771,7 +771,16 @@ object AppSettings {
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
     val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
-    val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
+    val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.THREE_BY_THREE)
+    val speedDialSource = MutableStateFlow(SpeedDialSource.SMART_BLEND)
+    val speedDialTileStyle = MutableStateFlow(SpeedDialTileStyle.FROSTED_GLASS)
+    val speedDialShowLabels = MutableStateFlow(true)
+    val speedDialLabelOverrides = MutableStateFlow<Set<String>>(emptySet())
+    val speedDialShowPinBadge = MutableStateFlow(true)
+    val speedDialShowMixes = MutableStateFlow(true)
+    val speedDialShowArtists = MutableStateFlow(false)
+    val speedDialShowChordWave = MutableStateFlow(true)
+    val hiddenSpeedDialIds = MutableStateFlow<Set<String>>(emptySet())
     /** Saved Home section order by real feed title or [HomeShelfSlot] token; empty means feed default. */
     val homeShelfOrder = MutableStateFlow<List<String>>(emptyList())
     /** Home sections hidden by title or [HomeShelfSlot] token; kept in order list so they can be re-enabled. */
@@ -1106,8 +1115,10 @@ object AppSettings {
         ).coerceIn(0f, 1f)
         liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
-        lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
-            .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        lyricsOffsetMs.value = 0
+        if (prefs.contains(KEY_LYRICS_OFFSET_MS)) {
+            prefs.edit().remove(KEY_LYRICS_OFFSET_MS).apply()
+        }
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -1254,7 +1265,20 @@ object AppSettings {
             ?: LibraryViewMode.GRID
         speedDialLayoutMode.value = prefs.getString(KEY_SPEED_DIAL_LAYOUT_MODE, null)
             ?.let { saved -> if (saved == "COMPACT_CAROUSEL") SpeedDialLayoutMode.ONE_BY_FOUR_LIST else SpeedDialLayoutMode.entries.firstOrNull { it.name == saved } }
-            ?: SpeedDialLayoutMode.TWO_BY_THREE
+            ?: SpeedDialLayoutMode.THREE_BY_THREE
+        speedDialSource.value = prefs.getString(KEY_SPEED_DIAL_SOURCE, null)
+            ?.let { saved -> SpeedDialSource.entries.firstOrNull { it.name == saved } }
+            ?: SpeedDialSource.SMART_BLEND
+        speedDialTileStyle.value = prefs.getString(KEY_SPEED_DIAL_TILE_STYLE, null)
+            ?.let { saved -> SpeedDialTileStyle.entries.firstOrNull { it.name == saved } }
+            ?: SpeedDialTileStyle.FROSTED_GLASS
+        speedDialShowLabels.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_LABELS, true)
+        speedDialLabelOverrides.value = prefs.getStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, emptySet())?.toSet().orEmpty()
+        speedDialShowPinBadge.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_PIN_BADGE, true)
+        speedDialShowMixes.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_MIXES, true)
+        speedDialShowArtists.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_ARTISTS, false)
+        speedDialShowChordWave.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_CHORD_WAVE, true)
+        hiddenSpeedDialIds.value = prefs.getStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, emptySet())?.toSet().orEmpty()
         detailSongSorts.value = readDetailSongSorts()
         amoledDarkMode.value = prefs.getBoolean("amoled_dark_mode", false)
         appFontChoice.value = prefs.getString("app_font_choice", null)
@@ -1916,11 +1940,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LYRICS_BLUR, value).apply()
     }
 
+    /** Per-song in-memory offset; intentionally not persisted so each track starts at 0 ms. */
     fun setLyricsOffsetMs(value: Int) {
         val normalized = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         if (lyricsOffsetMs.value == normalized) return
         lyricsOffsetMs.value = normalized
-        prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2503,7 +2527,142 @@ object AppSettings {
 
     fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {
         speedDialLayoutMode.value = value
-        prefs.edit().putString(KEY_SPEED_DIAL_LAYOUT_MODE, value.name).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_LAYOUT_MODE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialSource(value: SpeedDialSource) {
+        speedDialSource.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_SOURCE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialTileStyle(value: SpeedDialTileStyle) {
+        speedDialTileStyle.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_TILE_STYLE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialShowLabels(value: Boolean) {
+        speedDialShowLabels.value = value
+        speedDialLabelOverrides.value = emptySet()
+        if (this::prefs.isInitialized) {
+            prefs.edit()
+                .putBoolean(KEY_SPEED_DIAL_SHOW_LABELS, value)
+                .putStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, emptySet())
+                .apply()
+        }
+    }
+
+    fun toggleSpeedDialTileLabel(item: ShelfItem) {
+        val id = item.speedDialStableId()
+        if (id.isBlank()) return
+        val current = speedDialLabelOverrides.value
+        val updated = if (id in current) current - id else current + id
+        speedDialLabelOverrides.value = updated
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, updated).apply()
+        }
+    }
+
+    fun isSpeedDialLabelShown(item: ShelfItem): Boolean =
+        speedDialShowLabels.value != (item.speedDialStableId() in speedDialLabelOverrides.value)
+
+    fun setSpeedDialShowPinBadge(value: Boolean) {
+        speedDialShowPinBadge.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_PIN_BADGE, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowMixes(value: Boolean) {
+        speedDialShowMixes.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_MIXES, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowArtists(value: Boolean) {
+        speedDialShowArtists.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_ARTISTS, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowChordWave(value: Boolean) {
+        speedDialShowChordWave.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_CHORD_WAVE, value).apply()
+        }
+    }
+
+    fun reorderPinnedSpeedDial(reordered: List<ShelfItem>) {
+        val current = pinnedSpeedDialItems.value
+        val dedupedReordered = reordered.distinctBy { it.speedDialStableId() }
+        val reorderedIds = dedupedReordered.mapTo(HashSet()) { it.speedDialStableId() }
+        val remainder = current.filterNot { it.speedDialStableId() in reorderedIds }
+        val updated = (dedupedReordered + remainder).distinctBy { it.speedDialStableId() }
+        if (updated == current) return
+        pinnedSpeedDialItems.value = updated
+        if (this::prefs.isInitialized) {
+            savePinnedSpeedDial(updated)
+        }
+    }
+
+    fun hideFromSpeedDial(item: ShelfItem) {
+        val id = item.speedDialStableId()
+        if (id.isBlank()) return
+        val currentPins = pinnedSpeedDialItems.value
+        val updatedPins = currentPins.filterNot { it.speedDialStableId() == id }
+        if (updatedPins != currentPins) {
+            pinnedSpeedDialItems.value = updatedPins
+            if (this::prefs.isInitialized) {
+                savePinnedSpeedDial(updatedPins)
+            }
+        }
+        val updatedHidden = hiddenSpeedDialIds.value + id
+        hiddenSpeedDialIds.value = updatedHidden
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, updatedHidden).apply()
+        }
+    }
+
+    fun resetHiddenSpeedDial() {
+        hiddenSpeedDialIds.value = emptySet()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, emptySet()).apply()
+        }
+    }
+
+    fun refreshPinnedSpeedDialArt(freshItems: List<ShelfItem>) {
+        if (freshItems.isEmpty() || pinnedSpeedDialItems.value.isEmpty()) return
+        val freshArtById = HashMap<String, String>()
+        for (item in freshItems) {
+            val url = item.thumbnailUrl?.takeIf { it.isNotBlank() } ?: continue
+            val id = item.speedDialStableId()
+            if (id.isNotBlank()) freshArtById.putIfAbsent(id, url)
+        }
+        if (freshArtById.isEmpty()) return
+        val current = pinnedSpeedDialItems.value
+        var changed = false
+        val updated = current.map { pin ->
+            val freshUrl = freshArtById[pin.speedDialStableId()]
+            if (freshUrl != null && freshUrl != pin.thumbnailUrl) {
+                changed = true
+                pin.copy(thumbnailUrl = freshUrl)
+            } else {
+                pin
+            }
+        }
+        if (changed) {
+            pinnedSpeedDialItems.value = updated
+            if (this::prefs.isInitialized) {
+                savePinnedSpeedDial(updated)
+            }
+        }
     }
 
     fun setDetailSongSort(browseId: String, value: SongSort) {
@@ -2697,6 +2856,16 @@ object AppSettings {
             current + item
         }
         pinnedSpeedDialItems.value = updated
+        if (matchIndex < 0) {
+            val id = item.speedDialStableId()
+            if (id.isNotBlank() && id in hiddenSpeedDialIds.value) {
+                val unhidden = hiddenSpeedDialIds.value - id
+                hiddenSpeedDialIds.value = unhidden
+                if (this::prefs.isInitialized) {
+                    prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, unhidden).apply()
+                }
+            }
+        }
         if (this::prefs.isInitialized) {
             savePinnedSpeedDial(updated)
         }
@@ -3008,6 +3177,15 @@ object AppSettings {
     private const val KEY_LIBRARY_SORT = "library_sort"
     private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
     private const val KEY_SPEED_DIAL_LAYOUT_MODE = "speed_dial_layout_mode"
+    private const val KEY_SPEED_DIAL_SOURCE = "speed_dial_source"
+    private const val KEY_SPEED_DIAL_TILE_STYLE = "speed_dial_tile_style"
+    private const val KEY_SPEED_DIAL_SHOW_LABELS = "speed_dial_show_labels"
+    private const val KEY_SPEED_DIAL_LABEL_OVERRIDES = "speed_dial_label_overrides"
+    private const val KEY_SPEED_DIAL_SHOW_PIN_BADGE = "speed_dial_show_pin_badge"
+    private const val KEY_SPEED_DIAL_SHOW_MIXES = "speed_dial_show_mixes"
+    private const val KEY_SPEED_DIAL_SHOW_ARTISTS = "speed_dial_show_artists"
+    private const val KEY_SPEED_DIAL_SHOW_CHORD_WAVE = "speed_dial_show_chord_wave"
+    private const val KEY_HIDDEN_SPEED_DIAL_IDS = "hidden_speed_dial_ids"
     private const val KEY_HOME_SHELF_ORDER = "home_shelf_title_order"
     private const val KEY_HIDDEN_HOME_SHELVES = "hidden_home_shelf_titles"
     private const val KEY_HOME_MELODY_VISIBLE = "home_melody_visible"

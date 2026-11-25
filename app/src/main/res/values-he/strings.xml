@@ -1820,4 +1820,25 @@
     <string name="cover_animation_3d">עמעום תלת־ממדי</string>
     <string name="cover_preview_manual">דילוג ידני</string>
     <string name="cover_preview_automatic">מעבר אוטומטי</string>
+    <string name="your_space_tab_space">מרחב</string>
+    <string name="your_space_tab_mixes">מיקסים</string>
+    <string name="your_space_tab_artists">אמנים</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">גילוי הרמוני</string>
+    <string name="customize_your_space">התאמה אישית של המרחב שלך</string>
+    <string name="speed_dial_layout">פריסה</string>
+    <string name="speed_dial_picks">מקור בחירות</string>
+    <string name="speed_dial_tile_border">סגנון אריח</string>
+    <string name="speed_dial_mixes_dial">לוח מיקסים</string>
+    <string name="speed_dial_artist_dial">לוח אמנים</string>
+    <string name="speed_dial_chord_wave">אריח Chord Wave</string>
+    <string name="speed_dial_show_names">הצג שמות אריחים</string>
+    <string name="speed_dial_show_pins">הצג סיכות הצמדה</string>
+    <string name="speed_dial_reset_hidden">שחזר אריחים מוסתרים</string>
+    <string name="hide_from_your_space">הסתר מהמרחב שלך</string>
+    <string name="show_tile_name">הצג שם אריח</string>
+    <string name="hide_tile_name">הסתר שם אריח</string>
+    <string name="your_space_mixes_empty">נגן מספר שירים כדי לבנות את המיקסים שלך</string>
+    <string name="your_space_artists_empty">הצמד או נגן אמנים כדי לראות אותם כאן</string>
+    <string name="your_space_drag_hint">החזק אריח מוצמד כדי לשנות סדר</string>
 </resources>

@@ -33,16 +33,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AspectRatio
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.luminance
+import com.music.bitchord.data.settings.SpeedDialLayoutMode
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.settings.SpeedDialTileStyle
+import com.music.bitchord.ui.components.SmoothCornerShape
+import com.music.bitchord.ui.components.YourSpaceCustomizeSheet
+import com.music.bitchord.ui.components.speedDialTileEdge
+import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -208,6 +221,19 @@ fun ShelvesSection(
     var showRightSwipePicker by remember { mutableStateOf(false) }
     var showLeftSwipePicker by remember { mutableStateOf(false) }
 
+    val showYourSpaceSection = matchesSearch(
+        searchQuery,
+        stringResource(R.string.your_space),
+        stringResource(R.string.customize_your_space),
+        "your space", "speed dial", "mixes", "chord wave", "tile", "grid",
+    )
+    var showYourSpaceSheet by remember { mutableStateOf(false) }
+
+    YourSpaceCustomizeSheet(
+        visible = showYourSpaceSheet,
+        onDismiss = { showYourSpaceSheet = false },
+    )
+
     val showSwipeGestures = matchesSearch(
             searchQuery,
             stringResource(R.string.swipe_gestures),
@@ -320,9 +346,47 @@ fun ShelvesSection(
             ShelvesMiniPreview(activeTitles = previewItems)
         }
 
-        if (searchQuery.isNotBlank() && !hasPreferencesToggles && !showSwipeGestures && filteredRows.isEmpty()) {
+        if (searchQuery.isNotBlank() && !showYourSpaceSection && !hasPreferencesToggles && !showSwipeGestures && filteredRows.isEmpty()) {
             SettingsSearchEmpty(query = searchQuery)
         } else {
+            if (showYourSpaceSection) {
+                val sdLayout by AppSettings.speedDialLayoutMode.collectAsStateWithLifecycle()
+                val sdTileStyle by AppSettings.speedDialTileStyle.collectAsStateWithLifecycle()
+                val sdSource by AppSettings.speedDialSource.collectAsStateWithLifecycle()
+                val sdMixes by AppSettings.speedDialShowMixes.collectAsStateWithLifecycle()
+                val sdArtists by AppSettings.speedDialShowArtists.collectAsStateWithLifecycle()
+                val sdChordWave by AppSettings.speedDialShowChordWave.collectAsStateWithLifecycle()
+                val sdLabels by AppSettings.speedDialShowLabels.collectAsStateWithLifecycle()
+                val sdPins by AppSettings.speedDialShowPinBadge.collectAsStateWithLifecycle()
+                val sdSummary = buildString {
+                    append(sdLayout.label)
+                    append(" • ")
+                    append(sdTileStyle.label)
+                    append(" • ")
+                    append(sdSource.label)
+                    if (sdMixes) append(" • Mixes")
+                    if (sdArtists) append(" • Artists")
+                    if (sdChordWave) append(" • Chord Wave")
+                    if (!sdLabels) append(" • Names hidden")
+                    if (!sdPins) append(" • Pins hidden")
+                }
+                SettingsGroup(header = stringResource(R.string.your_space)) {
+                    YourSpaceMiniPreviewStrip(
+                        tileStyle = sdTileStyle,
+                        showLabels = sdLabels,
+                        showPinBadge = sdPins,
+                        showChordWave = sdChordWave,
+                        onClick = { showYourSpaceSheet = true },
+                    )
+                    RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Tune,
+                        title = stringResource(R.string.customize_your_space),
+                        subtitle = sdSummary,
+                        onClick = { showYourSpaceSheet = true },
+                    )
+                }
+            }
             if (showSwipeGestures) {
                 SettingsGroup(header = stringResource(R.string.swipe_gestures)) {
                     SettingsRow(
@@ -590,6 +654,171 @@ fun ShelvesSection(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.reset_to_default))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YourSpaceMiniPreviewStrip(
+    tileStyle: SpeedDialTileStyle,
+    showLabels: Boolean,
+    showPinBadge: Boolean,
+    showChordWave: Boolean,
+    onClick: () -> Unit,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val accent = MaterialTheme.colorScheme.primary
+    val tileShape = SmoothCornerShape(12.dp)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // Tile 1: Sample Pinned Artwork Tile
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(74.dp)
+                .clip(tileShape)
+                .background(
+                    Brush.linearGradient(
+                        listOf(accent.copy(alpha = 0.55f), Color(0xFF28224A)),
+                    ),
+                )
+                .speedDialTileEdge(
+                    style = tileStyle,
+                    shape = tileShape,
+                    accent = accent,
+                    isDark = isDark,
+                    isCurrent = false,
+                ),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.MusicNote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.72f),
+                modifier = Modifier.align(Alignment.Center).size(22.dp),
+            )
+            if (showPinBadge) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(5.dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = BitChordIcons.Pin,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(9.dp),
+                    )
+                }
+            }
+            if (showLabels) {
+                Text(
+                    text = "Pinned",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                )
+            }
+        }
+
+        // Tile 2: Sample Mixes Tile
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(74.dp)
+                .clip(tileShape)
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF00B8D4).copy(alpha = 0.65f), Color(0xFF1E293B)),
+                    ),
+                )
+                .speedDialTileEdge(
+                    style = tileStyle,
+                    shape = tileShape,
+                    accent = accent,
+                    isDark = isDark,
+                    isCurrent = false,
+                ),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .size(18.dp)
+                    .clip(RoundedCornerShape(bottomEnd = 8.dp))
+                    .background(Color(0xFF102A33)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "M",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            if (showLabels) {
+                Text(
+                    text = "Mixes",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                )
+            }
+        }
+
+        // Tile 3: Chord Wave or Regular Tile
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(74.dp)
+                .clip(tileShape)
+                .background(
+                    if (showChordWave) {
+                        Brush.linearGradient(
+                            listOf(Color(0xFF7C4DFF).copy(alpha = 0.60f), Color(0xFF00E5FF).copy(alpha = 0.45f)),
+                        )
+                    } else {
+                        Brush.linearGradient(
+                            listOf(Color(0xFF3A3D4D), Color(0xFF1B1D26)),
+                        )
+                    },
+                )
+                .speedDialTileEdge(
+                    style = tileStyle,
+                    shape = tileShape,
+                    accent = accent,
+                    isDark = isDark,
+                    isCurrent = showChordWave,
+                ),
+        ) {
+            Icon(
+                imageVector = if (showChordWave) Icons.Rounded.GraphicEq else Icons.Rounded.MusicNote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.align(Alignment.Center).size(22.dp),
+            )
+            if (showLabels) {
+                Text(
+                    text = if (showChordWave) stringResource(R.string.chord_wave) else "Recent",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                )
             }
         }
     }

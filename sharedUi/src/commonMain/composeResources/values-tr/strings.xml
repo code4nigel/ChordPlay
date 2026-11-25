@@ -326,4 +326,25 @@
     <string name="sort_title_ascending">Alfabetik (A\'dan Z\'ye)</string>
     <string name="sort_title_descending">Alfabetik (Z\'den A\'ya)</string>
     <string name="studio_wait_for_waveforms">Düzenlemeden önce iki dalga biçiminin de yüklenmesini bekleyin.</string>
+    <string name="your_space_tab_space">Alan</string>
+    <string name="your_space_tab_mixes">Miksler</string>
+    <string name="your_space_tab_artists">Sanatçılar</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Harmonik keşif</string>
+    <string name="customize_your_space">Alanını Özelleştir</string>
+    <string name="speed_dial_layout">Düzen</string>
+    <string name="speed_dial_picks">Seçim kaynağı</string>
+    <string name="speed_dial_tile_border">Karo stili</string>
+    <string name="speed_dial_mixes_dial">Miks Kadranı</string>
+    <string name="speed_dial_artist_dial">Sanatçı Kadranı</string>
+    <string name="speed_dial_chord_wave">Chord Wave karosu</string>
+    <string name="speed_dial_show_names">Karo adlarını göster</string>
+    <string name="speed_dial_show_pins">Sabitleme rozetlerini göster</string>
+    <string name="speed_dial_reset_hidden">Gizli karoları geri yükle</string>
+    <string name="hide_from_your_space">Alanından Gizle</string>
+    <string name="show_tile_name">Karo adını göster</string>
+    <string name="hide_tile_name">Karo adını gizle</string>
+    <string name="your_space_mixes_empty">Mikslerini oluşturmak için birkaç parça çal</string>
+    <string name="your_space_artists_empty">Burada görmek için sanatçıları sabitle veya dinle</string>
+    <string name="your_space_drag_hint">Sıralamak için sabitlenmiş bir karoyu basılı tut</string>
 </resources>

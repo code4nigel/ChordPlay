@@ -19,6 +19,8 @@ import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewMode
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.SpeedDialLayoutMode
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.settings.SpeedDialTileStyle
 import com.music.bitchord.data.model.ShelfItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,9 +77,61 @@ interface AppUiHost {
 
     /** Layout mode for the Speed Dial section on Home. */
     val speedDialLayoutMode: StateFlow<SpeedDialLayoutMode>
-        get() = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
+        get() = MutableStateFlow(SpeedDialLayoutMode.THREE_BY_THREE)
 
     fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {}
+
+    val speedDialSource: StateFlow<SpeedDialSource>
+        get() = MutableStateFlow(SpeedDialSource.SMART_BLEND)
+
+    fun setSpeedDialSource(value: SpeedDialSource) {}
+
+    val speedDialTileStyle: StateFlow<SpeedDialTileStyle>
+        get() = MutableStateFlow(SpeedDialTileStyle.FROSTED_GLASS)
+
+    fun setSpeedDialTileStyle(value: SpeedDialTileStyle) {}
+
+    val speedDialShowLabels: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
+    fun setSpeedDialShowLabels(value: Boolean) {}
+
+    val speedDialLabelOverrides: StateFlow<Set<String>>
+        get() = MutableStateFlow(emptySet())
+
+    fun toggleSpeedDialTileLabel(item: ShelfItem) {}
+
+    val speedDialShowPinBadge: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
+    fun setSpeedDialShowPinBadge(value: Boolean) {}
+
+    val speedDialShowMixes: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
+    fun setSpeedDialShowMixes(value: Boolean) {}
+
+    val speedDialShowArtists: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
+    fun setSpeedDialShowArtists(value: Boolean) {}
+
+    val speedDialShowChordWave: StateFlow<Boolean>
+        get() = MutableStateFlow(true)
+
+    fun setSpeedDialShowChordWave(value: Boolean) {}
+
+    val hiddenSpeedDialIds: StateFlow<Set<String>>
+        get() = MutableStateFlow(emptySet())
+
+    fun hideFromSpeedDial(item: ShelfItem) {}
+
+    fun resetHiddenSpeedDial() {}
+
+    fun reorderPinnedSpeedDial(reordered: List<ShelfItem>) {}
+
+    val spotifyConnected: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
 
     /** Custom arrangement order for Home sections by feed shelf title or [HomeShelfSlot] token. */
     val homeShelfOrder: StateFlow<List<String>>

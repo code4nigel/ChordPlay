@@ -1794,4 +1794,25 @@
     <string name="cover_animation_3d">3D フェード</string>
     <string name="cover_preview_manual">手動スキップ</string>
     <string name="cover_preview_automatic">自動切り替え</string>
+    <string name="your_space_tab_space">スペース</string>
+    <string name="your_space_tab_mixes">ミックス</string>
+    <string name="your_space_tab_artists">アーティスト</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">ハーモニックディスカバリー</string>
+    <string name="customize_your_space">マイスペースをカスタマイズ</string>
+    <string name="speed_dial_layout">レイアウト</string>
+    <string name="speed_dial_picks">ピックのソース</string>
+    <string name="speed_dial_tile_border">タイルスタイル</string>
+    <string name="speed_dial_mixes_dial">ミックスダイヤル</string>
+    <string name="speed_dial_artist_dial">アーティストダイヤル</string>
+    <string name="speed_dial_chord_wave">Chord Wave タイル</string>
+    <string name="speed_dial_show_names">タイル名を表示</string>
+    <string name="speed_dial_show_pins">ピンバッジを表示</string>
+    <string name="speed_dial_reset_hidden">非表示のタイルを復元</string>
+    <string name="hide_from_your_space">マイスペースから非表示</string>
+    <string name="show_tile_name">タイル名を表示</string>
+    <string name="hide_tile_name">タイル名を非表示</string>
+    <string name="your_space_mixes_empty">数曲再生するとミックスが作成されます</string>
+    <string name="your_space_artists_empty">アーティストを固定または再生するとここに表示されます</string>
+    <string name="your_space_drag_hint">固定されたタイルを長押しして並べ替え</string>
 </resources>

@@ -123,6 +123,9 @@ import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.HomeShelfKey
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.settings.YourSpaceDialTab
+import com.music.bitchord.data.settings.speedDialStableId
 import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
@@ -196,8 +199,13 @@ fun HomeScreen(
     currentSong: Song? = null,
     isPlaying: Boolean = false,
     onLuckyDialClick: (() -> Unit)? = null,
+    onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)? = null,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
     precomputedSpeedDialBase: List<ShelfItem>? = null,
+    mixesDialItems: List<ShelfItem>? = null,
+    artistDialItems: List<ShelfItem> = emptyList(),
+    onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)? = null,
+    onOpenYourSpaceCustomize: (() -> Unit)? = null,
     melodyItem: ShelfItem? = null,
     onMelodyClick: (() -> Unit)? = null,
     onOpenReplay: (() -> Unit)? = null,
@@ -208,6 +216,10 @@ fun HomeScreen(
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
     val speedDialLayoutMode by AppUi.host.speedDialLayoutMode.collectAsStateWithLifecycle()
+    val speedDialSource by AppUi.host.speedDialSource.collectAsStateWithLifecycle()
+    val hiddenSpeedDialIds by AppUi.host.hiddenSpeedDialIds.collectAsStateWithLifecycle()
+    val speedDialShowMixes by AppUi.host.speedDialShowMixes.collectAsStateWithLifecycle()
+    val speedDialShowArtists by AppUi.host.speedDialShowArtists.collectAsStateWithLifecycle()
     val homeShelfOrder by AppUi.host.homeShelfOrder.collectAsStateWithLifecycle()
     val hiddenHomeShelves by AppUi.host.hiddenHomeShelves.collectAsStateWithLifecycle()
     val homeMelodyVisible by AppUi.host.homeMelodyVisible.collectAsStateWithLifecycle()
@@ -215,15 +227,42 @@ fun HomeScreen(
     val hideHomeVideos by AppUi.host.hideHomeVideos.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
+    var activeDialTab by remember { mutableStateOf(YourSpaceDialTab.SPACE) }
+
+    val availableDialTabs = remember(speedDialShowMixes, speedDialShowArtists) {
+        buildList {
+            add(YourSpaceDialTab.SPACE)
+            if (speedDialShowMixes) add(YourSpaceDialTab.MIXES)
+            if (speedDialShowArtists) add(YourSpaceDialTab.ARTISTS)
+        }
+    }
+    LaunchedEffect(availableDialTabs) {
+        if (activeDialTab !in availableDialTabs) {
+            activeDialTab = YourSpaceDialTab.SPACE
+        }
+    }
 
     val pinnedSpeedDial by AppUi.host.pinnedSpeedDial.collectAsStateWithLifecycle()
     val pinnedIds = remember(pinnedSpeedDial) {
-        (pinnedSpeedDial.mapNotNull { it.videoId } + pinnedSpeedDial.mapNotNull { it.browseId }).toSet()
+        (pinnedSpeedDial.mapNotNull { it.videoId } +
+            pinnedSpeedDial.mapNotNull { it.browseId } +
+            pinnedSpeedDial.map { it.speedDialStableId() }).toSet()
     }
 
-    val baseSpeedDialItems = precomputedSpeedDialBase ?: remember(state, designStyle, pinnedSpeedDial) {
+    val baseSpeedDialItems = precomputedSpeedDialBase ?: remember(
+        state,
+        designStyle,
+        pinnedSpeedDial,
+        speedDialSource,
+        hiddenSpeedDialIds,
+    ) {
         if (designStyle == AppDesignStyle.CHORDPLAY && state is UiState.Success) {
-            computeSpeedDialBaseItems(state.data, pinnedSpeedDial)
+            computeSpeedDialBaseItems(
+                shelves = state.data,
+                pinnedSpeedDial = pinnedSpeedDial,
+                source = speedDialSource,
+                hiddenIds = hiddenSpeedDialIds,
+            )
         } else {
             emptyList()
         }
@@ -237,7 +276,8 @@ fun HomeScreen(
         }
     }
 
-    val showSpeedDial = speedDialItems.isNotEmpty() && HomeShelfSlot.SPEED_DIAL !in hiddenHomeShelves
+    val showSpeedDial = (speedDialItems.isNotEmpty() || (designStyle == AppDesignStyle.CHORDPLAY && (speedDialShowMixes || speedDialShowArtists))) &&
+        HomeShelfSlot.SPEED_DIAL !in hiddenHomeShelves
     val showMelodyCard = melodyItem != null && onMelodyClick != null &&
         homeMelodyVisible && HomeShelfSlot.MELODY !in hiddenHomeShelves
     val showReplayCard = onOpenReplay != null &&
@@ -361,6 +401,13 @@ fun HomeScreen(
                     itemsHomeEntries(
                         entries = orderedEntries,
                         speedDialItems = speedDialItems,
+                        mixesDialItems = mixesDialItems,
+                        artistDialItems = artistDialItems,
+                        availableDialTabs = availableDialTabs,
+                        activeDialTab = activeDialTab,
+                        onDialTabChange = { activeDialTab = it },
+                        onReorderPinnedSpeedDial = onReorderPinnedSpeedDial,
+                        onOpenYourSpaceCustomize = onOpenYourSpaceCustomize,
                         pinnedIds = pinnedIds,
                         speedDialLayoutMode = speedDialLayoutMode,
                         melodyItem = melodyItem,
@@ -370,6 +417,7 @@ fun HomeScreen(
                         onItemLongPress = onItemLongPress,
                         onPlayMixClick = onPlayMixClick,
                         onLuckyDialClick = onLuckyDialClick,
+                        onLuckyDialRoll = onLuckyDialRoll,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         recentsViewType = recentsViewType,
@@ -415,6 +463,13 @@ fun HomeScreen(
 private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     entries: List<HomeFeedEntry>,
     speedDialItems: List<ShelfItem>,
+    mixesDialItems: List<ShelfItem>?,
+    artistDialItems: List<ShelfItem>,
+    availableDialTabs: List<YourSpaceDialTab>,
+    activeDialTab: YourSpaceDialTab,
+    onDialTabChange: (YourSpaceDialTab) -> Unit,
+    onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)?,
+    onOpenYourSpaceCustomize: (() -> Unit)?,
     pinnedIds: Set<String>,
     speedDialLayoutMode: com.music.bitchord.data.settings.SpeedDialLayoutMode,
     melodyItem: ShelfItem?,
@@ -424,6 +479,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialClick: (() -> Unit)?,
+    onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)?,
     currentSong: Song?,
     isPlaying: Boolean,
     recentsViewType: LibraryViewType,
@@ -444,6 +500,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         onToggleLayoutMode = {
                             AppUi.host.setSpeedDialLayoutMode(speedDialLayoutMode.next())
                         },
+                        tabs = availableDialTabs,
+                        activeTab = activeDialTab,
+                        onTabSelect = onDialTabChange,
+                        onOpenCustomize = onOpenYourSpaceCustomize,
                     )
                 }
                 item(key = "home_speed_dial", contentType = "speed-dial") {
@@ -453,7 +513,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         layoutMode = speedDialLayoutMode,
-                        onItemClick = { item -> onItemClick(item, "Your Space") },
+                        onItemClick = { item ->
+                            val sourceLabel = when (activeDialTab) {
+                                YourSpaceDialTab.SPACE -> "Your Space"
+                                YourSpaceDialTab.MIXES -> "Mixes Dial"
+                                YourSpaceDialTab.ARTISTS -> "Artist Dial"
+                            }
+                            onItemClick(item, sourceLabel)
+                        },
                         onPlayMixClick = onPlayMixClick,
                         onLuckyDialClick = {
                             if (onLuckyDialClick != null) {
@@ -462,11 +529,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                                 val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
                                     ?: speedDialItems.shuffled().firstOrNull())
                                 if (candidate != null) {
-                                    onItemClick(candidate, "Roll a Dice")
+                                    onItemClick(candidate, "Chord Wave")
                                 }
                             }
                         },
+                        onLuckyDialRoll = onLuckyDialRoll,
                         onItemLongPress = onItemLongPress,
+                        mixesItems = mixesDialItems,
+                        artistItems = artistDialItems,
+                        activeTab = activeDialTab,
+                        onTabChange = onDialTabChange,
+                        onReorderPinned = onReorderPinnedSpeedDial,
                         modifier = Modifier.padding(bottom = 6.dp),
                     )
                 }
@@ -1978,8 +2051,14 @@ fun clearShelfKeyCache() {
 fun computeSpeedDialBaseItems(
     shelves: List<HomeShelf>,
     pinnedSpeedDial: List<ShelfItem>,
+    source: SpeedDialSource = SpeedDialSource.SMART_BLEND,
+    historySongs: List<Song> = emptyList(),
+    spotifyMixes: List<ShelfItem> = emptyList(),
+    hiddenIds: Set<String> = emptySet(),
 ): List<ShelfItem> {
-    if (shelves.isEmpty() && pinnedSpeedDial.isEmpty()) return emptyList()
+    if (shelves.isEmpty() && pinnedSpeedDial.isEmpty() && historySongs.isEmpty() && spotifyMixes.isEmpty()) {
+        return emptyList()
+    }
     val shelfMixes = shelves.flatMap { shelf ->
         shelf.items.filter { item ->
             val bId = item.browseId.orEmpty()
@@ -2010,8 +2089,19 @@ fun computeSpeedDialBaseItems(
     val rankedTracks = (favTracks + recentTracks).distinctBy { it.videoId ?: it.title }
     val collections = shelves.flatMap { it.items }.filter { it.browseId != null && !it.browseId!!.startsWith("RD") && !it.browseId!!.startsWith("VLRD") }.distinctBy { it.browseId }
 
-    return buildList {
-        addAll(pinnedSpeedDial)
+    val historyTiles = historySongs.map { song ->
+        ShelfItem(
+            title = song.title,
+            subtitle = song.artist,
+            thumbnailUrl = song.thumbnailUrl,
+            videoId = song.videoId,
+            browseId = null,
+            isVideo = song.isVideo || song.isLive,
+            isLive = song.isLive,
+        )
+    }
+
+    val smartBlend = buildList {
         var mIdx = 0; var tIdx = 0; var cIdx = 0
         while (size < 26 && (mIdx < allMixes.size || tIdx < rankedTracks.size || cIdx < collections.size)) {
             if (mIdx < allMixes.size) add(allMixes[mIdx++])
@@ -2019,7 +2109,30 @@ fun computeSpeedDialBaseItems(
             if (cIdx < collections.size) add(collections[cIdx++])
             if (tIdx < rankedTracks.size) add(rankedTracks[tIdx++])
         }
-    }.distinctBy { it.videoId ?: it.browseId ?: it.title }
+    }
+
+    val ytOrdered = buildList {
+        val listenAgain = shelves.filter { it.title.contains("listen again", true) || it.title.contains("quick", true) || it.title.equals(RECENTS_TITLE, true) }
+            .flatMap { it.items }
+        addAll(listenAgain)
+        addAll(allMixes)
+        addAll(collections)
+        addAll(rankedTracks)
+    }
+
+    val pool = when (source) {
+        SpeedDialSource.SMART_BLEND -> smartBlend
+        SpeedDialSource.YOUTUBE_MUSIC -> ytOrdered
+        SpeedDialSource.HISTORY -> historyTiles + rankedTracks
+        SpeedDialSource.SPOTIFY -> spotifyMixes + smartBlend
+    }
+
+    val visiblePins = pinnedSpeedDial.filterNot { it.speedDialStableId() in hiddenIds }
+    val visiblePool = pool.filterNot { it.speedDialStableId() in hiddenIds }
+
+    return (visiblePins + visiblePool)
+        .distinctBy { it.speedDialStableId().ifBlank { it.videoId ?: it.browseId ?: it.title } }
+        .take(36)
 }
 
 private fun filterSpeedDialItems(

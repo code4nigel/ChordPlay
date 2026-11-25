@@ -1860,4 +1860,25 @@
     <string name="cover_animation_3d">3D फ़ेड</string>
     <string name="cover_preview_manual">मैन्युअल स्किप</string>
     <string name="cover_preview_automatic">अपने आप अगला गाना</string>
+    <string name="your_space_tab_space">स्पेस</string>
+    <string name="your_space_tab_mixes">मिक्स</string>
+    <string name="your_space_tab_artists">कलाकार</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">हारमोनिक डिस्कवरी</string>
+    <string name="customize_your_space">अपना स्पेस कस्टमाइज़ करें</string>
+    <string name="speed_dial_layout">लेआउट</string>
+    <string name="speed_dial_picks">पिक्स स्रोत</string>
+    <string name="speed_dial_tile_border">टाइल स्टाइल</string>
+    <string name="speed_dial_mixes_dial">मिक्स डायल</string>
+    <string name="speed_dial_artist_dial">कलाकार डायल</string>
+    <string name="speed_dial_chord_wave">Chord Wave टाइल</string>
+    <string name="speed_dial_show_names">टाइल के नाम दिखाएं</string>
+    <string name="speed_dial_show_pins">पिन बैज दिखाएं</string>
+    <string name="speed_dial_reset_hidden">छिपी टाइलें वापस लाएं</string>
+    <string name="hide_from_your_space">अपने स्पेस से छिपाएं</string>
+    <string name="show_tile_name">टाइल नाम दिखाएं</string>
+    <string name="hide_tile_name">टाइल नाम छिपाएं</string>
+    <string name="your_space_mixes_empty">अपने मिक्स बनाने के लिए कुछ गाने चलाएं</string>
+    <string name="your_space_artists_empty">यहां देखने के लिए कलाकारों को पिन करें या सुनें</string>
+    <string name="your_space_drag_hint">क्रम बदलने के लिए पिन की गई टाइल को दबाए रखें</string>
 </resources>

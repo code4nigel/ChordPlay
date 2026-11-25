@@ -326,4 +326,25 @@
     <string name="sort_title_ascending">Alfabet (A ke Z)</string>
     <string name="sort_title_descending">Alfabet (Z ke A)</string>
     <string name="studio_wait_for_waveforms">Tunggu kedua bentuk gelombang dimuat sebelum mengedit.</string>
+    <string name="your_space_tab_space">Ruang</string>
+    <string name="your_space_tab_mixes">Mix</string>
+    <string name="your_space_tab_artists">Artis</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Penemuan harmonik</string>
+    <string name="customize_your_space">Sesuaikan Ruang Anda</string>
+    <string name="speed_dial_layout">Tata letak</string>
+    <string name="speed_dial_picks">Sumber pilihan</string>
+    <string name="speed_dial_tile_border">Gaya ubin</string>
+    <string name="speed_dial_mixes_dial">Dial Mix</string>
+    <string name="speed_dial_artist_dial">Dial Artis</string>
+    <string name="speed_dial_chord_wave">Ubin Chord Wave</string>
+    <string name="speed_dial_show_names">Tampilkan nama ubin</string>
+    <string name="speed_dial_show_pins">Tampilkan lencana pin</string>
+    <string name="speed_dial_reset_hidden">Pulihkan ubin tersembunyi</string>
+    <string name="hide_from_your_space">Sembunyikan dari Ruang Anda</string>
+    <string name="show_tile_name">Tampilkan nama ubin</string>
+    <string name="hide_tile_name">Sembunyikan nama ubin</string>
+    <string name="your_space_mixes_empty">Putar beberapa lagu untuk membuat mix Anda</string>
+    <string name="your_space_artists_empty">Sematkan atau putar artis untuk melihatnya di sini</string>
+    <string name="your_space_drag_hint">Tahan ubin yang disematkan untuk mengurutkan</string>
 </resources>

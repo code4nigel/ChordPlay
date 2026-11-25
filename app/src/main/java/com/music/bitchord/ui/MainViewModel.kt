@@ -45,6 +45,8 @@ import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.HomeShelfKey
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.mixes.MixesDialEngine
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
@@ -186,20 +188,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
-
-    val speedDialBaseItems: StateFlow<List<ShelfItem>> = combine(
-        _homeRaw,
-        AppSettings.appDesignStyle,
-        AppSettings.pinnedSpeedDialItems,
-    ) { shelves, style, pinned ->
-        if (style == com.music.bitchord.data.settings.AppDesignStyle.CHORDPLAY && shelves.isNotEmpty()) {
-            com.music.bitchord.ui.screens.computeSpeedDialBaseItems(shelves, pinned)
-        } else {
-            emptyList()
-        }
-    }
-        .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
      * Token for the next page of Home shelves; null once there's nothing
@@ -676,6 +664,68 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
+
+    private data class SpeedDialInputs(
+        val source: SpeedDialSource,
+        val hiddenIds: Set<String>,
+        val historySongs: List<Song>,
+        val spotifyMixes: List<ShelfItem>,
+    )
+
+    private val _spotifyMixesCache = MutableStateFlow<List<ShelfItem>>(emptyList())
+    private val _mixesDialItems = MutableStateFlow<List<ShelfItem>?>(null)
+    val mixesDialItems: StateFlow<List<ShelfItem>?> = _mixesDialItems.asStateFlow()
+
+    val speedDialBaseItems: StateFlow<List<ShelfItem>> = combine(
+        combine(_homeRaw, AppSettings.appDesignStyle, AppSettings.pinnedSpeedDialItems) { shelves, style, pinned ->
+            Triple(shelves, style, pinned)
+        },
+        combine(
+            AppSettings.speedDialSource,
+            AppSettings.hiddenSpeedDialIds,
+            _history,
+            _spotifyMixesCache,
+        ) { source, hidden, historyState, spotifyMixes ->
+            SpeedDialInputs(
+                source = source,
+                hiddenIds = hidden,
+                historySongs = (historyState as? UiState.Success)?.data.orEmpty(),
+                spotifyMixes = spotifyMixes,
+            )
+        },
+    ) { (shelves, style, pinned), inputs ->
+        val effectiveSource = inputs.source.effective(AppSettings.spotifySpdcToken.value.isNotBlank())
+        if (style == com.music.bitchord.data.settings.AppDesignStyle.CHORDPLAY &&
+            (shelves.isNotEmpty() || pinned.isNotEmpty() || inputs.historySongs.isNotEmpty() || inputs.spotifyMixes.isNotEmpty())
+        ) {
+            com.music.bitchord.ui.screens.computeSpeedDialBaseItems(
+                shelves = shelves,
+                pinnedSpeedDial = pinned,
+                source = effectiveSource,
+                historySongs = inputs.historySongs,
+                spotifyMixes = inputs.spotifyMixes,
+                hiddenIds = inputs.hiddenIds,
+            )
+        } else {
+            emptyList()
+        }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val artistDialItems: StateFlow<List<ShelfItem>> = combine(
+        _homeRaw,
+        AppSettings.pinnedSpeedDialItems,
+        AppSettings.hiddenSpeedDialIds,
+    ) { shelves, pinned, hidden ->
+        MixesDialEngine.extractArtistDialItems(
+            shelves = shelves,
+            pinnedSpeedDial = pinned,
+            hiddenIds = hidden,
+        )
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _library = MutableStateFlow<UiState<LibraryPage>>(UiState.Loading)
     val library: StateFlow<UiState<LibraryPage>> = _library.asStateFlow()
@@ -2496,6 +2546,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             }
                             publishHomeShelves(shelvesToPublish)
                             prefetchPrioritizedHomeShelves(identity, generation)
+                            refreshMixesDial()
                         }
                         .onFailure { failure ->
                             if (isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
@@ -2650,6 +2701,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 publishHome()
                 maybeMergeHomeLiveStations(shelves)
                 prefetchPrioritizedHomeShelves(identity, homeLoadGeneration.get())
+                refreshMixesDial()
             }
         }
         quickPicks.await().onSuccess { shelf ->
@@ -3326,9 +3378,56 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val luckyRadioToast = MutableSharedFlow<String>(extraBufferCapacity = 1)
     var playRadioHandler: ((Song, QueueSource) -> Unit)? = null
 
+    fun refreshMixesDial() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val rawShelves = _homeRaw.value
+            val homeMixes = rawShelves.flatMap { it.items }.filter(MixesDialEngine::isYouTubeMix)
+            val spotifyConnected = AppSettings.spotifySpdcToken.value.isNotBlank()
+
+            val (mixedForYou, spotifyMixes) = coroutineScope {
+                val ytJob = async {
+                    runCatching {
+                        YtMusicRepository.mixedForYou().getOrNull().orEmpty().filter(MixesDialEngine::isYouTubeMix)
+                    }.getOrDefault(emptyList())
+                }
+                val spJob = async {
+                    if (!spotifyConnected) {
+                        emptyList()
+                    } else {
+                        runCatching {
+                            withTimeoutOrNull(10_000L) {
+                                SpotifyLibrary.playlists()
+                                    .filter(MixesDialEngine::isSpotifyPersonalMix)
+                                    .map(MixesDialEngine::spotifyPlaylistToTile)
+                            }.orEmpty()
+                        }.getOrDefault(emptyList())
+                    }
+                }
+                ytJob.await() to spJob.await()
+            }
+
+            if (spotifyMixes.isNotEmpty()) {
+                _spotifyMixesCache.value = spotifyMixes
+            }
+            val ytPool = (homeMixes + mixedForYou).distinctBy { it.browseId ?: it.title }
+            val dealt = MixesDialEngine.pickMixes(
+                youTube = ytPool,
+                spotify = spotifyMixes,
+                hiddenIds = AppSettings.hiddenSpeedDialIds.value,
+                sleepTime = MixesDialEngine.isSleepTime(),
+            )
+            _mixesDialItems.value = dealt
+
+            val freshArtItems = rawShelves.flatMap { it.items } + ytPool + spotifyMixes
+            AppSettings.refreshPinnedSpeedDialArt(freshArtItems)
+        }
+    }
+
     fun playLuckyRadio(
         onPlayRadio: ((Song, QueueSource) -> Unit)? = null,
         onHaptic: (() -> Unit)? = null,
+        onSongPicked: ((Song) -> Unit)? = null,
+        onFailed: (() -> Unit)? = null,
     ) {
         onHaptic?.invoke()
         viewModelScope.launch {
@@ -3386,13 +3485,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 candidateSong = fallbackSongs?.shuffled()?.firstOrNull()
             }
 
+            if (candidateSong == null) {
+                onFailed?.invoke()
+            }
             candidateSong?.let { song ->
                 recentLuckySeedIds.addLast(song.videoId)
                 while (recentLuckySeedIds.size > 24) {
                     recentLuckySeedIds.removeFirst()
                 }
+                onSongPicked?.invoke(song)
 
-                val source = QueueSource("Lucky Radio", PlaybackSourceType.EXPLORE)
+                val source = QueueSource("Chord Wave", PlaybackSourceType.EXPLORE)
                 onPlayRadio?.invoke(song, source)
                     ?: playRadioHandler?.invoke(song, source)
                     ?: playRadioEvent.tryEmit(song to source)

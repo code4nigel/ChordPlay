@@ -326,4 +326,25 @@
     <string name="sort_title_ascending">Alfabética (A a Z)</string>
     <string name="sort_title_descending">Alfabética (Z a A)</string>
     <string name="studio_wait_for_waveforms">Aguarde o carregamento das duas formas de onda antes de editar.</string>
+    <string name="your_space_tab_space">Espaço</string>
+    <string name="your_space_tab_mixes">Mixes</string>
+    <string name="your_space_tab_artists">Artistas</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Descoberta harmônica</string>
+    <string name="customize_your_space">Personalizar Seu espaço</string>
+    <string name="speed_dial_layout">Layout</string>
+    <string name="speed_dial_picks">Fonte das escolhas</string>
+    <string name="speed_dial_tile_border">Estilo do bloco</string>
+    <string name="speed_dial_mixes_dial">Painel de Mixes</string>
+    <string name="speed_dial_artist_dial">Painel de Artistas</string>
+    <string name="speed_dial_chord_wave">Bloco Chord Wave</string>
+    <string name="speed_dial_show_names">Mostrar nomes dos blocos</string>
+    <string name="speed_dial_show_pins">Mostrar emblemas de pin</string>
+    <string name="speed_dial_reset_hidden">Restaurar blocos ocultos</string>
+    <string name="hide_from_your_space">Ocultar de Seu espaço</string>
+    <string name="show_tile_name">Mostrar nome do bloco</string>
+    <string name="hide_tile_name">Ocultar nome do bloco</string>
+    <string name="your_space_mixes_empty">Reproduza algumas faixas para criar seus mixes</string>
+    <string name="your_space_artists_empty">Fixe ou reproduza artistas para vê-los aqui</string>
+    <string name="your_space_drag_hint">Segure um bloco fixado para reordenar</string>
 </resources>

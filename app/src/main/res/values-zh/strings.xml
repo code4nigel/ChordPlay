@@ -1795,4 +1795,25 @@
     <string name="cover_animation_3d">3D 淡入淡出</string>
     <string name="cover_preview_manual">手动切歌</string>
     <string name="cover_preview_automatic">自动切歌</string>
+    <string name="your_space_tab_space">空间</string>
+    <string name="your_space_tab_mixes">合集</string>
+    <string name="your_space_tab_artists">艺人</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">和声探索</string>
+    <string name="customize_your_space">自定义专属空间</string>
+    <string name="speed_dial_layout">布局</string>
+    <string name="speed_dial_picks">推荐来源</string>
+    <string name="speed_dial_tile_border">磁贴样式</string>
+    <string name="speed_dial_mixes_dial">合集拨盘</string>
+    <string name="speed_dial_artist_dial">艺人拨盘</string>
+    <string name="speed_dial_chord_wave">Chord Wave 磁贴</string>
+    <string name="speed_dial_show_names">显示磁贴名称</string>
+    <string name="speed_dial_show_pins">显示置顶徽标</string>
+    <string name="speed_dial_reset_hidden">恢复隐藏磁贴</string>
+    <string name="hide_from_your_space">从专属空间隐藏</string>
+    <string name="show_tile_name">显示磁贴名称</string>
+    <string name="hide_tile_name">隐藏磁贴名称</string>
+    <string name="your_space_mixes_empty">播放几首歌曲即可生成你的合集</string>
+    <string name="your_space_artists_empty">置顶或播放艺人即可在此查看</string>
+    <string name="your_space_drag_hint">长按已置顶磁贴即可拖动排序</string>
 </resources>

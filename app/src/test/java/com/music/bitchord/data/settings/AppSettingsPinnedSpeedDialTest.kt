@@ -84,4 +84,45 @@ class AppSettingsPinnedSpeedDialTest {
         assertNull(decoded[0].thumbnailUrl)
         assertNull(decoded[0].videoId)
     }
+
+    @Test
+    fun reorderHideLabelOverrideAndArtRefreshWorkWithoutPrefs() {
+        val itemA = ShelfItem("Alpha Mix", "Mix", "https://example.com/a_old.jpg", null, "VLRDTMAK_A")
+        val itemB = ShelfItem("Beta Song", "Artist", "https://example.com/b.jpg", "vid_B", null)
+
+        AppSettings.resetHiddenSpeedDial()
+        AppSettings.setSpeedDialShowLabels(true)
+        AppSettings.reorderPinnedSpeedDial(emptyList())
+        // Clear any existing pins from earlier test
+        AppSettings.pinnedSpeedDialItems.value = listOf(itemA, itemB)
+
+        AppSettings.reorderPinnedSpeedDial(listOf(itemB, itemA))
+        assertEquals(listOf("vid_B", "VLRDTMAK_A"), AppSettings.pinnedSpeedDialItems.value.map { it.videoId ?: it.browseId })
+
+        AppSettings.refreshPinnedSpeedDialArt(
+            listOf(itemA.copy(browseId = "RDTMAK_A", thumbnailUrl = "https://example.com/a_new.jpg")),
+        )
+        assertEquals(
+            "https://example.com/a_new.jpg",
+            AppSettings.pinnedSpeedDialItems.value.first { it.title == "Alpha Mix" }.thumbnailUrl,
+        )
+
+        assertTrue(AppSettings.isSpeedDialLabelShown(itemA))
+        AppSettings.toggleSpeedDialTileLabel(itemA)
+        assertFalse(AppSettings.isSpeedDialLabelShown(itemA))
+        AppSettings.setSpeedDialShowLabels(true)
+        assertTrue(AppSettings.isSpeedDialLabelShown(itemA))
+
+        AppSettings.hideFromSpeedDial(itemB)
+        assertTrue("vid_B" in AppSettings.hiddenSpeedDialIds.value)
+        assertFalse(AppSettings.pinnedSpeedDialItems.value.any { it.videoId == "vid_B" })
+
+        val pinnedAgain = AppSettings.togglePinSpeedDial(itemB)
+        assertTrue(pinnedAgain)
+        assertFalse("vid_B" in AppSettings.hiddenSpeedDialIds.value)
+
+        // Clean up singleton state
+        AppSettings.pinnedSpeedDialItems.value = emptyList()
+        AppSettings.resetHiddenSpeedDial()
+    }
 }

@@ -53,8 +53,14 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -337,6 +343,9 @@ import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
 import com.music.bitchord.ui.components.ServerEditorHost
 import com.music.bitchord.ui.components.UpdateAvailableDialog
+import com.music.bitchord.ui.components.YourSpaceCustomizeSheet
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import com.music.bitchord.ui.components.DiwaliCelebrationDialog
 import com.music.bitchord.ui.utils.FestivalTheme
 import com.music.bitchord.ui.components.WebDavConflictAlert
@@ -541,7 +550,7 @@ class MainActivity : AppCompatActivity() {
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
                     LocalAppBackdropFrozen provides {
-                        GlassMotion.nav.frozen() || GlassMotion.scroll.frozen()
+                        GlassMotion.sheet.frozen() || GlassMotion.nav.frozen() || GlassMotion.scroll.frozen()
                     },
                 ) {
                 // The window's width, measured rather than asked for.
@@ -781,6 +790,7 @@ private fun BitChordApp(
     var editingPartyServer by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var showMelody by rememberSaveable { mutableStateOf(false) }
+    var showYourSpaceCustomize by rememberSaveable { mutableStateOf(false) }
     var showGenres by rememberSaveable { mutableStateOf(false) }
     var showAllLiveStations by rememberSaveable { mutableStateOf(false) }
     var showMelodySave by remember { mutableStateOf(false) }
@@ -1262,6 +1272,17 @@ private fun BitChordApp(
     var convertedVideoId by remember { mutableStateOf<String?>(null) }
     // Optimistically updated track for instant UI updates when switching versions
     var optimisticVersionSong by remember { mutableStateOf<Song?>(null) }
+    var lastLyricsOffsetSongId by remember { mutableStateOf(player.song?.videoId) }
+    LaunchedEffect(player.song?.videoId) {
+        val currentId = player.song?.videoId
+        if (currentId != lastLyricsOffsetSongId) {
+            if (lastLyricsOffsetSongId != null) {
+                AppSettings.setLyricsOffsetMs(0)
+            }
+            lastLyricsOffsetSongId = currentId
+        }
+    }
+
     // Track whether alternate (film/video vs release/audio) version exists for current track
     var hasAlternateVersion by remember { mutableStateOf(false) }
 
@@ -3965,6 +3986,8 @@ private fun BitChordApp(
                     } else when (key.removePrefix(TAB_KEY).toIntOrNull() ?: selectedTab) {
                         TAB_HOME -> IsolatedScope {
                             val speedDialBase by viewModel.speedDialBaseItems.collectAsStateWithLifecycle()
+                            val mixesDialItems by viewModel.mixesDialItems.collectAsStateWithLifecycle()
+                            val artistDialItems by viewModel.artistDialItems.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = homeState,
                                 listState = homeListState,
@@ -4106,7 +4129,27 @@ private fun BitChordApp(
                                 loadingMore = homeLoadingMore,
                                 recentlyPlayedLoading = homeRecentlyPlayedLoading,
                                 onLuckyDialClick = { viewModel.playLuckyRadio(onPlayRadio = playRadio) },
+                                onLuckyDialRoll = { onLanded ->
+                                    viewModel.playLuckyRadio(
+                                        onPlayRadio = playRadio,
+                                        onSongPicked = { picked ->
+                                            playerSheetScope.launch {
+                                                withTimeoutOrNull(10_000L) {
+                                                    snapshotFlow {
+                                                        player.song?.videoId == picked.videoId && player.isPlaying
+                                                    }.first { it }
+                                                }
+                                                onLanded()
+                                            }
+                                        },
+                                        onFailed = onLanded,
+                                    )
+                                },
                                 precomputedSpeedDialBase = speedDialBase,
+                                mixesDialItems = mixesDialItems,
+                                artistDialItems = artistDialItems,
+                                onReorderPinnedSpeedDial = AppSettings::reorderPinnedSpeedDial,
+                                onOpenYourSpaceCustomize = { showYourSpaceCustomize = true },
                                 melodyItem = melodyTile,
                                 onMelodyClick = { showMelody = true },
                                 onOpenReplay = {
@@ -5612,6 +5655,12 @@ private fun BitChordApp(
             }
         }
 
+        YourSpaceCustomizeSheet(
+            visible = showYourSpaceCustomize,
+            onDismiss = { showYourSpaceCustomize = false },
+            hazeState = hazeState,
+        )
+
         // ---- Share the Replay ----
         if (showReplayShare) {
             replay.summary?.takeUnless { it.isEmpty }?.let { summary ->
@@ -6286,7 +6335,7 @@ private data class CollectionPlaylistTarget(
     val songs: List<Song>,
 )
 
-/** Animated modal wrapper for Add-to-Playlist sheets with subtle slide and fade transitions. */
+/** Animated modal wrapper for playlist sheets with spring entrance, drag-to-dismiss, and smooth exit. */
 @Composable
 private fun <T : Any> AnimatedPlaylistOverlaySheet(
     item: T?,
@@ -6307,7 +6356,9 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
 
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val animationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceMotion by rememberUpdatedState(reduceAnimation)
+    val speed = animationSpeed.coerceIn(0.5f, 2.0f)
     val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
     val artworkPalette = thumbnailUrl(shown)?.takeIf { it.isNotBlank() }?.let {
         rememberArtworkPalette(imageUrl = it)
@@ -6324,34 +6375,149 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
     val playlistPalette = artworkPalette?.let {
         if (darkPlaylistSurface) it.copy(background = playlistColors.fill) else it
     }
+
+    val scope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
+    val dragY = remember { Animatable(0f) }
+    var sheetHeight by remember { mutableIntStateOf(0) }
+    var readyToSlide by remember { mutableStateOf(false) }
+    var isAnimating by remember { mutableStateOf(false) }
+
+    val density = LocalDensity.current
+    val fallbackSlidePx = with(density) { 360.dp.toPx() }
+    val bottomMarginPx = with(density) { 16.dp.toPx() }
+    val dismissDragThresholdPx = with(density) { 84.dp.toPx() }
+    val flingVelocityPx = with(density) { 750.dp.toPx() }
+
+    DisposableEffect(Unit) {
+        onDispose { GlassMotion.sheet.settled() }
+    }
+
     LaunchedEffect(open) {
         if (open) {
-            progress.animateTo(
-                targetValue = 1f,
-                animationSpec = if (reduceMotion) {
-                    tween(durationMillis = 100, easing = LinearEasing)
-                } else {
-                    tween(durationMillis = 200, easing = FastOutSlowInEasing)
-                },
-            )
+            dragY.snapTo(0f)
+            if (reduceMotion) {
+                readyToSlide = true
+                progress.snapTo(1f)
+                isAnimating = false
+            } else {
+                isAnimating = true
+                if (progress.value == 0f) {
+                    readyToSlide = false
+                    // Let composition, size measurement, and initial frost settle while invisible.
+                    withFrameNanos { }
+                    readyToSlide = true
+                }
+                GlassMotion.sheet.moved()
+                progress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.90f,
+                        stiffness = 440f * speed * speed,
+                        visibilityThreshold = 0.002f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                isAnimating = false
+            }
         } else {
-            progress.animateTo(
-                targetValue = 0f,
-                animationSpec = if (reduceMotion) {
-                    tween(durationMillis = 90, easing = LinearEasing)
-                } else {
-                    tween(durationMillis = 160, easing = FastOutSlowInEasing)
-                },
-            )
-            last = null
+            if (reduceMotion) {
+                progress.snapTo(0f)
+                dragY.snapTo(0f)
+                isAnimating = false
+                readyToSlide = false
+                last = null
+            } else {
+                isAnimating = true
+                readyToSlide = true
+                GlassMotion.sheet.moved()
+                progress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = 620f * speed * speed,
+                        visibilityThreshold = 0.004f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                dragY.snapTo(0f)
+                isAnimating = false
+                readyToSlide = false
+                last = null
+            }
+        }
+    }
+
+    val releaseDrag: (Float) -> Unit = { velocityY ->
+        val currentDrag = dragY.value
+        val threshold = if (sheetHeight > 0) {
+            minOf(sheetHeight * 0.25f, dismissDragThresholdPx)
+        } else {
+            dismissDragThresholdPx
+        }
+        if (currentDrag > threshold || (currentDrag > 12f && velocityY > flingVelocityPx)) {
+            onDismiss()
+        } else if (currentDrag > 0f) {
+            scope.launch {
+                isAnimating = true
+                GlassMotion.sheet.moved()
+                dragY.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = 520f * speed * speed,
+                        visibilityThreshold = 0.5f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                isAnimating = false
+            }
+        }
+    }
+
+    val sheetNestedScroll = remember(open) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!open || source != NestedScrollSource.UserInput) return Offset.Zero
+                val current = dragY.value
+                if (current > 0f && available.y < 0f) {
+                    val consumed = available.y.coerceAtLeast(-current)
+                    scope.launch { dragY.snapTo((current + consumed).coerceAtLeast(0f)) }
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (!open || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
+                GlassMotion.sheet.moved()
+                scope.launch { dragY.snapTo((dragY.value + available.y).coerceAtLeast(0f)) }
+                return Offset(0f, available.y)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (dragY.value > 0f) {
+                    releaseDrag(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (dragY.value > 0f) {
+                    releaseDrag(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
         }
     }
 
     BackHandler(enabled = open, onBack = onDismiss)
-    val p = progress.value.coerceIn(0f, 1f)
-    val density = LocalDensity.current
-    val slideDistancePx = if (reduceAnimation) 0f else with(density) { 40.dp.toPx() }
 
     CompositionLocalProvider(LocalAppBackdrop provides backdrop) {
         Box(
@@ -6363,7 +6529,15 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.42f * p))
+                    .drawBehind {
+                        val p = progress.value.coerceIn(0f, 1f)
+                        val h = sheetHeight.toFloat().coerceAtLeast(1f)
+                        val dragFade = (1f - dragY.value / h).coerceIn(0f, 1f)
+                        val scrimAlpha = 0.42f * p * dragFade
+                        if (scrimAlpha > 0f) {
+                            drawRect(Color.Black.copy(alpha = scrimAlpha))
+                        }
+                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -6371,7 +6545,7 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                         onClick = onDismiss,
                     ),
             )
-            if (p > 0f) Box(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -6379,9 +6553,34 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                     .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                     .padding(horizontal = 8.dp, vertical = 8.dp)
                     .heightIn(max = 620.dp)
+                    .onSizeChanged { sheetHeight = it.height }
                     .graphicsLayer {
-                        translationY = (1f - p) * slideDistancePx
+                        val p = progress.value.coerceIn(0f, 1f)
+                        if (!readyToSlide && !reduceMotion) {
+                            // Pre-warm at resting coordinates while completely transparent.
+                            translationY = 0f
+                            alpha = 0f
+                        } else {
+                            val slideDistance = if (reduceMotion) {
+                                0f
+                            } else if (sheetHeight > 0) {
+                                sheetHeight.toFloat() + bottomMarginPx
+                            } else {
+                                fallbackSlidePx
+                            }
+                            val dragOffset = dragY.value.coerceAtLeast(0f)
+                            val remainingTravel = (slideDistance - dragOffset).coerceAtLeast(0f)
+                            translationY = if (reduceMotion) 0f else dragOffset + (1f - p) * remainingTravel
+                            alpha = if (reduceMotion) p else (p * 1.8f).coerceIn(0f, 1f)
+                        }
+                        compositingStrategy = CompositingStrategy.Offscreen
                     }
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(30.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.30f),
+                        spotColor = Color.Black.copy(alpha = 0.30f),
+                    )
                     .iosMenuPanel(
                         colors = playlistColors,
                         translucent = true,
@@ -6396,14 +6595,29 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)
                             else -> null
                         },
-                        castsShadow = true,
+                        castsShadow = false,
+                        freezeGeometry = { readyToSlide && (isAnimating || dragY.value > 0f) },
                     )
                     .then(
                         if (darkPlaylistSurface && !reduceDynamicBlur && (backdropRecorded || hazeState != null)) {
                             Modifier.background(playlistColors.fill.copy(alpha = 0.55f))
                         } else Modifier,
                     )
-                    .pointerInput(Unit) {},
+                    .nestedScroll(sheetNestedScroll)
+                    .pointerInput(open) {
+                        if (open) {
+                            detectVerticalDragGestures(
+                                onDragEnd = { releaseDrag(0f) },
+                                onDragCancel = { releaseDrag(0f) },
+                            ) { _, dragAmount ->
+                                val next = (dragY.value + dragAmount).coerceAtLeast(0f)
+                                if (next > 0f || dragY.value > 0f) {
+                                    GlassMotion.sheet.moved()
+                                    scope.launch { dragY.snapTo(next) }
+                                }
+                            }
+                        }
+                    },
             ) {
                 if (darkPlaylistSurface) {
                     val scheme = MaterialTheme.colorScheme.copy(

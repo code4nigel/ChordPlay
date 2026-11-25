@@ -1832,4 +1832,25 @@
     <string name="cover_animation_3d">Fundido 3D</string>
     <string name="cover_preview_manual">Cambio manual</string>
     <string name="cover_preview_automatic">Avance automático</string>
+    <string name="your_space_tab_space">Espacio</string>
+    <string name="your_space_tab_mixes">Mezclas</string>
+    <string name="your_space_tab_artists">Artistas</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Descubrimiento armónico</string>
+    <string name="customize_your_space">Personalizar Tu espacio</string>
+    <string name="speed_dial_layout">Diseño</string>
+    <string name="speed_dial_picks">Fuente de sugerencias</string>
+    <string name="speed_dial_tile_border">Estilo de tarjeta</string>
+    <string name="speed_dial_mixes_dial">Dial de mezclas</string>
+    <string name="speed_dial_artist_dial">Dial de artistas</string>
+    <string name="speed_dial_chord_wave">Tarjeta Chord Wave</string>
+    <string name="speed_dial_show_names">Mostrar nombres</string>
+    <string name="speed_dial_show_pins">Mostrar insignias de pin</string>
+    <string name="speed_dial_reset_hidden">Restaurar tarjetas ocultas</string>
+    <string name="hide_from_your_space">Ocultar de Tu espacio</string>
+    <string name="show_tile_name">Mostrar nombre de tarjeta</string>
+    <string name="hide_tile_name">Ocultar nombre de tarjeta</string>
+    <string name="your_space_mixes_empty">Reproduce algunas canciones para crear tus mezclas</string>
+    <string name="your_space_artists_empty">Fija o reproduce artistas para verlos aquí</string>
+    <string name="your_space_drag_hint">Mantén pulsada una tarjeta fijada para reordenar</string>
 </resources>

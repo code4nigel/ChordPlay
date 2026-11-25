@@ -1799,4 +1799,25 @@
     <string name="cover_animation_3d">เฟด 3 มิติ</string>
     <string name="cover_preview_manual">ข้ามด้วยตนเอง</string>
     <string name="cover_preview_automatic">เล่นเพลงถัดไปอัตโนมัติ</string>
+    <string name="your_space_tab_space">พื้นที่</string>
+    <string name="your_space_tab_mixes">มิกซ์</string>
+    <string name="your_space_tab_artists">ศิลปิน</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">ค้นพบเพลงอย่างลื่นไหล</string>
+    <string name="customize_your_space">ปรับแต่งพื้นที่ของคุณ</string>
+    <string name="speed_dial_layout">เลย์เอาต์</string>
+    <string name="speed_dial_picks">แหล่งที่มาของรายการแนะนำ</string>
+    <string name="speed_dial_tile_border">สไตล์ไทล์</string>
+    <string name="speed_dial_mixes_dial">แผงมิกซ์</string>
+    <string name="speed_dial_artist_dial">แผงศิลปิน</string>
+    <string name="speed_dial_chord_wave">ไทล์ Chord Wave</string>
+    <string name="speed_dial_show_names">แสดงชื่อไทล์</string>
+    <string name="speed_dial_show_pins">แสดงสัญลักษณ์ปักหมุด</string>
+    <string name="speed_dial_reset_hidden">กู้คืนไทล์ที่ซ่อนอยู่</string>
+    <string name="hide_from_your_space">ซ่อนจากพื้นที่ของคุณ</string>
+    <string name="show_tile_name">แสดงชื่อไทล์</string>
+    <string name="hide_tile_name">ซ่อนชื่อไทล์</string>
+    <string name="your_space_mixes_empty">เล่นเพลงสักสองสามเพลงเพื่อสร้างมิกซ์ของคุณ</string>
+    <string name="your_space_artists_empty">ปักหมุดหรือเล่นเพลงของศิลปินเพื่อดูที่นี่</string>
+    <string name="your_space_drag_hint">แตะค้างที่ไทล์ที่ปักหมุดเพื่อจัดเรียงใหม่</string>
 </resources>

@@ -1,5 +1,8 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SwapVert
+import androidx.compose.material.icons.rounded.VisibilityOff
 import com.music.bitchord.data.settings.AppSettings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -212,7 +216,15 @@ fun BrowseActionsSheet(
         Column(
             modifier
                 .fillMaxWidth()
-                .then(if (menu) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                .then(
+                    if (menu) {
+                        Modifier.verticalScroll(rememberScrollState())
+                    } else {
+                        Modifier.animateContentSize(
+                            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 420f),
+                        )
+                    },
+                ),
         ) {
             if (!menu) {
                 if (target.type == BrowseType.PLAYLIST && onDismiss != null) {
@@ -257,6 +269,36 @@ fun BrowseActionsSheet(
                     )
                 },
             )
+            if (AppSettings.appDesignStyle.collectAsStateWithLifecycle().value == com.music.bitchord.data.settings.AppDesignStyle.CHORDPLAY) {
+                val browseShelfItem = remember(target.browseId, target.title, target.subtitle, target.thumbnailUrl) {
+                    com.music.bitchord.data.model.ShelfItem(
+                        title = target.title,
+                        subtitle = target.subtitle,
+                        thumbnailUrl = target.thumbnailUrl,
+                        videoId = null,
+                        browseId = target.browseId,
+                    )
+                }
+                val globalShowLabels by AppSettings.speedDialShowLabels.collectAsStateWithLifecycle()
+                val labelOverrides by AppSettings.speedDialLabelOverrides.collectAsStateWithLifecycle()
+                val tileId = target.browseId?.removePrefix("VL") ?: target.title.trim()
+                val isTileLabelShown = globalShowLabels != (tileId in labelOverrides)
+                if (isSpeedDialPinned) {
+                    ActionRow(
+                        icon = Icons.Rounded.Edit,
+                        label = if (isTileLabelShown) stringResource(R.string.hide_tile_name) else stringResource(R.string.show_tile_name),
+                        onClick = { AppSettings.toggleSpeedDialTileLabel(browseShelfItem) },
+                    )
+                }
+                ActionRow(
+                    icon = Icons.Rounded.VisibilityOff,
+                    label = stringResource(R.string.hide_from_your_space),
+                    onClick = {
+                        AppSettings.hideFromSpeedDial(browseShelfItem)
+                        onDismiss?.invoke()
+                    },
+                )
+            }
             onTogglePin?.let {
                 ActionRow(
                     BitChordIcons.Pin,

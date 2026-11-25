@@ -326,4 +326,25 @@
     <string name="sort_title_ascending">Alfabetico (A-Z)</string>
     <string name="sort_title_descending">Alfabetico (Z-A)</string>
     <string name="studio_wait_for_waveforms">Attendi il caricamento di entrambe le forme d’onda prima di modificare.</string>
+    <string name="your_space_tab_space">Spazio</string>
+    <string name="your_space_tab_mixes">Mix</string>
+    <string name="your_space_tab_artists">Artisti</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">Scoperta armonica</string>
+    <string name="customize_your_space">Personalizza Il tuo spazio</string>
+    <string name="speed_dial_layout">Layout</string>
+    <string name="speed_dial_picks">Origine suggerimenti</string>
+    <string name="speed_dial_tile_border">Stile riquadro</string>
+    <string name="speed_dial_mixes_dial">Quadrante Mix</string>
+    <string name="speed_dial_artist_dial">Quadrante Artisti</string>
+    <string name="speed_dial_chord_wave">Riquadro Chord Wave</string>
+    <string name="speed_dial_show_names">Mostra nomi riquadri</string>
+    <string name="speed_dial_show_pins">Mostra badge pin</string>
+    <string name="speed_dial_reset_hidden">Ripristina riquadri nascosti</string>
+    <string name="hide_from_your_space">Nascondi da Il tuo spazio</string>
+    <string name="show_tile_name">Mostra nome riquadro</string>
+    <string name="hide_tile_name">Nascondi nome riquadro</string>
+    <string name="your_space_mixes_empty">Riproduci alcuni brani per creare i tuoi mix</string>
+    <string name="your_space_artists_empty">Fissa o riproduci artisti per vederli qui</string>
+    <string name="your_space_drag_hint">Tieni premuto un riquadro fissato per riordinare</string>
 </resources>

@@ -1795,4 +1795,25 @@
     <string name="cover_animation_3d">3D 淡入淡出</string>
     <string name="cover_preview_manual">手動切歌</string>
     <string name="cover_preview_automatic">自動切歌</string>
+    <string name="your_space_tab_space">空間</string>
+    <string name="your_space_tab_mixes">精選合輯</string>
+    <string name="your_space_tab_artists">藝人</string>
+    <string name="chord_wave">Chord Wave</string>
+    <string name="chord_wave_subtitle">和聲探索</string>
+    <string name="customize_your_space">自訂專屬空間</string>
+    <string name="speed_dial_layout">版面配置</string>
+    <string name="speed_dial_picks">推薦來源</string>
+    <string name="speed_dial_tile_border">圖磚樣式</string>
+    <string name="speed_dial_mixes_dial">合輯撥盤</string>
+    <string name="speed_dial_artist_dial">藝人撥盤</string>
+    <string name="speed_dial_chord_wave">Chord Wave 圖磚</string>
+    <string name="speed_dial_show_names">顯示圖磚名稱</string>
+    <string name="speed_dial_show_pins">顯示釘選圖示</string>
+    <string name="speed_dial_reset_hidden">還原已隱藏圖磚</string>
+    <string name="hide_from_your_space">從專屬空間隱藏</string>
+    <string name="show_tile_name">顯示圖磚名稱</string>
+    <string name="hide_tile_name">隱藏圖磚名稱</string>
+    <string name="your_space_mixes_empty">播放幾首歌曲即可建立你的合輯</string>
+    <string name="your_space_artists_empty">釘選或播放藝人即可在此檢視</string>
+    <string name="your_space_drag_hint">長按已釘選圖磚即可拖曳排序</string>
 </resources>

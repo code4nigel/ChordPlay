@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Downloading
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -312,6 +314,38 @@ fun SongActionsMenu(
                     )
                 },
             )
+            if (AppSettings.appDesignStyle.collectAsStateWithLifecycle().value == com.music.bitchord.data.settings.AppDesignStyle.CHORDPLAY) {
+                val songShelfItem = remember(song) {
+                    ShelfItem(
+                        title = song.title,
+                        subtitle = song.artist,
+                        thumbnailUrl = song.thumbnailUrl,
+                        videoId = song.videoId,
+                        browseId = null,
+                        isVideo = song.isVideo || song.isLive,
+                        isLive = song.isLive,
+                        liveViewersText = song.liveViewersText,
+                    )
+                }
+                val globalShowLabels by AppSettings.speedDialShowLabels.collectAsStateWithLifecycle()
+                val labelOverrides by AppSettings.speedDialLabelOverrides.collectAsStateWithLifecycle()
+                val tileId = song.videoId ?: song.title.trim()
+                val isTileLabelShown = globalShowLabels != (tileId in labelOverrides)
+                if (isSpeedDialPinned) {
+                    ActionRow(
+                        icon = Icons.Rounded.Edit,
+                        label = if (isTileLabelShown) stringResource(R.string.hide_tile_name) else stringResource(R.string.show_tile_name),
+                        accent = palette.accent,
+                        onClick = { AppSettings.toggleSpeedDialTileLabel(songShelfItem) },
+                    )
+                }
+                ActionRow(
+                    icon = Icons.Rounded.VisibilityOff,
+                    label = stringResource(R.string.hide_from_your_space),
+                    accent = palette.accent,
+                    onClick = { AppSettings.hideFromSpeedDial(songShelfItem) },
+                )
+            }
         }
 
         // Group 3: Downloads & Offline cache
