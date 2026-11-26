@@ -1505,6 +1505,8 @@
     <string name="shelf_melody_desc">Endless personal mix entry card</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelf_replay_desc">Listening stats &amp; highlight story card</string>
+    <string name="find_your_mood">Find Your Mood</string>
+    <string name="shelf_find_your_mood_desc">Mood &amp; genre discovery tiles on Home</string>
     <string name="shelves_feed_row_subtitle">Loaded Home feed section</string>
     <string name="shelves_hidden_subtitle">Hidden from Home (toggle on to show again)</string>
     <string name="shelves_hide_shelf">Hide shelf</string>

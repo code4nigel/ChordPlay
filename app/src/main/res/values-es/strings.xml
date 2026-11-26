@@ -1615,6 +1615,8 @@
     <string name="shelf_melody_desc">Tarjeta de acceso a tu mezcla personal infinita</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Estadísticas de reproducción e historia destacada</string>
+    <string name="find_your_mood">Encuentra tu estado de ánimo</string>
+    <string name="shelf_find_your_mood_desc">Tarjetas de estado de ánimo y género en Inicio</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Abre Inicio una vez para que las secciones del feed carguen aquí junto a tus tarjetas fijadas.</string>
     <string name="shelves_feed_row_subtitle">Sección del feed de Inicio cargada</string>

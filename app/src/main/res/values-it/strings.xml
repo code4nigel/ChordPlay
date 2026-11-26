@@ -1538,6 +1538,8 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="shelf_melody_desc">Scheda di accesso al tuo mix personale infinito</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Statistiche d\'ascolto e scheda dei momenti salienti</string>
+    <string name="find_your_mood">Trova il tuo mood</string>
+    <string name="shelf_find_your_mood_desc">Riquadri mood e generi nella schermata Home</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Apri Home una volta per caricare qui le sezioni del feed insieme alle tue schede fissate.</string>
     <string name="shelves_feed_row_subtitle">Sezione caricata del feed Home</string>

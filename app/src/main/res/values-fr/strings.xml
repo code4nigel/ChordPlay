@@ -1600,6 +1600,8 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="shelf_melody_desc">Carte d\'accès au mix personnel infini</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Statistiques d\'écoute &amp; carte de rétrospective</string>
+    <string name="find_your_mood">Trouvez votre humeur</string>
+    <string name="shelf_find_your_mood_desc">Tuiles d\'humeur et de genre sur l\'accueil</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Ouvrez l\'onglet Accueil une fois pour charger les sections du flux ici aux côtés de vos cartes épinglées.</string>
     <string name="shelves_feed_row_subtitle">Section du flux Accueil chargée</string>

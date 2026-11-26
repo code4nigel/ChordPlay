@@ -1631,6 +1631,8 @@
     <string name="shelf_melody_desc">Карточка доступа к бесконечному персональному миксу</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Статистика прослушиваний и карточка итогов</string>
+    <string name="find_your_mood">Выберите настроение</string>
+    <string name="shelf_find_your_mood_desc">Плитки настроений и жанров на главном экране</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Откройте Главную один раз, чтобы разделы ленты загрузились сюда вместе с закрепленными карточками.</string>
     <string name="shelves_feed_row_subtitle">Загруженный раздел ленты Главной</string>

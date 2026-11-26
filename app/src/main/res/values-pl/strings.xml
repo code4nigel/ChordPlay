@@ -1682,6 +1682,8 @@
     <string name="shelf_melody_desc">Karta dostępu do nieskończonego miksu osobistego</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Statystyki słuchania i karta podsumowania</string>
+    <string name="find_your_mood">Znajdź swój nastrój</string>
+    <string name="shelf_find_your_mood_desc">Kafelki nastrojów i gatunków na stronie głównej</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Otwórz kartę Główna raz, aby załadować sekcje kanału obok przypiętych kart.</string>
     <string name="shelves_feed_row_subtitle">Załadowana sekcja kanału Głównej</string>

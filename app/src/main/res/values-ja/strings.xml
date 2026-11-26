@@ -1577,6 +1577,8 @@
     <string name="shelf_melody_desc">エンドレスなパーソナルミックスカード</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">再生統計 &amp; ハイライトストーリーカード</string>
+    <string name="find_your_mood">ムードを探す</string>
+    <string name="shelf_find_your_mood_desc">ホームのムード＆ジャンルタイル</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">一度ホームを開くと、固定カードの横にフィードセクションが読み込まれます。</string>
     <string name="shelves_feed_row_subtitle">読み込まれたホームフィードセクション</string>

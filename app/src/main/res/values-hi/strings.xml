@@ -1643,6 +1643,8 @@
     <string name="shelf_melody_desc">अंतहीन व्यक्तिगत मिक्स कार्ड</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">सुनने के आंकड़े और हाइलाइट स्टोरी कार्ड</string>
+    <string name="find_your_mood">अपना मूड चुनें</string>
+    <string name="shelf_find_your_mood_desc">होम पर मूड और शैली टाइल्स</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">होम को एक बार खोलें ताकि लाइव फीड सेक्शन पिन किए गए कार्ड के साथ यहां लोड हो सकें।</string>
     <string name="shelves_feed_row_subtitle">लोड किया गया होम फीड सेक्शन</string>

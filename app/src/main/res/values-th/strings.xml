@@ -1582,6 +1582,8 @@
     <string name="shelf_melody_desc">การ์ดเข้าถึงมิกซ์ส่วนตัวแบบไม่มีที่สิ้นสุด</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">การ์ดสถิติการฟังและเรื่องราวไฮไลต์</string>
+    <string name="find_your_mood">เลือกมู้ดของคุณ</string>
+    <string name="shelf_find_your_mood_desc">ไทล์อารมณ์และแนวเพลงบนหน้าแรก</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">เปิดหน้าแรกหนึ่งครั้งเพื่อให้ส่วนฟีดสดโหลดขึ้นมาที่นี่พร้อมกับการ์ดที่ปักหมุดไว้</string>
     <string name="shelves_feed_row_subtitle">ส่วนฟีดหน้าแรกที่โหลดแล้ว</string>

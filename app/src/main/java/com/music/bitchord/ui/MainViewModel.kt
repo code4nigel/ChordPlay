@@ -2632,6 +2632,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             includeSpeedDial = false,
             includeMelody = false,
             includeReplay = false,
+            includeFindYourMood = false,
         )
         _home.value = UiState.Success(
             com.music.bitchord.data.aimusic.AiMusicFilter.shelves(
@@ -2728,6 +2729,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val prioritizedTitles = AppSettings.homeShelfOrder.value.filter {
             it !in hidden &&
                 it != HomeShelfSlot.SPEED_DIAL &&
+                it != HomeShelfSlot.FIND_YOUR_MOOD &&
                 it != HomeShelfSlot.MELODY &&
                 it != HomeShelfSlot.REPLAY
         }

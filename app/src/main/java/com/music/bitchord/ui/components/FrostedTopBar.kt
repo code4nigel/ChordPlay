@@ -15,13 +15,18 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -58,9 +63,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -70,10 +78,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -91,6 +104,7 @@ import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
@@ -103,7 +117,9 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import org.jetbrains.compose.resources.painterResource
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * The bar's own height, above whatever inset it is sitting under.
@@ -350,6 +366,8 @@ fun FrostedTopBar(
                 HomeMorphingBrandLockup(
                     config = homeBrandLockup,
                     hazeState = backButtonHazeState,
+                    refreshing = refreshing,
+                    pullFraction = pullFraction,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(start = BAR_GUTTER, top = 4.dp),
@@ -416,7 +434,9 @@ fun FrostedTopBar(
             }
         }
         HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
-        RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
+        if (homeBrandLockup == null) {
+            RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
+        }
     }
 }
 
@@ -482,6 +502,8 @@ private val TOP_CONTROL_SIZE = 44.dp
 private fun HomeMorphingBrandLockup(
     config: HomeBrandLockupConfig,
     hazeState: HazeState?,
+    refreshing: Boolean = false,
+    pullFraction: () -> Float = { 0f },
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -490,6 +512,7 @@ private fun HomeMorphingBrandLockup(
     val pillAlpha = ((t - 0.35f) / 0.65f).coerceIn(0f, 1f)
 
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
     val collapsedContentColor = if (useLiquidGlass && !reduceDynamicBlur) {
         glassContentColor()
@@ -590,26 +613,14 @@ private fun HomeMorphingBrandLockup(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            if (glowAlpha > 0.02f) {
-                Canvas(
-                    modifier = Modifier
-                        .size(expandedIconSize + 14.dp)
-                        .graphicsLayer { alpha = glowAlpha },
-                ) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            0f to haloColor.copy(alpha = 0.44f),
-                            0.55f to primaryColor.copy(alpha = 0.16f),
-                            1f to Color.Transparent,
-                        ),
-                    )
-                }
-            }
-            Icon(
-                painter = painterResource(Res.drawable.ic_logo),
-                contentDescription = "ChordPlay",
-                tint = primaryColor,
-                modifier = Modifier.size(expandedIconSize),
+            ChordPlayPullRefreshIcon(
+                iconSize = expandedIconSize,
+                primaryColor = primaryColor,
+                haloColor = haloColor,
+                glowAlpha = glowAlpha,
+                refreshing = refreshing,
+                pullFraction = pullFraction,
+                reduceAnimation = reduceAnimation,
             )
         }
 
@@ -660,6 +671,223 @@ private fun HomeMorphingBrandLockup(
                     .padding(start = replayBadgeOffsetDp),
             ) {
                 ReplayYearButton(badge = badge, height = 22.dp)
+            }
+        }
+    }
+}
+
+private const val HOME_REFRESH_MIN_CYCLE_MS = 1150L
+
+/**
+ * Animated Home brand mark for pull-to-refresh:
+ * As the user pulls down, the ChordPlay emblem winds up with a progressive orbital arc;
+ * during refresh it morphs cleanly into a circling harmonic wave icon, then settles back
+ * into the ChordPlay emblem once complete.
+ */
+@Composable
+private fun ChordPlayPullRefreshIcon(
+    iconSize: Dp,
+    primaryColor: Color,
+    haloColor: Color,
+    glowAlpha: Float,
+    refreshing: Boolean,
+    pullFraction: () -> Float,
+    reduceAnimation: Boolean,
+) {
+    val currentPull by rememberUpdatedState(pullFraction)
+    var visualRefreshing by remember { mutableStateOf(refreshing) }
+    var refreshStartedAt by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(refreshing, reduceAnimation) {
+        if (refreshing) {
+            refreshStartedAt = System.currentTimeMillis()
+            visualRefreshing = true
+        } else if (visualRefreshing) {
+            if (!reduceAnimation) {
+                val remaining = HOME_REFRESH_MIN_CYCLE_MS - (System.currentTimeMillis() - refreshStartedAt)
+                if (remaining > 0L) delay(remaining)
+            }
+            visualRefreshing = false
+        }
+    }
+
+    val pullProgress by remember {
+        derivedStateOf { currentPull().coerceIn(0f, 1.35f) }
+    }
+    val pullClamped = pullProgress.coerceIn(0f, 1f)
+    val refreshMix by animateFloatAsState(
+        targetValue = if (visualRefreshing) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 260f),
+        label = "chordPlayPullRefreshMix",
+    )
+
+    val waveActive = (refreshMix > 0.02f || visualRefreshing) && !reduceAnimation
+    val orbitDeg = if (waveActive) {
+        val transition = rememberInfiniteTransition(label = "chordPlayRefreshOrbit")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "orbitDeg",
+        ).value
+    } else {
+        0f
+    }
+
+    val wavePhase = if (waveActive) {
+        val transition = rememberInfiniteTransition(label = "chordPlayRefreshWave")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1100, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "wavePhase",
+        ).value
+    } else {
+        0f
+    }
+
+    val logoAlpha = (1f - refreshMix * 1.25f).coerceIn(0f, 1f)
+    val logoScale = 1f - 0.32f * refreshMix - (if (!visualRefreshing) 0.14f * pullClamped else 0f)
+    val logoRotation = if (visualRefreshing) 140f * refreshMix else -24f * pullClamped
+    val waveAlpha = ((refreshMix - 0.10f) / 0.90f).coerceIn(0f, 1f)
+    val haloBoost = (glowAlpha + 0.30f * maxOf(pullClamped, refreshMix)).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier.size(iconSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (haloBoost > 0.02f) {
+            Canvas(
+                modifier = Modifier
+                    .size(iconSize + 14.dp)
+                    .graphicsLayer { alpha = haloBoost },
+            ) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to haloColor.copy(alpha = 0.44f),
+                        0.55f to primaryColor.copy(alpha = 0.16f),
+                        1f to Color.Transparent,
+                    ),
+                )
+            }
+        }
+
+        // Pull progress sweep ring (visible while pulling before refresh settles back)
+        if (!visualRefreshing && pullProgress > 0.02f && refreshMix < 0.05f) {
+            Canvas(modifier = Modifier.size(iconSize)) {
+                val stroke = 2.4.dp.toPx()
+                val pad = stroke * 0.9f
+                val arcSize = Size(size.width - pad * 2f, size.height - pad * 2f)
+                drawArc(
+                    color = primaryColor.copy(alpha = (0.30f + 0.60f * pullClamped).coerceIn(0f, 0.9f)),
+                    startAngle = -90f + pullProgress * 75f,
+                    sweepAngle = (pullClamped * 290f).coerceIn(0f, 300f),
+                    useCenter = false,
+                    topLeft = Offset(pad, pad),
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+        }
+
+        // Resting / pulling ChordPlay emblem
+        if (logoAlpha > 0.01f) {
+            Icon(
+                painter = painterResource(Res.drawable.ic_logo),
+                contentDescription = "ChordPlay",
+                tint = primaryColor,
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer {
+                        alpha = logoAlpha
+                        scaleX = logoScale
+                        scaleY = logoScale
+                        rotationZ = logoRotation
+                    },
+            )
+        }
+
+        // Active circling Wave emblem
+        if (waveAlpha > 0.01f) {
+            Canvas(
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer {
+                        alpha = waveAlpha
+                        val s = 0.72f + 0.28f * waveAlpha
+                        scaleX = s
+                        scaleY = s
+                    },
+            ) {
+                val w = size.width
+                val h = size.height
+                val cx = w * 0.5f
+                val cy = h * 0.5f
+                val stroke = 2.6.dp.toPx()
+                val arcPad = stroke * 0.85f
+                val arcSize = Size(w - arcPad * 2f, h - arcPad * 2f)
+
+                // Soft luminous center medallion
+                drawCircle(
+                    color = primaryColor.copy(alpha = 0.16f * waveAlpha),
+                    radius = w * 0.42f,
+                    center = Offset(cx, cy),
+                )
+
+                // Revolving circular orbital arc around the wave bars
+                rotate(degrees = orbitDeg, pivot = Offset(cx, cy)) {
+                    drawArc(
+                        brush = Brush.sweepGradient(
+                            0.0f to primaryColor.copy(alpha = 0.06f),
+                            0.45f to primaryColor.copy(alpha = 0.55f),
+                            0.72f to primaryColor,
+                            1.0f to primaryColor.copy(alpha = 0.06f),
+                            center = Offset(cx, cy),
+                        ),
+                        startAngle = -90f,
+                        sweepAngle = 260f,
+                        useCenter = false,
+                        topLeft = Offset(arcPad, arcPad),
+                        size = arcSize,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round),
+                    )
+                    // Orbiting wave crest pearl
+                    val r = (w - arcPad * 2f) * 0.5f
+                    drawCircle(
+                        color = primaryColor,
+                        radius = stroke * 0.72f,
+                        center = Offset(cx, cy - r),
+                    )
+                }
+
+                // Centered animated 5-bar sonic wave glyph
+                val barCount = 5
+                val barW = w * 0.072f
+                val gap = w * 0.048f
+                val totalBarsW = barCount * barW + (barCount - 1) * gap
+                val startX = cx - totalBarsW * 0.5f
+                val envelope = floatArrayOf(0.55f, 0.85f, 1.0f, 0.85f, 0.55f)
+                for (i in 0 until barCount) {
+                    val animFactor = if (reduceAnimation) {
+                        0.72f
+                    } else {
+                        0.50f + 0.50f * sin((wavePhase + i * 0.85f).toDouble()).toFloat()
+                    }
+                    val barH = (h * 0.42f * envelope[i] * animFactor).coerceAtLeast(barW)
+                    val x = startX + i * (barW + gap)
+                    drawRoundRect(
+                        color = primaryColor,
+                        topLeft = Offset(x, cy - barH * 0.5f),
+                        size = Size(barW, barH),
+                        cornerRadius = CornerRadius(barW * 0.5f, barW * 0.5f),
+                    )
+                }
             }
         }
     }

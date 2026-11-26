@@ -17,12 +17,14 @@ package com.music.bitchord.data.model
  */
 object HomeShelfSlot {
     const val SPEED_DIAL = "__chordplay:speed_dial__"
+    const val FIND_YOUR_MOOD = "__chordplay:find_your_mood__"
     const val MELODY = "__chordplay:melody__"
     const val REPLAY = "__chordplay:replay__"
 }
 
 fun String.isSyntheticHomeSlot(): Boolean =
     this == HomeShelfSlot.SPEED_DIAL ||
+        this == HomeShelfSlot.FIND_YOUR_MOOD ||
         this == HomeShelfSlot.MELODY ||
         this == HomeShelfSlot.REPLAY
 
@@ -30,6 +32,7 @@ fun String.isSyntheticHomeSlot(): Boolean =
 sealed interface HomeFeedEntry {
     data class Shelf(val shelf: HomeShelf) : HomeFeedEntry
     data object SpeedDial : HomeFeedEntry
+    data object FindYourMood : HomeFeedEntry
     data object Melody : HomeFeedEntry
     data object Replay : HomeFeedEntry
 }
@@ -45,14 +48,20 @@ fun orderHomeShelfIds(
     includeSpeedDial: Boolean = true,
     includeMelody: Boolean = true,
     includeReplay: Boolean = true,
+    includeFindYourMood: Boolean = true,
 ): List<String> {
     val cleanTitles = rawShelfTitles
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .distinct()
+    val moodInsertIndex = if (includeFindYourMood) minOf(2, cleanTitles.size) else -1
     val defaultIds = buildList {
         if (includeSpeedDial) add(HomeShelfSlot.SPEED_DIAL)
-        addAll(cleanTitles)
+        if (moodInsertIndex == 0) add(HomeShelfSlot.FIND_YOUR_MOOD)
+        cleanTitles.forEachIndexed { index, title ->
+            add(title)
+            if (moodInsertIndex == index + 1) add(HomeShelfSlot.FIND_YOUR_MOOD)
+        }
         if (includeMelody) add(HomeShelfSlot.MELODY)
         if (includeReplay) add(HomeShelfSlot.REPLAY)
     }
@@ -100,6 +109,7 @@ fun buildHomeFeedEntries(
     showSpeedDial: Boolean,
     showMelody: Boolean,
     showReplay: Boolean,
+    showFindYourMood: Boolean = false,
 ): List<HomeFeedEntry> {
     val visibleShelves = shelves.filterNot { it.title in hiddenIds }
     val shelfByTitle = LinkedHashMap<String, MutableList<HomeShelf>>(visibleShelves.size)
@@ -108,6 +118,7 @@ fun buildHomeFeedEntries(
     }
 
     val allowSpeedDial = showSpeedDial && HomeShelfSlot.SPEED_DIAL !in hiddenIds
+    val allowFindYourMood = showFindYourMood && HomeShelfSlot.FIND_YOUR_MOOD !in hiddenIds
     val allowMelody = showMelody && HomeShelfSlot.MELODY !in hiddenIds
     val allowReplay = showReplay && HomeShelfSlot.REPLAY !in hiddenIds
 
@@ -117,12 +128,14 @@ fun buildHomeFeedEntries(
         includeSpeedDial = allowSpeedDial,
         includeMelody = allowMelody,
         includeReplay = allowReplay,
+        includeFindYourMood = allowFindYourMood,
     )
 
     return buildList(orderedIds.size) {
         orderedIds.forEach { id ->
             when (id) {
                 HomeShelfSlot.SPEED_DIAL -> if (allowSpeedDial) add(HomeFeedEntry.SpeedDial)
+                HomeShelfSlot.FIND_YOUR_MOOD -> if (allowFindYourMood) add(HomeFeedEntry.FindYourMood)
                 HomeShelfSlot.MELODY -> if (allowMelody) add(HomeFeedEntry.Melody)
                 HomeShelfSlot.REPLAY -> if (allowReplay) add(HomeFeedEntry.Replay)
                 else -> shelfByTitle[id]?.forEach { add(HomeFeedEntry.Shelf(it)) }

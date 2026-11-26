@@ -1515,6 +1515,8 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="shelf_melody_desc">Thẻ truy cập bản mix cá nhân bất tận</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Thẻ số liệu nghe nhạc &amp; khoảnh khắc nổi bật</string>
+    <string name="find_your_mood">Tìm tâm trạng</string>
+    <string name="shelf_find_your_mood_desc">Các ô tâm trạng &amp; thể loại trên Trang chủ</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Mở Trang chủ một lần để các mục khám phá hiển thị tại đây bên cạnh các thẻ đã ghim.</string>
     <string name="shelves_feed_row_subtitle">Mục khám phá Trang chủ đã tải</string>

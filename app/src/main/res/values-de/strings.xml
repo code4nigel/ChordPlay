@@ -1599,6 +1599,8 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="shelf_melody_desc">Zugangskarte zum endlosen persönlichen Mix</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Hörstatistiken &amp; Highlights-Storykarte</string>
+    <string name="find_your_mood">Finde deine Stimmung</string>
+    <string name="shelf_find_your_mood_desc">Stimmungs- &amp; Genre-Kacheln auf der Startseite</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Öffne Start einmal, damit Feed-Abschnitte hier neben deinen angepinnten Karten geladen werden.</string>
     <string name="shelves_feed_row_subtitle">Geladener Start-Feed-Bereich</string>

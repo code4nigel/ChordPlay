@@ -1603,6 +1603,8 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="shelf_melody_desc">Cartão de acesso ao mix pessoal infinito</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Estatísticas de audição e cartão de retrospectiva</string>
+    <string name="find_your_mood">Encontre o seu clima</string>
+    <string name="shelf_find_your_mood_desc">Blocos de clima e gênero na tela inicial</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Abra a tela Início uma vez para que as seções do feed carreguem aqui junto com seus cartões fixados.</string>
     <string name="shelves_feed_row_subtitle">Seção do feed Início carregada</string>

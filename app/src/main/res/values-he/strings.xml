@@ -1603,6 +1603,8 @@
     <string name="shelf_melody_desc">כרטיס גישה למיקס אישי אינסופי</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">כרטיס סטטיסטיקות האזנה וסיפורי שיא</string>
+    <string name="find_your_mood">מצא את מצב הרוח שלך</string>
+    <string name="shelf_find_your_mood_desc">אריחי מצב רוח וז׳אנר בדף הבית</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">פתח את מסך הבית פעם אחת כדי שטועני הפיד החיים יופיעו כאן לצד הכרטיסים המוצמדים.</string>
     <string name="shelves_feed_row_subtitle">מדור פיד בית שנטען</string>

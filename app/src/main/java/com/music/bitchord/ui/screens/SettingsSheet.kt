@@ -163,8 +163,10 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.ui.components.ChordPlayWaveUpdateMark
+import com.music.bitchord.ui.components.GitHubIconBadge
 import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.components.MIN_CHECK_SPIN_MS
+import com.music.bitchord.ui.components.RedditIconBadge
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.lightweightLiquidGlass
@@ -1246,7 +1248,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SHELVES,
             icon = Icons.Rounded.ViewAgenda,
             queryTarget = stringResource(R.string.your_preferences),
-            keywords = listOf("preferences", "shelves", "order", "arrange", "reorder", "home", "quick picks", "speed dial", "hide", "show"),
+            keywords = listOf("preferences", "shelves", "order", "arrange", "reorder", "home", "quick picks", "speed dial", "find your mood", "mood", "hide", "show"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.hide_home_videos),
@@ -1908,8 +1910,9 @@ private fun CleanCategoryRow(
 }
 
 /**
- * Dial-inspired Settings colophon tailored for ChordPlay: large branding, version
- * & GitHub link, frosted glass update-check pill, and ChordPlay's animated wave emblem.
+ * Dial-inspired Settings colophon tailored for ChordPlay: Reddit & GitHub badges on
+ * the left alongside ChordPlay branding, version, author & BitChord credit, followed
+ * underneath by the frosted update-check pill and ChordPlay's animated wave emblem.
  */
 @Composable
 private fun SettingsColophon(
@@ -1923,43 +1926,126 @@ private fun SettingsColophon(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    val onTriggerUpdateCheck: () -> Unit = {
+        if (!checking) {
+            if (update != null) {
+                onShowUpdate()
+            } else {
+                checking = true
+                scope.launch {
+                    val started = System.currentTimeMillis()
+                    val result = AppUpdateChecker.check()
+                    val remaining = MIN_CHECK_SPIN_MS - (System.currentTimeMillis() - started)
+                    if (remaining > 0) delay(remaining)
+                    checking = false
+                    lastResult = result
+                    if (result == AppUpdateChecker.CheckResult.UPDATE) {
+                        onShowUpdate()
+                    }
+                }
+            }
+        }
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 12.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 12.dp),
     ) {
-        Text(
-            text = "ChordPlay",
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-        )
-
-        Text(
-            text = buildAnnotatedString {
-                append("v$version  ·  ")
-                withLink(
-                    LinkAnnotation.Url(
-                        "https://github.com/code4nigel/ChordPlay",
-                        TextLinkStyles(
-                            style = SpanStyle(
-                                color = MaterialTheme.colorScheme.primary,
-                                textDecoration = TextDecoration.Underline,
-                            ),
-                        ),
-                    ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")))
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    append("GitHub")
+                    RedditIconBadge(size = 38.dp)
                 }
-            },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 6.dp),
-        )
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")))
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    GitHubIconBadge(size = 38.dp)
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "ChordPlay",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = "v$version",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                        )
+                    }
+                }
+
+                Text(
+                    text = "by Shivanshu (code4nigel)",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Text(
+                    text = "Based on BitChord by Kushagra Singh",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
+                        }
+                    },
+                )
+            }
+        }
 
         val buttonShape = RoundedCornerShape(50)
         Box(
@@ -1970,24 +2056,7 @@ private fun SettingsColophon(
                     shape = buttonShape,
                     fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
                 )
-                .clickable(enabled = !checking) {
-                    if (update != null) {
-                        onShowUpdate()
-                    } else {
-                        checking = true
-                        scope.launch {
-                            val started = System.currentTimeMillis()
-                            val result = AppUpdateChecker.check()
-                            val remaining = MIN_CHECK_SPIN_MS - (System.currentTimeMillis() - started)
-                            if (remaining > 0) delay(remaining)
-                            checking = false
-                            lastResult = result
-                            if (result == AppUpdateChecker.CheckResult.UPDATE) {
-                                onShowUpdate()
-                            }
-                        }
-                    }
-                }
+                .clickable(enabled = !checking, onClick = onTriggerUpdateCheck)
                 .animateContentSize(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
@@ -2020,22 +2089,11 @@ private fun SettingsColophon(
             checking = checking,
             size = 46.dp,
             waveWidth = 136.dp,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text = "Based on BitChord by Kushagra Singh",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.clickable {
-                runCatching {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
-                }
-            },
+            modifier = Modifier
+                .padding(top = 14.dp)
+                .clip(RoundedCornerShape(50))
+                .clickable(enabled = !checking, onClick = onTriggerUpdateCheck)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
 }

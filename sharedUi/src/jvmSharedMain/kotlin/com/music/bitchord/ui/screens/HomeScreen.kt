@@ -329,6 +329,7 @@ fun HomeScreen(
         showSpeedDial,
         showMelodyCard,
         showReplayCard,
+        onFindMoodClick != null,
     ) {
         if (state !is UiState.Success) {
             emptyList()
@@ -355,6 +356,9 @@ fun HomeScreen(
             } else {
                 moodFiltered
             }
+            val showFindYourMood = onFindMoodClick != null &&
+                HomeShelfSlot.FIND_YOUR_MOOD !in hiddenHomeShelves &&
+                (visibleShelves.isNotEmpty() || showSpeedDial)
             buildHomeFeedEntries(
                 shelves = visibleShelves,
                 savedOrder = homeShelfOrder,
@@ -362,6 +366,7 @@ fun HomeScreen(
                 showSpeedDial = showSpeedDial,
                 showMelody = showMelodyCard,
                 showReplay = showReplayCard,
+                showFindYourMood = showFindYourMood,
             )
         }
     }
@@ -560,8 +565,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     onFindMoodShowAll: (() -> Unit)? = null,
 ) {
     val keyCounts = mutableMapOf<String, Int>()
-    var shelvesEmitted = 0
-    var moodShelfEmitted = false
     entries.forEachIndexed { index, entry ->
         when (entry) {
             HomeFeedEntry.SpeedDial -> {
@@ -612,6 +615,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         onReorderPinned = onReorderPinnedSpeedDial,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
+                }
+            }
+            HomeFeedEntry.FindYourMood -> {
+                if (onFindMoodClick != null) {
+                    item(key = "home:find_your_mood", contentType = "find-your-mood") {
+                        HomeFindYourMoodShelf(
+                            onClick = onFindMoodClick,
+                            onShowAll = onFindMoodShowAll ?: {},
+                        )
+                    }
                 }
             }
             HomeFeedEntry.Melody -> {
@@ -695,25 +708,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         )
                     }
                 }
-                shelvesEmitted++
-                if (!moodShelfEmitted && shelvesEmitted == 2 && onFindMoodClick != null) {
-                    moodShelfEmitted = true
-                    item(key = "home:find_your_mood", contentType = "find-your-mood") {
-                        HomeFindYourMoodShelf(
-                            onClick = onFindMoodClick,
-                            onShowAll = onFindMoodShowAll ?: {},
-                        )
-                    }
-                }
             }
-        }
-    }
-    if (!moodShelfEmitted && shelvesEmitted > 0 && onFindMoodClick != null) {
-        item(key = "home:find_your_mood", contentType = "find-your-mood") {
-            HomeFindYourMoodShelf(
-                onClick = onFindMoodClick,
-                onShowAll = onFindMoodShowAll ?: {},
-            )
         }
     }
 }
@@ -965,36 +960,53 @@ fun CompactTrackRow(
  * font size rather than a fixed dp, so the two keep their proportion under the
  * system font scale.
  */
-/**
- * Dynamic witty musical greeting based on device local time (Option B):
- * - 05:00 - 11:59: "Ears first, questions later."
- * - 12:00 - 16:59: "Back in the mix, $userName." / "Back in the groove."
- * - 17:00 - 21:59: "Your soundtrack awaits."
- * - 22:00 - 04:59: "Turn it up."
- */
-internal fun getMusicalGreeting(userName: String? = null): String {
+internal data class WeightedGreeting(
+    val text: String,
+    val weight: Int,
+)
+
+internal fun weightedGreetings(userName: String? = null): List<WeightedGreeting> {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    return when (hour) {
+    val timeGreeting = when (hour) {
         in 5..11 -> "Ears first, questions later."
         in 12..16 -> if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the groove."
         in 17..21 -> "Your soundtrack awaits."
         else -> "Turn it up."
     }
+    val mixGreeting = if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the mix."
+    val pool = linkedMapOf(
+        "Music sounds better with you." to 5,
+        "Happy listening." to 5,
+        timeGreeting to 1,
+        mixGreeting to 1,
+        "Ears first, questions later." to 1,
+        "Your soundtrack awaits." to 1,
+        "Turn it up." to 1,
+    )
+    return pool.map { (text, weight) -> WeightedGreeting(text, weight) }
 }
 
 /**
- * Dynamic witty musical greetings:
- * 1. "Back in the mix, $userName." / "Back in the mix."
- * 2. "Ears first, questions later."
- * 3. "Your soundtrack awaits."
- * 4. "Turn it up."
+ * Weighted musical greeting favouring ChordPlay's signature lines ("Music sounds better with you."
+ * and "Happy listening.") while mixing in time-aware phrases.
  */
-private fun getGreetingList(userName: String? = null): List<String> = listOf(
-    if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the mix.",
-    "Ears first, questions later.",
-    "Your soundtrack awaits.",
-    "Turn it up.",
-)
+internal fun getMusicalGreeting(
+    userName: String? = null,
+    excluding: String? = null,
+    rollProvider: (Int) -> Int = { bound -> kotlin.random.Random.nextInt(bound) },
+): String {
+    val candidates = weightedGreetings(userName).let { all ->
+        if (excluding != null) all.filterNot { it.text == excluding }.ifEmpty { all } else all
+    }
+    val totalWeight = candidates.sumOf { it.weight }
+    if (totalWeight <= 0) return "Music sounds better with you."
+    var roll = rollProvider(totalWeight)
+    for (entry in candidates) {
+        roll -= entry.weight
+        if (roll < 0) return entry.text
+    }
+    return candidates.first().text
+}
 
 @Composable
 private fun HomeTopAmbientAura(
@@ -1069,17 +1081,15 @@ private fun ChordPlayHomeHeader(
     val cleanUserName = remember(userName) {
         userName?.trim()?.substringBefore(' ')?.takeIf { it.isNotBlank() }
     }
-    val initialGreeting = remember(cleanUserName) { getMusicalGreeting(cleanUserName) }
-    val greetings = remember(cleanUserName) {
-        listOf(initialGreeting) + (getGreetingList(cleanUserName) - initialGreeting)
+    var currentGreeting by remember(cleanUserName) {
+        mutableStateOf(getMusicalGreeting(cleanUserName))
     }
-    var greetingIndex by remember { mutableIntStateOf(0) }
 
-    // Rotate slowly (every 60 seconds) so the greeting stays calm, readable, and premium
-    LaunchedEffect(greetings) {
+    // Rotate calmly every 2-3 minutes so the greeting refreshes naturally
+    LaunchedEffect(cleanUserName) {
         while (true) {
-            delay(60_000L)
-            greetingIndex = (greetingIndex + 1) % greetings.size
+            delay(kotlin.random.Random.nextLong(120_000L, 180_001L))
+            currentGreeting = getMusicalGreeting(cleanUserName, excluding = currentGreeting)
         }
     }
 
@@ -1168,11 +1178,11 @@ private fun ChordPlayHomeHeader(
                     indication = null,
                     enabled = greetingAlpha > 0.25f,
                 ) {
-                    greetingIndex = (greetingIndex + 1) % greetings.size
+                    currentGreeting = getMusicalGreeting(cleanUserName, excluding = currentGreeting)
                 },
         ) {
             AnimatedContent(
-                targetState = greetings[greetingIndex % greetings.size],
+                targetState = currentGreeting,
                 transitionSpec = {
                     (slideInVertically(animationSpec = tween(350)) { height -> height / 2 } + fadeIn(animationSpec = tween(350)))
                         .togetherWith(slideOutVertically(animationSpec = tween(250)) { height -> -height / 2 } + fadeOut(animationSpec = tween(250)))

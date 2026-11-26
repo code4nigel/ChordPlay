@@ -17,7 +17,7 @@ class HomeFeedOrderTest {
     private fun shelf(title: String) = HomeShelf(title = title, subtitle = "", items = emptyList())
 
     @Test
-    fun defaultOrderPlacesSpeedDialFirstThenFeedThenMelodyAndReplay() {
+    fun defaultOrderPlacesSpeedDialFirstThenFeedWithFindYourMoodThenMelodyAndReplay() {
         val ids = orderHomeShelfIds(
             rawShelfTitles = listOf("Quick picks", "Forgotten favorites", "Trending"),
             savedOrder = emptyList(),
@@ -27,6 +27,7 @@ class HomeFeedOrderTest {
                 HomeShelfSlot.SPEED_DIAL,
                 "Quick picks",
                 "Forgotten favorites",
+                HomeShelfSlot.FIND_YOUR_MOOD,
                 "Trending",
                 HomeShelfSlot.MELODY,
                 HomeShelfSlot.REPLAY,
@@ -47,6 +48,7 @@ class HomeFeedOrderTest {
                 "Mixed for you",
                 HomeShelfSlot.SPEED_DIAL,
                 "Quick picks",
+                HomeShelfSlot.FIND_YOUR_MOOD,
                 "New continuation",
                 HomeShelfSlot.REPLAY,
             ),
@@ -60,12 +62,13 @@ class HomeFeedOrderTest {
         val savedOrder = listOf(
             HomeShelfSlot.SPEED_DIAL,
             "Music videos",
+            HomeShelfSlot.FIND_YOUR_MOOD,
             HomeShelfSlot.REPLAY,
             "Quick picks",
             HomeShelfSlot.MELODY,
             "New releases",
         )
-        val hidden = setOf("Quick picks")
+        val hidden = setOf("Quick picks", HomeShelfSlot.FIND_YOUR_MOOD)
 
         val settingsIds = orderHomeShelfIds(
             rawShelfTitles = shelves.map { it.title },
@@ -80,6 +83,7 @@ class HomeFeedOrderTest {
             showSpeedDial = true,
             showMelody = false,
             showReplay = true,
+            showFindYourMood = true,
         )
         assertEquals(
             listOf(
@@ -87,6 +91,39 @@ class HomeFeedOrderTest {
                 HomeFeedEntry.Shelf(shelves[1]),
                 HomeFeedEntry.Replay,
                 HomeFeedEntry.Shelf(shelves[2]),
+            ),
+            entries,
+        )
+    }
+
+    @Test
+    fun findYourMoodCanBeReorderedFreelyAmongHomeShelves() {
+        val shelves = listOf(shelf("Top Picks for You"), shelf("Listen again"), shelf("Charts"))
+        val savedOrder = listOf(
+            HomeShelfSlot.FIND_YOUR_MOOD,
+            HomeShelfSlot.SPEED_DIAL,
+            "Charts",
+            "Top Picks for You",
+            "Listen again",
+            HomeShelfSlot.MELODY,
+            HomeShelfSlot.REPLAY,
+        )
+        val entries = buildHomeFeedEntries(
+            shelves = shelves,
+            savedOrder = savedOrder,
+            hiddenIds = emptySet(),
+            showSpeedDial = true,
+            showMelody = false,
+            showReplay = false,
+            showFindYourMood = true,
+        )
+        assertEquals(
+            listOf(
+                HomeFeedEntry.FindYourMood,
+                HomeFeedEntry.SpeedDial,
+                HomeFeedEntry.Shelf(shelves[2]),
+                HomeFeedEntry.Shelf(shelves[0]),
+                HomeFeedEntry.Shelf(shelves[1]),
             ),
             entries,
         )

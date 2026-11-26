@@ -136,6 +136,15 @@ private fun shelfDisplayMeta(
             },
             isHidden = isHidden,
         )
+        HomeShelfSlot.FIND_YOUR_MOOD -> ShelfDisplayMeta(
+            title = stringResource(R.string.find_your_mood),
+            subtitle = if (isHidden) {
+                stringResource(R.string.shelves_hidden_subtitle)
+            } else {
+                stringResource(R.string.shelf_find_your_mood_desc)
+            },
+            isHidden = isHidden,
+        )
         HomeShelfSlot.MELODY -> ShelfDisplayMeta(
             title = stringResource(R.string.shelf_melody_label),
             subtitle = if (isHidden) {
@@ -196,6 +205,7 @@ fun ShelvesSection(
             includeSpeedDial = true,
             includeMelody = true,
             includeReplay = true,
+            includeFindYourMood = true,
         )
     }
 

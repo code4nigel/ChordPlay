@@ -1578,6 +1578,8 @@
     <string name="shelf_melody_desc">無盡個人專屬合輯卡片</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">收聽統計與精選時刻卡片</string>
+    <string name="find_your_mood">探索心情</string>
+    <string name="shelf_find_your_mood_desc">首頁的心情與曲風探索方塊</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">打開一次首頁，即時推薦區塊即可與置頂卡片一併在此載入。</string>
     <string name="shelves_feed_row_subtitle">已載入的首頁推薦區塊</string>

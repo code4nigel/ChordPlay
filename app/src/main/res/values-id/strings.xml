@@ -1576,6 +1576,8 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="shelf_melody_desc">Kartu mix pribadi tanpa akhir</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Kartu statistik mendengarkan &amp; sorotan</string>
+    <string name="find_your_mood">Temukan Suasana Hati</string>
+    <string name="shelf_find_your_mood_desc">Ubin suasana hati &amp; genre di Beranda</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Buka Beranda sekali agar bagian feed langsung dimuat di sini bersama kartu yang disematkan.</string>
     <string name="shelves_feed_row_subtitle">Bagian feed Beranda yang dimuat</string>

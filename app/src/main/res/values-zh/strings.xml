@@ -1578,6 +1578,8 @@
     <string name="shelf_melody_desc">无尽个人专属混音卡片</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">收听统计与精彩瞬间卡片</string>
+    <string name="find_your_mood">发现心情</string>
+    <string name="shelf_find_your_mood_desc">首页的心情与流派探索磁贴</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">打开一次首页，实时推荐栏目即可与置顶卡片一并在此加载。</string>
     <string name="shelves_feed_row_subtitle">已加载的首页推荐栏目</string>

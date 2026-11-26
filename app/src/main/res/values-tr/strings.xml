@@ -1556,6 +1556,8 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="shelf_melody_desc">Sonsuz kişisel miks erişim kartı</string>
     <string name="shelf_melody_label">ChordPlay Melody</string>
     <string name="shelf_replay_desc">Dinleme istatistikleri ve öne çıkanlar hikaye kartı</string>
+    <string name="find_your_mood">Modunu Bul</string>
+    <string name="shelf_find_your_mood_desc">Ana sayfada ruh hali ve tür kutucukları</string>
     <string name="shelf_replay_label">Replay</string>
     <string name="shelves_empty_feed_hint">Akış bölümlerinin sabitlenen kartlarınızla birlikte buraya yüklenmesi için Ana sayfayı bir kez açın.</string>
     <string name="shelves_feed_row_subtitle">Yüklenen Ana sayfa akış bölümü</string>
