@@ -166,6 +166,7 @@ import com.music.bitchord.ui.screens.settings.sections.IntegrationsSection
 import com.music.bitchord.ui.screens.settings.sections.LyricsSection
 import com.music.bitchord.ui.screens.settings.sections.MiniPlayerSection
 import com.music.bitchord.ui.screens.settings.sections.PlayerSection
+import com.music.bitchord.ui.screens.settings.sections.PlayerWaveStyleSection
 import com.music.bitchord.ui.screens.settings.sections.ShelvesSection
 import com.music.bitchord.ui.screens.settings.sections.LocalMusicSection
 import com.music.bitchord.ui.screens.settings.sections.StorageSection
@@ -278,6 +279,10 @@ fun SettingsScreen(
                     pendingSectionSearchQuery = null
                     updateSection(SettingsSection.MINIPLAYER)
                 },
+                onOpenPlayerStyle = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.PLAYER_STYLE)
+                },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
             )
@@ -292,6 +297,14 @@ fun SettingsScreen(
                 initialSearchQuery = query,
             )
             SettingsSection.MINIPLAYER -> MiniPlayerSection(
+                onBack = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.APPEARANCE)
+                },
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
+            )
+            SettingsSection.PLAYER_STYLE -> PlayerWaveStyleSection(
                 onBack = {
                     pendingSectionSearchQuery = null
                     updateSection(SettingsSection.APPEARANCE)
@@ -439,6 +452,7 @@ private fun SettingsHub(
                     SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe miniplayer timeline"
                     SettingsSection.COVER -> "cover artwork animation fade 3d canvas spotify fullscreen"
                     SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave silk pill progress"
+                    SettingsSection.PLAYER_STYLE -> "player style wave progress scrubber og wave aurora silk audio graph"
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
@@ -1242,6 +1256,17 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.Animation,
             queryTarget = stringResource(R.string.miniplayer_animation),
             keywords = listOf("miniplayer", "timeline", "og circle", "aurora wave", "aurora silk", "silk", "pill", "progress"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.player_wave_style),
+            subtitle = stringResource(R.string.settings_player_style),
+            section = SettingsSection.PLAYER_STYLE,
+            icon = Icons.Rounded.GraphicEq,
+            queryTarget = stringResource(R.string.player_wave_style),
+            keywords = listOf(
+                "player style", "wave", "scrubber", "og wave", "aurora silk", "audio graph",
+                "progress", "elastic", "physics", "quality pill", "play", "shuffle", "repeat", "lyrics", "queue",
+            ),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.full_screen_cover_art),

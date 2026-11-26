@@ -15,6 +15,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
+import com.music.bitchord.data.settings.PlayerWaveStyle
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -222,7 +223,12 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val versionAlignmentInProgress = MutableStateFlow(false)
     override val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
     override val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+    override val playerWaveStyle = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
     override val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+
+    override fun setPlayerWaveStyle(value: PlayerWaveStyle) {
+        playerWaveStyle.value = value
+    }
     override val enableBreathingAura = MutableStateFlow(true)
     override val landscapeFontScale = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
 

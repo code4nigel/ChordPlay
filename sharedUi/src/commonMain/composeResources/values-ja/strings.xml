@@ -3,7 +3,7 @@
     <string name="analysis_complete">分析済み</string>
     <string name="analysis_in_progress">分析中…</string>
     <string name="analysis_refining">分析済み、調整中…</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>

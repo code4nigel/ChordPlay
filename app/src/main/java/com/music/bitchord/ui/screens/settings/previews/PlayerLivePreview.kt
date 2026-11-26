@@ -35,8 +35,6 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Visibility
@@ -70,6 +68,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
 import com.music.bitchord.data.settings.PlayerInterfaceStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
+import com.music.bitchord.data.settings.PlayerWaveStyle
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.screens.settings.localizedLabel
 
@@ -87,6 +86,7 @@ fun PlayerLivePreview(
     val palette by AppSettings.colorPalette.collectAsStateWithLifecycle()
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
+    val playerWaveStyle by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
     val activeTitle by AppSettings.activeTrackTitle.collectAsStateWithLifecycle()
@@ -602,9 +602,9 @@ fun PlayerLivePreview(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Shuffle,
+                    imageVector = BitChordIcons.PlayerShuffle,
                     contentDescription = null,
-                    tint = subtextColor,
+                    tint = animatedPrimary.copy(alpha = 0.85f),
                     modifier = Modifier.size(18.dp),
                 )
 
@@ -644,7 +644,11 @@ fun PlayerLivePreview(
                 )
 
                 Icon(
-                    imageVector = Icons.Rounded.Repeat,
+                    imageVector = if (playerWaveStyle == PlayerWaveStyle.OG_WAVE) {
+                        BitChordIcons.PlayerRepeat
+                    } else {
+                        BitChordIcons.PlayerRepeatOne
+                    },
                     contentDescription = null,
                     tint = subtextColor,
                     modifier = Modifier.size(18.dp),

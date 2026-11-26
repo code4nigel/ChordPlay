@@ -1163,6 +1163,105 @@ object BitChordIcons {
     }
 
     /** 4-pointed sparkle star used in discovery badges / Lucky card. */
+    /** Soft rounded S-curve shuffle icon with over/under strand break. */
+    val PlayerShuffle: ImageVector by lazy {
+        val playerStroke = 2.45f
+        ImageVector.Builder(
+            name = "bc_player_shuffle",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = playerStroke,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // Top-left incoming S-curve segment (stops before crossing)
+                moveTo(3.2f, 7.6f)
+                curveTo(6.9f, 7.6f, 8.3f, 8.8f, 9.9f, 10.25f)
+                // Bottom-right outgoing S-curve segment (resumes after crossing)
+                moveTo(14.1f, 13.75f)
+                curveTo(15.7f, 15.2f, 17.1f, 16.4f, 19.6f, 16.4f)
+                // Unbroken bottom-left -> top-right S-curve
+                moveTo(3.2f, 16.4f)
+                curveTo(7.8f, 16.4f, 9.8f, 14.2f, 12.0f, 12.0f)
+                curveTo(14.2f, 9.8f, 16.2f, 7.6f, 19.6f, 7.6f)
+                // Top-right rounded arrowhead
+                moveTo(17.2f, 4.9f)
+                lineTo(20.4f, 7.6f)
+                lineTo(17.2f, 10.3f)
+                // Bottom-right rounded arrowhead
+                moveTo(17.2f, 13.7f)
+                lineTo(20.4f, 16.4f)
+                lineTo(17.2f, 19.1f)
+            }
+        }.build()
+    }
+
+    /** Bold curved loop repeat icon with soft rounded arrowheads. */
+    val PlayerRepeat: ImageVector by lazy { playerRepeatGlyph("bc_player_repeat", includeOne = false) }
+
+    /** Bold curved loop repeat-one icon with integrated center "1". */
+    val PlayerRepeatOne: ImageVector by lazy { playerRepeatGlyph("bc_player_repeat_one", includeOne = true) }
+
+    private fun playerRepeatGlyph(name: String, includeOne: Boolean): ImageVector {
+        val loopStroke = 2.45f
+        return ImageVector.Builder(
+            name = name,
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = loopStroke,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // Top-left curve up into top horizontal rail
+                moveTo(4.1f, 12.8f)
+                curveTo(3.5f, 9.4f, 5.4f, 6.8f, 9.0f, 6.8f)
+                lineTo(16.4f, 6.8f)
+                // Bottom-right curve down into bottom horizontal rail
+                moveTo(19.9f, 11.2f)
+                curveTo(20.5f, 14.6f, 18.6f, 17.2f, 15.0f, 17.2f)
+                lineTo(7.6f, 17.2f)
+            }
+            // Filled, round-joined triangular arrowheads
+            path(
+                fill = stroke,
+                stroke = stroke,
+                strokeLineWidth = 1.1f,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // Top-right triangle pointing right
+                moveTo(15.6f, 3.85f)
+                lineTo(19.8f, 6.8f)
+                lineTo(15.6f, 9.75f)
+                close()
+                // Bottom-left triangle pointing left
+                moveTo(8.4f, 14.25f)
+                lineTo(4.2f, 17.2f)
+                lineTo(8.4f, 20.15f)
+                close()
+            }
+            if (includeOne) {
+                path(
+                    stroke = stroke,
+                    strokeLineWidth = 2.0f,
+                    strokeLineCap = StrokeCap.Round,
+                    strokeLineJoin = StrokeJoin.Round,
+                ) {
+                    moveTo(10.8f, 10.6f)
+                    lineTo(12.25f, 9.5f)
+                    lineTo(12.25f, 14.6f)
+                    moveTo(10.75f, 14.6f)
+                    lineTo(13.65f, 14.6f)
+                }
+            }
+        }.build()
+    }
+
     val Sparkle: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_sparkle",
@@ -1176,6 +1275,115 @@ object BitChordIcons {
                 quadTo(12f, 12f, 2f, 12f)
                 quadTo(12f, 12f, 12f, 2f)
                 close()
+            }
+        }.build()
+    }
+
+    /**
+     * Dual true-wireless stem earbuds (pro style) used for Audio Output controls.
+     * Matches an upright left earbud and tilted front-facing right earbud with
+     * pill vents, ear-tip domes, and subtle acoustic sparks.
+     */
+    val Earbuds: ImageVector by lazy {
+        val outline = 1.65f
+        val detail = 1.25f
+        ImageVector.Builder(
+            name = "bc_earbuds",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            // Left upright earbud outer housing + vertical stem
+            path(
+                stroke = stroke,
+                strokeLineWidth = outline,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(5.1f, 10.1f)
+                curveTo(2.3f, 8.9f, 1.8f, 5.8f, 2.7f, 3.5f)
+                curveTo(3.5f, 1.7f, 6.2f, 1.4f, 8.7f, 2.3f)
+                curveTo(10.8f, 3.1f, 12.0f, 4.9f, 11.6f, 7.1f)
+                curveTo(11.2f, 8.8f, 9.7f, 9.6f, 8.3f, 9.7f)
+                moveTo(5.1f, 10.1f)
+                lineTo(5.1f, 15.6f)
+                curveTo(5.1f, 16.5f, 5.65f, 17.0f, 6.7f, 17.0f)
+                curveTo(7.75f, 17.0f, 8.3f, 16.5f, 8.3f, 15.6f)
+                lineTo(8.3f, 9.7f)
+                // Left earbud inner ear-tip protrusion arc
+                moveTo(11.1f, 4.6f)
+                curveTo(12.6f, 5.2f, 13.1f, 6.8f, 12.4f, 8.4f)
+                curveTo(11.7f, 9.6f, 10.1f, 10.1f, 8.9f, 9.6f)
+            }
+            // Right angled earbud outer bean housing + descending stem
+            path(
+                stroke = stroke,
+                strokeLineWidth = outline,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(12.9f, 9.8f)
+                curveTo(14.5f, 7.5f, 18.2f, 6.8f, 20.5f, 8.5f)
+                curveTo(22.7f, 10.2f, 22.6f, 13.6f, 20.3f, 15.6f)
+                curveTo(19.7f, 16.1f, 19.6f, 16.4f, 19.6f, 17.0f)
+                lineTo(19.6f, 21.1f)
+                curveTo(19.6f, 22.0f, 19.05f, 22.5f, 18.0f, 22.5f)
+                curveTo(16.95f, 22.5f, 16.4f, 22.0f, 16.4f, 21.1f)
+                lineTo(16.4f, 16.5f)
+                // Lower cheek curving into ear-tip dome
+                moveTo(16.4f, 16.5f)
+                curveTo(14.2f, 16.7f, 12.0f, 15.9f, 11.1f, 14.3f)
+                curveTo(10.2f, 12.7f, 10.9f, 10.8f, 12.9f, 9.8f)
+                // Right earbud cuff ridge
+                moveTo(12.6f, 10.2f)
+                curveTo(14.4f, 11.1f, 15.2f, 12.9f, 14.9f, 15.5f)
+            }
+            // Right earbud inner ear-tip acoustic bore
+            path(
+                stroke = stroke,
+                strokeLineWidth = detail,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(11.3f, 12.6f)
+                curveTo(12.0f, 11.9f, 13.1f, 12.3f, 13.5f, 13.1f)
+                curveTo(13.9f, 13.9f, 13.4f, 14.9f, 12.6f, 14.9f)
+                curveTo(11.7f, 14.9f, 10.8f, 13.4f, 11.3f, 12.6f)
+                close()
+                // Stem base contact ring lines
+                moveTo(5.9f, 15.3f)
+                lineTo(7.5f, 15.3f)
+                moveTo(17.2f, 20.9f)
+                lineTo(18.8f, 20.9f)
+            }
+            // Solid pill acoustic vents on both housings
+            path(
+                stroke = stroke,
+                strokeLineWidth = 1.75f,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                // Vertical vent on upright left earbud
+                moveTo(6.7f, 4.7f)
+                lineTo(6.7f, 7.1f)
+                // Tilted vent on right earbud
+                moveTo(17.1f, 10.7f)
+                lineTo(19.3f, 9.4f)
+            }
+            // Crisp radial sound sparks around the earbuds
+            path(
+                stroke = stroke,
+                strokeLineWidth = detail,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                moveTo(13.0f, 2.5f)
+                lineTo(13.6f, 1.3f)
+                moveTo(14.6f, 5.4f)
+                lineTo(15.9f, 5.0f)
+                moveTo(10.1f, 18.0f)
+                lineTo(9.0f, 19.1f)
+                moveTo(12.9f, 20.0f)
+                lineTo(13.2f, 21.4f)
             }
         }.build()
     }

@@ -3,7 +3,7 @@
     <string name="analysis_complete">анализ завершён</string>
     <string name="analysis_in_progress">анализируется…</string>
     <string name="analysis_refining">анализ завершён, уточняется…</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">Автомикс · эта песня: %1$s · следующая: %2$s</string>

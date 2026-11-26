@@ -14,6 +14,8 @@ package com.music.bitchord.data.settings
 import com.music.bitchord.data.settings.CanvasProvider
 import com.music.bitchord.data.settings.CoverAnimationMode
 import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
+import com.music.bitchord.data.settings.PlayerWaveStyle
+import com.music.bitchord.data.settings.TrackAudioWaveform
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.data.LocalMediaRepository
 import android.content.Context
@@ -611,6 +613,12 @@ object AppSettings {
      */
     val coverAnimation = MutableStateFlow(CoverAnimationMode.DIRECTIONAL_SWEEP)
     val miniPlayerTimelineStyle = MutableStateFlow(MiniPlayerTimelineStyle.AURORA_WAVE)
+    val playerWaveStyle = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
+    val playerElasticConfig = MutableStateFlow(PlayerElasticConfig())
+    val activeTrackWaveform = MutableStateFlow<TrackAudioWaveform?>(null)
+    val liveAudioLevel = MutableStateFlow(0f)
+    @Volatile
+    var onTrackWaveformRequested: ((trackId: String, durationMs: Long) -> Unit)? = null
     val animatedCanvas = MutableStateFlow(true)
 
     /**
@@ -1143,6 +1151,25 @@ object AppSettings {
             runCatching { MiniPlayerTimelineStyle.valueOf(rawMiniPlayerTimeline) }
                 .getOrDefault(MiniPlayerTimelineStyle.AURORA_WAVE)
         }
+        val rawPlayerWaveStyle = prefs.getString(KEY_PLAYER_WAVE_STYLE, null)
+        playerWaveStyle.value = if (rawPlayerWaveStyle == null) {
+            PlayerWaveStyle.AURORA_SILK
+        } else {
+            runCatching { PlayerWaveStyle.valueOf(rawPlayerWaveStyle) }
+                .getOrDefault(PlayerWaveStyle.AURORA_SILK)
+        }
+        playerElasticConfig.value = PlayerElasticConfig(
+            enabled = prefs.getBoolean(KEY_PLAYER_ELASTIC_ENABLED, true),
+            playPillInteraction = prefs.getBoolean(KEY_PLAYER_ELASTIC_PLAY_PILL, true),
+            shuffle = prefs.getBoolean(KEY_PLAYER_ELASTIC_SHUFFLE, true),
+            previous = prefs.getBoolean(KEY_PLAYER_ELASTIC_PREVIOUS, true),
+            playPause = prefs.getBoolean(KEY_PLAYER_ELASTIC_PLAY_PAUSE, true),
+            next = prefs.getBoolean(KEY_PLAYER_ELASTIC_NEXT, true),
+            repeat = prefs.getBoolean(KEY_PLAYER_ELASTIC_REPEAT, true),
+            lyrics = prefs.getBoolean(KEY_PLAYER_ELASTIC_LYRICS, true),
+            qualityPill = prefs.getBoolean(KEY_PLAYER_ELASTIC_QUALITY_PILL, true),
+            queue = prefs.getBoolean(KEY_PLAYER_ELASTIC_QUEUE, true),
+        )
         if (prefs.contains("cover_follows_automix")) {
             prefs.edit().remove("cover_follows_automix").apply()
         }
@@ -2080,6 +2107,31 @@ object AppSettings {
     fun setMiniPlayerTimelineStyle(value: MiniPlayerTimelineStyle) {
         miniPlayerTimelineStyle.value = value
         prefs.edit().putString(KEY_MINIPLAYER_TIMELINE_STYLE, value.name).apply()
+    }
+
+    fun setPlayerWaveStyle(value: PlayerWaveStyle) {
+        playerWaveStyle.value = value
+        prefs.edit().putString(KEY_PLAYER_WAVE_STYLE, value.name).apply()
+    }
+
+    fun setPlayerElasticConfig(value: PlayerElasticConfig) {
+        playerElasticConfig.value = value
+        prefs.edit()
+            .putBoolean(KEY_PLAYER_ELASTIC_ENABLED, value.enabled)
+            .putBoolean(KEY_PLAYER_ELASTIC_PLAY_PILL, value.playPillInteraction)
+            .putBoolean(KEY_PLAYER_ELASTIC_SHUFFLE, value.shuffle)
+            .putBoolean(KEY_PLAYER_ELASTIC_PREVIOUS, value.previous)
+            .putBoolean(KEY_PLAYER_ELASTIC_PLAY_PAUSE, value.playPause)
+            .putBoolean(KEY_PLAYER_ELASTIC_NEXT, value.next)
+            .putBoolean(KEY_PLAYER_ELASTIC_REPEAT, value.repeat)
+            .putBoolean(KEY_PLAYER_ELASTIC_LYRICS, value.lyrics)
+            .putBoolean(KEY_PLAYER_ELASTIC_QUALITY_PILL, value.qualityPill)
+            .putBoolean(KEY_PLAYER_ELASTIC_QUEUE, value.queue)
+            .apply()
+    }
+
+    fun updatePlayerElasticConfig(transform: (PlayerElasticConfig) -> PlayerElasticConfig) {
+        setPlayerElasticConfig(transform(playerElasticConfig.value))
     }
 
     fun setAnimatedCanvas(value: Boolean) {
@@ -3160,6 +3212,17 @@ object AppSettings {
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_COVER_ANIMATION = "cover_animation"
     private const val KEY_MINIPLAYER_TIMELINE_STYLE = "miniplayer_timeline_style"
+    private const val KEY_PLAYER_WAVE_STYLE = "player_wave_style"
+    private const val KEY_PLAYER_ELASTIC_ENABLED = "player_elastic_enabled"
+    private const val KEY_PLAYER_ELASTIC_PLAY_PILL = "player_elastic_play_pill"
+    private const val KEY_PLAYER_ELASTIC_SHUFFLE = "player_elastic_shuffle"
+    private const val KEY_PLAYER_ELASTIC_PREVIOUS = "player_elastic_previous"
+    private const val KEY_PLAYER_ELASTIC_PLAY_PAUSE = "player_elastic_play_pause"
+    private const val KEY_PLAYER_ELASTIC_NEXT = "player_elastic_next"
+    private const val KEY_PLAYER_ELASTIC_REPEAT = "player_elastic_repeat"
+    private const val KEY_PLAYER_ELASTIC_LYRICS = "player_elastic_lyrics"
+    private const val KEY_PLAYER_ELASTIC_QUALITY_PILL = "player_elastic_quality_pill"
+    private const val KEY_PLAYER_ELASTIC_QUEUE = "player_elastic_queue"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

@@ -1843,4 +1843,25 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
     <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
     <string name="miniplayer_animation_subtitle">Aurora Wave legt eine lebendige Seidenwelle in Artwork-Farben über die Leiste; Aurora Silk hält das Milchglas klar und lässt ein leuchtendes Band mit Sternenpunkt am unteren Rand gleiten; OG Circle zeichnet den Fortschritt am Rand entlang.</string>
+    <string name="settings_player_style">Player-Stil</string>
+    <string name="player_wave_style">Fortschrittsbalken-Welle</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave behält die klassische Wellenform bei; Aurora Silk webt mehrschichtige Seidenbänder in Artwork-Farben mit Sternen-Playhead; Audio Graph zeigt das tatsächlich gemessene Amplitudenspektrum des Titels.</string>
+    <string name="player_elastic_physics">Elastische Tastenphysik</string>
+    <string name="player_elastic_master_title">Elastische Nachbar-Animationen</string>
+    <string name="player_elastic_master_subtitle">Tasten drücken, ziehen und senden Wellen über benachbarte Steuerelemente.</string>
+    <string name="player_elastic_cross_title">Play- &amp; Qualitäts-Pill-Interaktion</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Zurück und Weiter bewegen und erhellen die untere Qualitäts-Pill elastisch – und Tipps unten strahlen nach oben.</string>
+    <string name="player_elastic_buttons_header">Einzelne Tastenanimationen</string>
+    <string name="player_elastic_buttons_footer">Wähle für jede Wiedergabetaste einzeln aus, ob sie elastisch federt.</string>
+    <string name="player_elastic_btn_play_pause">Wiedergabe / Pause</string>
+    <string name="player_elastic_btn_previous">Zurück</string>
+    <string name="player_elastic_btn_next">Weiter</string>
+    <string name="player_elastic_btn_shuffle">Zufallswiedergabe</string>
+    <string name="player_elastic_btn_repeat">Wiederholen</string>
+    <string name="player_elastic_btn_lyrics">Liedtext</string>
+    <string name="player_elastic_btn_quality_pill">Qualitäts-Pill</string>
+    <string name="player_elastic_btn_queue">Warteschlange</string>
 </resources>

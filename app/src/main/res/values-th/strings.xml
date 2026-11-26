@@ -1826,4 +1826,25 @@
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
     <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
     <string name="miniplayer_animation_subtitle">Aurora Wave วาดคลื่นไหมสีปกเพลงบนแถบ ส่วน Aurora Silk คงกระจกฝ้าใสพร้อมริบบิ้นแสงและจุดดาวที่ขอบล่าง และ OG Circle ลากเส้นรอบขอบ</string>
+    <string name="settings_player_style">สไตล์เครื่องเล่น</string>
+    <string name="player_wave_style">คลื่นแถบความคืบหน้า</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave คงรูปคลื่นคลาสสิกไว้; Aurora Silk ทอริบบิ้นไหมหลายชั้นตามสีปกพร้อมจุดแสงดาว; Audio Graph แสดงกราฟแอมพลิจูดเสียงจริงที่วัดได้จากแทร็ก</string>
+    <string name="player_elastic_physics">Elastic button physics</string>
+    <string name="player_elastic_master_title">Elastic neighbor animations</string>
+    <string name="player_elastic_master_subtitle">Buttons push, pull, and ripple organically across surrounding controls.</string>
+    <string name="player_elastic_cross_title">Play &amp; quality pill interaction</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous, and Next elastically shift and glow the bottom quality pill and dock — and taps below ripple upward.</string>
+    <string name="player_elastic_buttons_header">Individual button animations</string>
+    <string name="player_elastic_buttons_footer">Choose which individual player buttons bounce and push neighbors when pressed.</string>
+    <string name="player_elastic_btn_play_pause">Play / Pause</string>
+    <string name="player_elastic_btn_previous">Previous</string>
+    <string name="player_elastic_btn_next">Next</string>
+    <string name="player_elastic_btn_shuffle">Shuffle</string>
+    <string name="player_elastic_btn_repeat">Repeat</string>
+    <string name="player_elastic_btn_lyrics">Lyrics</string>
+    <string name="player_elastic_btn_quality_pill">Quality pill</string>
+    <string name="player_elastic_btn_queue">Queue</string>
 </resources>

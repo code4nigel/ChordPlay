@@ -88,6 +88,7 @@ import com.music.bitchord.ui.components.menuFrost
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.delay
@@ -303,17 +304,28 @@ internal fun AudioOutputSheet(
                     .background(Color.White.copy(alpha = 0.28f)),
             )
 
-            Text(
-                text = stringResource(Res.string.audio_output),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = Color.White,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 4.dp, bottom = 12.dp),
-            )
+            ) {
+                Icon(
+                    imageVector = BitChordIcons.Earbuds,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.90f),
+                    modifier = Modifier.size(22.dp),
+                )
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    text = stringResource(Res.string.audio_output),
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = Color.White,
+                )
+            }
 
             // Volume slider pinned at the very top inside a rounded-rectangle pill container
             VolumeRow(routeKey = outputs, opaque = reduceDynamicBlur)

@@ -29,7 +29,9 @@ import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.data.settings.PlayerWaveStyle
 import com.music.bitchord.data.settings.SmartAnalysis
+import com.music.bitchord.data.settings.TrackAudioWaveform
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.data.settings.VideoQuality
@@ -249,6 +251,10 @@ interface PlayerSettingsSource {
     val appDesignStyle: StateFlow<AppDesignStyle>
     val playerLayoutMode: StateFlow<PlayerLayoutMode>
     val playerInterfaceStyle: StateFlow<com.music.bitchord.data.settings.PlayerInterfaceStyle> get() = MutableStateFlow(com.music.bitchord.data.settings.PlayerInterfaceStyle.WAVEPLAY)
+    val playerWaveStyle: StateFlow<PlayerWaveStyle> get() = DEFAULT_PLAYER_WAVE_STYLE
+    val playerElasticConfig: StateFlow<com.music.bitchord.data.settings.PlayerElasticConfig> get() = DEFAULT_PLAYER_ELASTIC_CONFIG
+    val activeTrackWaveform: StateFlow<TrackAudioWaveform?> get() = EMPTY_TRACK_WAVEFORM
+    val liveAudioLevel: StateFlow<Float> get() = ZERO_AUDIO_LEVEL
     val fullscreenArtworkLyricsStyle: StateFlow<FullscreenArtworkLyricsStyle>
     val enableBreathingAura: StateFlow<Boolean>
     val videoQuality: StateFlow<com.music.bitchord.data.settings.VideoQuality> get() = MutableStateFlow(com.music.bitchord.data.settings.VideoQuality.AUTO)
@@ -264,6 +270,9 @@ interface PlayerSettingsSource {
     fun setLyricsOffsetMs(value: Int)
     fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle)
     fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) {}
+    fun setPlayerWaveStyle(value: PlayerWaveStyle) {}
+    fun setPlayerElasticConfig(value: com.music.bitchord.data.settings.PlayerElasticConfig) {}
+    fun requestTrackWaveform(trackId: String, durationMs: Long) {}
     fun setAnimatedCanvas(value: Boolean) {}
     fun setFullBleedArtwork(value: Boolean) {}
     val tapArtworkToToggleFullScreen: StateFlow<Boolean> get() = MutableStateFlow(true)
@@ -274,6 +283,10 @@ interface PlayerSettingsSource {
 }
 
 private val DEFAULT_PLAYER_ANIMATION_SPEED = MutableStateFlow(1.0f)
+private val DEFAULT_PLAYER_WAVE_STYLE = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
+private val DEFAULT_PLAYER_ELASTIC_CONFIG = MutableStateFlow(com.music.bitchord.data.settings.PlayerElasticConfig())
+private val EMPTY_TRACK_WAVEFORM = MutableStateFlow<TrackAudioWaveform?>(null)
+private val ZERO_AUDIO_LEVEL = MutableStateFlow(0f)
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
 internal val PlayerSettings: PlayerSettingsSource

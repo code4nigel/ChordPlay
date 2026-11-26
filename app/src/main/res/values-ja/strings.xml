@@ -1821,4 +1821,25 @@
     <string name="miniplayer_style_aurora_wave">オーロラウェーブ</string>
     <string name="miniplayer_style_aurora_silk">オーロラシルク</string>
     <string name="miniplayer_animation_subtitle">オーロラウェーブはアートワーク色の絹の波を描き、オーロラシルクは磨りガラスを保ったまま下端に光の帯と星粒を浮かべます。OG サークルは枠線に沿って進行を表示します。</string>
+    <string name="settings_player_style">プレーヤースタイル</string>
+    <string name="player_wave_style">プログレスバー波形</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Waveは従来の波形を維持します。Aurora Silkはアートワークカラーの多層シルクと光点の再生ヘッドを描画します。Audio Graphは実測されたオーディオ振幅スペクトラムを表示します。</string>
+    <string name="player_elastic_physics">Elastic button physics</string>
+    <string name="player_elastic_master_title">Elastic neighbor animations</string>
+    <string name="player_elastic_master_subtitle">Buttons push, pull, and ripple organically across surrounding controls.</string>
+    <string name="player_elastic_cross_title">Play &amp; quality pill interaction</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous, and Next elastically shift and glow the bottom quality pill and dock — and taps below ripple upward.</string>
+    <string name="player_elastic_buttons_header">Individual button animations</string>
+    <string name="player_elastic_buttons_footer">Choose which individual player buttons bounce and push neighbors when pressed.</string>
+    <string name="player_elastic_btn_play_pause">Play / Pause</string>
+    <string name="player_elastic_btn_previous">Previous</string>
+    <string name="player_elastic_btn_next">Next</string>
+    <string name="player_elastic_btn_shuffle">Shuffle</string>
+    <string name="player_elastic_btn_repeat">Repeat</string>
+    <string name="player_elastic_btn_lyrics">Lyrics</string>
+    <string name="player_elastic_btn_quality_pill">Quality pill</string>
+    <string name="player_elastic_btn_queue">Queue</string>
 </resources>

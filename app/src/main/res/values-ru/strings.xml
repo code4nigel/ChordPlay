@@ -1875,4 +1875,25 @@
     <string name="miniplayer_style_aurora_wave">Волна Авроры</string>
     <string name="miniplayer_style_aurora_silk">Шёлк Авроры</string>
     <string name="miniplayer_animation_subtitle">Волна Авроры рисует шёлковую волну в цветах обложки; Шёлк Авроры оставляет чистое матовое стекло со светящейся лентой и звёздной точкой по нижнему краю; OG Круг ведёт линию по контуру.</string>
+    <string name="settings_player_style">Стиль плеера</string>
+    <string name="player_wave_style">Волна прогресса</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave сохраняет классическую волну; Aurora Silk переплетает шёлковые ленты в цветах обложки со звёздным бегунком; Audio Graph отображает реальную измеренную амплитуду звука.</string>
+    <string name="player_elastic_physics">Elastic button physics</string>
+    <string name="player_elastic_master_title">Elastic neighbor animations</string>
+    <string name="player_elastic_master_subtitle">Buttons push, pull, and ripple organically across surrounding controls.</string>
+    <string name="player_elastic_cross_title">Play &amp; quality pill interaction</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous, and Next elastically shift and glow the bottom quality pill and dock — and taps below ripple upward.</string>
+    <string name="player_elastic_buttons_header">Individual button animations</string>
+    <string name="player_elastic_buttons_footer">Choose which individual player buttons bounce and push neighbors when pressed.</string>
+    <string name="player_elastic_btn_play_pause">Play / Pause</string>
+    <string name="player_elastic_btn_previous">Previous</string>
+    <string name="player_elastic_btn_next">Next</string>
+    <string name="player_elastic_btn_shuffle">Shuffle</string>
+    <string name="player_elastic_btn_repeat">Repeat</string>
+    <string name="player_elastic_btn_lyrics">Lyrics</string>
+    <string name="player_elastic_btn_quality_pill">Quality pill</string>
+    <string name="player_elastic_btn_queue">Queue</string>
 </resources>

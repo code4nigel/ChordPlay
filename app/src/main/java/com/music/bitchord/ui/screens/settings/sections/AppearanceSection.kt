@@ -69,6 +69,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import com.music.bitchord.data.settings.CustomPalette
 import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
+import com.music.bitchord.data.settings.PlayerWaveStyle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -130,6 +131,7 @@ fun AppearanceSection(
     onAppLanguage: () -> Unit,
     onOpenCover: () -> Unit,
     onOpenMiniPlayer: () -> Unit,
+    onOpenPlayerStyle: () -> Unit = {},
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
@@ -155,6 +157,7 @@ fun AppearanceSection(
     var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val miniPlayerTimelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
+    val playerWaveStyle by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
@@ -295,11 +298,28 @@ fun AppearanceSection(
             stringResource(R.string.miniplayer_style_aurora_silk),
             "miniplayer", "timeline", "circle", "wave", "silk", "aurora",
         )
-        val anyBelowCover = showMiniPlayer || showColorPalette ||
+        val playerStyleTitle = stringResource(R.string.settings_player_style)
+        val showPlayerStyle = matchesSearch(
+            searchQuery,
+            playerStyleTitle,
+            stringResource(R.string.player_wave_style),
+            stringResource(R.string.player_wave_og),
+            stringResource(R.string.player_wave_aurora_silk),
+            stringResource(R.string.player_wave_audio_graph),
+            stringResource(R.string.player_elastic_physics),
+            stringResource(R.string.player_elastic_cross_title),
+            "player style", "wave", "scrubber", "aurora", "silk", "audio", "graph",
+            "elastic", "physics", "play", "quality pill", "shuffle", "repeat", "lyrics", "queue",
+        )
+        val anyBelowCover = showMiniPlayer || showPlayerStyle || showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
             showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
             showLivePreviewsSetting || showHighPerformance || showLanguage
-        val anyBelowMiniPlayer = showColorPalette ||
+        val anyBelowMiniPlayer = showPlayerStyle || showColorPalette ||
+            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
+            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
+            showLivePreviewsSetting || showHighPerformance || showLanguage
+        val anyBelowPlayerStyle = showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
             showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
             showLivePreviewsSetting || showHighPerformance || showLanguage
@@ -342,6 +362,24 @@ fun AppearanceSection(
                         trailing = { Chevron() },
                     )
                     if (anyBelowMiniPlayer) {
+                        RowDivider()
+                    }
+                }
+                if (showPlayerStyle) {
+                    SettingsRow(
+                        icon = com.music.bitchord.ui.screens.settings.SettingsSection.PLAYER_STYLE.icon,
+                        title = playerStyleTitle,
+                        subtitle = stringResource(
+                            when (playerWaveStyle) {
+                                PlayerWaveStyle.OG_WAVE -> R.string.player_wave_og
+                                PlayerWaveStyle.AURORA_SILK -> R.string.player_wave_aurora_silk
+                                PlayerWaveStyle.AUDIO_GRAPH -> R.string.player_wave_audio_graph
+                            },
+                        ),
+                        onClick = onOpenPlayerStyle,
+                        trailing = { Chevron() },
+                    )
+                    if (anyBelowPlayerStyle) {
                         RowDivider()
                     }
                 }

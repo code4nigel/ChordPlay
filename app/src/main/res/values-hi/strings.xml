@@ -1887,4 +1887,25 @@
     <string name="miniplayer_style_aurora_wave">ऑरोरा वेव</string>
     <string name="miniplayer_style_aurora_silk">ऑरोरा सिल्क</string>
     <string name="miniplayer_animation_subtitle">ऑरोरा वेव पिल पर एल्बम रंगों की सिल्क लहर चलाता है; ऑरोरा सिल्क ग्लास को साफ रखकर नीचे चमकदार रिबन और स्टारलाइट डॉट दिखाता है; OG सर्कल बॉर्डर के चारों ओर प्रगति दिखाता है।</string>
+    <string name="settings_player_style">प्लेयर स्टाइल</string>
+    <string name="player_wave_style">प्रोग्रेस बार वेव</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave क्लासिक वेवफ़ॉर्म बनाए रखता है; Aurora Silk एल्बम आर्ट के रंगों में बहु-स्तरीय सिल्क रिबन और स्टारलाइट प्लेहेड दिखाता है; Audio Graph ट्रैक के वास्तविक मापे गए ऑडियो ग्राफ़ को दिखाता है।</string>
+    <string name="player_elastic_physics">इलास्टिक बटन फिज़िक्स</string>
+    <string name="player_elastic_master_title">इलास्टिक नेबर एनिमेशन</string>
+    <string name="player_elastic_master_subtitle">बटन दबाने पर आसपास के कंट्रोल स्वाभाविक रूप से खिसकते और लहराते हैं।</string>
+    <string name="player_elastic_cross_title">प्ले और क्वालिटी पिल इंटरैक्शन</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous और Next नीचे की क्वालिटी पिल को हिलाते व चमकाते हैं — और नीचे टैप ऊपर तरंग भेजते हैं।</string>
+    <string name="player_elastic_buttons_header">अलग-अलग बटन एनिमेशन</string>
+    <string name="player_elastic_buttons_footer">तय करें कि किस प्लेयर बटन में इलास्टिक असर हो और किसमें नहीं।</string>
+    <string name="player_elastic_btn_play_pause">प्ले / पॉज़</string>
+    <string name="player_elastic_btn_previous">पिछला</string>
+    <string name="player_elastic_btn_next">अगला</string>
+    <string name="player_elastic_btn_shuffle">शफ़ल</string>
+    <string name="player_elastic_btn_repeat">रिपीट</string>
+    <string name="player_elastic_btn_lyrics">लिरिक्स</string>
+    <string name="player_elastic_btn_quality_pill">क्वालिटी पिल</string>
+    <string name="player_elastic_btn_queue">कतार</string>
 </resources>

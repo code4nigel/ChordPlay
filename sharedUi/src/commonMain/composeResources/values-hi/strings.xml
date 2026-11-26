@@ -3,7 +3,7 @@
     <string name="analysis_complete">विश्लेषित</string>
     <string name="analysis_in_progress">विश्लेषण हो रहा है…</string>
     <string name="analysis_refining">विश्लेषित, सुधार हो रहा है…</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">ऑटोमिक्स · यह गाना: %1$s · अगला: %2$s</string>

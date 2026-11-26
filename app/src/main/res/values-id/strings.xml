@@ -1820,4 +1820,25 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
     <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
     <string name="miniplayer_animation_subtitle">Aurora Wave melukis gelombang sutra berwarna sampul; Aurora Silk menjaga kaca buram tetap bersih dengan pita cahaya dan titik bintang di tepi bawah; OG Circle menelusuri progres di sepanjang tepi.</string>
+    <string name="settings_player_style">Gaya pemutar</string>
+    <string name="player_wave_style">Gelombang bilah progres</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave mempertahankan bentuk gelombang klasik; Aurora Silk menenun pita sutra berlapis warna sampul dengan titik bintang; Audio Graph menampilkan grafik amplitudo audio terukur yang sebenarnya.</string>
+    <string name="player_elastic_physics">Elastic button physics</string>
+    <string name="player_elastic_master_title">Elastic neighbor animations</string>
+    <string name="player_elastic_master_subtitle">Buttons push, pull, and ripple organically across surrounding controls.</string>
+    <string name="player_elastic_cross_title">Play &amp; quality pill interaction</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous, and Next elastically shift and glow the bottom quality pill and dock — and taps below ripple upward.</string>
+    <string name="player_elastic_buttons_header">Individual button animations</string>
+    <string name="player_elastic_buttons_footer">Choose which individual player buttons bounce and push neighbors when pressed.</string>
+    <string name="player_elastic_btn_play_pause">Play / Pause</string>
+    <string name="player_elastic_btn_previous">Previous</string>
+    <string name="player_elastic_btn_next">Next</string>
+    <string name="player_elastic_btn_shuffle">Shuffle</string>
+    <string name="player_elastic_btn_repeat">Repeat</string>
+    <string name="player_elastic_btn_lyrics">Lyrics</string>
+    <string name="player_elastic_btn_quality_pill">Quality pill</string>
+    <string name="player_elastic_btn_queue">Queue</string>
 </resources>

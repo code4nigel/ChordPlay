@@ -1844,4 +1844,25 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
     <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
     <string name="miniplayer_animation_subtitle">Aurora Wave déploie une vague de soie aux couleurs de la pochette ; Aurora Silk garde le verre dépoli épuré avec un ruban lumineux et un point stellaire en bas ; OG Circle trace la progression sur le contour.</string>
+    <string name="settings_player_style">Style du lecteur</string>
+    <string name="player_wave_style">Onde de progression</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave conserve la forme d’onde classique ; Aurora Silk tisse des rubans de soie aux couleurs de la pochette avec une tête de lecture étoilée ; Audio Graph affiche l’amplitude audio réelle mesurée.</string>
+    <string name="player_elastic_physics">Physique élastique des boutons</string>
+    <string name="player_elastic_master_title">Animations élastiques de voisinage</string>
+    <string name="player_elastic_master_subtitle">Les boutons poussent, attirent et ondulent naturellement sur les commandes voisines.</string>
+    <string name="player_elastic_cross_title">Interaction Play &amp; pilule qualité</string>
+    <string name="player_elastic_cross_subtitle">Lecture/Pause, Précédent et Suivant déplacent et illuminent la pilule qualité, et les appuis en bas ondulent vers le haut.</string>
+    <string name="player_elastic_buttons_header">Animations par bouton</string>
+    <string name="player_elastic_buttons_footer">Activez ou désactivez l\'effet élastique pour chaque bouton du lecteur.</string>
+    <string name="player_elastic_btn_play_pause">Lecture / Pause</string>
+    <string name="player_elastic_btn_previous">Précédent</string>
+    <string name="player_elastic_btn_next">Suivant</string>
+    <string name="player_elastic_btn_shuffle">Aléatoire</string>
+    <string name="player_elastic_btn_repeat">Répéter</string>
+    <string name="player_elastic_btn_lyrics">Paroles</string>
+    <string name="player_elastic_btn_quality_pill">Pilule qualité</string>
+    <string name="player_elastic_btn_queue">File d\'attente</string>
 </resources>

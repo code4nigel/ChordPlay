@@ -1822,4 +1822,25 @@
     <string name="miniplayer_style_aurora_wave">極光波浪</string>
     <string name="miniplayer_style_aurora_silk">極光絲綢</string>
     <string name="miniplayer_animation_subtitle">極光波浪會在膠囊上繪製隨專輯配色的絲綢潮汐；極光絲綢保留純淨毛玻璃並在底部浮現發光絲帶與星光圓點；OG 圓環則沿邊框描繪進度。</string>
+    <string name="settings_player_style">播放器樣式</string>
+    <string name="player_wave_style">進度條波形</string>
+    <string name="player_wave_og">OG Wave</string>
+    <string name="player_wave_aurora_silk">Aurora Silk</string>
+    <string name="player_wave_audio_graph">Audio Graph</string>
+    <string name="player_wave_subtitle">OG Wave 保留經典波形；Aurora Silk 以專輯封面色彩編織多層流光絲帶與星光播放頭；Audio Graph 顯示音軌實測的真實音訊振幅圖。</string>
+    <string name="player_elastic_physics">Elastic button physics</string>
+    <string name="player_elastic_master_title">Elastic neighbor animations</string>
+    <string name="player_elastic_master_subtitle">Buttons push, pull, and ripple organically across surrounding controls.</string>
+    <string name="player_elastic_cross_title">Play &amp; quality pill interaction</string>
+    <string name="player_elastic_cross_subtitle">Play/Pause, Previous, and Next elastically shift and glow the bottom quality pill and dock — and taps below ripple upward.</string>
+    <string name="player_elastic_buttons_header">Individual button animations</string>
+    <string name="player_elastic_buttons_footer">Choose which individual player buttons bounce and push neighbors when pressed.</string>
+    <string name="player_elastic_btn_play_pause">Play / Pause</string>
+    <string name="player_elastic_btn_previous">Previous</string>
+    <string name="player_elastic_btn_next">Next</string>
+    <string name="player_elastic_btn_shuffle">Shuffle</string>
+    <string name="player_elastic_btn_repeat">Repeat</string>
+    <string name="player_elastic_btn_lyrics">Lyrics</string>
+    <string name="player_elastic_btn_quality_pill">Quality pill</string>
+    <string name="player_elastic_btn_queue">Queue</string>
 </resources>

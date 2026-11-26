@@ -3,7 +3,7 @@
     <string name="analysis_complete">נותח</string>
     <string name="analysis_in_progress">מנתח…</string>
     <string name="analysis_refining">נותח, משפר…</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">Automix · השיר הזה: %1$s · הבא: %2$s</string>

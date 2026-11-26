@@ -279,8 +279,18 @@ fun NowPlayingScreen(
     // ChordPlay's WavePlay deck so the glowing Play/Pause orb is never lost.
     val isModernOrVinyl = isChordPlay
     val playerInterfaceStyle by PlayerSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
+    val playerWaveStyle by PlayerSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val isWavePlay = isChordPlay && playerInterfaceStyle == PlayerInterfaceStyle.WAVEPLAY
     val effectiveIsLive = isLive || song.isLive
+
+    LaunchedEffect(song.videoId, playerWaveStyle, durationMs, effectiveIsLive) {
+        if (isWavePlay && !effectiveIsLive &&
+            playerWaveStyle == com.music.bitchord.data.settings.PlayerWaveStyle.AUDIO_GRAPH &&
+            song.videoId.isNotBlank()
+        ) {
+            PlayerSettings.requestTrackWaveform(song.videoId, durationMs)
+        }
+    }
 
     val spotifyCanvasAutoHide by PlayerSettings.spotifyCanvasAutoHide.collectAsStateWithLifecycle()
     val animatedCanvas by PlayerSettings.animatedCanvas.collectAsStateWithLifecycle()

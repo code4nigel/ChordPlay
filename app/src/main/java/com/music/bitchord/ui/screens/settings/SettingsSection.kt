@@ -40,6 +40,7 @@ enum class SettingsSection(
     APPEARANCE(R.string.appearance, Icons.Rounded.Brush),
     COVER(R.string.settings_cover, Icons.Rounded.Image),
     MINIPLAYER(R.string.settings_miniplayer, Icons.Rounded.Waves),
+    PLAYER_STYLE(R.string.settings_player_style, Icons.Rounded.GraphicEq),
     SHELVES(R.string.your_preferences, Icons.Rounded.ViewAgenda),
     PLAYER(R.string.playback, Icons.Rounded.SmartDisplay),
     LYRICS(R.string.synced_lyrics, Icons.AutoMirrored.Rounded.Notes),
@@ -56,7 +57,7 @@ enum class SettingsSection(
     ABOUT(R.string.miscellaneous, Icons.AutoMirrored.Rounded.HelpOutline);
 
     fun parentSection(): SettingsSection? = when (this) {
-        COVER, MINIPLAYER -> APPEARANCE
+        COVER, MINIPLAYER, PLAYER_STYLE -> APPEARANCE
         DRIVE_DEVICES -> DRIVE_BACKUP
         DRIVE_BACKUP -> YOUR_DATA
         else -> null

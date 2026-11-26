@@ -40,7 +40,7 @@ internal fun DesktopAudioOutputDialog(onDismiss: () -> Unit) {
     DesktopDialogPanel(onDismiss = onDismiss, maxWidth = 440) {
         Column(Modifier.padding(horizontal = panelInset(22.dp), vertical = 22.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                DesktopStrings["audio_output", "Audio output"],
+                DesktopStrings["audio_output", "Audio options"],
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )

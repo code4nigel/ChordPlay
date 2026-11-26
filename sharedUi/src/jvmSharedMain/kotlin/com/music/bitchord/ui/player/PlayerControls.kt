@@ -37,6 +37,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -52,6 +53,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -61,7 +63,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.draw.alpha
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -83,12 +87,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -556,12 +563,63 @@ internal fun VolumeRow(
 }
 
 /**
+ * Coupled 3-node elastic physics environment across `[0=Lyrics, 1=Center Pill, 2=Queue]`.
+ *
+ * Matches [TransportFieldState]'s wave propagation so pressing or tapping Lyrics,
+ * Queue, or any segment of the center capsule organically pulls, pushes, tilts, and
+ * illuminates its neighbors.
+ */
+private class ActionRowFieldState(
+    private val scope: CoroutineScope,
+    private val reduceAnimation: () -> Boolean,
+) {
+    val impulse = Array(3) { Animatable(0f) }
+    val pushSign = FloatArray(3)
+
+    fun triggerWave(origin: Int, strength: Float = 1f, directionalSign: Float = 0f) {
+        if (reduceAnimation()) return
+        for (i in 0 until 3) {
+            val dist = kotlin.math.abs(i - origin)
+            val weight = when (dist) {
+                0 -> 1.0f
+                1 -> 0.74f
+                else -> 0.40f
+            } * strength
+            pushSign[i] = when {
+                i == origin -> directionalSign
+                directionalSign != 0f -> directionalSign
+                i < origin -> -1f
+                else -> 1f
+            }
+            scope.launch {
+                if (dist > 0) delay(dist * 26L)
+                impulse[i].stop()
+                impulse[i].snapTo(0f)
+                impulse[i].animateTo(
+                    targetValue = weight,
+                    animationSpec = tween(
+                        durationMillis = 52,
+                        easing = CubicBezierEasing(0.2f, 0f, 0f, 1f),
+                    ),
+                )
+                impulse[i].animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.66f,
+                        stiffness = 580f,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/**
  * Lyrics, the capsule, and the queue — the row both layouts end on.
  *
- * Lyrics and queue are the two things that are true of the player in every
- * state, so they are simply always here. Only the capsule between them swaps:
- * output and party normally, the three playback modes while the queue is up,
- * since that is when they are what you are about to reach for.
+ * All three controls participate in a coupled elastic environment (`[0=Lyrics, 1=Pill, 2=Queue]`)
+ * with borderless frosted glass droplets for Lyrics and Queue that mirror the WavePlay transport
+ * droplets, plus reactive hold gravity and spring impulses across neighbors.
  */
 @Composable
 internal fun PlayerActionRow(
@@ -586,20 +644,215 @@ internal fun PlayerActionRow(
     onOpenPipeline: (() -> Unit)? = null,
     palette: MeshPalette? = null,
     animSpeed: Float = 1.0f,
+    elasticOverride: com.music.bitchord.data.settings.PlayerElasticConfig? = null,
 ) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val persistedElastic by PlayerSettings.playerElasticConfig.collectAsStateWithLifecycle()
+    val elastic = elasticOverride ?: persistedElastic
+    val scope = rememberCoroutineScope()
+    val field = remember(scope) { ActionRowFieldState(scope) { reduceAnimation || !elastic.enabled } }
+    val motionScale = if (reduceAnimation || !elastic.enabled) 0f else 1f
+    val crossScale = if (motionScale > 0f && elastic.playPillInteraction) 1f else 0f
+    val sLyrics = motionScale * (if (elastic.lyrics) 1f else 0f)
+    val sPill = motionScale * (if (elastic.qualityPill) 1f else 0f)
+    val sQueue = motionScale * (if (elastic.queue) 1f else 0f)
+
+    val lyricsInteraction = remember { MutableInteractionSource() }
+    val isLyricsPressed by lyricsInteraction.collectIsPressedAsState()
+
+    val pillLeftInteraction = remember { MutableInteractionSource() }
+    val isPillLeftPressed by pillLeftInteraction.collectIsPressedAsState()
+
+    val pillMidInteraction = remember { MutableInteractionSource() }
+    val isPillMidPressed by pillMidInteraction.collectIsPressedAsState()
+
+    val pillRightInteraction = remember { MutableInteractionSource() }
+    val isPillRightPressed by pillRightInteraction.collectIsPressedAsState()
+
+    val queueInteraction = remember { MutableInteractionSource() }
+    val isQueuePressed by queueInteraction.collectIsPressedAsState()
+
+    val holdSpring = spring<Float>(dampingRatio = 0.68f, stiffness = Spring.StiffnessMedium)
+    val deckCoupling = LocalDeckPhysicsCoupling.current
+
+    val anyPillPressed = isPillLeftPressed || isPillMidPressed || isPillRightPressed
+    LaunchedEffect(
+        deckCoupling,
+        isLyricsPressed,
+        anyPillPressed,
+        isQueuePressed,
+        crossScale,
+        sLyrics,
+        sPill,
+        sQueue,
+    ) {
+        deckCoupling?.let {
+            it.isLyricsPressed = isLyricsPressed && crossScale > 0f && sLyrics > 0f
+            it.isBottomPillPressed = anyPillPressed && crossScale > 0f && sPill > 0f
+            it.isQueuePressed = isQueuePressed && crossScale > 0f && sQueue > 0f
+        }
+    }
+    DisposableEffect(deckCoupling) {
+        onDispose {
+            deckCoupling?.let {
+                it.isLyricsPressed = false
+                it.isBottomPillPressed = false
+                it.isQueuePressed = false
+            }
+        }
+    }
+
+    val prevOrbHold by animateFloatAsState(
+        targetValue = if (deckCoupling?.isPrevPressed == true && crossScale > 0f) 1f else 0f,
+        animationSpec = holdSpring,
+        label = "PrevOrbHoldCoupling",
+    )
+    val playOrbHold by animateFloatAsState(
+        targetValue = if (deckCoupling?.isPlayPressed == true && crossScale > 0f) 1f else 0f,
+        animationSpec = holdSpring,
+        label = "PlayOrbHoldCoupling",
+    )
+    val nextOrbHold by animateFloatAsState(
+        targetValue = if (deckCoupling?.isNextPressed == true && crossScale > 0f) 1f else 0f,
+        animationSpec = holdSpring,
+        label = "NextOrbHoldCoupling",
+    )
+    val upperWave = (deckCoupling?.upperImpulse?.value ?: 0f) * crossScale
+    val upperOrigin = deckCoupling?.upperOrigin ?: 2
+    val upperDir = deckCoupling?.upperDirection ?: 0f
+    val playWave = if (upperOrigin == 2) upperWave else 0f
+    val prevWave = if (upperOrigin == 1) upperWave else 0f
+    val nextWave = if (upperOrigin == 3) upperWave else 0f
+
+    val holdLyrics by animateFloatAsState(if (isLyricsPressed && sLyrics > 0f) 1f else 0f, holdSpring, label = "HoldLyrics")
+    val holdPill by animateFloatAsState(if (anyPillPressed && sPill > 0f) 1f else 0f, holdSpring, label = "HoldBottomPill")
+    val holdQueue by animateFloatAsState(if (isQueuePressed && sQueue > 0f) 1f else 0f, holdSpring, label = "HoldQueue")
+
+    // Expressive micro-motions for Lyrics (quote tilt) & Queue (list bounce) — crisp snappy settle
+    val lyricsTiltAnim = remember { Animatable(0f) }
+    val lyricsSquishAnim = remember { Animatable(1f) }
+    val queueLiftAnim = remember { Animatable(0f) }
+    val queueTiltAnim = remember { Animatable(0f) }
+
+    val triggerLyricsGlyphMotion: () -> Unit = {
+        if (sLyrics > 0f) {
+            scope.launch {
+                lyricsTiltAnim.stop()
+                lyricsTiltAnim.snapTo(0f)
+                lyricsTiltAnim.animateTo(-12f, tween(60, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+                lyricsTiltAnim.animateTo(0f, spring(dampingRatio = 0.66f, stiffness = 560f))
+            }
+            scope.launch {
+                lyricsSquishAnim.stop()
+                lyricsSquishAnim.snapTo(1f)
+                lyricsSquishAnim.animateTo(0.80f, tween(60, easing = CubicBezierEasing(0.4f, 0f, 1f, 1f)))
+                lyricsSquishAnim.animateTo(1f, spring(dampingRatio = 0.64f, stiffness = 540f))
+            }
+        }
+    }
+
+    val triggerQueueGlyphMotion: () -> Unit = {
+        if (sQueue > 0f) {
+            scope.launch {
+                queueTiltAnim.stop()
+                queueTiltAnim.snapTo(0f)
+                queueTiltAnim.animateTo(10f, tween(60, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+                queueTiltAnim.animateTo(0f, spring(dampingRatio = 0.66f, stiffness = 560f))
+            }
+            scope.launch {
+                queueLiftAnim.stop()
+                queueLiftAnim.snapTo(0f)
+                queueLiftAnim.animateTo(-3.2f, tween(60, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)))
+                queueLiftAnim.animateTo(0f, spring(dampingRatio = 0.64f, stiffness = 540f))
+            }
+        }
+    }
+
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        // Sized for the wider of the two capsules — the three-up one — in both
-        // states. Computed for whichever was on screen it would change as they
-        // swap, and the lyrics and queue glyphs would slide with it.
-        val widestRow = BOTTOM_ACTION_SIZE * 2 + pillWidth(3)
+        val widestCenter = maxOf(pillWidth(3), PIPELINE_PILL_WIDTH)
+        val widestRow = BOTTOM_TOUCH_SIZE * 2 + widestCenter
         val edgeInset = ((maxWidth - widestRow) / 4).coerceAtLeast(0.dp)
-        val primaryAccent = palette?.colors?.getOrNull(0) ?: Color(0xFFFF5722)
-        val secondaryAccent = palette?.colors?.getOrNull(1) ?: primaryAccent
+        val liftedAccents = palette?.let { rememberLiftedArtworkAccents(it) }
+        val primaryAccent = liftedAccents?.primary ?: Color(0xFFFF6D5A)
+        val secondaryAccent = liftedAccents?.highlight ?: primaryAccent
         val queueIcon = playerQueueIcon(
             repeatMode = repeatMode,
             shuffleEnabled = shuffleEnabled,
             autoplayEnabled = autoplayEnabled,
         )
+
+        val w0 = field.impulse[0].value
+        val w1 = field.impulse[1].value
+        val w2 = field.impulse[2].value
+
+        val lyricsShiftDp = ((if (field.pushSign[0] < 0f) -3.8f * w0 else 2.6f * w0) +
+            (1.4f * holdLyrics) - (2.4f * holdPill) + (0.8f * holdQueue) -
+            (1.4f * playWave) - (1.8f * prevWave) + (0.7f * nextWave) +
+            (0.9f * playOrbHold) + (0.9f * prevOrbHold)) * sLyrics
+        val lyricsShiftYDp = (1.6f * playWave + 1.1f * prevWave + 0.5f * nextWave -
+            0.8f * playOrbHold - 0.7f * prevOrbHold) * sLyrics
+        val lyricsScaleX = if (isLyricsPressed && sLyrics > 0f) {
+            0.87f
+        } else {
+            1f + (0.11f * w0 + 0.035f * playWave + 0.04f * prevWave) * sLyrics
+        }
+        val lyricsScaleY = if (isLyricsPressed && sLyrics > 0f) {
+            0.87f
+        } else {
+            1f + (-0.08f * w0 - 0.030f * playWave - 0.03f * prevWave) * sLyrics
+        }
+        val lyricsRotZ = (field.pushSign[0] * 3.8f * w0 - 2.4f * playWave - 2.2f * prevWave) * sLyrics
+
+        val pillShiftDp = ((field.pushSign[1] * 3.2f * w1) -
+            (2.2f * holdLyrics) + (2.2f * holdQueue) -
+            (0.9f * isPillLeftPressed.compareTo(false)) +
+            (0.9f * isPillRightPressed.compareTo(false)) -
+            (1.6f * prevOrbHold) + (1.6f * nextOrbHold) +
+            (upperDir * 2.2f * (prevWave + nextWave))) * sPill
+        val pillShiftYDp = (-2.6f * playOrbHold - 1.5f * prevOrbHold - 1.5f * nextOrbHold +
+            4.0f * playWave + 2.6f * (prevWave + nextWave)) * sPill
+        val pillScaleX = if (anyPillPressed && sPill > 0f) {
+            0.965f
+        } else {
+            1f + (0.040f * w1 + 0.055f * playWave + 0.032f * (prevWave + nextWave) -
+                0.022f * playOrbHold - 0.012f * (prevOrbHold + nextOrbHold)) * sPill
+        }
+        val pillScaleY = if (anyPillPressed && sPill > 0f) {
+            0.965f
+        } else {
+            1f + (-0.024f * w1 - 0.085f * playWave - 0.050f * (prevWave + nextWave) +
+                0.044f * playOrbHold + 0.024f * (prevOrbHold + nextOrbHold)) * sPill
+        }
+        val pillRotZ = (field.pushSign[1] * 1.2f * w1 +
+            (-1.0f * holdLyrics + 1.0f * holdQueue) +
+            (-1.1f * prevOrbHold + 1.1f * nextOrbHold) +
+            (upperDir * 1.5f * (prevWave + nextWave))) * sPill
+        val pillFocalBias = ((-holdLyrics + holdQueue -
+            0.55f * prevOrbHold + 0.55f * nextOrbHold +
+            (upperDir * 0.65f * (prevWave + nextWave)) +
+            if (field.pushSign[1] != 0f) field.pushSign[1] * 0.65f * w1 else 0f) * sPill)
+            .coerceIn(-1f, 1f)
+        val pillGlowBoost = ((w1 + 0.85f * playWave + 0.65f * (prevWave + nextWave) +
+            0.55f * playOrbHold + 0.40f * (prevOrbHold + nextOrbHold)) * sPill).coerceIn(0f, 1.35f)
+
+        val queueShiftDp = ((if (field.pushSign[2] > 0f) 3.8f * w2 else -2.6f * w2) -
+            (0.8f * holdLyrics) + (2.4f * holdPill) - (1.4f * holdQueue) +
+            (1.4f * playWave) + (1.8f * nextWave) - (0.7f * prevWave) -
+            (0.9f * playOrbHold) - (0.9f * nextOrbHold)) * sQueue
+        val queueShiftYDp = (1.6f * playWave + 1.1f * nextWave + 0.5f * prevWave -
+            0.8f * playOrbHold - 0.7f * nextOrbHold) * sQueue
+        val queueScaleX = if (isQueuePressed && sQueue > 0f) {
+            0.87f
+        } else {
+            1f + (0.11f * w2 + 0.035f * playWave + 0.04f * nextWave) * sQueue
+        }
+        val queueScaleY = if (isQueuePressed && sQueue > 0f) {
+            0.87f
+        } else {
+            1f + (-0.08f * w2 - 0.030f * playWave - 0.03f * nextWave) * sQueue
+        }
+        val queueRotZ = (field.pushSign[2] * 3.8f * w2 + 2.4f * playWave + 2.2f * nextWave) * sQueue
+
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = edgeInset),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -608,126 +861,307 @@ internal fun PlayerActionRow(
             BottomGlyph(
                 icon = BitChordIcons.LyricsQuoteMarks,
                 contentDescription = stringResource(if (lyricsOpen) Res.string.close_lyrics else Res.string.open_lyrics),
-                // Lyrics and the queue are two things to show in one place, so
-                // opening either closes the other; lit to say which is up.
-                onClick = onToggleLyrics,
-                onLongClick = onLyricsOffset,
+                onClick = {
+                    triggerLyricsGlyphMotion()
+                    if (sLyrics > 0f) {
+                        field.triggerWave(origin = 0, strength = 1.0f, directionalSign = 1f)
+                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 0, strength = 1.0f)
+                    }
+                    onToggleLyrics()
+                },
+                onLongClick = onLyricsOffset?.let { offsetAction ->
+                    {
+                        triggerLyricsGlyphMotion()
+                        if (sLyrics > 0f) {
+                            field.triggerWave(origin = 0, strength = 1.05f, directionalSign = 1f)
+                            if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 0, strength = 1.05f)
+                        }
+                        offsetAction()
+                    }
+                },
                 highlighted = lyricsOpen,
                 accentColor = primaryAccent,
                 secondaryAccent = secondaryAccent,
+                interactionSource = lyricsInteraction,
+                waveImpulse = maxOf(w0, playWave * 0.45f, prevWave * 0.45f) * sLyrics,
+                shiftDp = lyricsShiftDp,
+                shiftYDp = lyricsShiftYDp,
+                dropletScaleX = lyricsScaleX,
+                dropletScaleY = lyricsScaleY,
+                containerRotZ = lyricsRotZ,
+                glyphRotZ = if (sLyrics <= 0f) 0f else lyricsTiltAnim.value,
+                glyphScaleY = if (sLyrics <= 0f) 1f else lyricsSquishAnim.value,
+                reduceAnimation = sLyrics <= 0f,
             )
             val speed = animSpeed.coerceIn(0.5f, 2.0f)
-            AnimatedContent(
-                targetState = queueOpen,
-                transitionSpec = {
-                    (
-                        fadeIn(
-                            tween(
-                                durationMillis = (200f / speed).roundToInt().coerceIn(50, 450),
-                                delayMillis = (60f / speed).roundToInt().coerceIn(0, 150),
-                            ),
-                        ) togetherWith fadeOut(
-                            tween(
-                                durationMillis = (140f / speed).roundToInt().coerceIn(35, 300),
-                            ),
-                        )
-                    ).using(
-                        SizeTransform(clip = false) { _, _ ->
-                            spring(
-                                dampingRatio = 0.82f,
-                                stiffness = Spring.StiffnessMediumLow * speed,
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        translationX = pillShiftDp.dp.toPx()
+                        translationY = pillShiftYDp.dp.toPx()
+                        scaleX = pillScaleX
+                        scaleY = pillScaleY
+                        rotationZ = pillRotZ
+                        clip = false
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimatedContent(
+                    targetState = queueOpen,
+                    transitionSpec = {
+                        (
+                            fadeIn(
+                                tween(
+                                    durationMillis = (200f / speed).roundToInt().coerceIn(50, 450),
+                                    delayMillis = (60f / speed).roundToInt().coerceIn(0, 150),
+                                ),
+                            ) togetherWith fadeOut(
+                                tween(
+                                    durationMillis = (140f / speed).roundToInt().coerceIn(35, 300),
+                                ),
                             )
-                        },
-                    )
-                },
-                label = "playerBottomPill",
-            ) { showQueueModes ->
-                if (showQueueModes) {
-                    // Always three-up, unlike the output/party capsule — so it
-                    // always takes the narrower spacing. See
-                    // [PILL_SEGMENT_WIDTH_TRIPLE].
-                    Pill(
-                        accentColor = primaryAccent,
-                        secondaryAccent = secondaryAccent,
-                    ) {
-                        PillSegment(
-                            icon = BitChordIcons.Shuffle,
-                            contentDescription = stringResource(
-                                if (shuffleEnabled) Res.string.shuffle_on else Res.string.shuffle_off,
-                            ),
-                            onClick = onToggleShuffle,
-                            highlighted = shuffleEnabled,
-                            haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
-                            tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
-                            accentColor = primaryAccent,
-                            secondaryAccent = secondaryAccent,
-                        )
-                        PillDivider()
-                        PillSegment(
-                            icon = if (repeatMode == RepeatModes.ONE) null else BitChordIcons.Repeat,
-                            label = if (repeatMode == RepeatModes.ONE) "1" else null,
-                            contentDescription = when (repeatMode) {
-                                RepeatModes.ONE -> stringResource(Res.string.repeat_one)
-                                RepeatModes.ALL -> stringResource(Res.string.repeat_all)
-                                else -> stringResource(Res.string.repeat_off)
+                        ).using(
+                            SizeTransform(clip = false) { _, _ ->
+                                spring(
+                                    dampingRatio = 0.82f,
+                                    stiffness = Spring.StiffnessMediumLow * speed,
+                                )
                             },
-                            onClick = onCycleRepeat,
-                            highlighted = repeatMode != RepeatModes.OFF,
-                            // Three states, so the buzz tracks the edges of the
-                            // cycle: leaving off rises, returning to off falls,
-                            // and the step between the two repeat modes is just
-                            // a selection.
-                            haptic = when (repeatMode) {
-                                RepeatModes.OFF -> Haptic.ToggleOn
-                                RepeatModes.ONE -> Haptic.ToggleOff
-                                else -> Haptic.Select
-                            },
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
+                        )
+                    },
+                    label = "playerBottomPill",
+                ) { showQueueModes ->
+                    if (showQueueModes) {
+                        Pill(
                             accentColor = primaryAccent,
                             secondaryAccent = secondaryAccent,
-                        )
-                        PillDivider()
-                        PillSegment(
-                            icon = BitChordIcons.Infinity,
-                            contentDescription = stringResource(
-                                if (autoplayEnabled) Res.string.autoplay_on else Res.string.autoplay_off,
-                            ),
-                            onClick = onToggleAutoplay,
-                            highlighted = autoplayEnabled,
-                            haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
-                            tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
-                            width = PILL_SEGMENT_WIDTH_TRIPLE,
-                            accentColor = primaryAccent,
-                            secondaryAccent = secondaryAccent,
-                        )
-                    }
-                } else {
-                    if (isModernOrVinyl && song != null && onOpenPipeline != null) {
-                        ChordPlayPipelineBottomPill(
-                            song = song,
-                            isLoading = isLoading,
-                            onOpenPipeline = onOpenPipeline,
-                            onOpenOutput = onOpenOutput,
-                            palette = palette ?: remember { MeshPalette(emptyList()) },
-                        )
+                        ) {
+                            PillSegment(
+                                icon = BitChordIcons.PlayerShuffle,
+                                contentDescription = stringResource(
+                                    if (shuffleEnabled) Res.string.shuffle_on else Res.string.shuffle_off,
+                                ),
+                                onClick = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.92f, directionalSign = -1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 0.95f)
+                                    }
+                                    onToggleShuffle()
+                                },
+                                highlighted = shuffleEnabled,
+                                haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
+                                tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
+                                width = PILL_SEGMENT_WIDTH_TRIPLE,
+                                accentColor = primaryAccent,
+                                secondaryAccent = secondaryAccent,
+                                interactionSource = pillLeftInteraction,
+                            )
+                            PillDivider()
+                            PillSegment(
+                                icon = if (repeatMode == RepeatModes.ONE) BitChordIcons.PlayerRepeatOne else BitChordIcons.PlayerRepeat,
+                                label = null,
+                                contentDescription = when (repeatMode) {
+                                    RepeatModes.ONE -> stringResource(Res.string.repeat_one)
+                                    RepeatModes.ALL -> stringResource(Res.string.repeat_all)
+                                    else -> stringResource(Res.string.repeat_off)
+                                },
+                                onClick = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.95f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 0.95f)
+                                    }
+                                    onCycleRepeat()
+                                },
+                                highlighted = repeatMode != RepeatModes.OFF,
+                                haptic = when (repeatMode) {
+                                    RepeatModes.OFF -> Haptic.ToggleOn
+                                    RepeatModes.ONE -> Haptic.ToggleOff
+                                    else -> Haptic.Select
+                                },
+                                width = PILL_SEGMENT_WIDTH_TRIPLE,
+                                accentColor = primaryAccent,
+                                secondaryAccent = secondaryAccent,
+                                interactionSource = pillMidInteraction,
+                            )
+                            PillDivider()
+                            PillSegment(
+                                icon = BitChordIcons.Infinity,
+                                contentDescription = stringResource(
+                                    if (autoplayEnabled) Res.string.autoplay_on else Res.string.autoplay_off,
+                                ),
+                                onClick = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.92f, directionalSign = 1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 0.95f)
+                                    }
+                                    onToggleAutoplay()
+                                },
+                                highlighted = autoplayEnabled,
+                                haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
+                                tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
+                                width = PILL_SEGMENT_WIDTH_TRIPLE,
+                                accentColor = primaryAccent,
+                                secondaryAccent = secondaryAccent,
+                                interactionSource = pillRightInteraction,
+                            )
+                        }
                     } else {
-                        OutputPartyPill(
-                            onOutput = onOpenOutput,
-                            onParty = onListenTogether,
-                            onOpenMembers = onOpenListenTogetherMembers,
-                        )
+                        if (isModernOrVinyl && song != null && onOpenPipeline != null) {
+                            ChordPlayPipelineBottomPill(
+                                song = song,
+                                isLoading = isLoading,
+                                onOpenPipeline = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.9f, directionalSign = -1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 1.0f)
+                                    }
+                                    onOpenPipeline()
+                                },
+                                onOpenOutput = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.95f, directionalSign = 1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 1.0f)
+                                    }
+                                    onOpenOutput()
+                                },
+                                palette = palette ?: remember { MeshPalette(emptyList()) },
+                                leftInteractionSource = pillLeftInteraction,
+                                rightInteractionSource = pillRightInteraction,
+                                focalBias = pillFocalBias,
+                                highlightBoost = pillGlowBoost,
+                            )
+                        } else {
+                            OutputPartyPill(
+                                onOutput = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.9f, directionalSign = -1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 1.0f)
+                                    }
+                                    onOpenOutput()
+                                },
+                                onParty = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.9f, directionalSign = 1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 1.0f)
+                                    }
+                                    onListenTogether()
+                                },
+                                onOpenMembers = {
+                                    if (sPill > 0f) {
+                                        field.triggerWave(origin = 1, strength = 0.9f, directionalSign = 1f)
+                                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 1, strength = 1.0f)
+                                    }
+                                    onOpenListenTogetherMembers()
+                                },
+                                outputInteraction = pillLeftInteraction,
+                                partyInteraction = pillRightInteraction,
+                            )
+                        }
                     }
                 }
             }
             BottomGlyph(
                 icon = queueIcon,
                 contentDescription = stringResource(Res.string.up_next),
-                onClick = onToggleQueue,
+                onClick = {
+                    triggerQueueGlyphMotion()
+                    if (sQueue > 0f) {
+                        field.triggerWave(origin = 2, strength = 1.0f, directionalSign = -1f)
+                        if (crossScale > 0f) deckCoupling?.triggerBottomAction(origin = 2, strength = 1.0f)
+                    }
+                    onToggleQueue()
+                },
                 highlighted = queueOpen,
                 haptic = if (queueOpen) Haptic.Tap else Haptic.Expand,
                 accentColor = primaryAccent,
                 secondaryAccent = secondaryAccent,
+                interactionSource = queueInteraction,
+                waveImpulse = maxOf(w2, playWave * 0.45f, nextWave * 0.45f) * sQueue,
+                shiftDp = queueShiftDp,
+                shiftYDp = queueShiftYDp,
+                dropletScaleX = queueScaleX,
+                dropletScaleY = queueScaleY,
+                containerRotZ = queueRotZ,
+                glyphRotZ = if (sQueue <= 0f) 0f else queueTiltAnim.value,
+                glyphOffsetYDp = if (sQueue <= 0f) 0f else queueLiftAnim.value,
+                reduceAnimation = sQueue <= 0f,
+            )
+        }
+    }
+}
+
+/**
+ * Interactive settings preview combining [ChordPlayTransportDeck] and [PlayerActionRow]
+ * inside a shared [DeckPhysicsCoupling] scope so toggles can be tested live.
+ */
+@Composable
+fun ChordPlayInteractiveDeckPreview(
+    isPlaying: Boolean,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    shuffleEnabled: Boolean,
+    repeatMode: Int,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeat: () -> Unit,
+    palette: MeshPalette,
+    elasticConfig: com.music.bitchord.data.settings.PlayerElasticConfig,
+    modifier: Modifier = Modifier,
+) {
+    val scope = rememberCoroutineScope()
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val coupling = remember(scope) {
+        DeckPhysicsCoupling(scope) { reduceAnimation || !elasticConfig.enabled || !elasticConfig.playPillInteraction }
+    }
+    var lyricsOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var queueOpen by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val previewSong = remember {
+        com.music.bitchord.data.model.Song(
+            videoId = "preview_track",
+            title = "Bairiya Re",
+            artist = "Gursheet Khanuja",
+            thumbnailUrl = null,
+        )
+    }
+    CompositionLocalProvider(LocalDeckPhysicsCoupling provides coupling) {
+        Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            ChordPlayTransportDeck(
+                isPlaying = isPlaying,
+                isLoading = false,
+                previousEnabled = true,
+                nextEnabled = true,
+                onPrevious = onPrevious,
+                onPlayPause = onPlayPause,
+                onNext = onNext,
+                shuffleEnabled = shuffleEnabled,
+                repeatMode = repeatMode,
+                onToggleShuffle = onToggleShuffle,
+                onCycleRepeat = onCycleRepeat,
+                palette = palette,
+                queueOpen = queueOpen,
+                elasticOverride = elasticConfig,
+            )
+            Spacer(Modifier.height(10.dp))
+            PlayerActionRow(
+                lyricsOpen = lyricsOpen,
+                queueOpen = queueOpen,
+                shuffleEnabled = shuffleEnabled,
+                repeatMode = repeatMode,
+                autoplayEnabled = true,
+                onToggleLyrics = { lyricsOpen = !lyricsOpen },
+                onToggleQueue = { queueOpen = !queueOpen },
+                onToggleShuffle = onToggleShuffle,
+                onCycleRepeat = onCycleRepeat,
+                onToggleAutoplay = {},
+                onOpenOutput = {},
+                onListenTogether = {},
+                onOpenListenTogetherMembers = {},
+                song = previewSong,
+                isLoading = false,
+                isModernOrVinyl = true,
+                onOpenPipeline = {},
+                palette = palette,
+                elasticOverride = elasticConfig,
             )
         }
     }
@@ -859,6 +1293,8 @@ private val PLAYER_SKIP_TOUCH_SIZE = 53.dp
 private const val PLAYER_SKIP_HEIGHT_SCALE = 0.85f
 
 private val BOTTOM_ACTION_SIZE = 44.dp
+private val BOTTOM_TOUCH_SIZE = 48.dp
+private val BOTTOM_DROPLET_SIZE = 40.dp
 
 /**
  * One half of the output capsule — wider than it is tall, so the capsule reads
@@ -883,7 +1319,7 @@ private val PILL_SEGMENT_WIDTH_TRIPLE = 52.dp
  * drawn at the same nominal size the second reads as the bigger of the two.
  * These are the numbers at which they look like a matched pair.
  */
-private val PILL_HEADPHONES_SIZE = 23.dp
+private val PILL_EARBUDS_SIZE = 22.dp
 private val PILL_PARTY_SIZE = 22.dp
 
 /** What a segment's glyph is drawn at when it has no optical quirk to correct. */
@@ -986,14 +1422,17 @@ private fun OutputPartyPill(
     onParty: () -> Unit,
     /** Who's in it, before the settings page — see [ListenTogetherMembersSheet]. */
     onOpenMembers: () -> Unit,
+    outputInteraction: MutableInteractionSource = remember { MutableInteractionSource() },
+    partyInteraction: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val badge = rememberPartyBadge()
     Pill {
         PillSegment(
-            icon = Icons.Rounded.Headphones,
-            iconSize = PILL_HEADPHONES_SIZE,
+            icon = BitChordIcons.Earbuds,
+            iconSize = PILL_EARBUDS_SIZE,
             contentDescription = stringResource(Res.string.audio_output),
             onClick = onOutput,
+            interactionSource = outputInteraction,
         )
         PillDivider()
         PillSegment(
@@ -1016,6 +1455,7 @@ private fun OutputPartyPill(
             onClick = if (badge.inParty) onOpenMembers else onParty,
             highlighted = badge.inParty,
             trailingLabel = badge.members.takeIf { badge.inParty }?.toString(),
+            interactionSource = partyInteraction,
         )
     }
 }
@@ -1045,6 +1485,7 @@ private fun PillSegment(
     width: Dp = PILL_SEGMENT_WIDTH,
     accentColor: Color? = null,
     secondaryAccent: Color? = null,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
     val haptics = rememberHaptics()
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
@@ -1064,7 +1505,7 @@ private fun PillSegment(
                 circular = false,
             )
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 enabled = !loading,
             ) {
@@ -1265,26 +1706,56 @@ private fun BottomGlyph(
     tapWindowMs: Long = 0L,
     accentColor: Color? = null,
     secondaryAccent: Color? = null,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    waveImpulse: Float = 0f,
+    shiftDp: Float = 0f,
+    shiftYDp: Float = 0f,
+    dropletScaleX: Float = 1f,
+    dropletScaleY: Float = 1f,
+    containerRotZ: Float = 0f,
+    glyphRotZ: Float = 0f,
+    glyphScaleY: Float = 1f,
+    glyphOffsetYDp: Float = 0f,
+    reduceAnimation: Boolean = false,
 ) {
     val haptics = rememberHaptics()
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressGlow by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = tween(140),
+        label = "BottomGlyphPressGlow",
+    )
     val highlightState = rememberArtworkHighlightState(
         highlighted = highlighted,
         primaryAccent = accentColor,
         secondaryAccent = secondaryAccent,
     )
-    val tint = highlightState.tint
+    val primaryGlow = accentColor ?: Color(0xFFFF6D5A)
+    val highGlow = secondaryAccent ?: primaryGlow
+    val activeGlow = highlightState.fraction
+    val effectiveWave = if (reduceAnimation) 0f else waveImpulse
+    val dropletGlow = (activeGlow + 0.28f * pressGlow + 0.35f * effectiveWave).coerceIn(0f, 1.15f)
+    val tint by animateColorAsState(
+        targetValue = when {
+            highlighted -> highlightState.style.activeIconTint
+            pressGlow > 0.25f -> Color.White.copy(alpha = 0.96f)
+            else -> Color.White.copy(alpha = 0.80f)
+        },
+        animationSpec = tween(200),
+        label = "BottomGlyphTint",
+    )
     Box(
         modifier = Modifier
-            .size(BOTTOM_ACTION_SIZE)
-            .clip(CircleShape)
-            .dualShadeHighlight(
-                highlightedFraction = highlightState.fraction,
-                style = highlightState.style,
-                circular = true,
-            )
+            .size(BOTTOM_TOUCH_SIZE)
+            .graphicsLayer {
+                translationX = shiftDp.dp.toPx()
+                translationY = shiftYDp.dp.toPx()
+                rotationZ = containerRotZ
+                clip = false
+            }
             .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = {
                     val now = uptimeMillis()
@@ -1304,20 +1775,72 @@ private fun BottomGlyph(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(26.dp),
+        if (activeGlow > 0.02f || effectiveWave > 0.02f || pressGlow > 0.02f) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .graphicsLayer {
+                        val auraScale = 0.90f + 0.20f * activeGlow + 0.26f * effectiveWave + 0.14f * pressGlow
+                        scaleX = auraScale
+                        scaleY = auraScale
+                        alpha = (0.56f * activeGlow + 0.45f * effectiveWave + 0.34f * pressGlow).coerceIn(0f, 0.88f)
+                    }
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                primaryGlow.copy(alpha = 0.38f),
+                                highGlow.copy(alpha = 0.16f),
+                                Color.Transparent,
+                            ),
+                        ),
+                        shape = CircleShape,
+                    ),
             )
-        } else if (label != null) {
-            Text(
-                text = label,
-                color = tint,
-                fontSize = 19.sp,
-                fontWeight = FontWeight.Bold,
-            )
+        }
+
+        // Pure borderless translucent frosted glass droplet (40.dp inside 48.dp hit box)
+        val dropletIdleAlpha = 0.072f * (1f - activeGlow.coerceIn(0f, 1f))
+        Box(
+            modifier = Modifier
+                .size(BOTTOM_DROPLET_SIZE)
+                .graphicsLayer {
+                    scaleX = dropletScaleX
+                    scaleY = dropletScaleY
+                }
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = (dropletIdleAlpha + 0.23f * dropletGlow).coerceIn(0f, 0.44f)),
+                            primaryGlow.copy(alpha = (0.04f + 0.32f * dropletGlow).coerceIn(0f, 0.48f)),
+                            Color.White.copy(alpha = (0.025f + 0.09f * dropletGlow).coerceIn(0f, 0.22f)),
+                        ),
+                    ),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            val glyphMod = Modifier.graphicsLayer {
+                translationY = glyphOffsetYDp.dp.toPx()
+                rotationZ = glyphRotZ
+                scaleY = glyphScaleY
+                scaleX = 1f + (1f - glyphScaleY) * 0.42f
+            }
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = glyphMod.size(23.dp),
+                )
+            } else if (label != null) {
+                Text(
+                    text = label,
+                    color = tint,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = glyphMod,
+                )
+            }
         }
     }
 }

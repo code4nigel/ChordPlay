@@ -3,7 +3,7 @@
     <string name="analysis_complete">analizzato</string>
     <string name="analysis_in_progress">analisi in corso…</string>
     <string name="analysis_refining">analizzato, rifinitura…</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>

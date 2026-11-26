@@ -808,7 +808,7 @@
     <string name="switch_profile_hint">Switch using the avatar, then use this profile.</string>
     <string name="profile_unavailable">No signed-in profile is available on this page yet.</string>
     <string name="open_lyrics">Lyrics</string>
-    <string name="audio_output">Audio output</string>
+    <string name="audio_output">Audio options</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="wired_headphones">Wired headphones</string>
     <string name="usb_audio">USB audio</string>

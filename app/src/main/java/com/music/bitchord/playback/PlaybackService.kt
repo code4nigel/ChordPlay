@@ -629,6 +629,40 @@ class PlaybackService : MediaLibraryService() {
     /** Automix's DSP analyzer — see [com.music.bitchord.playback.smart.TrackAnalyzer]. */
     private val trackAnalyzer = com.music.bitchord.playback.smart.TrackAnalyzer(this, AudioCache)
 
+    /** Lightweight 96-bin track amplitude extractor + live level monitor for PlayerWaveStyle.AUDIO_GRAPH. */
+    private val trackWaveformExtractor = com.music.bitchord.playback.smart.TrackWaveformExtractor(this, AudioCache, trackAnalyzer)
+    @Volatile
+    private var lastLiveLevelAtMs = 0L
+    private var smoothedAudioLevel = 0f
+
+    private fun publishAudiblePcmLevel(samples: FloatArray, frameCount: Int, channelCount: Int) {
+        if (AppSettings.playerWaveStyle.value != com.music.bitchord.data.settings.PlayerWaveStyle.AUDIO_GRAPH) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastLiveLevelAtMs < 36L) return
+        lastLiveLevelAtMs = now
+        val total = frameCount * channelCount
+        if (total <= 0) return
+        val step = maxOf(1, total / 64)
+        var sumSq = 0f
+        var peak = 0f
+        var count = 0
+        var i = 0
+        while (i < total) {
+            val a = kotlin.math.abs(samples[i])
+            if (a.isFinite()) {
+                sumSq += a * a
+                if (a > peak) peak = a
+                count++
+            }
+            i += step
+        }
+        if (count == 0) return
+        val rms = kotlin.math.sqrt(sumSq / count)
+        val target = ((rms * 1.45f + peak * 0.45f).coerceIn(0f, 1f))
+        smoothedAudioLevel += (target - smoothedAudioLevel) * 0.48f
+        AppSettings.liveAudioLevel.value = smoothedAudioLevel
+    }
+
     /** Shared with the crossfade's tail player, so both read the same disk cache. */
     private var mediaSourceFactory: MediaSource.Factory? = null
 
@@ -1677,6 +1711,18 @@ class PlaybackService : MediaLibraryService() {
         }
         // The restored entry was set before the listener was attached.
         AndroidCoverPlayback.initialize(exoPlayer.currentMediaItem)
+        exoPlayer.currentMediaItem?.let { item ->
+            trackWaveformExtractor.setActiveTrack(item.mediaId, item.localConfiguration?.uri, exoPlayer.duration)
+        }
+        AppSettings.onTrackWaveformRequested = { trackId, durationMs ->
+            scope.launch {
+                val current = player?.currentMediaItem
+                if (current != null && current.mediaId == trackId) {
+                    val effectiveDuration = player?.duration?.takeIf { it > 0L } ?: durationMs
+                    trackWaveformExtractor.request(trackId, current.localConfiguration?.uri, effectiveDuration)
+                }
+            }
+        }
         if (restored) {
             publishWidgetState()
         } else {
@@ -2960,6 +3006,11 @@ class PlaybackService : MediaLibraryService() {
     ) {
         val exoPlayer = player ?: return
         AndroidCoverPlayback.trackChanged(mediaItem, reason)
+        trackWaveformExtractor.setActiveTrack(
+            mediaItem?.mediaId,
+            mediaItem?.localConfiguration?.uri,
+            exoPlayer.duration,
+        )
         currentAudioInputFormat = null
         NerdStats.onTrackTransition()
         AudioOutputStatus.onTrackTransition()
@@ -5645,6 +5696,15 @@ class PlaybackService : MediaLibraryService() {
                     // repeat: it returns immediately unless the track is
                     // pending and nothing is already looking.
                     lookForBetterCopy(player)
+                    val curItem = player.currentMediaItem
+                    val curId = curItem?.mediaId
+                    val curWave = AppSettings.activeTrackWaveform.value
+                    if (curId != null &&
+                        AppSettings.playerWaveStyle.value == com.music.bitchord.data.settings.PlayerWaveStyle.AUDIO_GRAPH &&
+                        (curWave == null || curWave.trackId != curId || curWave.measuredFraction < 0.96f)
+                    ) {
+                        trackWaveformExtractor.request(curId, curItem.localConfiguration?.uri, player.duration)
+                    }
                 }
                 delay(PROGRESS_SAMPLE_MS)
             }
@@ -5860,6 +5920,7 @@ class PlaybackService : MediaLibraryService() {
                 // audible one writes telemetry, so the idle player's reset
                 // cannot publish "not exact" over the playing track's verdict.
                 isAudible = { transition === activeFilter },
+                onAudibleBlock = ::publishAudiblePcmLevel,
             )
         }
     }
@@ -6195,6 +6256,20 @@ class PlaybackService : MediaLibraryService() {
     private fun observeSettings() {
         scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
+        }
+        scope.launch {
+            AppSettings.playerWaveStyle.collect { style ->
+                if (style == com.music.bitchord.data.settings.PlayerWaveStyle.AUDIO_GRAPH) {
+                    val active = player
+                    val item = active?.currentMediaItem
+                    val id = item?.mediaId
+                    if (id != null) {
+                        trackWaveformExtractor.setActiveTrack(id, item.localConfiguration?.uri, active.duration)
+                    }
+                } else {
+                    AppSettings.liveAudioLevel.value = 0f
+                }
+            }
         }
         scope.launch {
             // Re-evaluate the already queued next track immediately when this
@@ -6761,6 +6836,10 @@ class PlaybackService : MediaLibraryService() {
         serviceLyrics = null
         cancelPrefetch()
         trackAnalyzer.release()
+        trackWaveformExtractor.release()
+        AppSettings.onTrackWaveformRequested = null
+        AppSettings.activeTrackWaveform.value = null
+        AppSettings.liveAudioLevel.value = 0f
         loudnessRetryJob?.cancel()
         // The YouTube Music history entry for whatever was playing, closed out
         // on the same terms as the ListenBrainz submit below: a swipe-away never
