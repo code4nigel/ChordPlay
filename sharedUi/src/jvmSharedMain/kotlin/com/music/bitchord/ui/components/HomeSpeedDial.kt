@@ -501,6 +501,8 @@ private fun HomeSpeedDialUnifiedPager(
         if (target != null && target in pages.indices) {
             pendingRestorePage = null
             pagerState.scrollToPage(target)
+        } else if (pages.isNotEmpty() && pagerState.currentPage >= pages.size) {
+            pagerState.scrollToPage(pages.lastIndex)
         }
     }
     LaunchedEffect(pagerState, pages) {
@@ -560,7 +562,7 @@ private fun HomeSpeedDialUnifiedPager(
     val artLoaded = remember(cappedSpaceItems, mixesItems, artistItems) {
         mutableStateMapOf<String, Boolean>()
     }
-    val pageHeights = remember { mutableStateMapOf<Int, Int>() }
+    val pageHeights = remember { mutableStateMapOf<String, Int>() }
     val density = LocalDensity.current
     val haptics = rememberHaptics()
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -705,7 +707,7 @@ private fun HomeSpeedDialUnifiedPager(
                     verticalAlignment = Alignment.Top,
                     beyondViewportPageCount = 1,
                     userScrollEnabled = dragId == null,
-                    key = { pages[it].key },
+                    key = { index -> pages.getOrNull(index)?.key ?: "dial_fallback_$index" },
                     modifier = Modifier
                         .fillMaxWidth()
                         .clipToBounds()
@@ -717,8 +719,8 @@ private fun HomeSpeedDialUnifiedPager(
                             val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
                             val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
                             val frac = pageFloat - fromIdx
-                            val fromH = pageHeights[fromIdx]
-                            val toH = pageHeights[toIdx]
+                            val fromH = pages.getOrNull(fromIdx)?.let { pageHeights[it.key] }
+                            val toH = pages.getOrNull(toIdx)?.let { pageHeights[it.key] }
                             val targetH = when {
                                 fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
                                 fromH != null -> fromH
@@ -729,13 +731,13 @@ private fun HomeSpeedDialUnifiedPager(
                             }
                         },
                 ) { pageIndex ->
-                    val spec = pages[pageIndex]
+                    val spec = pages.getOrNull(pageIndex) ?: return@HorizontalPager
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .onSizeChanged { size ->
-                                if (size.height > 0 && pageHeights[pageIndex] != size.height) {
-                                    pageHeights[pageIndex] = size.height
+                                if (size.height > 0 && pageHeights[spec.key] != size.height) {
+                                    pageHeights[spec.key] = size.height
                                 }
                             },
                     ) {
@@ -1232,6 +1234,11 @@ private fun HomeSpeedDialListPager(
         initialPage = tabs.indexOf(activeTab).coerceAtLeast(0),
         pageCount = { tabs.size },
     )
+    LaunchedEffect(tabs.size) {
+        if (tabs.isNotEmpty() && outerPagerState.currentPage >= tabs.size) {
+            outerPagerState.scrollToPage(tabs.lastIndex)
+        }
+    }
     LaunchedEffect(outerPagerState, tabs) {
         snapshotFlow { outerPagerState.settledPage }
             .distinctUntilChanged()
@@ -1252,7 +1259,7 @@ private fun HomeSpeedDialListPager(
         HorizontalPager(
             state = outerPagerState,
             verticalAlignment = Alignment.Top,
-            key = { tabs[it].name },
+            key = { index -> tabs.getOrNull(index)?.name ?: "dial_tab_fallback_$index" },
             beyondViewportPageCount = 1,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1265,8 +1272,8 @@ private fun HomeSpeedDialListPager(
                     val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
                     val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
                     val frac = pageFloat - fromIdx
-                    val fromH = tabHeights[tabs[fromIdx]]
-                    val toH = tabHeights[tabs[toIdx]]
+                    val fromH = tabs.getOrNull(fromIdx)?.let { tabHeights[it] }
+                    val toH = tabs.getOrNull(toIdx)?.let { tabHeights[it] }
                     val targetH = when {
                         fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
                         fromH != null -> fromH
@@ -1277,7 +1284,7 @@ private fun HomeSpeedDialListPager(
                     }
                 },
         ) { pageIndex ->
-            val tab = tabs[pageIndex]
+            val tab = tabs.getOrNull(pageIndex) ?: return@HorizontalPager
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
