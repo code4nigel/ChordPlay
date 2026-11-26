@@ -775,6 +775,8 @@ private fun HomeSpeedDialUnifiedPager(
                                                 showLabel = showLabels,
                                                 reduceAnimation = reduceAnimation,
                                                 onRoll = onLuckyDialRoll,
+                                                artworkUrl = currentSong?.thumbnailUrl,
+                                                isPlaying = isPlaying,
                                                 dim = { if (isReordering) WIGGLE_DIM * wiggleLevel else 0f },
                                                 modifier = Modifier
                                                     .offset { IntOffset(origin.x.roundToInt(), origin.y.roundToInt()) }
@@ -1172,6 +1174,8 @@ private fun CardsPageContent(
                             isDark = isDark,
                             reduceAnimation = reduceAnimation,
                             onRoll = onLuckyDialRoll,
+                            artworkUrl = currentSong?.thumbnailUrl,
+                            isPlaying = isPlaying,
                             isCompact = false,
                             modifier = Modifier.weight(1f),
                         )
@@ -1181,6 +1185,8 @@ private fun CardsPageContent(
                             isDark = isDark,
                             reduceAnimation = reduceAnimation,
                             onRoll = onLuckyDialRoll,
+                            artworkUrl = currentSong?.thumbnailUrl,
+                            isPlaying = isPlaying,
                             isCompact = false,
                             modifier = Modifier.weight(1f),
                         )
@@ -1894,6 +1900,8 @@ private fun HomeSpeedDialList(
                             isDark = isDark,
                             reduceAnimation = reduceAnimation,
                             onRoll = onLuckyDialRoll,
+                            artworkUrl = currentSong?.thumbnailUrl,
+                            isPlaying = isPlaying,
                             isCompact = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -1913,6 +1921,8 @@ private fun HomeSpeedDialList(
                             isDark = isDark,
                             reduceAnimation = reduceAnimation,
                             onRoll = onLuckyDialRoll,
+                            artworkUrl = currentSong?.thumbnailUrl,
+                            isPlaying = isPlaying,
                             isCompact = false,
                             modifier = Modifier.fillMaxWidth(),
                         )
