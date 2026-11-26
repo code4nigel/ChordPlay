@@ -15,11 +15,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,12 +29,12 @@ import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,10 +52,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AutomixPerformanceMode
+import com.music.bitchord.data.settings.KeepScreenOnDuration
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.performance.displayDensityLabel
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.ui.screens.AutomixPerformanceSheet
+import com.music.bitchord.ui.screens.EnableLoggingRow
 import com.music.bitchord.ui.screens.ROW_INSET
 import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SegmentedControl
@@ -90,9 +88,11 @@ fun AdvancedPerformanceSection(
     val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
+    val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
+    val keepScreenOnDuration by AppSettings.keepScreenOnDuration.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
 
@@ -121,10 +121,12 @@ fun AdvancedPerformanceSection(
         showPerformanceConfirmation = true
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -132,6 +134,7 @@ fun AdvancedPerformanceSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showHighPerformance = matchesSearch(
@@ -153,11 +156,21 @@ fun AdvancedPerformanceSection(
             stringResource(R.string.reduce_animation_subtitle),
             "motion", "animation", "animations",
         )
-        val showPlayerAnimationSpeed = matchesSearch(
+        val showLivePreviewsSetting = matchesSearch(
             searchQuery,
-            stringResource(R.string.player_animation_speed),
-            stringResource(R.string.player_animation_speed_subtitle),
-            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
+            stringResource(R.string.settings_live_previews),
+            stringResource(R.string.settings_live_previews_desc),
+            "live", "preview", "previews", "cover", "miniplayer", "player style",
+        )
+        val showKeepScreenOn = matchesSearch(
+            searchQuery,
+            stringResource(R.string.keep_screen_on),
+            stringResource(R.string.keep_screen_on_subtitle),
+            stringResource(R.string.keep_screen_on_1_min),
+            stringResource(R.string.keep_screen_on_5_min),
+            stringResource(R.string.keep_screen_on_15_min),
+            stringResource(R.string.keep_screen_on_indefinitely),
+            "screen", "awake", "timeout", "display", "sleep", "indefinitely", "minutes",
         )
         val showDisplayDensity = matchesSearch(
             searchQuery,
@@ -185,12 +198,18 @@ fun AdvancedPerformanceSection(
             stringResource(R.string.show_nerd_stats_subtitle),
             "nerd", "stats", "bitrate", "codec", "diagnostics",
         )
+        val showEnableLogging = matchesSearch(
+            searchQuery,
+            stringResource(R.string.enable_logging),
+            stringResource(R.string.enable_logging_subtitle),
+            "log", "logging", "debug", "bug", "report", "crash", "share", "save", "experimental",
+        )
 
         val hasDisplayPerf = showHighPerformance || showReduceBlur || showReduceAnimation ||
-            showPlayerAnimationSpeed || showDisplayDensity
+            showLivePreviewsSetting || showKeepScreenOn || showDisplayDensity
         val hasAutomix = showAutomixPerf || showStopOnClose
-        val hasNerd = showNerdStats
-        val anyAdvancedMatch = hasDisplayPerf || hasAutomix || hasNerd
+        val hasDiagnostics = showNerdStats || showEnableLogging
+        val anyAdvancedMatch = hasDisplayPerf || hasAutomix || hasDiagnostics
 
         if (searchQuery.isNotBlank() && !anyAdvancedMatch) {
             SettingsSearchEmpty(query = searchQuery)
@@ -212,7 +231,7 @@ fun AdvancedPerformanceSection(
                             stringResource(R.string.high_performance_subtitle)
                         },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = highPerformanceMode,
                                 onCheckedChange = { targetState ->
                                     if (targetState) {
@@ -221,10 +240,6 @@ fun AdvancedPerformanceSection(
                                         AppSettings.setHighPerformanceMode(false)
                                     }
                                 },
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = {
@@ -263,13 +278,9 @@ fun AdvancedPerformanceSection(
                         title = reduceBlurTitle,
                         subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = reduceDynamicBlur,
                                 onCheckedChange = AppSettings::setReduceDynamicBlur,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
@@ -285,13 +296,9 @@ fun AdvancedPerformanceSection(
                         title = reduceAnimationTitle,
                         subtitle = stringResource(R.string.reduce_animation_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = reduceAnimation,
                                 onCheckedChange = AppSettings::setReduceAnimation,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
@@ -299,27 +306,53 @@ fun AdvancedPerformanceSection(
                     perfPreceding = true
                 }
 
-                if (showPlayerAnimationSpeed) {
-                    AnimatedVisibility(
-                        visible = !reduceAnimation,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically(),
-                    ) {
-                        Column {
-                            if (perfPreceding) RowDivider()
-                            SliderRow(
-                                icon = Icons.Rounded.Speed,
-                                title = stringResource(R.string.player_animation_speed),
-                                subtitle = stringResource(R.string.player_animation_speed_subtitle),
-                                value = playerAnimationSpeedLabel(playerAnimationSpeed),
-                                sliderValue = playerAnimationSpeed,
-                                onSliderValue = AppSettings::setPlayerAnimationSpeed,
-                                valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
-                                steps = 14,
+                if (showLivePreviewsSetting) {
+                    if (perfPreceding) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Visibility,
+                        title = stringResource(R.string.settings_live_previews),
+                        subtitle = stringResource(R.string.settings_live_previews_desc),
+                        trailing = {
+                            IosSwitch(
+                                checked = showLivePreviews,
+                                onCheckedChange = AppSettings::setShowSettingsLivePreviews,
                             )
-                        }
+                        },
+                        onClick = { AppSettings.setShowSettingsLivePreviews(!showLivePreviews) },
+                    )
+                    perfPreceding = true
+                }
+
+                if (showKeepScreenOn) {
+                    if (perfPreceding) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.WbSunny,
+                        title = stringResource(R.string.keep_screen_on),
+                        subtitle = stringResource(R.string.keep_screen_on_subtitle),
+                        trailing = {
+                            IosSwitch(
+                                checked = keepScreenOn,
+                                onCheckedChange = AppSettings::setKeepScreenOn,
+                            )
+                        },
+                        onClick = { AppSettings.setKeepScreenOn(!keepScreenOn) },
+                    )
+                    if (keepScreenOn) {
+                        val durationLabels = listOf(
+                            stringResource(R.string.keep_screen_on_1_min),
+                            stringResource(R.string.keep_screen_on_5_min),
+                            stringResource(R.string.keep_screen_on_15_min),
+                            stringResource(R.string.keep_screen_on_indefinitely),
+                        )
+                        val durations = KeepScreenOnDuration.entries
+                        SegmentedControl(
+                            options = durationLabels,
+                            selectedIndex = durations.indexOf(keepScreenOnDuration).coerceAtLeast(0),
+                            onSelect = { index -> AppSettings.setKeepScreenOnDuration(durations[index]) },
+                            modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                        )
                     }
-                    if (!reduceAnimation) perfPreceding = true
+                    perfPreceding = true
                 }
 
                 if (showDisplayDensity) {
@@ -364,13 +397,9 @@ fun AdvancedPerformanceSection(
                             title = stopMusicOnCloseTitle,
                             subtitle = stringResource(R.string.stop_music_on_close_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = stopOnTaskRemoved,
                                     onCheckedChange = AppSettings::setStopOnTaskRemoved,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
@@ -378,29 +407,32 @@ fun AdvancedPerformanceSection(
                     }
                 }
 
-                // Nerd Stats & Diagnostics Section Divider
-                if (hasNerd) {
+                // Nerd Stats, Logging & Diagnostics Section Divider
+                if (hasDiagnostics) {
                     if (hasDisplayPerf || hasAutomix) {
                         SettingsSectionDivider(title = stringResource(R.string.advanced_options))
                     }
 
-                    val nerdStatsTitle = stringResource(R.string.show_nerd_stats)
-                    SettingsRow(
-                        icon = Icons.Rounded.BarChart,
-                        title = nerdStatsTitle,
-                        subtitle = stringResource(R.string.show_nerd_stats_subtitle),
-                        trailing = {
-                            Switch(
-                                checked = nerdStats,
-                                onCheckedChange = AppSettings::setShowNerdStats,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
-                            )
-                        },
-                        onClick = { AppSettings.setShowNerdStats(!nerdStats) },
-                    )
+                    if (showNerdStats) {
+                        val nerdStatsTitle = stringResource(R.string.show_nerd_stats)
+                        SettingsRow(
+                            icon = Icons.Rounded.BarChart,
+                            title = nerdStatsTitle,
+                            subtitle = stringResource(R.string.show_nerd_stats_subtitle),
+                            trailing = {
+                                IosSwitch(
+                                    checked = nerdStats,
+                                    onCheckedChange = AppSettings::setShowNerdStats,
+                                )
+                            },
+                            onClick = { AppSettings.setShowNerdStats(!nerdStats) },
+                        )
+                    }
+
+                    if (showEnableLogging) {
+                        if (showNerdStats) RowDivider()
+                        EnableLoggingRow(title = stringResource(R.string.enable_logging))
+                    }
                 }
             }
         }

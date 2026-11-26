@@ -70,7 +70,9 @@ fun Modifier.drawPlainBackdrop(
     // Capture at a lower resolution to reduce effect cost; scale pixel-sized effects by the same factor.
     backdropScale: Float = 1f,
     // Reuse the last capture while the surface moves during a transition.
-    frozen: () -> Boolean = NeverFrozen
+    frozen: () -> Boolean = NeverFrozen,
+    // Reuse the last capture even if geometry offset moves (for sliding modal sheets).
+    freezeGeometry: () -> Boolean = NeverFrozen
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -93,7 +95,8 @@ fun Modifier.drawPlainBackdrop(
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
                 backdropScale = backdropScale.coerceIn(0.05f, 1f),
-                frozen = frozen
+                frozen = frozen,
+                freezeGeometry = freezeGeometry
             )
         )
 }
@@ -114,7 +117,9 @@ fun Modifier.drawBackdrop(
     // Capture at a lower resolution to reduce effect cost; scale pixel-sized effects by the same factor.
     backdropScale: Float = 1f,
     // Reuse the last capture while the surface moves during a transition.
-    frozen: () -> Boolean = NeverFrozen
+    frozen: () -> Boolean = NeverFrozen,
+    // Reuse the last capture even if geometry offset moves (for sliding modal sheets).
+    freezeGeometry: () -> Boolean = NeverFrozen
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -167,7 +172,8 @@ fun Modifier.drawBackdrop(
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
                 backdropScale = backdropScale.coerceIn(0.05f, 1f),
-                frozen = frozen
+                frozen = frozen,
+                freezeGeometry = freezeGeometry
             )
         )
 }
@@ -183,7 +189,8 @@ private class DrawBackdropElement(
     val onDrawSurface: (DrawScope.() -> Unit)?,
     val onDrawFront: (DrawScope.() -> Unit)?,
     val backdropScale: Float,
-    val frozen: () -> Boolean
+    val frozen: () -> Boolean,
+    val freezeGeometry: () -> Boolean
 ) : ModifierNodeElement<DrawBackdropNode>() {
 
     override fun create(): DrawBackdropNode {
@@ -198,7 +205,8 @@ private class DrawBackdropElement(
             onDrawSurface = onDrawSurface,
             onDrawFront = onDrawFront,
             backdropScale = backdropScale,
-            frozen = frozen
+            frozen = frozen,
+            freezeGeometry = freezeGeometry
         )
     }
 
@@ -238,6 +246,7 @@ private class DrawBackdropElement(
         node.onDrawFront = onDrawFront
         node.backdropScale = backdropScale
         node.frozen = frozen
+        node.freezeGeometry = freezeGeometry
         if (captureChanged) {
             node.surfaceDirty = true
         }
@@ -307,7 +316,8 @@ private class DrawBackdropNode(
     var onDrawSurface: (DrawScope.() -> Unit)?,
     var onDrawFront: (DrawScope.() -> Unit)?,
     var backdropScale: Float,
-    var frozen: () -> Boolean
+    var frozen: () -> Boolean,
+    var freezeGeometry: () -> Boolean
 ) : LayoutModifierNode, DrawModifierNode, GlobalPositionAwareModifierNode, ObserverModifierNode, Modifier.Node() {
 
     private val effectScope =
@@ -346,7 +356,7 @@ private class DrawBackdropNode(
         if (thawJob?.isActive == true) return
         thawJob = coroutineScope.launch {
             // Poll without requesting a frame on every display refresh.
-            while (frozen()) kotlinx.coroutines.delay(ThawPollMs)
+            while (frozen() || freezeGeometry()) kotlinx.coroutines.delay(ThawPollMs)
             invalidateDraw()
         }
     }
@@ -415,7 +425,10 @@ private class DrawBackdropNode(
                 offset != recordedBackdropOffset ||
                 recordSize != recordedBackdropSize
             val versionChanged = version == null || version != recordedBackdropVersion
-            val needsRecord = if (frozen() && hasRecording) {
+            val needsRecord = if (freezeGeometry() && hasRecording && recordSize == recordedBackdropSize && !surfaceDirty) {
+                if (versionChanged || offset != recordedBackdropOffset) scheduleThawRedraw()
+                false
+            } else if (frozen() && hasRecording) {
                 // The freeze only holds back source-content changes. A surface that moved or
                 // resized must re-capture now, or it shows the region it used to sit over.
                 if (geometryChanged) {

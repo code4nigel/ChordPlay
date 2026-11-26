@@ -80,6 +80,7 @@ import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.SettingsSearchEmpty
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.SettingsSubRow
 import com.music.bitchord.ui.screens.matchesSearch
@@ -94,6 +95,7 @@ internal fun CoverSection(
 ) {
     val mode by AppSettings.coverAnimation.collectAsStateWithLifecycle()
     val reducedMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     val fullBleed by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val tapToToggle by AppSettings.tapArtworkToToggleFullScreen.collectAsStateWithLifecycle()
     val canvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
@@ -135,10 +137,12 @@ internal fun CoverSection(
         "drag",
     )
 
+    val scrollState = rememberScrollState()
+
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState(), enabled = !draggingPriority)
+            .verticalScroll(scrollState, enabled = !draggingPriority)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -146,12 +150,15 @@ internal fun CoverSection(
             onBack = onBack,
             searchQuery = query,
             onSearchQueryChange = { query = it },
+            scrollState = scrollState,
         )
         if (!showMotion && !showFullScreen && !showTap && !showCanvas && !(canvas && showPriority)) {
             SettingsSearchEmpty(query)
         }
         if (showMotion) SettingsGroup(header = stringResource(R.string.cover_animation)) {
-            CoverPreview(mode, reducedMotion)
+            if (showLivePreviews) {
+                CoverPreview(mode, reducedMotion)
+            }
             val modes = CoverAnimationMode.entries
             SegmentedControl(
                 options = modes.map { option ->
@@ -165,7 +172,12 @@ internal fun CoverSection(
                 },
                 selectedIndex = modes.indexOf(mode).coerceAtLeast(0),
                 onSelect = { index -> AppSettings.setCoverAnimation(modes[index]) },
-                modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                modifier = Modifier.padding(
+                    start = 14.dp,
+                    end = 14.dp,
+                    top = if (showLivePreviews) 0.dp else 14.dp,
+                    bottom = 14.dp,
+                ),
             )
         }
         if (showFullScreen || showTap || showCanvas) SettingsGroup {
@@ -175,7 +187,7 @@ internal fun CoverSection(
                     title = stringResource(R.string.full_screen_cover_art),
                     subtitle = stringResource(R.string.full_screen_cover_art_subtitle),
                     onClick = { AppSettings.setFullBleedArtwork(!fullBleed) },
-                    trailing = { Switch(fullBleed, AppSettings::setFullBleedArtwork) },
+                    trailing = { IosSwitch(fullBleed, AppSettings::setFullBleedArtwork) },
                 )
             }
             if (showTap) {
@@ -185,7 +197,7 @@ internal fun CoverSection(
                     title = stringResource(R.string.tap_artwork_toggle_fullscreen),
                     subtitle = stringResource(R.string.tap_artwork_toggle_fullscreen_subtitle),
                     onClick = { AppSettings.setTapArtworkToToggleFullScreen(!tapToToggle) },
-                    trailing = { Switch(tapToToggle, AppSettings::setTapArtworkToToggleFullScreen) },
+                    trailing = { IosSwitch(tapToToggle, AppSettings::setTapArtworkToToggleFullScreen) },
                 )
             }
             if (showCanvas) {
@@ -195,7 +207,7 @@ internal fun CoverSection(
                     title = stringResource(R.string.animated_cover_art),
                     subtitle = stringResource(R.string.animated_cover_art_subtitle),
                     onClick = { AppSettings.setAnimatedCanvas(!canvas) },
-                    trailing = { Switch(canvas, AppSettings::setAnimatedCanvas) },
+                    trailing = { IosSwitch(canvas, AppSettings::setAnimatedCanvas) },
                 )
                 if (canvas) {
                     SettingsSubRow(

@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">Écoutez quelques titres pour créer vos mix</string>
     <string name="your_space_artists_empty">Épinglez ou écoutez des artistes pour les voir ici</string>
     <string name="your_space_drag_hint">Maintenez une tuile épinglée pour réorganiser</string>
+    <string name="lyrics_highlight_position">Position de la ligne active</string>
+    <string name="lyrics_highlight_top">Haut</string>
+    <string name="lyrics_highlight_top_mid">Haut-Milieu</string>
+    <string name="lyrics_highlight_center">Centre</string>
+    <string name="font_family_default">Par défaut</string>
+    <string name="font_family_serif">Serif</string>
+    <string name="font_family_sans_serif">Sans-serif</string>
+    <string name="font_family_monospace">Monospace</string>
+    <string name="font_family_script">Cursive</string>
+    <string name="font_weight_medium">Moyen</string>
+    <string name="font_weight_semibold">Semi-gras</string>
+    <string name="font_weight_bold">Gras</string>
+    <string name="font_weight_heavy">Très gras</string>
+    <string name="custom_font_active_hint">Police personnalisée · Appuyez sur Changer</string>
 </resources>

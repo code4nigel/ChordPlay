@@ -191,6 +191,9 @@ fun Modifier.iosMenuPanel(
     rimOverride: Color? = null,
     /** False where the caller casts [iosMenuShadow] itself, apart from the panel. */
     castsShadow: Boolean = true,
+    /** Reuse the last blurred backdrop recording while the panel slides in or out. */
+    freezeGeometry: () -> Boolean = { false },
+    frozen: () -> Boolean = LocalAppBackdropFrozen.current,
 ): Modifier {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val shadowed = if (castsShadow) iosMenuShadow() else this
@@ -205,7 +208,11 @@ fun Modifier.iosMenuPanel(
 
     // 2. Liquid Glass Mode (Refractive AGSL lens UI matching other Liquid elements)
     if (!reduceDynamicBlur && isLiquidGlass && isGlassSupported()) {
-        val liquidPanel = shadowed.liquidGlass(shape = IosMenuShape as CornerBasedShape, backdrop = backdrop)
+        val liquidPanel = shadowed.liquidGlass(
+            shape = IosMenuShape as CornerBasedShape,
+            backdrop = backdrop,
+            freezeGeometry = freezeGeometry,
+        )
         return if (palette != null && palette.accent != Color.Unspecified) {
             liquidPanel
                 .background(
@@ -261,7 +268,13 @@ fun Modifier.iosMenuPanel(
             shadowed.clip(IosMenuShape).optimizedHazeEffect(state = hazeState, style = style)
         }
         backdropFrost -> {
-            shadowed.menuBackdropFrost(backdrop, IosMenuShape, baseFill.copy(alpha = 0.20f))
+            shadowed.menuBackdropFrost(
+                backdrop = backdrop,
+                shape = IosMenuShape,
+                fill = baseFill.copy(alpha = 0.20f),
+                frozen = frozen,
+                freezeGeometry = freezeGeometry,
+            )
         }
         else -> {
             val opaqueBase = if (colors.dark) {
@@ -281,8 +294,8 @@ fun Modifier.iosMenuPanel(
         .border(0.5.dp, rimOverride ?: colors.rim, IosMenuShape)
 }
 
-/** The shadow the menu panel casts. */
-fun Modifier.iosMenuShadow(shape: Shape = IosMenuShape): Modifier = shadow(
+/** The shadow the menu panel casts, using a rounded rect so the GPU draws it without CPU path masks. */
+fun Modifier.iosMenuShadow(shape: Shape = IosMenuShadowShape): Modifier = shadow(
     elevation = 24.dp,
     shape = shape,
     ambientColor = Color.Black.copy(alpha = 0.30f),
@@ -294,7 +307,13 @@ fun Modifier.iosMenuShadow(shape: Shape = IosMenuShape): Modifier = shadow(
  * [fill] — the panel's own, and the player's drawers' and popups', so the two
  * are one material (see [com.music.bitchord.ui.player.PlayerFrost]).
  */
-fun Modifier.menuBackdropFrost(backdrop: Backdrop, shape: Shape, fill: Color): Modifier = drawBackdrop(
+fun Modifier.menuBackdropFrost(
+    backdrop: Backdrop,
+    shape: Shape,
+    fill: Color,
+    frozen: () -> Boolean = { false },
+    freezeGeometry: () -> Boolean = { false },
+): Modifier = drawBackdrop(
     backdrop = backdrop,
     shape = { shape },
     effects = {
@@ -309,6 +328,8 @@ fun Modifier.menuBackdropFrost(backdrop: Backdrop, shape: Shape, fill: Color): M
     // Sampled small: the blur hides the upscale, and the effect then runs over
     // a fraction of the pixels.
     backdropScale = MENU_BACKDROP_SCALE,
+    frozen = frozen,
+    freezeGeometry = freezeGeometry,
 )
 
 private val MENU_BLUR = 24.dp

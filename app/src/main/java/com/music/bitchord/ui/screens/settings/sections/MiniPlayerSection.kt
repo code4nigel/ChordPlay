@@ -136,6 +136,7 @@ internal fun MiniPlayerSection(
 ) {
     val style by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val reducedMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     var query by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     val showTimeline = matchesSearch(
@@ -148,10 +149,12 @@ internal fun MiniPlayerSection(
         "miniplayer", "timeline", "progress", "circle", "wave", "silk", "aurora", "pill",
     )
 
+    val scrollState = rememberScrollState()
+
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -159,6 +162,7 @@ internal fun MiniPlayerSection(
             onBack = onBack,
             searchQuery = query,
             onSearchQueryChange = { query = it },
+            scrollState = scrollState,
         )
         if (!showTimeline) {
             SettingsSearchEmpty(query)
@@ -167,7 +171,9 @@ internal fun MiniPlayerSection(
                 header = stringResource(R.string.miniplayer_animation),
                 footer = stringResource(R.string.miniplayer_animation_subtitle),
             ) {
-                MiniPlayerPreview(style = style, reducedMotion = reducedMotion)
+                if (showLivePreviews) {
+                    MiniPlayerPreview(style = style, reducedMotion = reducedMotion)
+                }
                 val styles = MiniPlayerTimelineStyle.entries
                 SegmentedControl(
                     options = styles.map { option ->
@@ -181,7 +187,12 @@ internal fun MiniPlayerSection(
                     },
                     selectedIndex = styles.indexOf(style).coerceAtLeast(0),
                     onSelect = { index -> AppSettings.setMiniPlayerTimelineStyle(styles[index]) },
-                    modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                    modifier = Modifier.padding(
+                        start = 14.dp,
+                        end = 14.dp,
+                        top = if (showLivePreviews) 0.dp else 14.dp,
+                        bottom = 14.dp,
+                    ),
                 )
             }
         }

@@ -3005,6 +3005,11 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        val nextSongId = mediaItem?.mediaId
+        if (shouldResetLyricsOffset(lyricsOffsetSongId, nextSongId, previousEnded, reason)) {
+            lyricsOffsetSongId = nextSongId
+            AppSettings.setLyricsOffsetMs(0)
+        }
         AndroidCoverPlayback.trackChanged(mediaItem, reason)
         trackWaveformExtractor.setActiveTrack(
             mediaItem?.mediaId,
@@ -3952,6 +3957,9 @@ class PlaybackService : MediaLibraryService() {
      * queue actually moving on. Cleared by the transition it describes.
      */
     private var swappingMediaId: String? = null
+
+    /** The track id the current [AppSettings.lyricsOffsetMs] belongs to. */
+    private var lyricsOffsetSongId: String? = null
 
     /**
      * When the audio was last cut for a quality swap, so the analytics listener
@@ -8356,6 +8364,14 @@ class PlaybackService : MediaLibraryService() {
             .build()
 
     companion object {
+        internal fun shouldResetLyricsOffset(
+            previousSongId: String?,
+            nextSongId: String?,
+            previousEnded: Boolean,
+            reason: Int,
+        ): Boolean = nextSongId != previousSongId ||
+            (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT && previousEnded)
+
         val isCarConnected = kotlinx.coroutines.flow.MutableStateFlow(false)
         const val MEDIA_ROOT_ID = "root"
         const val MEDIA_RECENTS_ID = "recents"

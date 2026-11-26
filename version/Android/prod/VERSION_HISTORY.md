@@ -461,3 +461,13 @@ This directory contains versioned Production APK builds (com.chordplay.music) fo
 - **Status**: SUCCESS
 - **Archived Files**:
   - `ChordPlay-v2.2.8-vc111-prodRelease-arm64-v8a.apk` (35.56 MB)
+
+### Build v2.2.8 (versionCode: 112)
+- **Timestamp**: 2026-11-25 02:05:00
+- **Variant**: prodRelease
+- **Status**: SUCCESS
+- **Archived Files**:
+  - `ChordPlay-v2.2.8-vc112-prodRelease-arm64-v8a.apk` (35.57 MB)
+  - `ChordPlay-v2.2.8-vc112-prodRelease-armeabi-v7a.apk` (34.52 MB)
+  - `ChordPlay-v2.2.8-vc112-prodRelease-universal.apk` (59.83 MB)
+  - `ChordPlay-v2.2.8-vc112-prodRelease-x86_64.apk` (37.42 MB)

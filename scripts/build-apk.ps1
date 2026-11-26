@@ -58,6 +58,8 @@ param(
 
     [switch]$Both,
 
+    [switch]$Install,
+
     [string]$DestinationDir = "version/Android"
 )
 
@@ -66,6 +68,86 @@ $ErrorActionPreference = "Stop"
 # Ensure we are in project root
 $rootDir = (Resolve-Path "$PSScriptRoot\..").Path
 Set-Location $rootDir
+
+function Invoke-ApkInstall {
+    param(
+        [string]$RootDir,
+        [string]$DestinationDir
+    )
+
+    Write-Host ""
+    $folderChoice = Read-Host "APK folder — [d] dev or [p] prod (default: d)"
+    $installFlavor = switch -Regex ($folderChoice.Trim().ToLower()) {
+        "^(p|prod)$" { "prod" }
+        default      { "dev" }
+    }
+
+    $apkSearchDir = if ($DestinationDir -eq "version/Android" -or $DestinationDir -eq "version\Android") {
+        Join-Path $RootDir "$DestinationDir\$installFlavor"
+    } else {
+        Join-Path $RootDir $DestinationDir
+    }
+
+    if (-not (Test-Path $apkSearchDir)) {
+        Write-Error "APK directory not found: $apkSearchDir"
+        exit 1
+    }
+
+    $apkList = @(Get-ChildItem -Path $apkSearchDir -Filter "*.apk" | Sort-Object LastWriteTime, Name -Descending)
+    if ($apkList.Count -eq 0) {
+        Write-Warning "No .apk files found in $apkSearchDir"
+        exit 1
+    }
+
+    Write-Host "`nAvailable APKs in $apkSearchDir (newest first):" -ForegroundColor Yellow
+    for ($i = 0; $i -lt $apkList.Count; $i++) {
+        $apkItem = $apkList[$i]
+        $sizeMB = [math]::Round($apkItem.Length / 1MB, 2)
+        $modTime = $apkItem.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+        Write-Host ("  [{0,2}] {1} ({2} MB | {3})" -f ($i + 1), $apkItem.Name, $sizeMB, $modTime) -ForegroundColor White
+    }
+
+    $selectedApk = $null
+    while ($null -eq $selectedApk) {
+        Write-Host ""
+        $pick = Read-Host "Choose APK number to install (1-$($apkList.Count), or [q] to cancel)"
+        $trimmedPick = $pick.Trim()
+        if ($trimmedPick.ToLower() -eq "q") {
+            Write-Host "Install cancelled." -ForegroundColor Yellow
+            exit 0
+        }
+        $pickNum = 0
+        if ([int]::TryParse($trimmedPick, [ref]$pickNum) -and $pickNum -ge 1 -and $pickNum -le $apkList.Count) {
+            $selectedApk = $apkList[$pickNum - 1]
+        } else {
+            Write-Warning "Please enter a number between 1 and $($apkList.Count) (or 'q' to cancel)."
+        }
+    }
+
+    $adbPath = "D:\ADB\adb.exe"
+    if (-not (Test-Path $adbPath)) {
+        $adbCmd = Get-Command adb -ErrorAction SilentlyContinue
+        if ($adbCmd) {
+            $adbPath = $adbCmd.Source
+        } else {
+            Write-Error "adb.exe not found at $adbPath or in PATH."
+            exit 1
+        }
+    }
+
+    $apkFullPath = $selectedApk.FullName
+    Write-Host "`nRunning: $adbPath install -r `"$apkFullPath`"" -ForegroundColor Cyan
+    & $adbPath install -r $apkFullPath
+    $adbExitCode = $LASTEXITCODE
+
+    if ($adbExitCode -ne 0) {
+        Write-Host "`n[ERROR] adb install failed with exit code $adbExitCode!" -ForegroundColor Red
+        exit $adbExitCode
+    }
+
+    Write-Host "`n[SUCCESS] Installed $($selectedApk.Name)" -ForegroundColor Green
+    exit 0
+}
 
 if ($Both) {
     Write-Host "Building Both Production and Development APKs..." -ForegroundColor Magenta
@@ -79,6 +161,19 @@ Write-Host "============================================================" -Foreg
 Write-Host "   ChordPlay Android Build & Version Automation" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "Workspace Root : $rootDir" -ForegroundColor Gray
+
+if ($Install) {
+    Invoke-ApkInstall -RootDir $rootDir -DestinationDir $DestinationDir
+}
+
+$isInteractive = ($PSBoundParameters.Count -eq 0)
+if ($isInteractive) {
+    Write-Host ""
+    $actionChoice = Read-Host "Action — [b] build or [i] install (default: b)"
+    if ($actionChoice.Trim().ToLower() -match "^(i|install)$") {
+        Invoke-ApkInstall -RootDir $rootDir -DestinationDir $DestinationDir
+    }
+}
 
 $gradleFile = Join-Path $rootDir "app\build.gradle.kts"
 if (-not (Test-Path $gradleFile)) {
@@ -105,7 +200,7 @@ Write-Host "  versionCode : $currentVersionCode" -ForegroundColor Yellow
 Write-Host "  versionName : $currentVersionName" -ForegroundColor Yellow
 
 # Interactive prompt when invoked with no CLI arguments
-if ($PSBoundParameters.Count -eq 0) {
+if ($isInteractive) {
     Write-Host ""
     $typeChoice = Read-Host "Build type — [p] prodRelease or [d] devDebug (default: d)"
     $Variant = switch -Regex ($typeChoice.Trim().ToLower()) {
@@ -113,18 +208,28 @@ if ($PSBoundParameters.Count -eq 0) {
         default                  { "devDebug" }
     }
 
-    $verInput = Read-Host "Version number (current: $currentVersionName, Enter to auto-bump)"
+    $verInput = Read-Host "Version number (current: $currentVersionName, Enter to auto-bump, [k] to keep)"
     if (-not [string]::IsNullOrWhiteSpace($verInput)) {
-        $ExplicitVersionName = $verInput.Trim()
+        $trimmedVer = $verInput.Trim()
+        if ($trimmedVer.ToLower() -eq "k") {
+            $ExplicitVersionName = $currentVersionName
+        } else {
+            $ExplicitVersionName = $trimmedVer
+        }
     }
 
-    $codeInput = Read-Host "Version code (current: $currentVersionCode, Enter to auto-bump)"
+    $codeInput = Read-Host "Version code (current: $currentVersionCode, Enter to auto-bump, [k] to keep)"
     if (-not [string]::IsNullOrWhiteSpace($codeInput)) {
-        $parsedCode = 0
-        if ([int]::TryParse($codeInput.Trim(), [ref]$parsedCode) -and $parsedCode -gt 0) {
-            $ExplicitVersionCode = $parsedCode
+        $trimmedCode = $codeInput.Trim()
+        if ($trimmedCode.ToLower() -eq "k") {
+            $ExplicitVersionCode = $currentVersionCode
         } else {
-            Write-Warning "Invalid version code '$codeInput'; falling back to auto-bump."
+            $parsedCode = 0
+            if ([int]::TryParse($trimmedCode, [ref]$parsedCode) -and $parsedCode -gt 0) {
+                $ExplicitVersionCode = $parsedCode
+            } else {
+                Write-Warning "Invalid version code '$codeInput'; falling back to auto-bump."
+            }
         }
     }
 

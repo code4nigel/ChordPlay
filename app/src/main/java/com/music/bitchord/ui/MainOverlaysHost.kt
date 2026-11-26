@@ -85,6 +85,7 @@ import com.music.bitchord.ui.components.BulkAddProgressDialog
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.DiwaliCelebrationDialog
 import com.music.bitchord.ui.components.FieldConfig
+import com.music.bitchord.ui.components.GlassAlertHost
 import com.music.bitchord.ui.components.LastfmLoginAlert
 import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.LyricsSourcesDialog
@@ -164,6 +165,8 @@ internal fun MainDialogsHost(
     confirmJioSaavn: Boolean,
     onDismissConfirmJioSaavn: () -> Unit,
 ) {
+    GlassAlertHost(hazeState = hazeState)
+
     // ---- Google sign-in (full screen WebView) ----
     webSession?.let { mode ->
         BackHandler { onWebSessionChange(null) }

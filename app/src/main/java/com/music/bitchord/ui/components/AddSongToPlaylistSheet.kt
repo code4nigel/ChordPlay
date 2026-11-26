@@ -11,14 +11,19 @@
 package com.music.bitchord.ui.components
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -47,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,18 +84,23 @@ internal fun AddSongToPlaylistSheet(
     var searchFailed by remember { mutableStateOf(false) }
     var confirmed by remember { mutableStateOf(emptySet<String>()) }
     var pending by remember { mutableStateOf(emptySet<String>()) }
+    // Snapshot initial membership for the sheet session so tapping + transitions
+    // the row to a checkmark in place rather than removing it and shifting the list.
+    val initialPresentIds = remember { initialSongs.mapTo(HashSet(), Song::videoId) }
     val present = remember(initialSongs, confirmed) {
         initialSongs.mapTo(confirmed.toMutableSet(), Song::videoId)
     }
-    val suggestions = remember(suggestedSongs, present) {
+    val suggestions = remember(suggestedSongs, initialPresentIds) {
         suggestedSongs.filter {
-            playlistSongId.matches(it.videoId) && !it.isLive && !it.isVideo && it.videoId !in present
+            playlistSongId.matches(it.videoId) && !it.isLive && !it.isVideo && it.videoId !in initialPresentIds
         }.distinctBy(Song::videoId)
     }
 
     LaunchedEffect(suggestions.isEmpty()) {
         if (suggestions.isEmpty() && fallback == null) {
-            fallback = YtMusicRepository.quickPicks(present, songsOnly = true).getOrDefault(emptyList()).take(20)
+            fallback = YtMusicRepository.quickPicks(initialPresentIds, songsOnly = true)
+                .getOrDefault(emptyList())
+                .take(20)
         }
     }
     LaunchedEffect(query.trim()) {
@@ -112,7 +121,7 @@ internal fun AddSongToPlaylistSheet(
         )
     }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+    Column(Modifier.fillMaxWidth().height(540.dp).padding(horizontal = 14.dp)) {
         PlaylistSheetHeader(
             title = stringResource(R.string.add_songs_to_playlist),
             subtitle = playlistTitle,
@@ -132,63 +141,115 @@ internal fun AddSongToPlaylistSheet(
             placeholder = stringResource(R.string.search_songs_to_add),
         )
         val searching = query.isNotBlank()
-        val songs = if (searching) results else suggestions.ifEmpty {
-            fallback.orEmpty().filterNot { it.videoId in present }
-        }
-        if (songs == null || searching && songs.isEmpty()) {
-            Text(
-                text = stringResource(when {
-                    songs == null -> R.string.searching_songs
-                    searchFailed -> R.string.failed
-                    else -> R.string.no_songs_found
-                }),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp),
-            )
+        val songs = if (searching) {
+            results
         } else {
-            LazyColumn(Modifier.padding(top = 8.dp, bottom = 8.dp)) {
-                if (!searching && songs.isNotEmpty()) {
-                    item {
-                        SheetHeading(stringResource(R.string.recommended_songs))
-                    }
-                }
-                items(songs, key = Song::videoId) { song ->
-                    val id = song.videoId
-                    val add = {
-                        if (id !in present && id !in pending) {
-                            pending = pending + id
-                            onAddSong(song) { success ->
-                                pending = pending - id
-                                if (success) {
-                                    confirmed = confirmed + id
-                                } else {
-                                    Toast.makeText(context, R.string.failed, Toast.LENGTH_SHORT).show()
-                                }
-                            }
+            suggestions.ifEmpty {
+                fallback?.filterNot { it.videoId in initialPresentIds }
+            }
+        }
+        val bodyMode = when {
+            songs == null -> "loading"
+            songs.isEmpty() -> "empty"
+            else -> "list"
+        }
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            AnimatedContent(
+                targetState = bodyMode,
+                transitionSpec = {
+                    fadeIn(tween(180)) togetherWith fadeOut(tween(140))
+                },
+                label = "addSongSheetBody",
+            ) { mode ->
+                when (mode) {
+                    "loading" -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.5.dp,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.searching_songs),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SongRow(
-                            song = song,
-                            onClick = add,
-                            modifier = Modifier.weight(1f),
-                            searchPlayingStyle = true,
-                            downloadedTint = null,
-                        )
-                        when {
-                            id in pending -> CircularProgressIndicator(
-                                modifier = Modifier.padding(14.dp).size(20.dp),
-                                strokeWidth = 2.dp,
+                    "empty" -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = stringResource(if (searchFailed) R.string.failed else R.string.no_songs_found),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp),
                             )
-                            id in present -> Icon(
-                                Icons.Rounded.Check,
-                                contentDescription = stringResource(R.string.in_playlist),
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(14.dp).size(20.dp),
-                            )
-                            else -> IconButton(onClick = add) {
-                                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_to_playlist), tint = Color.White)
+                        }
+                    }
+                    else -> {
+                        val visibleSongs = songs.orEmpty()
+                        LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp, bottom = 8.dp)) {
+                            if (!searching && visibleSongs.isNotEmpty()) {
+                                item(key = "recommended_heading") {
+                                    SheetHeading(stringResource(R.string.recommended_songs))
+                                }
+                            }
+                            items(visibleSongs, key = Song::videoId) { song ->
+                                val id = song.videoId
+                                val add = {
+                                    if (id !in present && id !in pending) {
+                                        pending = pending + id
+                                        onAddSong(song) { success ->
+                                            pending = pending - id
+                                            if (success) {
+                                                confirmed = confirmed + id
+                                            } else {
+                                                Toast.makeText(context, R.string.failed, Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.animateItem(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    SongRow(
+                                        song = song,
+                                        onClick = add,
+                                        modifier = Modifier.weight(1f),
+                                        searchPlayingStyle = true,
+                                        downloadedTint = null,
+                                    )
+                                    val actionState = when {
+                                        id in pending -> 0
+                                        id in present -> 1
+                                        else -> 2
+                                    }
+                                    Crossfade(targetState = actionState, label = "addSongAction") { state ->
+                                        when (state) {
+                                            0 -> CircularProgressIndicator(
+                                                modifier = Modifier.padding(14.dp).size(20.dp),
+                                                strokeWidth = 2.dp,
+                                            )
+                                            1 -> Icon(
+                                                Icons.Rounded.Check,
+                                                contentDescription = stringResource(R.string.in_playlist),
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.padding(14.dp).size(20.dp),
+                                            )
+                                            else -> IconButton(onClick = add) {
+                                                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_to_playlist), tint = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -205,17 +266,9 @@ internal fun PlaylistSheetHeader(
     thumbnailUrl: String?,
     onDismiss: () -> Unit,
 ) {
-    var drag by remember { mutableStateOf(0f) }
-    val distance = with(LocalDensity.current) { 44.dp.toPx() }
-    val dragState = rememberDraggableState { drag = (drag + it).coerceAtLeast(0f) }
     Column {
         Box(
-            modifier = Modifier.fillMaxWidth().height(22.dp).draggable(
-                state = dragState,
-                orientation = Orientation.Vertical,
-                onDragStarted = { drag = 0f },
-                onDragStopped = { if (drag >= distance) onDismiss() },
-            ),
+            modifier = Modifier.fillMaxWidth().height(22.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(Modifier.size(width = 34.dp, height = 4.dp).background(

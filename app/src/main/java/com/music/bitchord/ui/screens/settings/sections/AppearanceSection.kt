@@ -11,16 +11,16 @@
 package com.music.bitchord.ui.screens.settings.sections
 
 import android.os.Build
-
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +28,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,41 +48,28 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WaterDrop
-import androidx.compose.material.icons.rounded.BlurOff
+import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.MotionPhotosOff
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Style
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.RadioButtonChecked
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import com.music.bitchord.data.settings.CustomPalette
-import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
-import com.music.bitchord.data.settings.PlayerWaveStyle
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Style
+import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.ViewWeek
+import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,38 +77,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
-import com.music.bitchord.data.settings.AppDesignStyle
+import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ChordPlayPalette
-import com.music.bitchord.data.settings.AppFontChoice
-import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.data.settings.CustomPalette
 import com.music.bitchord.data.settings.DockStyle
-import androidx.compose.material.icons.rounded.Layers
+import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
+import com.music.bitchord.data.settings.NavPage
+import com.music.bitchord.data.settings.PlayerWaveStyle
+import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.components.isGlassSupported
-import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.performance.displayDensityLabel
-import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
-import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.ui.screens.*
-import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.localizedDetail
+import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.previews.AppearanceLivePreview
-import java.util.Locale
 
 /**
  * Appearance & Glass customization sub-page with a pinned live interactive preview card.
@@ -128,7 +114,6 @@ import java.util.Locale
 @Composable
 fun AppearanceSection(
     onBack: () -> Unit,
-    onAppLanguage: () -> Unit,
     onOpenCover: () -> Unit,
     onOpenMiniPlayer: () -> Unit,
     onOpenPlayerStyle: () -> Unit = {},
@@ -136,17 +121,14 @@ fun AppearanceSection(
     initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
 
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val amoledDarkMode by AppSettings.amoledDarkMode.collectAsStateWithLifecycle()
     val appFontChoice by AppSettings.appFontChoice.collectAsStateWithLifecycle()
-    val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val colorPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
     val customPalettes by AppSettings.customPalettes.collectAsStateWithLifecycle()
     val activeCustomPaletteId by AppSettings.activeCustomPaletteId.collectAsStateWithLifecycle()
-    val playerInterfaceStyle by AppSettings.playerInterfaceStyle.collectAsStateWithLifecycle()
     val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
 
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -158,45 +140,22 @@ fun AppearanceSection(
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val miniPlayerTimelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val playerWaveStyle by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
-    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
     val adaptiveDockBlurIntensity by AppSettings.adaptiveDockBlurIntensity.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
-
-    val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
-    val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
-    val currentDisplay = LocalView.current.display
-    val supportedRefreshRates = remember(currentDisplay) {
-        currentDisplay.supportedPerformanceRefreshRates()
-    }
-    val selectedPerformanceRefreshRate = remember(currentDisplay, performanceRefreshRate) {
-        currentDisplay.resolvePerformanceRefreshRate(performanceRefreshRate)
-    }
-
-    LaunchedEffect(selectedPerformanceRefreshRate, performanceRefreshRate) {
-        if (selectedPerformanceRefreshRate != performanceRefreshRate) {
-            AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
-        }
-    }
-
-    var showPerformanceWarning by remember { mutableStateOf(false) }
-    var showPerformanceConfirmation by remember { mutableStateOf(false) }
-
-    val batterySettingsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        showPerformanceConfirmation = true
-    }
+    val navTabs by AppSettings.navTabs.collectAsStateWithLifecycle()
+    var showNavTabsDialog by remember { mutableStateOf(false) }
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -204,6 +163,7 @@ fun AppearanceSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         // Matching flags for filtering within Appearance settings
@@ -235,7 +195,7 @@ fun AppearanceSection(
             stringResource(R.string.display_density_subtitle),
             "scale", "density", "compact", "comfortable",
         )
-        val showLiquidGlass = matchesSearch(
+        val showDockStyle = matchesSearch(
             searchQuery,
             "dock", "dock style", "navigation", "adaptive",
             stringResource(R.string.dock_style),
@@ -247,44 +207,15 @@ fun AppearanceSection(
             stringResource(R.string.glass_intensity),
             "liquid", "glass", "intensity", "blur", "refraction", "water",
         )
-        val showReduceDynamicBlur = matchesSearch(
+        val showNavTabs = matchesSearch(
             searchQuery,
-            stringResource(R.string.reduce_dynamic_blur),
-            stringResource(R.string.reduce_dynamic_blur_subtitle),
-            "blur", "performance",
+            stringResource(R.string.dock_style_section),
+            stringResource(R.string.nav_bar_tabs),
+            stringResource(R.string.nav_bar_tabs_subtitle),
+            "dock bar customisation", "dock bar customization", "navigation bar tabs",
+            "navigation", "bar", "tabs", "bottom bar", "reorder", "hide",
         )
-        val showReduceAnimation = matchesSearch(
-            searchQuery,
-            stringResource(R.string.reduce_animation),
-            stringResource(R.string.reduce_animation_subtitle),
-            "motion", "animations", "performance",
-        )
-        val showPlayerAnimationSpeed = matchesSearch(
-            searchQuery,
-            stringResource(R.string.player_animation_speed),
-            stringResource(R.string.player_animation_speed_subtitle),
-            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
-        )
-        val showLivePreviewsSetting = matchesSearch(
-            searchQuery,
-            stringResource(R.string.settings_live_previews),
-            stringResource(R.string.settings_live_previews_desc),
-            "preview",
-        )
-        val showHighPerformance = matchesSearch(
-            searchQuery,
-            stringResource(R.string.performance),
-            stringResource(R.string.high_performance_mode),
-            stringResource(R.string.high_performance_subtitle),
-            stringResource(R.string.refresh_rate),
-            "120hz", "90hz", "60hz", "hz", "smoothness", "battery",
-        )
-        val showLanguage = matchesSearch(
-            searchQuery,
-            stringResource(R.string.language),
-            stringResource(R.string.app_language),
-            "translate", "english", "locale",
-        )
+        val showDockSection = showDockStyle || showNavTabs
 
         val coverTitle = stringResource(R.string.settings_cover)
         val showCover = matchesSearch(searchQuery, coverTitle, "artwork", "animation", "canvas", "full screen")
@@ -312,17 +243,11 @@ fun AppearanceSection(
             "elastic", "physics", "play", "quality pill", "shuffle", "repeat", "lyrics", "queue",
         )
         val anyBelowCover = showMiniPlayer || showPlayerStyle || showColorPalette ||
-            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
-            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
-            showLivePreviewsSetting || showHighPerformance || showLanguage
+            showTheme || showTypography || showDisplayScale || showDockSection
         val anyBelowMiniPlayer = showPlayerStyle || showColorPalette ||
-            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
-            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
-            showLivePreviewsSetting || showHighPerformance || showLanguage
+            showTheme || showTypography || showDisplayScale || showDockSection
         val anyBelowPlayerStyle = showColorPalette ||
-            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
-            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
-            showLivePreviewsSetting || showHighPerformance || showLanguage
+            showTheme || showTypography || showDisplayScale || showDockSection
         val anyAppearanceMatch = showCover || anyBelowCover
 
         // Pinned Live Preview (hidden during active search)
@@ -394,6 +319,7 @@ fun AppearanceSection(
                 PaletteCarousel(
                     selectedPalette = if (activeCustomPaletteId != null) null else colorPalette,
                     onSelectPalette = { AppSettings.setColorPalette(it) },
+                    reduceAnimation = reduceAnimation,
                     modifier = Modifier.padding(bottom = 14.dp),
                 )
 
@@ -407,14 +333,25 @@ fun AppearanceSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Bookmarks,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(ICON_SIZE),
+                        )
+                        Spacer(Modifier.width(ICON_GAP))
+                        Text(
+                            text = stringResource(R.string.saved_presets),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                     Text(
-                        text = stringResource(R.string.saved_presets),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(R.string.saved_presets_count, customPalettes.size, 5),
+                        text = stringResource(R.string.saved_presets_count, customPalettes.size, AppSettings.MAX_CUSTOM_PALETTES),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -436,96 +373,145 @@ fun AppearanceSection(
                         )
                     }
                 } else {
-                    Column(
+                    LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                            .padding(bottom = 14.dp),
+                        contentPadding = PaddingValues(horizontal = ROW_INSET),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        customPalettes.forEach { palette ->
+                        items(customPalettes, key = { it.id }) { palette ->
                             val isSelected = activeCustomPaletteId == palette.id
                             val primary = Color(palette.primaryHex)
                             val secondary = Color(palette.secondaryHex)
                             val bg = Color(palette.backgroundHex)
+                            var showActionsMenu by remember { mutableStateOf(false) }
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        AppSettings.selectCustomPalette(palette.id)
-                                    }
-                                    .padding(horizontal = ROW_INSET, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                // Active radio indicator
-                                Icon(
-                                    imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                    contentDescription = if (isSelected) "Selected" else "Unselected",
-                                    tint = if (isSelected) primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(20.dp),
-                                )
-                                Spacer(Modifier.width(12.dp))
+                            val orbScale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium,
+                                ),
+                                label = "customPresetScale",
+                            )
 
-                                // Swatch preview pill [● ● ●]
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
+                            Box {
+                                Column(
+                                    modifier = Modifier
+                                        .width(88.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .combinedClickable(
+                                            onClick = {
+                                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                AppSettings.selectCustomPalette(palette.id)
+                                            },
+                                            onLongClick = {
+                                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                showActionsMenu = true
+                                            },
+                                        )
+                                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .graphicsLayer {
+                                                scaleX = orbScale
+                                                scaleY = orbScale
+                                            }
+                                            .then(
+                                                if (isSelected) {
+                                                    Modifier
+                                                        .border(2.dp, primary, CircleShape)
+                                                        .padding(3.dp)
+                                                } else {
+                                                    Modifier
+                                                },
+                                            )
+                                            .clip(CircleShape)
+                                            .background(
+                                                Brush.sweepGradient(
+                                                    listOf(primary, secondary, bg, primary),
+                                                ),
+                                            ),
+                                        contentAlignment = Alignment.Center,
                                     ) {
-                                        Box(Modifier.size(10.dp).clip(CircleShape).background(primary))
-                                        Box(Modifier.size(10.dp).clip(CircleShape).background(secondary))
-                                        Box(Modifier.size(10.dp).clip(CircleShape).background(bg))
+                                        if (isSelected) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(22.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.Black.copy(alpha = 0.60f)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.Check,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(15.dp),
+                                                )
+                                            }
+                                        }
                                     }
-                                }
-                                Spacer(Modifier.width(12.dp))
 
-                                // Name
-                                Text(
-                                    text = palette.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                    Spacer(Modifier.height(8.dp))
 
-                                // Rename button
-                                IconButton(
-                                    onClick = {
-                                        paletteToRename = palette
-                                        renameInput = palette.name
-                                        showRenameDialog = true
-                                    },
-                                    modifier = Modifier.size(36.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Edit,
-                                        contentDescription = stringResource(R.string.rename_preset),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp),
+                                    Text(
+                                        text = palette.name,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        ),
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.onSurface
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textAlign = TextAlign.Center,
                                     )
                                 }
 
-                                // Delete button
-                                IconButton(
-                                    onClick = {
-                                        paletteToDelete = palette
-                                        showDeleteDialog = true
-                                    },
-                                    modifier = Modifier.size(36.dp),
+                                DropdownMenu(
+                                    expanded = showActionsMenu,
+                                    onDismissRequest = { showActionsMenu = false },
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Delete,
-                                        contentDescription = stringResource(R.string.delete_preset),
-                                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(18.dp),
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.rename_preset)) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Edit,
+                                                contentDescription = null,
+                                            )
+                                        },
+                                        onClick = {
+                                            showActionsMenu = false
+                                            paletteToRename = palette
+                                            renameInput = palette.name
+                                            showRenameDialog = true
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = stringResource(R.string.delete_preset),
+                                                color = MaterialTheme.colorScheme.error,
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Delete,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error,
+                                            )
+                                        },
+                                        onClick = {
+                                            showActionsMenu = false
+                                            paletteToDelete = palette
+                                            showDeleteDialog = true
+                                        },
                                     )
                                 }
                             }
@@ -551,13 +537,9 @@ fun AppearanceSection(
                     title = stringResource(R.string.pure_black_amoled),
                     subtitle = stringResource(R.string.pure_black_amoled_desc),
                     trailing = {
-                        Switch(
+                        IosSwitch(
                             checked = amoledDarkMode,
                             onCheckedChange = AppSettings::setAmoledDarkMode,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
                         )
                     },
                     onClick = { AppSettings.setAmoledDarkMode(!amoledDarkMode) },
@@ -598,340 +580,164 @@ fun AppearanceSection(
                 )
             }
 
-            // Dock Style & Liquid Glass
-            if (showLiquidGlass) {
+            // Dock Style, Liquid Glass & Dock Bar Customisation
+            if (showDockSection) {
                 if (showColorPalette || showTheme || showTypography || showDisplayScale) {
                     SettingsSectionDivider(title = stringResource(R.string.dock_style_section))
                 }
 
-                SettingsRow(
-                    icon = Icons.Rounded.ViewAgenda,
-                    title = stringResource(R.string.dock_style),
-                    subtitle = when (dockStyle) {
-                        DockStyle.NORMAL -> stringResource(R.string.dock_style_normal_desc)
-                        DockStyle.ADAPTIVE -> stringResource(R.string.dock_style_adaptive_desc)
-                        DockStyle.LIQUID -> stringResource(R.string.dock_style_liquid_desc)
-                    },
-                )
-                SegmentedControl(
-                    options = DockStyle.entries.map { it.localizedLabel() },
-                    selectedIndex = DockStyle.entries.indexOf(dockStyle),
-                    onSelect = { index ->
-                        AppSettings.setDockStyle(DockStyle.entries[index])
-                    },
-                    modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 10.dp),
-                )
-
-                AnimatedVisibility(
-                    visible = dockStyle == DockStyle.ADAPTIVE && !reduceDynamicBlur,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = TEXT_INSET, end = ROW_INSET, top = 2.dp, bottom = 12.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                                Text(
-                                    text = stringResource(R.string.adaptive_dock_blur),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = stringResource(R.string.adaptive_dock_blur_subtitle),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Text(
-                                text = "${(adaptiveDockBlurIntensity * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        Slider(
-                            value = adaptiveDockBlurIntensity,
-                            onValueChange = AppSettings::setAdaptiveDockBlurIntensity,
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                            ),
-                        )
-                    }
-                }
-
-                val liquidGlassTitle = stringResource(R.string.liquid_glass)
-                SettingsRow(
-                    icon = Icons.Rounded.WaterDrop,
-                    title = liquidGlassTitle,
-                    subtitle = stringResource(
-                        if (liquidGlassSupported) R.string.liquid_glass_subtitle
-                        else R.string.liquid_glass_unavailable,
-                    ),
-                    enabled = liquidGlassSupported,
-                    trailing = {
-                        Switch(
-                            checked = liquidGlass,
-                            onCheckedChange = AppSettings::setLiquidGlass,
-                            enabled = liquidGlassSupported,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
-                )
-
-                AnimatedVisibility(
-                    visible = (liquidGlass || dockStyle == DockStyle.LIQUID) && liquidGlassSupported,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = TEXT_INSET, end = ROW_INSET, top = 4.dp, bottom = 12.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.glass_intensity),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = "${(liquidGlassIntensity * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                        Slider(
-                            value = liquidGlassIntensity,
-                            onValueChange = AppSettings::setLiquidGlassIntensity,
-                            valueRange = 0.1f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = MaterialTheme.colorScheme.primary,
-                                activeTrackColor = MaterialTheme.colorScheme.primary,
-                                inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                            ),
-                        )
-                    }
-                }
-            }
-
-            if (showReduceDynamicBlur) {
-                val reduceDynamicBlurTitle = stringResource(R.string.reduce_dynamic_blur)
-                SettingsRow(
-                    icon = Icons.Rounded.BlurOff,
-                    title = reduceDynamicBlurTitle,
-                    subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = reduceDynamicBlur,
-                            onCheckedChange = AppSettings::setReduceDynamicBlur,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
-                )
-            }
-
-            if (showReduceAnimation) {
-                val reduceAnimationTitle = stringResource(R.string.reduce_animation)
-                SettingsRow(
-                    icon = Icons.Rounded.MotionPhotosOff,
-                    title = reduceAnimationTitle,
-                    subtitle = stringResource(R.string.reduce_animation_subtitle),
-                    trailing = {
-                        Switch(
-                            checked = reduceAnimation,
-                            onCheckedChange = AppSettings::setReduceAnimation,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
-                )
-            }
-
-            if (showPlayerAnimationSpeed) {
-                AnimatedVisibility(
-                    visible = !reduceAnimation,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    SliderRow(
-                        icon = Icons.Rounded.Speed,
-                        title = stringResource(R.string.player_animation_speed),
-                        subtitle = stringResource(R.string.player_animation_speed_subtitle),
-                        value = playerAnimationSpeedLabel(playerAnimationSpeed),
-                        sliderValue = playerAnimationSpeed,
-                        onSliderValue = AppSettings::setPlayerAnimationSpeed,
-                        valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
-                        steps = 14,
-                    )
-                }
-            }
-
-            if (showLivePreviewsSetting) {
-                val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
-                SettingsRow(
-                    icon = Icons.Rounded.Visibility,
-                    title = stringResource(R.string.settings_live_previews),
-                    subtitle = stringResource(R.string.settings_live_previews_desc),
-                    trailing = {
-                        Switch(
-                            checked = showLivePreviews,
-                            onCheckedChange = AppSettings::setShowSettingsLivePreviews,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = { AppSettings.setShowSettingsLivePreviews(!showLivePreviews) },
-                )
-            }
-
-            // Performance & Refresh Rates
-            if (showHighPerformance) {
-                SettingsSectionDivider(title = stringResource(R.string.performance))
-
-                val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
-                SettingsRow(
-                    icon = Icons.Rounded.Speed,
-                    title = highPerformanceModeTitle,
-                    subtitle = if (highPerformanceMode) {
-                        stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate ?: 120)
-                    } else {
-                        stringResource(R.string.high_performance_subtitle)
-                    },
-                    trailing = {
-                        Switch(
-                            checked = highPerformanceMode,
-                            onCheckedChange = { enable ->
-                                if (enable) showPerformanceWarning = true
-                                else AppSettings.setHighPerformanceMode(false)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
-                        )
-                    },
-                    onClick = {
-                        if (!highPerformanceMode) showPerformanceWarning = true
-                        else AppSettings.setHighPerformanceMode(false)
-                    },
-                )
-
-                if (highPerformanceMode && supportedRefreshRates.isNotEmpty()) {
-                    val refreshRateTitle = stringResource(R.string.refresh_rate)
-                    val labels = supportedRefreshRates.map { rate ->
-                        if (rate == null) stringResource(R.string.system)
-                        else "${rate.toInt()} Hz"
-                    }
-                    val selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate).coerceAtLeast(0)
+                if (showDockStyle) {
                     SettingsRow(
-                        icon = Icons.Rounded.Speed,
-                        title = refreshRateTitle,
+                        icon = Icons.Rounded.ViewAgenda,
+                        title = stringResource(R.string.dock_style),
+                        subtitle = when (dockStyle) {
+                            DockStyle.NORMAL -> stringResource(R.string.dock_style_normal_desc)
+                            DockStyle.ADAPTIVE -> stringResource(R.string.dock_style_adaptive_desc)
+                            DockStyle.LIQUID -> stringResource(R.string.dock_style_liquid_desc)
+                        },
                     )
                     SegmentedControl(
-                        options = labels,
-                        selectedIndex = selectedIndex,
-                        onSelect = { AppSettings.setPerformanceRefreshRate(supportedRefreshRates[it]) },
-                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                        options = DockStyle.entries.map { it.localizedLabel() },
+                        selectedIndex = DockStyle.entries.indexOf(dockStyle),
+                        onSelect = { index ->
+                            AppSettings.setDockStyle(DockStyle.entries[index])
+                        },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 10.dp),
+                    )
+
+                    AnimatedVisibility(
+                        visible = dockStyle == DockStyle.ADAPTIVE && !reduceDynamicBlur,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = TEXT_INSET, end = ROW_INSET, top = 2.dp, bottom = 12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.adaptive_dock_blur),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.adaptive_dock_blur_subtitle),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    text = "${(adaptiveDockBlurIntensity * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Slider(
+                                value = adaptiveDockBlurIntensity,
+                                onValueChange = AppSettings::setAdaptiveDockBlurIntensity,
+                                valueRange = 0f..1f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                ),
+                            )
+                        }
+                    }
+
+                    val liquidGlassTitle = stringResource(R.string.liquid_glass)
+                    SettingsRow(
+                        icon = Icons.Rounded.WaterDrop,
+                        title = liquidGlassTitle,
+                        subtitle = stringResource(
+                            if (liquidGlassSupported) R.string.liquid_glass_subtitle
+                            else R.string.liquid_glass_unavailable,
+                        ),
+                        enabled = liquidGlassSupported,
+                        trailing = {
+                            IosSwitch(
+                                checked = liquidGlass,
+                                onCheckedChange = AppSettings::setLiquidGlass,
+                                enabled = liquidGlassSupported,
+                            )
+                        },
+                        onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
+                    )
+
+                    AnimatedVisibility(
+                        visible = (liquidGlass || dockStyle == DockStyle.LIQUID) && liquidGlassSupported,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = TEXT_INSET, end = ROW_INSET, top = 4.dp, bottom = 12.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.glass_intensity),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = "${(liquidGlassIntensity * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Slider(
+                                value = liquidGlassIntensity,
+                                onValueChange = AppSettings::setLiquidGlassIntensity,
+                                valueRange = 0.1f..1f,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MaterialTheme.colorScheme.primary,
+                                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                                    inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                                ),
+                            )
+                        }
+                    }
+                }
+
+                if (showNavTabs) {
+                    if (showDockStyle) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.ViewWeek,
+                        title = stringResource(R.string.nav_bar_tabs),
+                        subtitle = stringResource(R.string.nav_bar_tabs_subtitle),
+                        onClick = { showNavTabsDialog = true },
                     )
                 }
-            }
-
-            // App Language
-            if (showLanguage) {
-                SettingsSectionDivider(title = stringResource(R.string.language))
-
-                val appLanguageTitle = stringResource(R.string.app_language)
-                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
-                    ?: Locale.getDefault().toLanguageTag()
-                SettingsRow(
-                    icon = Icons.Rounded.Language,
-                    title = appLanguageTitle,
-                    subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
-                    onClick = onAppLanguage,
-                )
             }
         }
     }
     }
 
-    if (showPerformanceWarning) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceWarning = false },
-            title = { Text(stringResource(R.string.high_performance_before_enabling)) },
-            text = { Text(stringResource(R.string.high_performance_battery_warning)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPerformanceWarning = false
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                        val settingsIntent = intent.takeIf {
-                            it.resolveActivity(context.packageManager) != null
-                        } ?: Intent(Settings.ACTION_SETTINGS)
-                        batterySettingsLauncher.launch(settingsIntent)
-                    },
-                ) {
-                    Text(stringResource(R.string.open_battery_settings))
-                }
+    if (showNavTabsDialog) {
+        ReorderDialog(
+            title = stringResource(R.string.nav_bar_tabs),
+            note = stringResource(R.string.nav_bar_tabs_note),
+            items = navTabs,
+            label = { it.label() },
+            canDisable = { list, page ->
+                page != NavPage.SEARCH && list.count { it.enabled } > 1
             },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceWarning = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-
-    if (showPerformanceConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceConfirmation = false },
-            title = { Text(stringResource(R.string.enable_high_performance_title)) },
-            text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPerformanceConfirmation = false
-                        AppSettings.setHighPerformanceMode(true)
-                    },
-                ) {
-                    Text(stringResource(R.string.enable))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceConfirmation = false }) {
-                    Text(stringResource(R.string.not_yet))
-                }
-            },
+            onChange = AppSettings::setNavTabs,
+            onDismiss = { showNavTabsDialog = false },
         )
     }
 
@@ -1000,9 +806,36 @@ fun AppearanceSection(
 private fun PaletteCarousel(
     selectedPalette: ChordPlayPalette?,
     onSelectPalette: (ChordPlayPalette) -> Unit,
+    reduceAnimation: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHapticFeedback.current
+    val dynamicGradientBrush = remember {
+        Brush.sweepGradient(
+            listOf(
+                Color(0xFFFF4D6D),
+                Color(0xFFFFA62B),
+                Color(0xFF38BDF8),
+                Color(0xFFA855F7),
+                Color(0xFFFF4D6D),
+            ),
+        )
+    }
+    val dynamicRotation = if (!reduceAnimation) {
+        val transition = rememberInfiniteTransition(label = "dynamicArtworkGradient")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 4200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "dynamicArtworkAngle",
+        )
+    } else {
+        null
+    }
+
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = ROW_INSET),
@@ -1022,12 +855,11 @@ private fun PaletteCarousel(
             }
 
             val isDynamicArt = item == ChordPlayPalette.DYNAMIC_ARTWORK
-            val goldColor = Color(0xFFFFD700)
-            val goldBrush = Brush.sweepGradient(
-                listOf(Color(0xFFFFD700), Color(0xFFFFA000), Color(0xFFFFE082), Color(0xFFFFD700)),
-            )
-            val cardScale by animateFloatAsState(
-                targetValue = if (isSelected) 1.03f else 1f,
+            val staticBrush = remember(primaryColor, secondaryColor) {
+                Brush.sweepGradient(listOf(primaryColor, secondaryColor, primaryColor))
+            }
+            val orbScale by animateFloatAsState(
+                targetValue = if (isSelected) 1.05f else 1f,
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessMedium,
@@ -1037,46 +869,46 @@ private fun PaletteCarousel(
 
             Column(
                 modifier = Modifier
-                    .width(112.dp)
-                    .graphicsLayer {
-                        scaleX = cardScale
-                        scaleY = cardScale
-                    }
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        if (isSelected) primaryColor.copy(alpha = 0.16f)
-                        else if (isDynamicArt) goldColor.copy(alpha = 0.08f)
-                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    )
-                    .border(
-                        width = if (isSelected) 2.dp else if (isDynamicArt) 1.5.dp else 1.dp,
-                        color = if (isSelected) primaryColor else if (isDynamicArt) goldColor.copy(alpha = 0.55f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(16.dp),
-                    )
+                    .width(88.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onSelectPalette(item)
                     }
-                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Swatch orb with prominent golden circle for Dynamic Song Art
+                // Borderless swatch orb; Dynamic Song Art animates a flowing gradient
                 Box(
                     modifier = Modifier
-                        .size(if (isDynamicArt) 48.dp else 44.dp)
+                        .size(50.dp)
+                        .graphicsLayer {
+                            scaleX = orbScale
+                            scaleY = orbScale
+                        }
                         .then(
-                            if (isDynamicArt) {
+                            if (isSelected) {
                                 Modifier
-                                    .border(2.5.dp, goldBrush, CircleShape)
+                                    .border(
+                                        width = 2.dp,
+                                        color = if (isDynamicArt) MaterialTheme.colorScheme.primary else primaryColor,
+                                        shape = CircleShape,
+                                    )
                                     .padding(3.dp)
-                            } else Modifier
+                            } else {
+                                Modifier
+                            },
                         )
                         .clip(CircleShape)
-                        .background(
-                            Brush.sweepGradient(
-                                listOf(primaryColor, secondaryColor, primaryColor),
-                            ),
-                        ),
+                        .drawBehind {
+                            if (isDynamicArt) {
+                                rotate(degrees = dynamicRotation?.value ?: 0f) {
+                                    drawRect(brush = dynamicGradientBrush)
+                                }
+                            } else {
+                                drawRect(brush = staticBrush)
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     if (isSelected) {
@@ -1090,7 +922,7 @@ private fun PaletteCarousel(
                             Icon(
                                 imageVector = Icons.Rounded.Check,
                                 contentDescription = null,
-                                tint = if (isDynamicArt) goldColor else Color.White,
+                                tint = Color.White,
                                 modifier = Modifier.size(15.dp),
                             )
                         }
@@ -1102,12 +934,10 @@ private fun PaletteCarousel(
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = if (isSelected || isDynamicArt) FontWeight.Bold else FontWeight.Medium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     ),
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.onSurface
-                    } else if (isDynamicArt) {
-                        goldColor
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
@@ -1117,16 +947,5 @@ private fun PaletteCarousel(
                 )
             }
         }
-    }
-}
-
-internal fun playerAnimationSpeedLabel(speed: Float): String {
-    val rounded = (kotlin.math.round(speed * 10f) / 10f)
-    return when {
-        rounded <= 0.55f -> "0.5x · Slow"
-        rounded in 0.95f..1.05f -> "1.0x · Default"
-        rounded in 1.45f..1.55f -> "1.5x · Fast"
-        rounded >= 1.95f -> "2.0x · Instant"
-        else -> String.format(Locale.US, "%.1fx", rounded)
     }
 }

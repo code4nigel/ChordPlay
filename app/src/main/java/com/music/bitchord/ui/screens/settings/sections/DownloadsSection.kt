@@ -25,13 +25,10 @@ import androidx.compose.material.icons.rounded.FolderSpecial
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,9 +37,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.AlertAction
+import com.music.bitchord.ui.components.AlertRule
+import com.music.bitchord.ui.components.GlassAlert
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.screens.*
 
 /**
@@ -88,10 +95,12 @@ fun DownloadsSection(
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -99,6 +108,7 @@ fun DownloadsSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val saveCustomTitle = stringResource(R.string.save_to_custom_download_location)
@@ -134,13 +144,9 @@ fun DownloadsSection(
                         title = saveCustomTitle,
                         subtitle = saveCustomSubtitle,
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = saveToCustomLocation,
                                 onCheckedChange = AppSettings::setSaveToCustomDownloadLocation,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setSaveToCustomDownloadLocation(!saveToCustomLocation) },
@@ -168,7 +174,7 @@ fun DownloadsSection(
                         title = offlineLyricsTitle,
                         subtitle = offlineLyricsSubtitle,
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = downloadLyricsOffline,
                                 onCheckedChange = { enabled ->
                                     if (enabled) {
@@ -177,10 +183,6 @@ fun DownloadsSection(
                                         AppSettings.setDownloadLyricsOffline(false)
                                     }
                                 },
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = {
@@ -214,13 +216,9 @@ fun DownloadsSection(
                             icon = Icons.Rounded.Wifi,
                             title = downloadWifiOnlyTitle,
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = wifiOnlyDownloads,
                                     onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setWifiOnlyDownloads(!wifiOnlyDownloads) },
@@ -233,39 +231,35 @@ fun DownloadsSection(
 
     // Offline Lyrics Legal Disclaimer Dialog
     if (showLyricsDisclaimerDialog) {
-        AlertDialog(
-            onDismissRequest = { showLyricsDisclaimerDialog = false },
-            title = {
-                Text(
-                    text = stringResource(R.string.offline_lyrics_disclaimer_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            },
-            text = {
-                Text(
-                    text = stringResource(R.string.offline_lyrics_disclaimer_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            },
-            confirmButton = {
-                TextButton(
+        GlassAlert(
+            title = stringResource(R.string.offline_lyrics_disclaimer_title),
+            onDismiss = { showLyricsDisclaimerDialog = false },
+            footerActions = {
+                AlertAction(
+                    label = stringResource(R.string.agree_and_enable),
+                    emphasised = true,
                     onClick = {
                         AppSettings.setDownloadLyricsOffline(true)
                         showLyricsDisclaimerDialog = false
                     },
-                ) {
-                    Text(
-                        text = stringResource(R.string.agree_and_enable),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                )
+                AlertRule()
+                AlertAction(
+                    label = stringResource(R.string.cancel),
+                    emphasised = false,
+                    onClick = { showLyricsDisclaimerDialog = false },
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { showLyricsDisclaimerDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
+        ) {
+            Text(
+                text = stringResource(R.string.offline_lyrics_disclaimer_message),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 19.sp),
+                color = LocalContentColor.current.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+        }
     }
 
     if (pickingDownloadQuality) {

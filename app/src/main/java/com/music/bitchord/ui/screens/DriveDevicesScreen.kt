@@ -55,15 +55,18 @@ fun DriveDevicesScreen(
 
     LaunchedEffect(Unit) { DriveBackup.refreshDevices(context) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
             title = stringResource(R.string.drive_devices_title),
             onBack = onBack,
+            scrollState = scrollState,
         )
 
         if (settings.needsDevice) {

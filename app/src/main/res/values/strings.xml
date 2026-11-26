@@ -639,7 +639,16 @@
     <string name="presence">Presence</string>
     <string name="preview">Preview</string>
     <string name="settings_live_previews">Settings Live Previews</string>
-    <string name="settings_live_previews_desc">Show interactive live preview cards at the top of appearance, player, and lyrics settings</string>
+    <string name="settings_live_previews_desc">Show interactive live previews across appearance, cover, miniplayer, player style, preferences, playback, and lyrics settings</string>
+    <string name="keep_screen_on">Keep screen on</string>
+    <string name="keep_screen_on_subtitle">Prevent the display from turning off while using ChordPlay</string>
+    <string name="keep_screen_on_1_min">1 min</string>
+    <string name="keep_screen_on_5_min">5 min</string>
+    <string name="keep_screen_on_15_min">15 min</string>
+    <string name="keep_screen_on_indefinitely">Indefinitely</string>
+    <string name="hide_ai_music">Hide AI music</string>
+    <string name="hide_ai_music_subtitle" formatted="false">Removes songs by known AI artists from search, Home, mixes and radio. This filter is not 100% effective.</string>
+    <string name="hide_ai_music_sources">Lists: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay updates these lists once a day.</string>
     <string name="prioritize_syllable_lyrics">Prioritize syllable lyrics</string>
     <string name="prioritize_syllable_lyrics_subtitle">Keep searching past a line-synced match for word-by-word lyrics</string>
     <string name="quality_hourly">%1$s · %2$s</string>
@@ -1217,6 +1226,11 @@
     <string name="offline_lyrics_disclaimer_title">Offline Synced Lyrics</string>
     <string name="offline_lyrics_disclaimer_message">When enabled, synced lyrics (both word-by-word and line-by-line) will be saved offline together with your music at Download/Music/ChordPlay/lyrics so you can enjoy synced lyrics even while offline.\n\nBy enabling this option, you agree to these terms. If any lyrics provider is unhappy, please mail me at impemailsyuses@gmail.com.</string>
     <string name="agree_and_enable">Agree &amp; Enable</string>
+    <string name="offline_lyrics_prompt_title">Download lyrics offline?</string>
+    <string name="offline_lyrics_prompt_message">Save word-by-word and line-by-line synced lyrics offline alongside your downloaded music at Download/Music/ChordPlay/lyrics so you can view synced lyrics without internet.\n\nBy choosing Okay, you enable this setting and agree to these terms. If any lyrics provider is unhappy, please mail me at impemailsyuses@gmail.com.</string>
+    <string name="okay">Okay</string>
+    <string name="not_now">Not now</string>
+    <string name="never">Never</string>
 
     <!-- Preserve Style & Your Space -->
     <string name="preserve_style">Preserve style</string>
@@ -1547,6 +1561,10 @@
     <string name="onboarding_glass_strength">Glass strength</string>
     <string name="check_for_updates">Check for updates</string>
     <string name="checking_updates">Checking…</string>
+    <string name="update_ready">Update ready: %1$s</string>
+    <string name="up_to_date">You\'re on the latest version (v%1$s)</string>
+    <string name="no_releases_yet">No releases published yet</string>
+    <string name="update_check_failed">Couldn\'t check for updates</string>
     <string name="install_update">Install update</string>
     <string name="download_update">Download v%1$s</string>
     <string name="downloading_update_progress">Downloading %1$d%%</string>
@@ -1777,4 +1795,26 @@
     <string name="cover_provider_tidal_subtitle">Square animated video covers from Tidal</string>
     <string name="cover_provider_community">Community</string>
     <string name="cover_provider_community_subtitle">Community-curated animated covers</string>
+    <string name="nav_bar_tabs">Dock bar customisation</string>
+    <string name="nav_bar_tabs_subtitle">Choose and reorder the tabs in the dock bar</string>
+    <string name="nav_bar_tabs_note">Drag the handles to reorder. Search always sits at the end of the bar.</string>
+    <string name="language_and_location">Language &amp; location</string>
+    <string name="content_country">Country</string>
+    <string name="content_country_subtitle">Recommendations, charts and new releases come from this country</string>
+    <string name="content_country_description">YouTube Music gives recommendations, charts and new releases for this country. Spotify uses the country of your account.</string>
+    <string name="content_country_automatic">Automatic</string>
+    <string name="search_countries">Search countries</string>
+    <string name="no_countries_match">No countries match</string>
+    <string name="enable_logging">Enable logging</string>
+    <string name="enable_logging_subtitle">Records app logs and device info only while enabled so you can attach them to bug reports</string>
+    <string name="enable_logging_running">Logging active, including after app restarts. Turn off to share or save the log.</string>
+    <string name="enable_logging_confirm_title">Enable diagnostic logging?</string>
+    <string name="enable_logging_confirm_message">While enabled, ChordPlay records internal app events, playback diagnostics, crashes, and device details (%1$s, %2$s, app %3$s) to a local log file. Logging stays active across restarts until you turn it off, and nothing is sent automatically.</string>
+    <string name="enable_logging_confirm_action">Enable logging</string>
+    <string name="log_ready_title">Log recorded</string>
+    <string name="log_ready_message">The log is %1$s. Share it, or save it to your phone\'s storage.</string>
+    <string name="share_log">Share</string>
+    <string name="save_log">Save to phone</string>
+    <string name="log_saved">Log saved</string>
+    <string name="log_save_failed">Couldn\'t save the log</string>
 </resources>

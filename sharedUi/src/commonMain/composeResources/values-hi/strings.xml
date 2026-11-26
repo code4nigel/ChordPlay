@@ -351,4 +351,18 @@
     <string name="your_space_mixes_empty">अपने मिक्स बनाने के लिए कुछ गाने चलाएं</string>
     <string name="your_space_artists_empty">यहां देखने के लिए कलाकारों को पिन करें या सुनें</string>
     <string name="your_space_drag_hint">क्रम बदलने के लिए पिन की गई टाइल को दबाए रखें</string>
+    <string name="lyrics_highlight_position">सक्रिय पंक्ति की स्थिति</string>
+    <string name="lyrics_highlight_top">शीर्ष</string>
+    <string name="lyrics_highlight_top_mid">शीर्ष-मध्य</string>
+    <string name="lyrics_highlight_center">मध्य</string>
+    <string name="font_family_default">डिफ़ॉल्ट</string>
+    <string name="font_family_serif">सेरिफ़</string>
+    <string name="font_family_sans_serif">सैंस-सेरिफ़</string>
+    <string name="font_family_monospace">मोनोस्पेस</string>
+    <string name="font_family_script">स्क्रिप्ट</string>
+    <string name="font_weight_medium">मध्यम</string>
+    <string name="font_weight_semibold">सेमी-बोल्ड</string>
+    <string name="font_weight_bold">बोल्ड</string>
+    <string name="font_weight_heavy">हैवी</string>
+    <string name="custom_font_active_hint">कस्टम फ़ॉन्ट चयनित · बदलने के लिए बदलें दबाएँ</string>
 </resources>

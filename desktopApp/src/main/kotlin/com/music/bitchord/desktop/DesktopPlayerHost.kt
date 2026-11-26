@@ -200,9 +200,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     )
     override val legacyMeshGradient = MutableStateFlow(false)
     override val lyricsBlur = MutableStateFlow(true)
-    override val lyricsOffsetMs = MutableStateFlow(
-        persistence.int(KEY_LYRICS_OFFSET, 0).coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS),
-    )
+    override val lyricsOffsetMs = MutableStateFlow(0)
     override val lyricsSourceOrder = MutableStateFlow<List<LyricsSource>>(LyricsSource.offered)
 
     // A desktop is never on a metered link as far as this app can tell.
@@ -243,8 +241,8 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     override fun setLyricsOffsetMs(value: Int) {
         val clamped = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        if (lyricsOffsetMs.value == clamped) return
         lyricsOffsetMs.value = clamped
-        persistence.saveInt(KEY_LYRICS_OFFSET, clamped)
     }
 
     override fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle) {
@@ -257,7 +255,6 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     }
 
     private const val KEY_LAST_SCREEN = "last_player_screen"
-    private const val KEY_LYRICS_OFFSET = "lyrics_offset_ms"
 }
 
 /** Which glyph a mixer gets, from the only thing Java Sound says about it: its name. */

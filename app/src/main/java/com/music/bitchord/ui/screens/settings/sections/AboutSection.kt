@@ -40,6 +40,8 @@ import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.OpenInNew
 import android.widget.Toast
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.ui.components.ChordPlayWaveUpdateMark
+import com.music.bitchord.ui.components.MIN_CHECK_SPIN_MS
 import com.music.bitchord.ui.onboarding.OnboardingState
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Update
@@ -49,6 +51,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +63,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -89,6 +93,7 @@ fun AboutSection(
     onBack: () -> Unit,
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
+    onShowUpdate: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -102,10 +107,12 @@ fun AboutSection(
         }.getOrNull() ?: "1.8"
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -113,6 +120,7 @@ fun AboutSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showUpdate = matchesSearch(
@@ -192,22 +200,19 @@ fun AboutSection(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_logo),
-                            contentDescription = "ChordPlay",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(36.dp),
-                        )
-                    }
+                    var checkingUpdate by remember { mutableStateOf(false) }
+                    var lastCheckResult by remember { mutableStateOf<AppUpdateChecker.CheckResult?>(null) }
+                    val updateScope = rememberCoroutineScope()
+                    val updateInfo by AppUpdateChecker.available.collectAsStateWithLifecycle()
+                    val downloadState by AppUpdateChecker.download.collectAsStateWithLifecycle()
 
-                    Spacer(Modifier.height(12.dp))
+                    ChordPlayWaveUpdateMark(
+                        checking = checkingUpdate,
+                        size = 58.dp,
+                        waveWidth = 156.dp,
+                    )
+
+                    Spacer(Modifier.height(10.dp))
 
                     Text(
                         text = "ChordPlay",
@@ -217,7 +222,17 @@ fun AboutSection(
                     )
 
                     Text(
-                        text = "Version $version",
+                        text = when {
+                            checkingUpdate -> stringResource(R.string.checking_updates)
+                            updateInfo != null -> stringResource(R.string.update_ready, updateInfo?.version.orEmpty())
+                            lastCheckResult == AppUpdateChecker.CheckResult.UP_TO_DATE ->
+                                stringResource(R.string.up_to_date, version)
+                            lastCheckResult == AppUpdateChecker.CheckResult.NO_RELEASES ->
+                                stringResource(R.string.no_releases_yet)
+                            lastCheckResult == AppUpdateChecker.CheckResult.FAILED ->
+                                stringResource(R.string.update_check_failed)
+                            else -> "Version $version"
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -232,38 +247,27 @@ fun AboutSection(
 
                     Spacer(Modifier.height(14.dp))
 
-                    var checkingUpdate by remember { mutableStateOf(false) }
-                    val updateScope = rememberCoroutineScope()
-                    val updateInfo by AppUpdateChecker.available.collectAsStateWithLifecycle()
-                    val downloadState by AppUpdateChecker.download.collectAsStateWithLifecycle()
-
                     Button(
                         onClick = {
                             when (val state = downloadState) {
-                                is AppUpdateChecker.DownloadState.Downloading -> {
-                                    // Already downloading, do nothing
-                                }
+                                is AppUpdateChecker.DownloadState.Downloading -> {}
                                 is AppUpdateChecker.DownloadState.Ready -> {
                                     AppUpdateChecker.installApk(context, state.file)
                                 }
                                 else -> {
                                     if (updateInfo != null) {
-                                        if (updateInfo?.apkUrl != null) {
-                                            updateScope.launch {
-                                                AppUpdateChecker.downloadApk(context)
-                                            }
-                                        } else {
-                                            runCatching {
-                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo?.releaseUrl)))
-                                            }
-                                        }
+                                        onShowUpdate()
                                     } else if (!checkingUpdate) {
                                         checkingUpdate = true
                                         updateScope.launch {
-                                            AppUpdateChecker.check()
+                                            val started = System.currentTimeMillis()
+                                            val result = AppUpdateChecker.check()
+                                            val remaining = MIN_CHECK_SPIN_MS - (System.currentTimeMillis() - started)
+                                            if (remaining > 0) delay(remaining)
                                             checkingUpdate = false
-                                            if (AppUpdateChecker.available.value == null) {
-                                                Toast.makeText(context, "ChordPlay is up to date (v$version)", Toast.LENGTH_SHORT).show()
+                                            lastCheckResult = result
+                                            if (result == AppUpdateChecker.CheckResult.UPDATE) {
+                                                onShowUpdate()
                                             }
                                         }
                                     }
@@ -363,13 +367,9 @@ fun AboutSection(
                                 stringResource(R.string.replay_genres_disabled_subtitle)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = replayGenres,
                                     onCheckedChange = AppSettings::setReplayGenres,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setReplayGenres(!replayGenres) },
@@ -385,13 +385,9 @@ fun AboutSection(
                             title = dontRepeatSongsTitle,
                             subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = dontRepeatSuggestions,
                                     onCheckedChange = AppSettings::setDontRepeatSuggestions,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },

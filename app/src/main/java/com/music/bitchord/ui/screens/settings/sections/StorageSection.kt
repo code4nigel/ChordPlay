@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.screens.*
@@ -121,10 +122,12 @@ fun StorageSection(
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -132,6 +135,7 @@ fun StorageSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showCacheFolderRow = matchesSearch(
@@ -205,13 +209,9 @@ fun StorageSection(
                         title = showCacheFolderTitle,
                         subtitle = stringResource(R.string.show_cache_folder_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = showCacheFolder,
                                 onCheckedChange = AppSettings::setShowCacheFolder,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setShowCacheFolder(!showCacheFolder) },
@@ -297,13 +297,9 @@ fun StorageSection(
                             icon = Icons.Rounded.Wifi,
                             title = downloadWifiOnlyTitle,
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = wifiOnlyDownloads,
                                     onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setWifiOnlyDownloads(!wifiOnlyDownloads) },
@@ -319,13 +315,9 @@ fun StorageSection(
                             title = exportDownloadsTitle,
                             subtitle = "Music/ChordPlay".takeIf { exportDownloads },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = exportDownloads,
                                     onCheckedChange = AppSettings::setExportDownloads,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setExportDownloads(!exportDownloads) },

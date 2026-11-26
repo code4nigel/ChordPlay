@@ -207,6 +207,30 @@ data class CustomPalette(
     val artworkUrl: String? = null,
 )
 
+/** A root page the bottom navigation bar can show. [id] matches MainActivity's TAB_* keys. */
+enum class NavPage(val id: Int) {
+    HOME(0),
+    RADIO(1),
+    LIBRARY(2),
+    SEARCH(3),
+    ;
+
+    companion object {
+        val pillPages = listOf(HOME, RADIO, LIBRARY)
+        val defaultOrder = pillPages
+    }
+}
+
+/** One entry in an ordered list where each entry can also be switched off. */
+data class OrderedToggle<T>(val item: T, val enabled: Boolean)
+
+enum class KeepScreenOnDuration(val durationMs: Long?) {
+    ONE_MINUTE(60_000L),
+    FIVE_MINUTES(5 * 60_000L),
+    FIFTEEN_MINUTES(15 * 60_000L),
+    INDEFINITELY(null),
+}
+
 enum class DockStyle(val label: String) {
     NORMAL("Normal"),
     ADAPTIVE("Adaptive"),
@@ -343,6 +367,7 @@ object AppSettings {
     val saveToCustomDownloadLocation = MutableStateFlow(false)
     val customDownloadLocationUri = MutableStateFlow<String?>(null)
     val downloadLyricsOffline = MutableStateFlow(false)
+    val neverAskDownloadLyricsOffline = MutableStateFlow(false)
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -497,6 +522,15 @@ object AppSettings {
     /** Whether live preview cards are rendered in settings sub-pages (Appearance, Playback, Lyrics). */
     val showSettingsLivePreviews = MutableStateFlow(true)
 
+    /** Whether to keep the screen awake while ChordPlay is in the foreground. */
+    val keepScreenOn = MutableStateFlow(false)
+
+    /** How long after the last interaction the screen stays awake when [keepScreenOn] is enabled. */
+    val keepScreenOnDuration = MutableStateFlow(KeepScreenOnDuration.FIVE_MINUTES)
+
+    /** Whether known AI music acts are hidden from Home, Search, mixes, and radio. */
+    val hideAiMusic = MutableStateFlow(false)
+
     /** Custom saved palettes frozen from dynamic artwork or manually preserved. */
     val customPalettes = MutableStateFlow<List<CustomPalette>>(emptyList())
 
@@ -532,6 +566,9 @@ object AppSettings {
 
     /** Multiplier for miniplayer expand/minimize animation speed (0.5x to 2.0x). */
     val playerAnimationSpeed = MutableStateFlow(DEFAULT_PLAYER_ANIMATION_SPEED)
+
+    /** Order and visibility of the bottom navigation bar's pill tabs (Search stays pinned at the end). */
+    val navTabs = MutableStateFlow(NavPage.defaultOrder.map { OrderedToggle(it, true) })
 
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(false)
@@ -603,6 +640,12 @@ object AppSettings {
     val translationLanguage = MutableStateFlow("")
 
     /**
+     * Country whose YouTube Music catalogue to show (Settings > Language & location > Country):
+     * an ISO 3166 alpha-2 code (e.g. "IN", "DE", "US"), or blank for automatic.
+     */
+    val contentCountry = MutableStateFlow("")
+
+    /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
      *
@@ -612,7 +655,7 @@ object AppSettings {
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
     val coverAnimation = MutableStateFlow(CoverAnimationMode.DIRECTIONAL_SWEEP)
-    val miniPlayerTimelineStyle = MutableStateFlow(MiniPlayerTimelineStyle.AURORA_WAVE)
+    val miniPlayerTimelineStyle = MutableStateFlow(MiniPlayerTimelineStyle.AURORA_SILK)
     val playerWaveStyle = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
     val playerElasticConfig = MutableStateFlow(PlayerElasticConfig())
     val activeTrackWaveform = MutableStateFlow<TrackAudioWaveform?>(null)
@@ -793,8 +836,8 @@ object AppSettings {
     val hiddenSpeedDialIds = MutableStateFlow<Set<String>>(emptySet())
     /** Saved Home section order by real feed title or [HomeShelfSlot] token; empty means feed default. */
     val homeShelfOrder = MutableStateFlow<List<String>>(emptyList())
-    /** Home sections hidden by title or [HomeShelfSlot] token; kept in order list so they can be re-enabled. */
-    val hiddenHomeShelves = MutableStateFlow<Set<String>>(emptySet())
+    /** Home sections hidden by title or [HomeShelfSlot] token; Quick picks stays hidden by default until enabled. */
+    val hiddenHomeShelves = MutableStateFlow(setOf(DEFAULT_QUICK_PICKS_SHELF_TITLE))
     /** Whether the ChordPlay Melody entry card is shown on Home. */
     val homeMelodyVisible = MutableStateFlow(true)
     /** Whether the Replay entry card is shown on Home. */
@@ -1015,6 +1058,7 @@ object AppSettings {
         this.authStore = authStore
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         readAll()
+        com.music.bitchord.data.aimusic.HideAiMusic.init(context, hideAiMusic.value)
         watchConnection(context)
     }
 
@@ -1049,6 +1093,7 @@ object AppSettings {
         saveToCustomDownloadLocation.value = prefs.getBoolean(KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION, false)
         customDownloadLocationUri.value = prefs.getString(KEY_CUSTOM_DOWNLOAD_LOCATION_URI, null)
         downloadLyricsOffline.value = prefs.getBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, false)
+        neverAskDownloadLyricsOffline.value = prefs.getBoolean(KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixTempoMatching.value = prefs.getBoolean(KEY_AUTOMIX_TEMPO_MATCHING, smartFadeEnabled.value)
@@ -1102,6 +1147,12 @@ object AppSettings {
             .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
         playerAnimationSpeed.value = prefs.getFloat(KEY_PLAYER_ANIMATION_SPEED, DEFAULT_PLAYER_ANIMATION_SPEED)
             .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
+        navTabs.value = readOrdered(
+            prefs.getString(KEY_NAV_TABS, null),
+            NavPage.pillPages,
+            NavPage.pillPages.toSet(),
+            defaultOrder = NavPage.defaultOrder,
+        ) { name -> NavPage.entries.firstOrNull { it.name == name } }.let(::ensureOneTab)
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
@@ -1130,6 +1181,7 @@ object AppSettings {
             prefs.edit().remove(KEY_LYRICS_OFFSET_MS).apply()
         }
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
+        contentCountry.value = prefs.getString(KEY_CONTENT_COUNTRY, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1146,10 +1198,10 @@ object AppSettings {
         }
         val rawMiniPlayerTimeline = prefs.getString(KEY_MINIPLAYER_TIMELINE_STYLE, null)
         miniPlayerTimelineStyle.value = if (rawMiniPlayerTimeline == null) {
-            MiniPlayerTimelineStyle.AURORA_WAVE
+            MiniPlayerTimelineStyle.AURORA_SILK
         } else {
             runCatching { MiniPlayerTimelineStyle.valueOf(rawMiniPlayerTimeline) }
-                .getOrDefault(MiniPlayerTimelineStyle.AURORA_WAVE)
+                .getOrDefault(MiniPlayerTimelineStyle.AURORA_SILK)
         }
         val rawPlayerWaveStyle = prefs.getString(KEY_PLAYER_WAVE_STYLE, null)
         playerWaveStyle.value = if (rawPlayerWaveStyle == null) {
@@ -1292,6 +1344,15 @@ object AppSettings {
             ?.let { saved -> runCatching { AppDesignStyle.valueOf(saved) }.getOrNull() }
             ?: AppDesignStyle.CHORDPLAY
         showSettingsLivePreviews.value = prefs.getBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, true)
+        keepScreenOn.value = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false)
+        keepScreenOnDuration.value = prefs.getString(KEY_KEEP_SCREEN_ON_DURATION, null)
+            ?.let { saved -> runCatching { KeepScreenOnDuration.valueOf(saved) }.getOrNull() }
+            ?: KeepScreenOnDuration.FIVE_MINUTES
+        val hideAi = prefs.getBoolean(KEY_HIDE_AI_MUSIC, false)
+        if (hideAi != hideAiMusic.value) {
+            hideAiMusic.value = hideAi
+            com.music.bitchord.data.aimusic.HideAiMusic.apply(hideAi)
+        }
         homeRecentsViewType.value = readLibraryViewType(KEY_HOME_RECENTS_VIEW_TYPE)
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
@@ -1340,11 +1401,13 @@ object AppSettings {
         } else {
             // Preserve Speed Dial hide preference from earlier enum-based builds without
             // pulling coarse HomeShelfKey enum names into title-based ordering.
+            // Quick picks stays turned off by default until the user enables it.
             val legacyDisabled = prefs.getStringSet("disabled_home_shelves", null).orEmpty()
-            if (HomeShelfKey.SPEED_DIAL.name in legacyDisabled) {
-                setOf(HomeShelfSlot.SPEED_DIAL)
-            } else {
-                emptySet()
+            buildSet {
+                add(DEFAULT_QUICK_PICKS_SHELF_TITLE)
+                if (HomeShelfKey.SPEED_DIAL.name in legacyDisabled) {
+                    add(HomeShelfSlot.SPEED_DIAL)
+                }
             }
         }
         hiddenHomeShelves.value = resolvedHidden
@@ -1736,12 +1799,83 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_NERD_STATS, value).apply()
     }
 
+    fun setNavTabs(value: List<OrderedToggle<NavPage>>) {
+        val guarded = ensureOneTab(value)
+        navTabs.value = guarded
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_NAV_TABS, writeOrdered(guarded) { it.name }).apply()
+        }
+    }
 
+    fun visibleNavPages(config: List<OrderedToggle<NavPage>> = navTabs.value): List<NavPage> =
+        config.filter { it.enabled }.map { it.item } + NavPage.SEARCH
+
+    private fun ensureOneTab(list: List<OrderedToggle<NavPage>>): List<OrderedToggle<NavPage>> {
+        if (list.any { it.enabled }) return list
+        return list.mapIndexed { idx, entry -> if (idx == 0) entry.copy(enabled = true) else entry }
+    }
+
+    internal fun <T> readOrdered(
+        stored: String?,
+        all: List<T>,
+        defaultOn: Set<T>,
+        defaultOrder: List<T> = all,
+        parse: (String) -> T?,
+    ): List<OrderedToggle<T>> {
+        if (stored.isNullOrBlank()) return defaultOrder.map { OrderedToggle(it, it in defaultOn) }
+        val saved: List<OrderedToggle<T>> = stored.split(",").mapNotNull { entry ->
+            val item: T = parse(entry.substringBefore(':')) ?: return@mapNotNull null
+            OrderedToggle(item, entry.substringAfter(':', "1") != "0")
+        }.distinctBy { it.item }
+        val ordered = saved.filter { it.item in all }.toMutableList()
+        all.forEachIndexed { index, item ->
+            if (ordered.any { it.item == item }) return@forEachIndexed
+            val followers = all.subList(index + 1, all.size)
+            val at = ordered.indexOfFirst { it.item in followers }
+            ordered.add(if (at >= 0) at else ordered.size, OrderedToggle(item, item in defaultOn))
+        }
+        return ordered
+    }
+
+    internal fun <T> writeOrdered(value: List<OrderedToggle<T>>, name: (T) -> String): String =
+        value.joinToString(",") { "${name(it.item)}:${if (it.enabled) 1 else 0}" }
+
+
+
+    /** Blank restores automatic; see [contentCountry]. */
+    fun setContentCountry(value: String) {
+        contentCountry.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_CONTENT_COUNTRY, value).apply()
+        }
+    }
 
     fun setShowSettingsLivePreviews(value: Boolean) {
         showSettingsLivePreviews.value = value
         if (this::prefs.isInitialized) {
             prefs.edit().putBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, value).apply()
+        }
+    }
+
+    fun setKeepScreenOn(value: Boolean) {
+        keepScreenOn.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON, value).apply()
+        }
+    }
+
+    fun setKeepScreenOnDuration(value: KeepScreenOnDuration) {
+        keepScreenOnDuration.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_KEEP_SCREEN_ON_DURATION, value.name).apply()
+        }
+    }
+
+    fun setHideAiMusic(value: Boolean) {
+        hideAiMusic.value = value
+        com.music.bitchord.data.aimusic.HideAiMusic.apply(value)
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_HIDE_AI_MUSIC, value).apply()
         }
     }
 
@@ -1760,13 +1894,15 @@ object AppSettings {
         selectCustomPalette(null)
     }
 
+    const val MAX_CUSTOM_PALETTES = 10
+
     fun saveCustomPalette(palette: CustomPalette): Boolean {
         val current = customPalettes.value.toMutableList()
         val existingIndex = current.indexOfFirst { it.id == palette.id }
         if (existingIndex >= 0) {
             current[existingIndex] = palette
         } else {
-            if (current.size >= 5) return false
+            if (current.size >= MAX_CUSTOM_PALETTES) return false
             current.add(palette)
         }
         customPalettes.value = current
@@ -2371,6 +2507,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, value).apply()
     }
 
+    fun setNeverAskDownloadLyricsOffline(value: Boolean) {
+        neverAskDownloadLyricsOffline.value = value
+        prefs.edit().putBoolean(KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE, value).apply()
+    }
+
     fun customDownloadLocationDisplay(): String {
         val uri = customDownloadLocationUri.value
         if (uri.isNullOrBlank()) return "Download/Music/ChordPlay"
@@ -2573,7 +2714,7 @@ object AppSettings {
 
     fun resetHomeShelves() {
         homeShelfOrder.value = emptyList()
-        hiddenHomeShelves.value = emptySet()
+        hiddenHomeShelves.value = setOf(DEFAULT_QUICK_PICKS_SHELF_TITLE)
         homeMelodyVisible.value = true
         homeReplayVisible.value = true
         libraryReplayVisible.value = true
@@ -3146,6 +3287,8 @@ object AppSettings {
     private const val KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION = "save_to_custom_download_location"
     private const val KEY_CUSTOM_DOWNLOAD_LOCATION_URI = "custom_download_location_uri"
     private const val KEY_DOWNLOAD_LYRICS_OFFLINE = "download_lyrics_offline"
+    private const val KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE = "never_ask_download_lyrics_offline"
+    private const val DEFAULT_QUICK_PICKS_SHELF_TITLE = "Quick picks"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
@@ -3168,6 +3311,9 @@ object AppSettings {
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_APP_DESIGN_STYLE = "app_design_style"
     private const val KEY_SHOW_SETTINGS_LIVE_PREVIEWS = "show_settings_live_previews"
+    private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+    private const val KEY_KEEP_SCREEN_ON_DURATION = "keep_screen_on_duration"
+    private const val KEY_HIDE_AI_MUSIC = "hide_ai_music"
     private const val KEY_COLOR_PALETTE = "color_palette"
     private const val KEY_CUSTOM_PALETTES = "custom_palettes"
     private const val KEY_ACTIVE_CUSTOM_PALETTE_ID = "active_custom_palette_id"
@@ -3185,6 +3331,7 @@ object AppSettings {
     const val MIN_DISPLAY_DENSITY_SCALE = 0.50f
     const val MAX_DISPLAY_DENSITY_SCALE = 1.25f
     private const val KEY_PLAYER_ANIMATION_SPEED = "player_animation_speed"
+    private const val KEY_NAV_TABS = "nav_tabs"
     const val DEFAULT_PLAYER_ANIMATION_SPEED = 1.0f
     const val MIN_PLAYER_ANIMATION_SPEED = 0.5f
     const val MAX_PLAYER_ANIMATION_SPEED = 2.0f
@@ -3210,6 +3357,7 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_CONTENT_COUNTRY = "content_country"
     private const val KEY_COVER_ANIMATION = "cover_animation"
     private const val KEY_MINIPLAYER_TIMELINE_STYLE = "miniplayer_timeline_style"
     private const val KEY_PLAYER_WAVE_STYLE = "player_wave_style"

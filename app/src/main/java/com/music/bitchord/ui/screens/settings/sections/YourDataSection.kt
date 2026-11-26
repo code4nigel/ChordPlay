@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.data.stats.ChordPlayIdentityStore
 import com.music.bitchord.data.stats.ChordPlayPassPng
@@ -157,10 +158,12 @@ fun YourDataSection(
         }
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -168,6 +171,7 @@ fun YourDataSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showReplay = matchesSearch(
@@ -333,13 +337,9 @@ fun YourDataSection(
                             stringResource(R.string.replay_genres_disabled_subtitle)
                         },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = replayGenres,
                                 onCheckedChange = AppSettings::setReplayGenres,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setReplayGenres(!replayGenres) },
@@ -355,13 +355,9 @@ fun YourDataSection(
                         title = dontRepeatSongsTitle,
                         subtitle = stringResource(R.string.dont_repeat_songs_subtitle),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = dontRepeatSuggestions,
                                 onCheckedChange = AppSettings::setDontRepeatSuggestions,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },

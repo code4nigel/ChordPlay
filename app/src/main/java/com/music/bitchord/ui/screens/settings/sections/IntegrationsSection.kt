@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -95,10 +96,12 @@ fun IntegrationsSection(
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -106,6 +109,7 @@ fun IntegrationsSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showAccount = matchesSearch(
@@ -273,7 +277,7 @@ fun IntegrationsSection(
                                 stringResource(R.string.enter_token_to_enable)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = listenBrainzEnabled,
                                     onCheckedChange = { checked ->
                                         if (checked && listenBrainzToken.isBlank()) {
@@ -282,10 +286,6 @@ fun IntegrationsSection(
                                             AppSettings.setListenBrainzEnabled(checked)
                                         }
                                     },
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = onOpenListenBrainzLogin,
@@ -297,13 +297,9 @@ fun IntegrationsSection(
                                 title = stringResource(R.string.scrobble_primary_artist_only),
                                 subtitle = stringResource(R.string.scrobble_primary_artist_only_subtitle),
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = listenBrainzPrimaryArtistOnly,
                                         onCheckedChange = AppSettings::setListenBrainzPrimaryArtistOnly,
-                                        colors = SwitchDefaults.colors(
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                        ),
                                     )
                                 },
                                 onClick = { AppSettings.setListenBrainzPrimaryArtistOnly(!listenBrainzPrimaryArtistOnly) },
@@ -324,7 +320,7 @@ fun IntegrationsSection(
                                 stringResource(R.string.tap_to_sign_in)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = lastfmEnabled,
                                     onCheckedChange = { checked ->
                                         if (checked && lastfmSessionKey.isBlank()) {
@@ -333,10 +329,6 @@ fun IntegrationsSection(
                                             AppSettings.setLastfmEnabled(checked)
                                         }
                                     },
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = {
@@ -358,13 +350,9 @@ fun IntegrationsSection(
                                 title = stringResource(R.string.scrobble_tracks),
                                 subtitle = stringResource(R.string.scrobble_tracks_subtitle),
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = lastfmScrobbleEnabled,
                                         onCheckedChange = AppSettings::setLastfmScrobbleEnabled,
-                                        colors = SwitchDefaults.colors(
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                        ),
                                     )
                                 },
                                 onClick = { AppSettings.setLastfmScrobbleEnabled(!lastfmScrobbleEnabled) },
@@ -375,13 +363,9 @@ fun IntegrationsSection(
                                 title = stringResource(R.string.scrobble_primary_artist_only),
                                 subtitle = stringResource(R.string.scrobble_primary_artist_only_subtitle),
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = lastfmPrimaryArtistOnly,
                                         onCheckedChange = AppSettings::setLastfmPrimaryArtistOnly,
-                                        colors = SwitchDefaults.colors(
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                        ),
                                     )
                                 },
                                 onClick = { AppSettings.setLastfmPrimaryArtistOnly(!lastfmPrimaryArtistOnly) },
@@ -392,13 +376,9 @@ fun IntegrationsSection(
                                 title = stringResource(R.string.now_playing),
                                 subtitle = stringResource(R.string.lastfm_now_playing_subtitle),
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = lastfmNowPlayingEnabled,
                                         onCheckedChange = AppSettings::setLastfmNowPlaying,
-                                        colors = SwitchDefaults.colors(
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                        ),
                                     )
                                 },
                                 onClick = { AppSettings.setLastfmNowPlaying(!lastfmNowPlayingEnabled) },

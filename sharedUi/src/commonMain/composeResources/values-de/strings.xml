@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">Spiele ein paar Titel, um deine Mixes zu erstellen</string>
     <string name="your_space_artists_empty">Hefte Künstler an oder spiele sie ab, um sie hier zu sehen</string>
     <string name="your_space_drag_hint">Angeheftete Kachel gedrückt halten zum Sortieren</string>
+    <string name="lyrics_highlight_position">Position der aktiven Zeile</string>
+    <string name="lyrics_highlight_top">Oben</string>
+    <string name="lyrics_highlight_top_mid">Oben-Mitte</string>
+    <string name="lyrics_highlight_center">Mitte</string>
+    <string name="font_family_default">Standard</string>
+    <string name="font_family_serif">Serif</string>
+    <string name="font_family_sans_serif">Sans-Serif</string>
+    <string name="font_family_monospace">Monospace</string>
+    <string name="font_family_script">Schreibschrift</string>
+    <string name="font_weight_medium">Mittel</string>
+    <string name="font_weight_semibold">Halbfett</string>
+    <string name="font_weight_bold">Fett</string>
+    <string name="font_weight_heavy">Extrafett</string>
+    <string name="custom_font_active_hint">Eigene Schriftart gewählt · Tippen zum Wechseln</string>
 </resources>

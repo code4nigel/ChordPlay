@@ -84,6 +84,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
@@ -643,7 +644,7 @@ private fun MelodyTunerGroup(
             title = stringResource(R.string.melody_similar_liked),
             subtitle = stringResource(R.string.melody_similar_liked_subtitle),
             trailing = {
-                Switch(
+                IosSwitch(
                     checked = tuner.similarLiked,
                     onCheckedChange = onSimilarLiked,
                 )

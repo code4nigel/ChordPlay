@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -95,10 +96,12 @@ fun AudioSection(
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -106,6 +109,7 @@ fun AudioSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showSources = matchesSearch(
@@ -137,6 +141,12 @@ fun AudioSection(
             stringResource(R.string.prefer_music_only),
             stringResource(R.string.prefer_music_only_subtitle),
             "video", "music video", "catalogue",
+        )
+        val showHideAiMusic = matchesSearch(
+            searchQuery,
+            stringResource(R.string.hide_ai_music),
+            stringResource(R.string.hide_ai_music_subtitle),
+            "ai", "ai music", "artificial", "slop", "filter",
         )
         val showCrossfade = (!smartFade) && matchesSearch(
             searchQuery,
@@ -190,7 +200,7 @@ fun AudioSection(
         )
 
         val anyAudioMatch = showSources || showWifi || showCellular || showDolby ||
-            showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf ||
+            showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf ||
             showSkipSilence || showSpatialAudio || showEqualizer || showOutputPrecision || showLoudness
 
         if (searchQuery.isNotBlank() && !anyAudioMatch) {
@@ -247,14 +257,10 @@ fun AudioSection(
                         ),
                         enabled = dolbyAtmosSupported,
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = dolbyAtmos && dolbyAtmosSupported,
                                 onCheckedChange = AppSettings::setDolbyAtmos,
                                 enabled = dolbyAtmosSupported,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
@@ -262,7 +268,7 @@ fun AudioSection(
                 }
 
                 // Playback Processing & Blending (Seamlessly integrated in the same block)
-                if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
                     if (showSources || showWifi || showCellular || showDolby) {
                         SettingsSectionDivider(title = stringResource(R.string.playback))
                     }
@@ -274,21 +280,22 @@ fun AudioSection(
                             title = preferMusicOnlyTitle,
                             subtitle = stringResource(R.string.prefer_music_only_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = preferMusicOnly,
                                     onCheckedChange = AppSettings::setPreferMusicOnly,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
                         )
                     }
 
-                    if (showCrossfade) {
+                    if (showHideAiMusic) {
                         if (showPreferMusicOnly) RowDivider()
+                        HideAiMusicRow(title = stringResource(R.string.hide_ai_music))
+                    }
+
+                    if (showCrossfade) {
+                        if (showPreferMusicOnly || showHideAiMusic) RowDivider()
 
                         val crossfadeTitle = stringResource(R.string.crossfade)
                         SliderRow(
@@ -304,7 +311,7 @@ fun AudioSection(
                     }
 
                     if (showAutomix) {
-                        if (showPreferMusicOnly || showCrossfade) RowDivider()
+                        if (showPreferMusicOnly || showHideAiMusic || showCrossfade) RowDivider()
 
                         val automixTitle = stringResource(R.string.automix)
                         val automixSubtitle = when {
@@ -329,13 +336,9 @@ fun AudioSection(
                             title = automixTitle,
                             subtitle = automixSubtitle,
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = smartFade,
                                     onCheckedChange = toggleAutomix,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = {
@@ -349,7 +352,7 @@ fun AudioSection(
                     }
 
                     if (showAutomixPerf) {
-                        if (showPreferMusicOnly || showCrossfade || showAutomix) RowDivider()
+                        if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix) RowDivider()
 
                         val automixPerformanceTitle = stringResource(R.string.automix_performance)
                         SettingsRow(
@@ -362,7 +365,7 @@ fun AudioSection(
                     }
 
                     if (showSkipSilence) {
-                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf) RowDivider()
+                        if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf) RowDivider()
 
                         val skipSilenceTitle = stringResource(R.string.skip_silence)
                         SettingsRow(
@@ -374,13 +377,9 @@ fun AudioSection(
                                 stringResource(R.string.skip_silence_subtitle)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = skipSilence,
                                     onCheckedChange = AppSettings::setSkipSilence,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSkipSilence(!skipSilence) },
@@ -388,7 +387,7 @@ fun AudioSection(
                     }
 
                     if (showSpatialAudio) {
-                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence) RowDivider()
+                        if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence) RowDivider()
 
                         val spatialAudioTitle = stringResource(R.string.spatial_audio)
                         SettingsRow(
@@ -400,13 +399,9 @@ fun AudioSection(
                                 stringResource(R.string.spatial_audio_subtitle)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = spatialAudio,
                                     onCheckedChange = AppSettings::setSpatialAudio,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
@@ -414,7 +409,7 @@ fun AudioSection(
                     }
 
                     if (showEqualizer) {
-                        if (showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio) RowDivider()
+                        if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio) RowDivider()
 
                         val equalizerTitle = stringResource(R.string.equalizer)
                         SettingsRow(
@@ -428,7 +423,7 @@ fun AudioSection(
 
                 // Hardware Output & Normalization (Seamlessly integrated in the same block)
                 if (showOutputPrecision || showLoudness) {
-                    if (showSources || showWifi || showCellular || showDolby || showPreferMusicOnly || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                    if (showSources || showWifi || showCellular || showDolby || showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
                         SettingsSectionDivider(title = stringResource(R.string.output_precision))
                     }
 
@@ -472,13 +467,9 @@ fun AudioSection(
                             title = loudnessTitle,
                             subtitle = stringResource(R.string.loudness_normalization_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = loudnessNormalization,
                                     onCheckedChange = AppSettings::setLoudnessNormalization,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },

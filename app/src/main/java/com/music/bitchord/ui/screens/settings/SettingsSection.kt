@@ -14,21 +14,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.CloudQueue
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.music.bitchord.R
+import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
  * The modular categories of ChordPlay's Prism-inspired settings hierarchy.
@@ -37,7 +38,7 @@ enum class SettingsSection(
     val titleRes: Int,
     val icon: ImageVector,
 ) {
-    APPEARANCE(R.string.appearance, Icons.Rounded.Brush),
+    APPEARANCE(R.string.appearance, BitChordIcons.Appearance),
     COVER(R.string.settings_cover, Icons.Rounded.Image),
     MINIPLAYER(R.string.settings_miniplayer, Icons.Rounded.Waves),
     PLAYER_STYLE(R.string.settings_player_style, Icons.Rounded.GraphicEq),
@@ -51,8 +52,9 @@ enum class SettingsSection(
     YOUR_DATA(R.string.your_data, Icons.Rounded.BarChart),
     DRIVE_BACKUP(R.string.drive_backup_title, Icons.Rounded.CloudQueue),
     DRIVE_DEVICES(R.string.drive_devices_title, Icons.Rounded.CloudQueue),
-    ADVANCED_PERFORMANCE(R.string.advanced_and_performance, Icons.Rounded.Tune),
+    ADVANCED_PERFORMANCE(R.string.advanced_and_performance, Icons.Rounded.Speed),
     SUPPORT(R.string.support_community, Icons.Rounded.Favorite),
+    LANGUAGE(R.string.language_and_location, Icons.Rounded.Language),
     INTEGRATIONS(R.string.account_integrations, Icons.Rounded.Person),
     ABOUT(R.string.miscellaneous, Icons.AutoMirrored.Rounded.HelpOutline);
 

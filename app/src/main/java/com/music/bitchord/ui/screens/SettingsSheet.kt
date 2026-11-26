@@ -14,9 +14,13 @@ package com.music.bitchord.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -25,6 +29,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +48,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
@@ -56,6 +60,7 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
@@ -89,8 +94,10 @@ import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SignalCellularAlt
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
@@ -101,9 +108,12 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.ViewWeek
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -113,20 +123,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -147,17 +156,26 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
+import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
+import com.music.bitchord.ui.components.ChordPlayWaveUpdateMark
+import com.music.bitchord.ui.components.IosSwitch
+import com.music.bitchord.ui.components.MIN_CHECK_SPIN_MS
 import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.lightweightLiquidGlass
+import java.util.Locale
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.music.bitchord.ui.player.LyricsStyleManager
 import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.settings.sections.AboutSection
 import com.music.bitchord.ui.screens.settings.sections.AdvancedPerformanceSection
+import com.music.bitchord.ui.screens.settings.sections.LanguageSection
 import com.music.bitchord.ui.screens.settings.sections.CoverSection
 import com.music.bitchord.ui.screens.settings.sections.AppearanceSection
 import com.music.bitchord.ui.screens.settings.sections.AudioSection
@@ -200,15 +218,18 @@ fun SettingsScreen(
     onListenTogether: () -> Unit,
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
+    onShowUpdate: () -> Unit = {},
     contentPadding: PaddingValues,
     homeShelfTitles: List<String> = emptyList(),
     currentSection: SettingsSection? = null,
     onSectionChange: ((SettingsSection?) -> Unit)? = null,
     driveAlerts: DriveBackupAlerts = remember { DriveBackupAlerts() },
+    searchHost: SettingsSearchHostState? = null,
     modifier: Modifier = Modifier,
 ) {
     var internalSection by rememberSaveable { mutableStateOf<SettingsSection?>(null) }
     var pendingSectionSearchQuery by rememberSaveable { mutableStateOf<String?>(null) }
+    val hubScrollState = rememberSaveable(saver = ScrollState.Saver) { ScrollState(0) }
     val effectiveSection = if (onSectionChange != null) currentSection else internalSection
     val updateSection: (SettingsSection?) -> Unit = { section ->
         if (section == null) {
@@ -225,52 +246,56 @@ fun SettingsScreen(
         updateSection(effectiveSection?.parentSection())
     }
 
-    AnimatedContent(
-        targetState = effectiveSection,
-        transitionSpec = {
-            if (targetState != null && initialState == null) {
-                (slideInHorizontally(
-                    animationSpec = tween(durationMillis = 260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
-                    initialOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() },
-                ) + fadeIn(animationSpec = tween(200))) togetherWith
-                (slideOutHorizontally(
-                    animationSpec = tween(durationMillis = 200, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)),
-                    targetOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
-                ) + fadeOut(animationSpec = tween(150)))
-            } else if (targetState == null && initialState != null) {
-                (slideInHorizontally(
-                    animationSpec = tween(durationMillis = 240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
-                    initialOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
-                ) + fadeIn(animationSpec = tween(200))) togetherWith
-                (slideOutHorizontally(
-                    animationSpec = tween(durationMillis = 200, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)),
-                    targetOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() },
-                ) + fadeOut(animationSpec = tween(150)))
-            } else {
-                fadeIn(animationSpec = tween(180)) togetherWith fadeOut(animationSpec = tween(150))
-            }
-        },
-        label = "SettingsNavigation",
-        modifier = modifier.fillMaxSize(),
-    ) { section ->
-        val query = pendingSectionSearchQuery ?: ""
-        when (section) {
-            null -> SettingsHub(
-                signedIn = signedIn,
-                account = account,
-                channelName = channelName,
-                onSignIn = onSignIn,
-                onSelectSection = { targetSection, targetQuery ->
-                    pendingSectionSearchQuery = targetQuery
-                    updateSection(targetSection)
-                },
-                onListenTogether = onListenTogether,
-                onOpenSpotify = onOpenSpotify,
-                contentPadding = contentPadding,
-            )
+    CompositionLocalProvider(LocalSettingsSearchHost provides searchHost) {
+        AnimatedContent(
+            targetState = effectiveSection,
+            transitionSpec = {
+                if (targetState != null && initialState == null) {
+                    (slideInHorizontally(
+                        animationSpec = tween(durationMillis = 260, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
+                        initialOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() },
+                    ) + fadeIn(animationSpec = tween(200))) togetherWith
+                    (slideOutHorizontally(
+                        animationSpec = tween(durationMillis = 200, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)),
+                        targetOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
+                    ) + fadeOut(animationSpec = tween(150)))
+                } else if (targetState == null && initialState != null) {
+                    (slideInHorizontally(
+                        animationSpec = tween(durationMillis = 240, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)),
+                        initialOffsetX = { fullWidth -> -(fullWidth * 0.12f).toInt() },
+                    ) + fadeIn(animationSpec = tween(200))) togetherWith
+                    (slideOutHorizontally(
+                        animationSpec = tween(durationMillis = 200, easing = CubicBezierEasing(0.3f, 0.0f, 0.8f, 0.15f)),
+                        targetOffsetX = { fullWidth -> (fullWidth * 0.12f).toInt() },
+                    ) + fadeOut(animationSpec = tween(150)))
+                } else {
+                    fadeIn(animationSpec = tween(180)) togetherWith fadeOut(animationSpec = tween(150))
+                }
+            },
+            label = "SettingsNavigation",
+            modifier = modifier.fillMaxSize(),
+        ) { section ->
+            CompositionLocalProvider(LocalSettingsSearchPageActive provides (section == effectiveSection)) {
+                val query = pendingSectionSearchQuery ?: ""
+                when (section) {
+                    null -> SettingsHub(
+                        signedIn = signedIn,
+                        account = account,
+                        channelName = channelName,
+                        onSignIn = onSignIn,
+                        onSelectSection = { targetSection, targetQuery ->
+                            pendingSectionSearchQuery = targetQuery
+                            updateSection(targetSection)
+                        },
+                        onListenTogether = onListenTogether,
+                        onOpenSpotify = onOpenSpotify,
+                        onAppLanguage = onAppLanguage,
+                        onShowUpdate = onShowUpdate,
+                        contentPadding = contentPadding,
+                        scrollState = hubScrollState,
+                    )
             SettingsSection.APPEARANCE -> AppearanceSection(
                 onBack = { updateSection(null) },
-                onAppLanguage = onAppLanguage,
                 onOpenCover = {
                     pendingSectionSearchQuery = null
                     updateSection(SettingsSection.COVER)
@@ -382,6 +407,13 @@ fun SettingsScreen(
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
+                onShowUpdate = onShowUpdate,
+            )
+            SettingsSection.LANGUAGE -> LanguageSection(
+                onBack = { updateSection(null) },
+                onAppLanguage = onAppLanguage,
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
             )
             SettingsSection.INTEGRATIONS -> IntegrationsSection(
                 signedIn = signedIn,
@@ -404,7 +436,10 @@ fun SettingsScreen(
                 onBack = { updateSection(null) },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
+                onShowUpdate = onShowUpdate,
             )
+                }
+            }
         }
     }
 }
@@ -418,10 +453,16 @@ private fun SettingsHub(
     onSelectSection: (SettingsSection, String?) -> Unit,
     onListenTogether: () -> Unit,
     onOpenSpotify: () -> Unit,
+    onAppLanguage: () -> Unit,
+    onShowUpdate: () -> Unit,
     contentPadding: PaddingValues,
+    scrollState: ScrollState,
     modifier: Modifier = Modifier,
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
+        ?: Locale.getDefault().toLanguageTag()
+    val languageLabel = stringResource(languageDisplayNameRes(selectedLanguage))
 
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
@@ -442,6 +483,7 @@ private fun SettingsHub(
                 SettingsSection.STORAGE,
                 SettingsSection.YOUR_DATA,
                 SettingsSection.ADVANCED_PERFORMANCE,
+                SettingsSection.LANGUAGE,
                 SettingsSection.SUPPORT,
                 SettingsSection.ABOUT,
             )
@@ -449,22 +491,23 @@ private fun SettingsHub(
             val q = searchQuery.trim().lowercase()
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
-                    SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe miniplayer timeline"
+                    SettingsSection.APPEARANCE -> "appearance theme dark light oled black liquid glass dock style dock bar customisation customization navigation bar tabs reorder miniplayer cover player style"
                     SettingsSection.COVER -> "cover artwork animation fade 3d canvas spotify fullscreen"
                     SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave silk pill progress"
                     SettingsSection.PLAYER_STYLE -> "player style wave progress scrubber og wave aurora silk audio graph"
-                    SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
-                    SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
+                    SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement customize melody replay hide show library square prefer music swipe"
+                    SettingsSection.PLAYER -> "playback player animation speed expand minimize fast smooth artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
-                    SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence"
+                    SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence hide ai music artificial slop filter"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
                     SettingsSection.LOCAL_MUSIC -> "local music folder device audio filter recording wav"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import"
                     SettingsSection.YOUR_DATA -> "your data replay insights stats listening history backup restore export import cache clear google drive sync identity"
                     SettingsSection.DRIVE_BACKUP -> "google drive backup cloud sync identity restore devices"
                     SettingsSection.DRIVE_DEVICES -> "google drive devices restore device"
-                    SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced performance 120hz refresh rate display smoothness reduce blur reduce animations automix cpu nerd stats diagnostics"
+                    SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced experimental performance 120hz refresh rate display smoothness reduce blur reduce animations live previews preview keep screen on awake timeout sleep indefinitely automix cpu nerd stats diagnostics enable logging log crash bug report"
                     SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates welcome setup onboarding pass"
+                    SettingsSection.LANGUAGE -> "language location country region app language locale translate english"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
                     SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay welcome setup onboarding"
                 }
@@ -493,60 +536,30 @@ private fun SettingsHub(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding)
             .padding(horizontal = 16.dp),
     ) {
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Search Bar styled matching search page
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .lightweightLiquidGlass(CircleShape, fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(Modifier.width(10.dp))
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (searchQuery.isEmpty()) {
-                    Text(
-                        text = stringResource(R.string.settings_search_hint),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    )
-                }
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (searchQuery.isNotEmpty()) {
-                IconButton(
-                    onClick = { searchQuery = "" },
-                    modifier = Modifier.size(20.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.clear_search),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
-            }
-        }
+        Text(
+            text = stringResource(R.string.settings),
+            style = MaterialTheme.typography.displayLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Spacer(Modifier.height(14.dp))
+
+        SettingsSearchSlot(
+            searchHost = LocalSettingsSearchHost.current,
+            isActivePage = LocalSettingsSearchPageActive.current,
+            scrollState = scrollState,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+        )
 
         Spacer(Modifier.height(18.dp))
 
@@ -797,13 +810,9 @@ private fun SettingsHub(
                                 )
                             }
                             Spacer(Modifier.width(8.dp))
-                            Switch(
+                            IosSwitch(
                                 checked = animatedCanvas,
                                 onCheckedChange = AppSettings::setAnimatedCanvas,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         }
                     }
@@ -856,14 +865,10 @@ private fun SettingsHub(
                                 maxLines = 1,
                             )
                         }
-                        Switch(
+                        IosSwitch(
                             checked = liquidGlass,
                             onCheckedChange = AppSettings::setLiquidGlass,
                             enabled = glassSupported,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
                         )
                     }
 
@@ -927,6 +932,7 @@ private fun SettingsHub(
                 matchingSections.forEachIndexed { index, section ->
                     CleanCategoryRow(
                         section = section,
+                        value = if (section == SettingsSection.LANGUAGE) languageLabel else null,
                         onClick = { onSelectSection(section, null) },
                     )
                     if (index < matchingSections.lastIndex) {
@@ -939,8 +945,10 @@ private fun SettingsHub(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
-            SettingsFooter(version = BuildConfig.VERSION_NAME)
+            SettingsColophon(
+                version = BuildConfig.VERSION_NAME,
+                onShowUpdate = onShowUpdate,
+            )
             Spacer(Modifier.height(16.dp))
         } else {
             // Global Search Results: Categories & Individual Settings
@@ -972,6 +980,7 @@ private fun SettingsHub(
                         matchingSections.forEachIndexed { index, section ->
                             CleanCategoryRow(
                                 section = section,
+                                value = if (section == SettingsSection.LANGUAGE) languageLabel else null,
                                 onClick = { onSelectSection(section, searchQuery) },
                             )
                             if (index < matchingSections.lastIndex) {
@@ -1142,9 +1151,17 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("liquid", "glass", "intensity", "refraction", "water", "blur"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.nav_bar_tabs),
+            subtitle = stringResource(R.string.nav_bar_tabs_subtitle),
+            section = SettingsSection.APPEARANCE,
+            icon = Icons.Rounded.ViewWeek,
+            queryTarget = stringResource(R.string.nav_bar_tabs),
+            keywords = listOf("dock bar customisation", "dock bar customization", "navigation", "bar", "tabs", "reorder", "hide", "home", "radio", "library"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.reduce_dynamic_blur),
             subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
-            section = SettingsSection.APPEARANCE,
+            section = SettingsSection.ADVANCED_PERFORMANCE,
             icon = Icons.Rounded.BlurOff,
             queryTarget = stringResource(R.string.reduce_dynamic_blur),
             keywords = listOf("blur", "dynamic", "performance"),
@@ -1152,26 +1169,58 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         GlobalSettingItem(
             title = stringResource(R.string.reduce_animation),
             subtitle = stringResource(R.string.reduce_animation_subtitle),
-            section = SettingsSection.APPEARANCE,
+            section = SettingsSection.ADVANCED_PERFORMANCE,
             icon = Icons.Rounded.MotionPhotosOff,
             queryTarget = stringResource(R.string.reduce_animation),
             keywords = listOf("animation", "motion", "reduce"),
         ),
         GlobalSettingItem(
+            title = stringResource(R.string.settings_live_previews),
+            subtitle = stringResource(R.string.settings_live_previews_desc),
+            section = SettingsSection.ADVANCED_PERFORMANCE,
+            icon = Icons.Rounded.Visibility,
+            queryTarget = stringResource(R.string.settings_live_previews),
+            keywords = listOf("live", "preview", "previews", "cover", "miniplayer", "player style"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.keep_screen_on),
+            subtitle = stringResource(R.string.keep_screen_on_subtitle),
+            section = SettingsSection.ADVANCED_PERFORMANCE,
+            icon = Icons.Rounded.WbSunny,
+            queryTarget = stringResource(R.string.keep_screen_on),
+            keywords = listOf("keep screen on", "screen", "awake", "timeout", "display", "sleep", "indefinitely"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.enable_logging),
+            subtitle = stringResource(R.string.enable_logging_subtitle),
+            section = SettingsSection.ADVANCED_PERFORMANCE,
+            icon = Icons.Rounded.BugReport,
+            queryTarget = stringResource(R.string.enable_logging),
+            keywords = listOf("log", "logging", "debug", "bug", "report", "crash", "share", "experimental"),
+        ),
+        GlobalSettingItem(
             title = stringResource(R.string.player_animation_speed),
             subtitle = stringResource(R.string.player_animation_speed_subtitle),
-            section = SettingsSection.APPEARANCE,
+            section = SettingsSection.PLAYER,
             icon = Icons.Rounded.Speed,
             queryTarget = stringResource(R.string.player_animation_speed),
             keywords = listOf("animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth"),
         ),
         GlobalSettingItem(
-            title = stringResource(R.string.language),
-            subtitle = stringResource(R.string.app_language),
-            section = SettingsSection.APPEARANCE,
+            title = stringResource(R.string.app_language),
+            subtitle = stringResource(R.string.language_and_location),
+            section = SettingsSection.LANGUAGE,
             icon = Icons.Rounded.Language,
-            queryTarget = stringResource(R.string.language),
-            keywords = listOf("translate", "locale", "english"),
+            queryTarget = stringResource(R.string.app_language),
+            keywords = listOf("language", "translate", "locale", "english"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.content_country),
+            subtitle = stringResource(R.string.content_country_subtitle),
+            section = SettingsSection.LANGUAGE,
+            icon = Icons.Rounded.Public,
+            queryTarget = stringResource(R.string.content_country),
+            keywords = listOf("country", "location", "region", "recommendations", "charts"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.swipe_gestures),
@@ -1479,6 +1528,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.MusicNote,
             queryTarget = stringResource(R.string.prefer_music_only),
             keywords = listOf("music only", "catalogue", "video"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.hide_ai_music),
+            subtitle = stringResource(R.string.hide_ai_music_subtitle),
+            section = SettingsSection.AUDIO,
+            icon = Icons.Rounded.SmartToy,
+            queryTarget = stringResource(R.string.hide_ai_music),
+            keywords = listOf("ai", "ai music", "hide ai", "artificial", "slop", "filter"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.crossfade),
@@ -1790,11 +1847,12 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
 }
 
 /**
- * Modern, clean category row: circular icon badge + title only (no verbose description subtext).
+ * Modern, clean category row: circular icon badge + title + optional trailing value.
  */
 @Composable
 private fun CleanCategoryRow(
     section: SettingsSection,
+    value: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1829,6 +1887,17 @@ private fun CleanCategoryRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
+        if (!value.isNullOrBlank()) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(6.dp))
+        }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
             contentDescription = null,
@@ -1838,106 +1907,135 @@ private fun CleanCategoryRow(
     }
 }
 
+/**
+ * Dial-inspired Settings colophon tailored for ChordPlay: large branding, version
+ * & GitHub link, frosted glass update-check pill, and ChordPlay's animated wave emblem.
+ */
 @Composable
-private fun SettingsFooter(version: String, modifier: Modifier = Modifier) {
+private fun SettingsColophon(
+    version: String,
+    onShowUpdate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val update by AppUpdateChecker.available.collectAsStateWithLifecycle()
+    var checking by remember { mutableStateOf(false) }
+    var lastResult by remember { mutableStateOf<AppUpdateChecker.CheckResult?>(null) }
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    Row(
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 12.dp),
     ) {
-        // Left side: Circular buttons for GitHub and Reddit
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // GitHub circle button
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        shape = CircleShape,
-                    )
-                    .clickable {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")))
-                        }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_github),
-                    contentDescription = "ChordPlay GitHub",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(22.dp),
+        Text(
+            text = "ChordPlay",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
+
+        Text(
+            text = buildAnnotatedString {
+                append("v$version  ·  ")
+                withLink(
+                    LinkAnnotation.Url(
+                        "https://github.com/code4nigel/ChordPlay",
+                        TextLinkStyles(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                textDecoration = TextDecoration.Underline,
+                            ),
+                        ),
+                    ),
+                ) {
+                    append("GitHub")
+                }
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+
+        val buttonShape = RoundedCornerShape(50)
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .padding(top = 18.dp)
+                .lightweightLiquidGlass(
+                    shape = buttonShape,
+                    fallbackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
                 )
-            }
-
-            // Reddit circle button
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        shape = CircleShape,
-                    )
-                    .clickable {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")))
+                .clickable(enabled = !checking) {
+                    if (update != null) {
+                        onShowUpdate()
+                    } else {
+                        checking = true
+                        scope.launch {
+                            val started = System.currentTimeMillis()
+                            val result = AppUpdateChecker.check()
+                            val remaining = MIN_CHECK_SPIN_MS - (System.currentTimeMillis() - started)
+                            if (remaining > 0) delay(remaining)
+                            checking = false
+                            lastResult = result
+                            if (result == AppUpdateChecker.CheckResult.UPDATE) {
+                                onShowUpdate()
+                            }
                         }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_reddit),
-                    contentDescription = "ChordPlay Reddit",
-                    tint = Color(0xFFFF4500),
-                    modifier = Modifier.size(22.dp),
+                    }
+                }
+                .animateContentSize(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    alignment = Alignment.Center,
                 )
-            }
-        }
-
-        Spacer(Modifier.width(14.dp))
-
-        // Right side: Attribution text in two lines
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center,
+                .padding(horizontal = 22.dp, vertical = 11.dp),
         ) {
             Text(
-                text = "ChordPlay v$version by Shivanshu (code4nigel)",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
+                text = when {
+                    checking -> stringResource(R.string.checking_updates)
+                    update != null -> stringResource(R.string.update_ready, update?.version.orEmpty())
+                    lastResult == AppUpdateChecker.CheckResult.UP_TO_DATE ->
+                        stringResource(R.string.up_to_date, BuildConfig.VERSION_NAME)
+                    lastResult == AppUpdateChecker.CheckResult.NO_RELEASES ->
+                        stringResource(R.string.no_releases_yet)
+                    lastResult == AppUpdateChecker.CheckResult.FAILED ->
+                        stringResource(R.string.update_check_failed)
+                    else -> stringResource(R.string.check_for_updates)
+                },
+                style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")))
-                    }
-                },
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "Based on BitChord by Kushagra Singh",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
-                    }
-                },
             )
         }
+
+        ChordPlayWaveUpdateMark(
+            checking = checking,
+            size = 46.dp,
+            waveWidth = 136.dp,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = "Based on BitChord by Kushagra Singh",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.clickable {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
+                }
+            },
+        )
     }
 }

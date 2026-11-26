@@ -14,6 +14,7 @@ package com.music.bitchord.ui.icons
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -1274,6 +1275,94 @@ object BitChordIcons {
                 quadTo(12f, 12f, 12f, 22f)
                 quadTo(12f, 12f, 2f, 12f)
                 quadTo(12f, 12f, 12f, 2f)
+                close()
+            }
+        }.build()
+    }
+
+    /**
+     * Filled beauty/appearance glyph: sculpted headwrap crown & serene face with
+     * negative-space closed eyes, smile, and flanking 4-point sparkles.
+     */
+    val Appearance: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_appearance",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            // Top bun of the headwrap
+            path(fill = stroke) {
+                moveTo(8.3f, 5.2f)
+                curveTo(8.8f, 3.0f, 10.3f, 2.0f, 12.0f, 2.0f)
+                curveTo(13.7f, 2.0f, 15.2f, 3.0f, 15.7f, 5.2f)
+                curveTo(14.5f, 4.7f, 13.3f, 4.5f, 12.0f, 4.5f)
+                curveTo(10.7f, 4.5f, 9.5f, 4.7f, 8.3f, 5.2f)
+                close()
+            }
+            // Sculpted headwrap + serene face with negative-space crease, eyes, and smile
+            path(fill = stroke, pathFillType = PathFillType.EvenOdd) {
+                // Outer silhouette: rounded wrap sweeping down around the cheeks & chin
+                moveTo(12.0f, 5.3f)
+                curveTo(16.5f, 5.3f, 18.8f, 8.4f, 18.6f, 12.4f)
+                curveTo(18.5f, 14.3f, 17.8f, 15.7f, 17.0f, 16.7f)
+                curveTo(16.2f, 19.3f, 14.3f, 21.2f, 12.0f, 21.2f)
+                curveTo(9.7f, 21.2f, 7.8f, 19.3f, 7.0f, 16.7f)
+                curveTo(6.2f, 15.7f, 5.5f, 14.3f, 5.4f, 12.4f)
+                curveTo(5.2f, 8.4f, 7.5f, 5.3f, 12.0f, 5.3f)
+                close()
+
+                // Negative-space wrap parting fold separating turban from forehead
+                moveTo(6.9f, 11.4f)
+                curveTo(7.4f, 9.0f, 9.5f, 7.7f, 12.0f, 8.5f)
+                curveTo(13.8f, 9.1f, 15.6f, 9.8f, 16.8f, 11.5f)
+                curveTo(17.1f, 12.0f, 16.4f, 12.6f, 16.0f, 12.1f)
+                curveTo(15.0f, 10.6f, 13.4f, 10.0f, 11.7f, 9.5f)
+                curveTo(9.7f, 8.9f, 8.1f, 9.8f, 7.7f, 11.7f)
+                curveTo(7.6f, 12.2f, 6.8f, 12.0f, 6.9f, 11.4f)
+                close()
+
+                // Negative-space left closed eye arc
+                moveTo(8.5f, 13.9f)
+                curveTo(9.0f, 14.7f, 10.4f, 14.7f, 10.9f, 13.9f)
+                curveTo(11.1f, 13.5f, 10.5f, 13.1f, 10.2f, 13.5f)
+                curveTo(9.9f, 13.9f, 9.5f, 13.9f, 9.2f, 13.5f)
+                curveTo(8.9f, 13.1f, 8.3f, 13.5f, 8.5f, 13.9f)
+                close()
+
+                // Negative-space right closed eye arc
+                moveTo(13.1f, 13.9f)
+                curveTo(13.6f, 14.7f, 15.0f, 14.7f, 15.5f, 13.9f)
+                curveTo(15.7f, 13.5f, 15.1f, 13.1f, 14.8f, 13.5f)
+                curveTo(14.5f, 13.9f, 14.1f, 13.9f, 13.8f, 13.5f)
+                curveTo(13.5f, 13.1f, 12.9f, 13.5f, 13.1f, 13.9f)
+                close()
+
+                // Negative-space gentle smile
+                moveTo(10.6f, 17.1f)
+                curveTo(11.3f, 17.9f, 12.7f, 17.9f, 13.4f, 17.1f)
+                curveTo(13.7f, 16.7f, 13.1f, 16.2f, 12.8f, 16.6f)
+                curveTo(12.3f, 17.1f, 11.7f, 17.1f, 11.2f, 16.6f)
+                curveTo(10.9f, 16.2f, 10.3f, 16.7f, 10.6f, 17.1f)
+                close()
+            }
+            // Lower-left 4-point sparkle
+            path(fill = stroke) {
+                moveTo(4.5f, 13.5f)
+                quadTo(4.5f, 16.2f, 7.2f, 16.2f)
+                quadTo(4.5f, 16.2f, 4.5f, 18.9f)
+                quadTo(4.5f, 16.2f, 1.8f, 16.2f)
+                quadTo(4.5f, 16.2f, 4.5f, 13.5f)
+                close()
+            }
+            // Lower-right 4-point sparkle
+            path(fill = stroke) {
+                moveTo(19.6f, 16.1f)
+                quadTo(19.6f, 18.3f, 21.8f, 18.3f)
+                quadTo(19.6f, 18.3f, 19.6f, 20.5f)
+                quadTo(19.6f, 18.3f, 17.4f, 18.3f)
+                quadTo(19.6f, 18.3f, 19.6f, 16.1f)
                 close()
             }
         }.build()

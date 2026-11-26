@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">数曲再生するとミックスが作成されます</string>
     <string name="your_space_artists_empty">アーティストを固定または再生するとここに表示されます</string>
     <string name="your_space_drag_hint">固定されたタイルを長押しして並べ替え</string>
+    <string name="lyrics_highlight_position">ハイライト行の位置</string>
+    <string name="lyrics_highlight_top">上部</string>
+    <string name="lyrics_highlight_top_mid">中央上</string>
+    <string name="lyrics_highlight_center">中央</string>
+    <string name="font_family_default">デフォルト</string>
+    <string name="font_family_serif">明朝・セリフ体</string>
+    <string name="font_family_sans_serif">ゴシック・サンセリフ体</string>
+    <string name="font_family_monospace">等幅</string>
+    <string name="font_family_script">スクリプト</string>
+    <string name="font_weight_medium">中</string>
+    <string name="font_weight_semibold">中太</string>
+    <string name="font_weight_bold">太字</string>
+    <string name="font_weight_heavy">極太</string>
+    <string name="custom_font_active_hint">カスタムフォント選択中 · 変更で差し替え</string>
 </resources>

@@ -93,6 +93,7 @@ import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.SettingsSearchEmpty
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.matchesSearch
 import kotlin.math.PI
@@ -199,6 +200,7 @@ internal fun PlayerWaveStyleSection(
     val style by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val elastic by AppSettings.playerElasticConfig.collectAsStateWithLifecycle()
     val reducedMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     var query by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     val showWaveStyle = matchesSearch(
@@ -230,10 +232,12 @@ internal fun PlayerWaveStyleSection(
         )
     }
 
+    val scrollState = rememberScrollState()
+
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -241,6 +245,7 @@ internal fun PlayerWaveStyleSection(
             onBack = onBack,
             searchQuery = query,
             onSearchQueryChange = { query = it },
+            scrollState = scrollState,
         )
         if (!showWaveStyle && !showElasticPhysics && visibleButtonToggles.isEmpty()) {
             SettingsSearchEmpty(query)
@@ -250,11 +255,13 @@ internal fun PlayerWaveStyleSection(
                     header = stringResource(R.string.player_wave_style),
                     footer = stringResource(R.string.player_wave_subtitle),
                 ) {
-                    PlayerWavePreviewCard(
-                        style = style,
-                        elasticConfig = elastic,
-                        reducedMotion = reducedMotion,
-                    )
+                    if (showLivePreviews) {
+                        PlayerWavePreviewCard(
+                            style = style,
+                            elasticConfig = elastic,
+                            reducedMotion = reducedMotion,
+                        )
+                    }
                     val styles = PlayerWaveStyle.entries
                     SegmentedControl(
                         options = styles.map { option ->
@@ -268,7 +275,12 @@ internal fun PlayerWaveStyleSection(
                         },
                         selectedIndex = styles.indexOf(style).coerceAtLeast(0),
                         onSelect = { index -> AppSettings.setPlayerWaveStyle(styles[index]) },
-                        modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        modifier = Modifier.padding(
+                            start = 14.dp,
+                            end = 14.dp,
+                            top = if (showLivePreviews) 0.dp else 14.dp,
+                            bottom = 14.dp,
+                        ),
                     )
                 }
             }
@@ -280,7 +292,7 @@ internal fun PlayerWaveStyleSection(
                         subtitle = stringResource(R.string.player_elastic_master_subtitle),
                         onClick = { AppSettings.updatePlayerElasticConfig { it.copy(enabled = !it.enabled) } },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = elastic.enabled,
                                 onCheckedChange = { checked ->
                                     AppSettings.updatePlayerElasticConfig { it.copy(enabled = checked) }
@@ -301,7 +313,7 @@ internal fun PlayerWaveStyleSection(
                                     }
                                 },
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = elastic.playPillInteraction,
                                         onCheckedChange = { checked ->
                                             AppSettings.updatePlayerElasticConfig {
@@ -332,7 +344,7 @@ internal fun PlayerWaveStyleSection(
                                 }
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = checked,
                                     onCheckedChange = { value ->
                                         AppSettings.updatePlayerElasticConfig { current ->

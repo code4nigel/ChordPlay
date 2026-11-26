@@ -66,17 +66,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.rounded.Brush
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -238,10 +242,10 @@ fun AccountProfileSelector(
                             icon = Icons.Rounded.Brush,
                             label = stringResource(R.string.preserve_style),
                             onClick = {
-                                if (customPalettes.size >= 5) {
+                                if (customPalettes.size >= AppSettings.MAX_CUSTOM_PALETTES) {
                                     Toast.makeText(
                                         context,
-                                        "Preset not saved: 5 custom presets limit reached. Delete one in Settings → Appearance.",
+                                        "Preset not saved: ${AppSettings.MAX_CUSTOM_PALETTES} custom presets limit reached. Delete one in Settings → Appearance.",
                                         Toast.LENGTH_LONG,
                                     ).show()
                                 } else {
@@ -288,10 +292,10 @@ fun AccountProfileSelector(
                             icon = Icons.Rounded.Brush,
                             label = stringResource(R.string.preserve_style),
                             onClick = {
-                                if (customPalettes.size >= 5) {
+                                if (customPalettes.size >= AppSettings.MAX_CUSTOM_PALETTES) {
                                     Toast.makeText(
                                         context,
-                                        "Preset not saved: 5 custom presets limit reached. Delete one in Settings → Appearance.",
+                                        "Preset not saved: ${AppSettings.MAX_CUSTOM_PALETTES} custom presets limit reached. Delete one in Settings → Appearance.",
                                         Toast.LENGTH_LONG,
                                     ).show()
                                 } else {
@@ -318,118 +322,212 @@ fun AccountProfileSelector(
     }
 
     if (showSavePresetDialog) {
+        val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+        val dialogShape = RoundedCornerShape(22.dp)
+        val submitPreset = {
+            val finalName = presetNameInput.trim().ifBlank { "Style ${customPalettes.size + 1}" }
+            val newPalette = CustomPalette(
+                name = finalName,
+                primaryHex = activeAccent.toArgb().toLong() and 0xFFFFFFFFL,
+                secondaryHex = activeSecondary.toArgb().toLong() and 0xFFFFFFFFL,
+                backgroundHex = activeBackground.toArgb().toLong() and 0xFFFFFFFFL,
+                surfaceHex = activeSurfaceVariant.toArgb().toLong() and 0xFFFFFFFFL,
+                artworkUrl = activeArtworkUrl,
+            )
+            AppSettings.saveCustomPalette(newPalette)
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            Toast.makeText(
+                context,
+                "Style \"${finalName}\" saved! Apply it in Settings → Appearance → Color palette",
+                Toast.LENGTH_LONG,
+            ).show()
+            showSavePresetDialog = false
+            onDismiss()
+        }
+
         Dialog(
             onDismissRequest = { showSavePresetDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
-            val dialogShape = RoundedCornerShape(24.dp)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = 28.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
                     modifier = Modifier
-                        .widthIn(max = 380.dp)
+                        .widthIn(max = 330.dp)
                         .fillMaxWidth()
                         .clip(dialogShape)
                         .then(
-                            if (reduceDynamicBlur) {
-                                Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                            } else {
-                                Modifier
-                                    .optimizedHazeEffect(
-                                        state = hazeState,
-                                        style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
-                                    )
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
-                            }
+                            when {
+                                reduceDynamicBlur -> Modifier.background(MaterialTheme.colorScheme.surface)
+                                useLiquidGlass -> Modifier.liquidGlass(shape = dialogShape)
+                                else -> Modifier.optimizedHazeEffect(
+                                    state = hazeState,
+                                    style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
+                                )
+                            },
                         )
-                        .border(1.dp, activeAccent.copy(alpha = 0.35f), dialogShape)
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .border(GLASS_EDGE_WIDTH, activeAccent.copy(alpha = 0.28f), dialogShape),
                 ) {
-                    Text(
-                        text = stringResource(R.string.preserve_current_style),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "Freeze active song's colorway as a custom preset.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = activeBackground,
-                        border = BorderStroke(1.dp, activeAccent.copy(alpha = 0.5f)),
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        // Artwork-tinted orb header badge
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.sweepGradient(
+                                        listOf(activeAccent, activeSecondary, activeBackground, activeAccent),
+                                    ),
+                                )
+                                .border(1.5.dp, Color.White.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Brush,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text(
+                            text = stringResource(R.string.preserve_current_style),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Text(
+                            text = stringResource(R.string.preserve_style_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Live colorway swatch preview pill
                         Row(
-                            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            activeBackground,
+                                            activeSurfaceVariant.copy(alpha = 0.85f),
+                                        ),
+                                    ),
+                                )
+                                .border(0.75.dp, activeAccent.copy(alpha = 0.42f), RoundedCornerShape(14.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
-                                text = "Preview",
-                                style = MaterialTheme.typography.labelMedium,
+                                text = stringResource(
+                                    R.string.saved_presets_count,
+                                    customPalettes.size,
+                                    AppSettings.MAX_CUSTOM_PALETTES,
+                                ),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                                 color = activeAccent,
                             )
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Box(Modifier.size(16.dp).clip(CircleShape).background(activeAccent))
-                                Box(Modifier.size(16.dp).clip(CircleShape).background(activeSurfaceVariant))
-                                Box(Modifier.size(16.dp).clip(CircleShape).background(activeBackground))
+                                Box(Modifier.size(14.dp).clip(CircleShape).background(activeAccent))
+                                Box(Modifier.size(14.dp).clip(CircleShape).background(activeSecondary))
+                                Box(Modifier.size(14.dp).clip(CircleShape).background(activeSurfaceVariant))
+                                Box(Modifier.size(14.dp).clip(CircleShape).background(activeBackground))
+                            }
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Frosted text field for preset name
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                .border(
+                                    0.75.dp,
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                                    RoundedCornerShape(12.dp),
+                                )
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                if (presetNameInput.isEmpty()) {
+                                    Text(
+                                        text = "Preset name",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
+                                }
+                                BasicTextField(
+                                    value = presetNameInput,
+                                    onValueChange = { presetNameInput = it },
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    ),
+                                    cursorBrush = SolidColor(activeAccent),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                    keyboardActions = KeyboardActions(onDone = { submitPreset() }),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            if (presetNameInput.isNotEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .clickable { presetNameInput = "" },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.clear_name),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
                             }
                         }
                     }
-                    OutlinedTextField(
-                        value = presetNameInput,
-                        onValueChange = { presetNameInput = it },
-                        label = { Text("Preset Name") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.save),
+                        emphasised = true,
+                        onClick = submitPreset,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TextButton(onClick = { showSavePresetDialog = false }) {
-                            Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        TextButton(
-                            onClick = {
-                                val finalName = presetNameInput.trim().ifBlank { "Style ${customPalettes.size + 1}" }
-                                val newPalette = CustomPalette(
-                                    name = finalName,
-                                    primaryHex = activeAccent.toArgb().toLong() and 0xFFFFFFFFL,
-                                    secondaryHex = activeSecondary.toArgb().toLong() and 0xFFFFFFFFL,
-                                    backgroundHex = activeBackground.toArgb().toLong() and 0xFFFFFFFFL,
-                                    surfaceHex = activeSurfaceVariant.toArgb().toLong() and 0xFFFFFFFFL,
-                                    artworkUrl = activeArtworkUrl,
-                                )
-                                AppSettings.saveCustomPalette(newPalette)
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                Toast.makeText(
-                                    context,
-                                    "Style \"${finalName}\" saved! Apply it in Settings → Appearance → Color palette",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                                showSavePresetDialog = false
-                                onDismiss()
-                            },
-                        ) {
-                            Text("Save", color = activeAccent, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.cancel),
+                        emphasised = false,
+                        onClick = { showSavePresetDialog = false },
+                    )
                 }
             }
         }

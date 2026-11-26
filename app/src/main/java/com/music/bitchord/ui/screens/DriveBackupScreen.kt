@@ -55,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -169,15 +170,18 @@ fun DriveBackupScreen(
     val connected = settings.account != null
     val ready = connected && !settings.needsDevice
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
             title = stringResource(R.string.drive_backup_title),
             onBack = onBack,
+            scrollState = scrollState,
         )
 
         if (!available) {
@@ -330,14 +334,10 @@ fun DriveBackupScreen(
                 subtitle = stringResource(R.string.drive_over_cellular_subtitle),
                 enabled = ready,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = settings.overCellular,
                         onCheckedChange = DriveBackup::setOverCellular,
                         enabled = ready,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = if (ready) {

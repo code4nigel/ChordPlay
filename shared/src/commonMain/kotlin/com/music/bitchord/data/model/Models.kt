@@ -395,6 +395,7 @@ data class ShelfItem(
     val liveCategory: LiveStationCategory? = null,
     val libraryAddedAt: Long? = null,
     val browseType: BrowseType? = null,
+    val artistIds: List<String> = emptyList(),
 )
 
 /** The signed-in Google account, as YouTube Music reports it. */

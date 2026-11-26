@@ -3,6 +3,9 @@ package com.music.bitchord.data
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -81,31 +84,37 @@ object TrackLog {
     fun d(tag: String, message: String, about: String? = working.get()) {
         echo?.invoke('D', tag, message, null)
         record('D', message, about)
+        toSession('D', tag, message, null, about)
     }
 
     fun i(tag: String, message: String, about: String? = working.get()) {
         echo?.invoke('I', tag, message, null)
         record('I', message, about)
+        toSession('I', tag, message, null, about)
     }
 
     fun w(tag: String, message: String, about: String? = working.get()) {
         echo?.invoke('W', tag, message, null)
         record('W', message, about)
+        toSession('W', tag, message, null, about)
     }
 
     fun w(tag: String, message: String, error: Throwable, about: String? = working.get()) {
         echo?.invoke('W', tag, message, error)
         record('W', "$message\n${error.stackTraceToString()}", about)
+        toSession('W', tag, message, error, about)
     }
 
     fun e(tag: String, message: String, about: String? = working.get()) {
         echo?.invoke('E', tag, message, null)
         record('E', message, about)
+        toSession('E', tag, message, null, about)
     }
 
     fun e(tag: String, message: String, error: Throwable, about: String? = working.get()) {
         echo?.invoke('E', tag, message, error)
         record('E', "$message\n${error.stackTraceToString()}", about)
+        toSession('E', tag, message, error, about)
     }
 
     // ── Whose line is it ────────────────────────────────────────────────────
@@ -156,6 +165,82 @@ object TrackLog {
             held += text.length
             while (held > MAX_HELD_CHARS && lines.isNotEmpty()) {
                 held -= lines.removeFirst().text.length
+            }
+        }
+    }
+
+    // ── Recording a session ─────────────────────────────────────────────────
+
+    private val sessionLock = Any()
+    private var session: java.io.Writer? = null
+    private var sessionFile: java.io.File? = null
+    private var sessionLines = 0
+
+    private val _recording = MutableStateFlow(false)
+
+    /** Whether a session is being written right now. */
+    val recording: StateFlow<Boolean> = _recording.asStateFlow()
+
+    /**
+     * Starts writing every logged line to [file], after [header]. A session
+     * already running is ended first, its file kept.
+     */
+    fun startSession(file: java.io.File, header: List<String> = emptyList(), append: Boolean = false) {
+        synchronized(sessionLock) {
+            closeSession()
+            file.parentFile?.mkdirs()
+            val carriedOn = append && file.length() > 0L
+            val writer = java.io.FileOutputStream(file, carriedOn).bufferedWriter()
+            if (carriedOn) writer.write("\n")
+            header.forEach { writer.write(it); writer.write("\n") }
+            writer.write("${if (carriedOn) "carried on" else "started"}: ${STAMP.format(Date())}\n\n")
+            writer.flush()
+            session = writer
+            sessionFile = file
+            sessionLines = 0
+            _recording.value = true
+        }
+    }
+
+    /** Ends the session, returning its file — or null when none was running. */
+    fun stopSession(): java.io.File? = synchronized(sessionLock) {
+        val file = sessionFile ?: return@synchronized null
+        session?.runCatching {
+            write("\nstopped: ${STAMP.format(Date())} ($sessionLines lines)\n")
+        }
+        closeSession()
+        file
+    }
+
+    private fun closeSession() {
+        session?.runCatching { close() }
+        session = null
+        sessionFile = null
+        _recording.value = false
+    }
+
+    /**
+     * One line into the running session, if there is one. No-op when [_recording] is false.
+     */
+    fun toSession(level: Char, tag: String, message: String, error: Throwable? = null, about: String? = null) {
+        if (!_recording.value) return
+        val at = System.currentTimeMillis()
+        val body = buildString {
+            append(' ').append(level).append('/').append(tag)
+            if (about != null) append(" {").append(about).append('}')
+            append(": ").append(message)
+            if (error != null) append('\n').append(error.stackTraceToString())
+            append('\n')
+        }
+        synchronized(sessionLock) {
+            val writer = session ?: return
+            try {
+                writer.write(SESSION_CLOCK.format(Date(at)))
+                writer.write(body)
+                writer.flush()
+                sessionLines++
+            } catch (_: java.io.IOException) {
+                closeSession()
             }
         }
     }
@@ -261,6 +346,10 @@ object TrackLog {
     }
 
     private val CLOCK = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+
+    private val SESSION_CLOCK = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+
+    private val STAMP = SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US)
 
     /**
      * How far back of a track's selection to reach when nothing was ever filed

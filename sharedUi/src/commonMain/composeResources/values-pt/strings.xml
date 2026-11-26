@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">Reproduza algumas faixas para criar seus mixes</string>
     <string name="your_space_artists_empty">Fixe ou reproduza artistas para vê-los aqui</string>
     <string name="your_space_drag_hint">Segure um bloco fixado para reordenar</string>
+    <string name="lyrics_highlight_position">Posição da linha destacada</string>
+    <string name="lyrics_highlight_top">Topo</string>
+    <string name="lyrics_highlight_top_mid">Topo-Meio</string>
+    <string name="lyrics_highlight_center">Centro</string>
+    <string name="font_family_default">Padrão</string>
+    <string name="font_family_serif">Serifa (Serif)</string>
+    <string name="font_family_sans_serif">Sem Serifa (Sans-Serif)</string>
+    <string name="font_family_monospace">Monoespaçado</string>
+    <string name="font_family_script">Cursiva</string>
+    <string name="font_weight_medium">Médio</string>
+    <string name="font_weight_semibold">Seminegrito</string>
+    <string name="font_weight_bold">Negrito</string>
+    <string name="font_weight_heavy">Pesado</string>
+    <string name="custom_font_active_hint">Fonte personalizada · Toque em Alterar para trocar</string>
 </resources>

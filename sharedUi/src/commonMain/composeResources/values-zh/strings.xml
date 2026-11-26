@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">播放几首歌曲即可生成你的合集</string>
     <string name="your_space_artists_empty">置顶或播放艺人即可在此查看</string>
     <string name="your_space_drag_hint">长按已置顶磁贴即可拖动排序</string>
+    <string name="lyrics_highlight_position">歌词高亮行位置</string>
+    <string name="lyrics_highlight_top">顶部</string>
+    <string name="lyrics_highlight_top_mid">偏上</string>
+    <string name="lyrics_highlight_center">居中</string>
+    <string name="font_family_default">默认</string>
+    <string name="font_family_serif">衬线体 (Serif)</string>
+    <string name="font_family_sans_serif">无衬线体 (Sans-Serif)</string>
+    <string name="font_family_monospace">等宽字体 (Monospace)</string>
+    <string name="font_family_script">手写体 (Script)</string>
+    <string name="font_weight_medium">适中</string>
+    <string name="font_weight_semibold">半粗</string>
+    <string name="font_weight_bold">粗体</string>
+    <string name="font_weight_heavy">特粗</string>
+    <string name="custom_font_active_hint">已选择自定义字体 · 点击“更改”以替换</string>
 </resources>

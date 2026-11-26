@@ -2180,6 +2180,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             AppSettings.hiddenHomeShelves.drop(1).collect { publishHome() }
         }
         viewModelScope.launch {
+            com.music.bitchord.data.aimusic.AiMusicFilter.changes.drop(1).collectLatest {
+                delay(1_000)
+                publishHome()
+                loadHome()
+                loadExplore()
+                refreshMixesDial()
+            }
+        }
+        viewModelScope.launch {
             // A leftover APK only means "Install Now" for the session that
             // downloaded it — see AppUpdateChecker.clearCache.
             AppUpdateChecker.clearCache(getApplication())
@@ -2624,7 +2633,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             includeMelody = false,
             includeReplay = false,
         )
-        _home.value = UiState.Success(ordered.filterNot { it.title in hidden })
+        _home.value = UiState.Success(
+            com.music.bitchord.data.aimusic.AiMusicFilter.shelves(
+                ordered.filterNot { it.title in hidden },
+            ),
+        )
     }
 
     private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
@@ -3444,6 +3457,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val rawShelves = _homeRaw.value.ifEmpty { (_home.value as? UiState.Success)?.data.orEmpty() }
             for (shelf in rawShelves) {
                 for (item in shelf.items) {
+                    if (com.music.bitchord.data.aimusic.AiMusicFilter.isAi(item)) continue
                     val videoId = item.videoId
                     if (!videoId.isNullOrBlank()) {
                         candidates.add(

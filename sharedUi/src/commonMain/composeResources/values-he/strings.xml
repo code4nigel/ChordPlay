@@ -347,4 +347,18 @@
     <string name="your_space_mixes_empty">נגן מספר שירים כדי לבנות את המיקסים שלך</string>
     <string name="your_space_artists_empty">הצמד או נגן אמנים כדי לראות אותם כאן</string>
     <string name="your_space_drag_hint">החזק אריח מוצמד כדי לשנות סדר</string>
+    <string name="lyrics_highlight_position">מיקום השורה המודגשת</string>
+    <string name="lyrics_highlight_top">עליון</string>
+    <string name="lyrics_highlight_top_mid">עליון-מרכז</string>
+    <string name="lyrics_highlight_center">מרכז</string>
+    <string name="font_family_default">ברירת מחדל</string>
+    <string name="font_family_serif">סריף (Serif)</string>
+    <string name="font_family_sans_serif">ללא סריף (Sans-Serif)</string>
+    <string name="font_family_monospace">רוחב קבוע (Monospace)</string>
+    <string name="font_family_script">כתב יד</string>
+    <string name="font_weight_medium">בינוני</string>
+    <string name="font_weight_semibold">חצי מודגש</string>
+    <string name="font_weight_bold">מודגש</string>
+    <string name="font_weight_heavy">מודגש מאוד</string>
+    <string name="custom_font_active_hint">גופן מותאם נבחר · הקש החלף להחלפה</string>
 </resources>

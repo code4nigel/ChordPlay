@@ -209,6 +209,10 @@ fun FrostedTopBar(
      * Root tabs have no back button there for it to collide with.
      */
     accessory: (@Composable () -> Unit)? = null,
+    /** False on Settings, where the docking search field runs to the trailing edge. */
+    actionsShown: Boolean = true,
+    /** True when [accessory] paints its own pill surface (so resizing it resizes its glass). */
+    accessoryHasOwnSurface: Boolean = false,
     actions: @Composable () -> Unit = {},
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -356,28 +360,58 @@ fun FrostedTopBar(
             // The accessory takes everything from the leading gutter up to the
             // actions, which keep their own width at the trailing end.
             val edge = if (useFloatingChrome) BAR_GUTTER else 4.dp
+            val accessoryStart = when {
+                onBack == null -> edge
+                useFloatingChrome -> BAR_GUTTER + TOP_CONTROL_SIZE + ACCESSORY_GAP
+                else -> 4.dp + 48.dp + ACCESSORY_GAP
+            }
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = edge) else Modifier)
+                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = accessoryStart) else Modifier)
                     // Same outer edge as the navbar; PILL_INSET below is
                     // internal padding around the icons, not extra margin.
                     .padding(end = edge),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (accessory != null) {
-                    AccessoryPill(
-                        floating = useFloatingChrome,
-                        hazeState = backButtonHazeState,
-                        modifier = Modifier.weight(1f),
-                        content = accessory,
-                    )
-                    Spacer(Modifier.width(ACCESSORY_GAP))
+                    if (accessoryHasOwnSurface) {
+                        val glass = useFloatingChrome && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+                        Box(modifier = Modifier.weight(1f)) {
+                            CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
+                                if (glass) {
+                                    val glassContent = glassContentColor()
+                                    MaterialTheme(
+                                        colorScheme = MaterialTheme.colorScheme.copy(
+                                            onBackground = glassContent,
+                                            onSurfaceVariant = glassContent.copy(alpha = ACCESSORY_HINT_ALPHA),
+                                            primary = glassContent,
+                                        ),
+                                        content = accessory,
+                                    )
+                                } else {
+                                    accessory()
+                                }
+                            }
+                        }
+                    } else {
+                        AccessoryPill(
+                            floating = useFloatingChrome,
+                            hazeState = backButtonHazeState,
+                            modifier = Modifier.weight(1f),
+                            content = accessory,
+                        )
+                    }
+                    if (actionsShown) {
+                        Spacer(Modifier.width(ACCESSORY_GAP))
+                    }
                 }
-                if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
-                } else {
-                    actions()
+                if (actionsShown) {
+                    if (useFloatingChrome) {
+                        ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    } else {
+                        actions()
+                    }
                 }
             }
         }
@@ -716,7 +750,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-private fun artworkPageSurface(
+internal fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
 ): Modifier {

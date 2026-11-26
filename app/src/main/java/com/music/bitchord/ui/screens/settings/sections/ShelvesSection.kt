@@ -11,11 +11,19 @@
 package com.music.bitchord.ui.screens.settings.sections
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.AddToQueue
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.QueuePlayNext
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.SwipeRight
-import androidx.compose.material3.AlertDialog
 import com.music.bitchord.data.settings.SongSwipeAction
+import com.music.bitchord.ui.components.AlertRule
+import com.music.bitchord.ui.components.GlassAlert
 import com.music.bitchord.ui.screens.settings.localizedLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +60,7 @@ import androidx.compose.ui.graphics.luminance
 import com.music.bitchord.data.settings.SpeedDialLayoutMode
 import com.music.bitchord.data.settings.SpeedDialSource
 import com.music.bitchord.data.settings.SpeedDialTileStyle
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.components.SmoothCornerShape
 import com.music.bitchord.ui.components.YourSpaceCustomizeSheet
 import com.music.bitchord.ui.components.speedDialTileEdge
@@ -59,8 +68,6 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -98,6 +105,7 @@ import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.SettingsSearchEmpty
+import com.music.bitchord.ui.screens.SettingsSectionDivider
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.matchesSearch
 
@@ -147,7 +155,11 @@ private fun shelfDisplayMeta(
             isHidden = isHidden,
         )
         else -> ShelfDisplayMeta(
-            title = id,
+            title = if (id.equals("Quick picks", ignoreCase = true)) {
+                stringResource(R.string.shelf_quick_picks_label)
+            } else {
+                id
+            },
             subtitle = if (isHidden) {
                 stringResource(R.string.shelves_hidden_subtitle)
             } else {
@@ -174,6 +186,7 @@ fun ShelvesSection(
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
     val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
     val squareVideoThumbnails by AppSettings.squareVideoThumbnails.collectAsStateWithLifecycle()
+    val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
     val orderedIds = remember(homeShelfTitles, homeShelfOrder) {
@@ -340,55 +353,87 @@ fun ShelvesSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = outerScrollState,
         )
 
-        if (searchQuery.isBlank()) {
-            ShelvesMiniPreview(activeTitles = previewItems)
+        if (searchQuery.isBlank() && showLivePreviews) {
+            ShelvesMiniPreview(
+                activeTitles = previewItems,
+                preferMusicOnly = preferMusicOnly,
+                hideHomeVideos = hideHomeVideos,
+                squareVideoThumbnails = squareVideoThumbnails,
+                libraryReplayVisible = libraryReplayVisible,
+                rightSwipeLabel = songSwipeRightAction.localizedLabel(),
+                leftSwipeLabel = if (leftSwipeCustomized) {
+                    songSwipeLeftAction.localizedLabel()
+                } else {
+                    stringResource(R.string.swipe_left_default)
+                },
+            )
         }
 
         if (searchQuery.isNotBlank() && !showYourSpaceSection && !hasPreferencesToggles && !showSwipeGestures && filteredRows.isEmpty()) {
             SettingsSearchEmpty(query = searchQuery)
         } else {
-            if (showYourSpaceSection) {
-                val sdLayout by AppSettings.speedDialLayoutMode.collectAsStateWithLifecycle()
-                val sdTileStyle by AppSettings.speedDialTileStyle.collectAsStateWithLifecycle()
-                val sdSource by AppSettings.speedDialSource.collectAsStateWithLifecycle()
-                val sdMixes by AppSettings.speedDialShowMixes.collectAsStateWithLifecycle()
-                val sdArtists by AppSettings.speedDialShowArtists.collectAsStateWithLifecycle()
-                val sdChordWave by AppSettings.speedDialShowChordWave.collectAsStateWithLifecycle()
-                val sdLabels by AppSettings.speedDialShowLabels.collectAsStateWithLifecycle()
-                val sdPins by AppSettings.speedDialShowPinBadge.collectAsStateWithLifecycle()
-                val sdSummary = buildString {
-                    append(sdLayout.label)
-                    append(" • ")
-                    append(sdTileStyle.label)
-                    append(" • ")
-                    append(sdSource.label)
-                    if (sdMixes) append(" • Mixes")
-                    if (sdArtists) append(" • Artists")
-                    if (sdChordWave) append(" • Chord Wave")
-                    if (!sdLabels) append(" • Names hidden")
-                    if (!sdPins) append(" • Pins hidden")
-                }
-                SettingsGroup(header = stringResource(R.string.your_space)) {
-                    YourSpaceMiniPreviewStrip(
-                        tileStyle = sdTileStyle,
-                        showLabels = sdLabels,
-                        showPinBadge = sdPins,
-                        showChordWave = sdChordWave,
-                        onClick = { showYourSpaceSheet = true },
-                    )
-                    RowDivider()
+            // Single unified SettingsGroup containing all Your Preferences controls
+            SettingsGroup(
+                header = stringResource(R.string.your_preferences),
+                footer = when {
+                    filteredRows.isEmpty() -> null
+                    homeShelfTitles.isEmpty() && searchQuery.isBlank() -> stringResource(R.string.shelves_empty_feed_hint)
+                    searchQuery.isBlank() -> stringResource(R.string.drag_to_reorder)
+                    else -> null
+                },
+            ) {
+                var hasPreceding = false
+
+                if (showYourSpaceSection) {
+                    val sdLayout by AppSettings.speedDialLayoutMode.collectAsStateWithLifecycle()
+                    val sdTileStyle by AppSettings.speedDialTileStyle.collectAsStateWithLifecycle()
+                    val sdSource by AppSettings.speedDialSource.collectAsStateWithLifecycle()
+                    val sdMixes by AppSettings.speedDialShowMixes.collectAsStateWithLifecycle()
+                    val sdArtists by AppSettings.speedDialShowArtists.collectAsStateWithLifecycle()
+                    val sdChordWave by AppSettings.speedDialShowChordWave.collectAsStateWithLifecycle()
+                    val sdLabels by AppSettings.speedDialShowLabels.collectAsStateWithLifecycle()
+                    val sdPins by AppSettings.speedDialShowPinBadge.collectAsStateWithLifecycle()
+                    val sdSummary = buildString {
+                        append(sdLayout.label)
+                        append(" • ")
+                        append(sdTileStyle.label)
+                        append(" • ")
+                        append(sdSource.label)
+                        if (sdMixes) append(" • Mixes")
+                        if (sdArtists) append(" • Artists")
+                        if (sdChordWave) append(" • Chord Wave")
+                        if (!sdLabels) append(" • Names hidden")
+                        if (!sdPins) append(" • Pins hidden")
+                    }
+                    if (showLivePreviews) {
+                        YourSpaceMiniPreviewStrip(
+                            layoutMode = sdLayout,
+                            tileStyle = sdTileStyle,
+                            showMixes = sdMixes,
+                            showArtists = sdArtists,
+                            showLabels = sdLabels,
+                            showPinBadge = sdPins,
+                            showChordWave = sdChordWave,
+                            onClick = { showYourSpaceSheet = true },
+                        )
+                        RowDivider()
+                    }
                     SettingsRow(
                         icon = Icons.Rounded.Tune,
                         title = stringResource(R.string.customize_your_space),
                         subtitle = sdSummary,
                         onClick = { showYourSpaceSheet = true },
                     )
+                    hasPreceding = true
                 }
-            }
-            if (showSwipeGestures) {
-                SettingsGroup(header = stringResource(R.string.swipe_gestures)) {
+
+                if (showSwipeGestures) {
+                    if (hasPreceding) {
+                        SettingsSectionDivider(title = stringResource(R.string.swipe_gestures))
+                    }
                     SettingsRow(
                         icon = Icons.Rounded.SwipeRight,
                         title = stringResource(R.string.right_swipe_action),
@@ -403,10 +448,13 @@ fun ShelvesSection(
                             else stringResource(R.string.swipe_left_default),
                         onClick = { showLeftSwipePicker = true },
                     )
+                    hasPreceding = true
                 }
-            }
-            if (hasPreferencesToggles) {
-                SettingsGroup(header = stringResource(R.string.content_preferences_header)) {
+
+                if (hasPreferencesToggles) {
+                    if (hasPreceding) {
+                        SettingsSectionDivider(title = stringResource(R.string.content_preferences_header))
+                    }
                     var needsDivider = false
                     if (showPreferMusicOnly) {
                         needsDivider = true
@@ -415,13 +463,9 @@ fun ShelvesSection(
                             title = stringResource(R.string.prefer_music_only),
                             subtitle = stringResource(R.string.prefer_music_only_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = preferMusicOnly,
                                     onCheckedChange = AppSettings::setPreferMusicOnly,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
@@ -435,13 +479,9 @@ fun ShelvesSection(
                             title = stringResource(R.string.hide_home_videos),
                             subtitle = stringResource(R.string.hide_home_videos_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = hideHomeVideos,
                                     onCheckedChange = AppSettings::setHideHomeVideos,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setHideHomeVideos(!hideHomeVideos) },
@@ -455,13 +495,9 @@ fun ShelvesSection(
                             title = stringResource(R.string.square_video_thumbnails),
                             subtitle = stringResource(R.string.square_video_thumbnails_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = squareVideoThumbnails,
                                     onCheckedChange = AppSettings::setSquareVideoThumbnails,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSquareVideoThumbnails(!squareVideoThumbnails) },
@@ -474,32 +510,21 @@ fun ShelvesSection(
                             title = stringResource(R.string.show_replay_in_library),
                             subtitle = stringResource(R.string.show_replay_in_library_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = libraryReplayVisible,
                                     onCheckedChange = AppSettings::setLibraryReplayVisible,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setLibraryReplayVisible(!libraryReplayVisible) },
                         )
                     }
+                    hasPreceding = true
                 }
-            }
 
-            if (filteredRows.isNotEmpty()) {
-                SettingsGroup(
-                    header = stringResource(R.string.arrange_home_shelves),
-                    footer = if (homeShelfTitles.isEmpty() && searchQuery.isBlank()) {
-                        stringResource(R.string.shelves_empty_feed_hint)
-                    } else if (searchQuery.isBlank()) {
-                        stringResource(R.string.drag_to_reorder)
-                    } else {
-                        null
-                    },
-                ) {
+                if (filteredRows.isNotEmpty()) {
+                    if (hasPreceding) {
+                        SettingsSectionDivider(title = stringResource(R.string.arrange_home_shelves))
+                    }
                     Column(modifier = Modifier.fillMaxWidth()) {
                         filteredRows.forEachIndexed { rowIdx, (id, meta) ->
                             key(id) {
@@ -606,13 +631,9 @@ fun ShelvesSection(
 
                                         Spacer(Modifier.width(8.dp))
 
-                                        Switch(
+                                        IosSwitch(
                                             checked = !isHidden,
                                             onCheckedChange = { enabled -> AppSettings.setHomeShelfHidden(id, !enabled) },
-                                            colors = SwitchDefaults.colors(
-                                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                            ),
                                         )
                                     }
                                 }
@@ -661,7 +682,10 @@ fun ShelvesSection(
 
 @Composable
 private fun YourSpaceMiniPreviewStrip(
+    layoutMode: SpeedDialLayoutMode,
     tileStyle: SpeedDialTileStyle,
+    showMixes: Boolean,
+    showArtists: Boolean,
     showLabels: Boolean,
     showPinBadge: Boolean,
     showChordWave: Boolean,
@@ -671,154 +695,202 @@ private fun YourSpaceMiniPreviewStrip(
     val accent = MaterialTheme.colorScheme.primary
     val tileShape = SmoothCornerShape(12.dp)
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Tile 1: Sample Pinned Artwork Tile
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(74.dp)
-                .clip(tileShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(accent.copy(alpha = 0.55f), Color(0xFF28224A)),
-                    ),
-                )
-                .speedDialTileEdge(
-                    style = tileStyle,
-                    shape = tileShape,
-                    accent = accent,
-                    isDark = isDark,
-                    isCurrent = false,
-                ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.MusicNote,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.72f),
-                modifier = Modifier.align(Alignment.Center).size(22.dp),
+            Text(
+                text = stringResource(R.string.your_space),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = accent,
             )
-            if (showPinBadge) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(5.dp)
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = BitChordIcons.Pin,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(9.dp),
+            Text(
+                text = buildString {
+                    append(layoutMode.label)
+                    if (showMixes) append(" • Mixes")
+                    if (showArtists) append(" • Artists")
+                },
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // Tile 1: Sample Pinned Artwork Tile
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(74.dp)
+                    .clip(tileShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(accent.copy(alpha = 0.55f), Color(0xFF28224A)),
+                        ),
+                    )
+                    .speedDialTileEdge(
+                        style = tileStyle,
+                        shape = tileShape,
+                        accent = accent,
+                        isDark = isDark,
+                        isCurrent = false,
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.align(Alignment.Center).size(22.dp),
+                )
+                if (showPinBadge) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(5.dp)
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.55f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = BitChordIcons.Pin,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(9.dp),
+                        )
+                    }
+                }
+                if (showLabels) {
+                    Text(
+                        text = "Pinned",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
                     )
                 }
             }
-            if (showLabels) {
-                Text(
-                    text = "Pinned",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
-                )
-            }
-        }
 
-        // Tile 2: Sample Mixes Tile
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(74.dp)
-                .clip(tileShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF00B8D4).copy(alpha = 0.65f), Color(0xFF1E293B)),
-                    ),
-                )
-                .speedDialTileEdge(
-                    style = tileStyle,
-                    shape = tileShape,
-                    accent = accent,
-                    isDark = isDark,
-                    isCurrent = false,
-                ),
-        ) {
+            // Tile 2: Mixes when enabled, else regular track tile
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .size(18.dp)
-                    .clip(RoundedCornerShape(bottomEnd = 8.dp))
-                    .background(Color(0xFF102A33)),
-                contentAlignment = Alignment.Center,
+                    .weight(1f)
+                    .height(74.dp)
+                    .clip(tileShape)
+                    .background(
+                        if (showMixes) {
+                            Brush.linearGradient(listOf(Color(0xFF00B8D4).copy(alpha = 0.65f), Color(0xFF1E293B)))
+                        } else {
+                            Brush.linearGradient(listOf(Color(0xFF334155), Color(0xFF1E293B)))
+                        },
+                    )
+                    .speedDialTileEdge(
+                        style = tileStyle,
+                        shape = tileShape,
+                        accent = accent,
+                        isDark = isDark,
+                        isCurrent = false,
+                    ),
             ) {
-                Text(
-                    text = "M",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                if (showMixes) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .size(18.dp)
+                            .clip(RoundedCornerShape(bottomEnd = 8.dp))
+                            .background(Color(0xFF102A33)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "M",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.align(Alignment.Center).size(22.dp),
+                    )
+                }
+                if (showLabels) {
+                    Text(
+                        text = if (showMixes) "Mixes" else "Recent",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                    )
+                }
             }
-            if (showLabels) {
-                Text(
-                    text = "Mixes",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
-                )
-            }
-        }
 
-        // Tile 3: Chord Wave or Regular Tile
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(74.dp)
-                .clip(tileShape)
-                .background(
-                    if (showChordWave) {
-                        Brush.linearGradient(
-                            listOf(Color(0xFF7C4DFF).copy(alpha = 0.60f), Color(0xFF00E5FF).copy(alpha = 0.45f)),
-                        )
-                    } else {
-                        Brush.linearGradient(
-                            listOf(Color(0xFF3A3D4D), Color(0xFF1B1D26)),
-                        )
-                    },
+            // Tile 3: Chord Wave when enabled, else Artist card when `showArtists`, else track tile
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(74.dp)
+                    .clip(if (showArtists && !showChordWave) CircleShape else tileShape)
+                    .background(
+                        when {
+                            showChordWave -> Brush.linearGradient(
+                                listOf(Color(0xFF7C4DFF).copy(alpha = 0.60f), Color(0xFF00E5FF).copy(alpha = 0.45f)),
+                            )
+                            showArtists -> Brush.linearGradient(
+                                listOf(accent.copy(alpha = 0.65f), Color(0xFF2E1E3E)),
+                            )
+                            else -> Brush.linearGradient(
+                                listOf(Color(0xFF3A3D4D), Color(0xFF1B1D26)),
+                            )
+                        },
+                    )
+                    .speedDialTileEdge(
+                        style = tileStyle,
+                        shape = if (showArtists && !showChordWave) CircleShape else tileShape,
+                        accent = accent,
+                        isDark = isDark,
+                        isCurrent = showChordWave,
+                    ),
+            ) {
+                Icon(
+                    imageVector = if (showChordWave) Icons.Rounded.GraphicEq else Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.align(Alignment.Center).size(22.dp),
                 )
-                .speedDialTileEdge(
-                    style = tileStyle,
-                    shape = tileShape,
-                    accent = accent,
-                    isDark = isDark,
-                    isCurrent = showChordWave,
-                ),
-        ) {
-            Icon(
-                imageVector = if (showChordWave) Icons.Rounded.GraphicEq else Icons.Rounded.MusicNote,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.align(Alignment.Center).size(22.dp),
-            )
-            if (showLabels) {
-                Text(
-                    text = if (showChordWave) stringResource(R.string.chord_wave) else "Recent",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
-                )
+                if (showLabels) {
+                    Text(
+                        text = when {
+                            showChordWave -> stringResource(R.string.chord_wave)
+                            showArtists -> "Artist"
+                            else -> "Quick Pick"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(if (showArtists && !showChordWave) Alignment.BottomCenter else Alignment.BottomStart)
+                            .padding(6.dp),
+                    )
+                }
             }
         }
     }
@@ -827,6 +899,12 @@ private fun YourSpaceMiniPreviewStrip(
 @Composable
 private fun ShelvesMiniPreview(
     activeTitles: List<String>,
+    preferMusicOnly: Boolean,
+    hideHomeVideos: Boolean,
+    squareVideoThumbnails: Boolean,
+    libraryReplayVisible: Boolean,
+    rightSwipeLabel: String,
+    leftSwipeLabel: String,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -834,11 +912,11 @@ private fun ShelvesMiniPreview(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
             .padding(14.dp),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -856,6 +934,7 @@ private fun ShelvesMiniPreview(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
             if (activeTitles.isEmpty()) {
                 Text(
                     text = stringResource(R.string.all_shelves_disabled),
@@ -871,10 +950,10 @@ private fun ShelvesMiniPreview(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .height(42.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f), RoundedCornerShape(8.dp))
                                 .padding(4.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -891,6 +970,65 @@ private fun ShelvesMiniPreview(
                     }
                 }
             }
+
+            // Real Home video aspect & content-preference summary row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.60f))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (!hideHomeVideos) {
+                    Box(
+                        modifier = Modifier
+                            .size(
+                                width = if (squareVideoThumbnails) 34.dp else 54.dp,
+                                height = 34.dp,
+                            )
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.65f),
+                                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f),
+                                    ),
+                                ),
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (squareVideoThumbnails) "1:1" else "16:9",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold),
+                            color = Color.White,
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = buildString {
+                            append(if (hideHomeVideos) "Videos hidden" else if (squareVideoThumbnails) "Square thumbnails" else "Widescreen videos")
+                            if (preferMusicOnly) append(" • Music only")
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = buildString {
+                            append("R: $rightSwipeLabel • L: $leftSwipeLabel")
+                            if (libraryReplayVisible) append(" • Replay on")
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
@@ -903,63 +1041,100 @@ private fun SwipeActionPickerDialog(
     onDismiss: () -> Unit,
     onReset: (() -> Unit)? = null,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (onReset != null) {
-                    TextButton(onClick = { onReset(); onDismiss() }) {
-                        Text(
-                            stringResource(R.string.swipe_left_default),
-                            fontWeight = if (currentAction == null) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    }
-                }
-                SongSwipeAction.entries.forEach { action ->
-                    val isSelected = action == currentAction
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                onSelect(action)
-                                onDismiss()
-                            }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = action.localizedLabel(),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
+    val haptics = LocalHapticFeedback.current
+    GlassAlert(title = title, onDismiss = onDismiss) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (onReset != null) {
+                val isDefaultSelected = currentAction == null
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onReset()
+                            onDismiss()
                         }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = null,
+                        tint = if (isDefaultSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.swipe_left_default),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (isDefaultSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isDefaultSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isDefaultSelected) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
+                AlertRule()
+            }
+            SongSwipeAction.entries.forEachIndexed { index, action ->
+                if (index > 0) AlertRule()
+                val isSelected = action == currentAction
+                val actionIcon = when (action) {
+                    SongSwipeAction.PLAY_NEXT -> Icons.Rounded.QueuePlayNext
+                    SongSwipeAction.ADD_TO_QUEUE -> Icons.Rounded.AddToQueue
+                    SongSwipeAction.TOGGLE_LIKE -> Icons.Rounded.Favorite
+                    SongSwipeAction.DOWNLOAD -> Icons.Rounded.Download
+                    SongSwipeAction.REMOVE_FROM_PLAYLIST -> Icons.Rounded.Delete
+                    SongSwipeAction.OPEN_MENU -> Icons.Rounded.MoreHoriz
+                    SongSwipeAction.NONE -> Icons.Rounded.Block
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            onSelect(action)
+                            onDismiss()
+                        }
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = actionIcon,
+                        contentDescription = null,
+                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = action.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(19.dp),
+                        )
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 /**
