@@ -54,7 +54,7 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Sensors
@@ -211,7 +211,7 @@ fun SpeedDialSectionHeader(
                     modifier = Modifier.size(48.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.MoreVert,
+                        imageVector = Icons.Rounded.MoreHoriz,
                         contentDescription = customizeLabel,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
@@ -324,31 +324,64 @@ fun HomeSpeedDial(
     val spacePinnedIds = remember(pinnedIds) {
         pinnedIds.mapTo(HashSet()) { it.removePrefix("VL") } + pinnedIds
     }
+    val spacePinnedCount = remember(items, spacePinnedIds) {
+        items.takeWhile { it.speedDialStableId() in spacePinnedIds }.size
+    }
+    val innerPageByTab = remember { mutableStateMapOf<YourSpaceDialTab, Int>() }
+    val tabPageCounts = remember(
+        tabs,
+        items.size,
+        mixesItems?.size,
+        artistItems.size,
+        spacePinnedCount,
+        layoutMode,
+        showChordWave,
+    ) {
+        tabs.map { tab ->
+            tab to computeTabPageCount(
+                tab = tab,
+                spaceCount = items.size,
+                spacePinnedCount = spacePinnedCount,
+                mixesCount = mixesItems?.size,
+                artistCount = artistItems.size,
+                layoutMode = layoutMode,
+                showChordWave = showChordWave,
+            )
+        }
+    }
 
     if (tabs.size == 1) {
-        YourSpaceTabContent(
-            tab = YourSpaceDialTab.SPACE,
-            spaceItems = items,
-            mixesItems = mixesItems,
-            artistItems = artistItems,
-            pinnedIds = spacePinnedIds,
-            currentSong = currentSong,
-            isPlaying = isPlaying,
-            palette = activePalette,
-            layoutMode = layoutMode,
-            tileStyle = tileStyle,
-            showLabels = showLabels,
-            labelOverrides = labelOverrides,
-            showPinBadge = showPinBadge,
-            showChordWave = showChordWave,
-            reduceAnimation = reduceAnimation,
-            onItemClick = onItemClick,
-            onItemLongPress = onItemLongPress,
-            onPlayMixClick = onPlayMixClick,
-            onLuckyDialRoll = rollHandler,
-            onReorderPinned = onReorderPinned,
-            modifier = modifier,
-        )
+        Column(modifier = modifier.fillMaxWidth()) {
+            YourSpaceTabContent(
+                tab = YourSpaceDialTab.SPACE,
+                spaceItems = items,
+                mixesItems = mixesItems,
+                artistItems = artistItems,
+                pinnedIds = spacePinnedIds,
+                currentSong = currentSong,
+                isPlaying = isPlaying,
+                palette = activePalette,
+                layoutMode = layoutMode,
+                tileStyle = tileStyle,
+                showLabels = showLabels,
+                labelOverrides = labelOverrides,
+                showPinBadge = showPinBadge,
+                showChordWave = showChordWave,
+                reduceAnimation = reduceAnimation,
+                onItemClick = onItemClick,
+                onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
+                onLuckyDialRoll = rollHandler,
+                onReorderPinned = onReorderPinned,
+                onCurrentPageChange = { innerPageByTab[YourSpaceDialTab.SPACE] = it },
+            )
+            SpeedDialMultiDialDots(
+                tabCounts = tabPageCounts,
+                activeTabIndex = 0,
+                currentInnerPage = innerPageByTab[YourSpaceDialTab.SPACE] ?: 0,
+                accent = activePalette.accent,
+            )
+        }
         return
     }
 
@@ -380,67 +413,155 @@ fun HomeSpeedDial(
     }
     val tabHeights = remember { mutableStateMapOf<YourSpaceDialTab, Int>() }
 
-    HorizontalPager(
-        state = outerPagerState,
-        verticalAlignment = Alignment.Top,
-        key = { tabs[it].name },
-        beyondViewportPageCount = 1,
-        modifier = modifier
-            .fillMaxWidth()
-            .clipToBounds()
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                val maxIdx = tabs.lastIndex.coerceAtLeast(0)
-                val pageFloat = (outerPagerState.currentPage + outerPagerState.currentPageOffsetFraction)
-                    .coerceIn(0f, maxIdx.toFloat())
-                val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
-                val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
-                val frac = pageFloat - fromIdx
-                val fromH = tabHeights[tabs[fromIdx]]
-                val toH = tabHeights[tabs[toIdx]]
-                val targetH = when {
-                    fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
-                    fromH != null -> fromH
-                    else -> placeable.height
-                }.coerceIn(0, constraints.maxHeight)
-                layout(placeable.width, targetH) {
-                    placeable.placeRelative(0, 0)
-                }
-            },
-    ) { pageIndex ->
-        val tab = tabs[pageIndex]
-        Box(
+    Column(modifier = modifier.fillMaxWidth()) {
+        HorizontalPager(
+            state = outerPagerState,
+            verticalAlignment = Alignment.Top,
+            key = { tabs[it].name },
+            beyondViewportPageCount = 1,
             modifier = Modifier
                 .fillMaxWidth()
-                .nestedScroll(handoff)
-                .onSizeChanged { size ->
-                    if (size.height > 0 && tabHeights[tab] != size.height) {
-                        tabHeights[tab] = size.height
+                .clipToBounds()
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val maxIdx = tabs.lastIndex.coerceAtLeast(0)
+                    val pageFloat = (outerPagerState.currentPage + outerPagerState.currentPageOffsetFraction)
+                        .coerceIn(0f, maxIdx.toFloat())
+                    val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
+                    val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
+                    val frac = pageFloat - fromIdx
+                    val fromH = tabHeights[tabs[fromIdx]]
+                    val toH = tabHeights[tabs[toIdx]]
+                    val targetH = when {
+                        fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
+                        fromH != null -> fromH
+                        else -> placeable.height
+                    }.coerceIn(0, constraints.maxHeight)
+                    layout(placeable.width, targetH) {
+                        placeable.placeRelative(0, 0)
                     }
                 },
-        ) {
-            YourSpaceTabContent(
-                tab = tab,
-                spaceItems = items,
-                mixesItems = mixesItems,
-                artistItems = artistItems,
-                pinnedIds = spacePinnedIds,
-                currentSong = currentSong,
-                isPlaying = isPlaying,
-                palette = activePalette,
-                layoutMode = layoutMode,
-                tileStyle = tileStyle,
-                showLabels = showLabels,
-                labelOverrides = labelOverrides,
-                showPinBadge = showPinBadge,
-                showChordWave = showChordWave,
-                reduceAnimation = reduceAnimation,
-                onItemClick = onItemClick,
-                onItemLongPress = onItemLongPress,
-                onPlayMixClick = onPlayMixClick,
-                onLuckyDialRoll = rollHandler,
-                onReorderPinned = if (tab == YourSpaceDialTab.SPACE) onReorderPinned else null,
-            )
+        ) { pageIndex ->
+            val tab = tabs[pageIndex]
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .nestedScroll(handoff)
+                    .onSizeChanged { size ->
+                        if (size.height > 0 && tabHeights[tab] != size.height) {
+                            tabHeights[tab] = size.height
+                        }
+                    },
+            ) {
+                YourSpaceTabContent(
+                    tab = tab,
+                    spaceItems = items,
+                    mixesItems = mixesItems,
+                    artistItems = artistItems,
+                    pinnedIds = spacePinnedIds,
+                    currentSong = currentSong,
+                    isPlaying = isPlaying,
+                    palette = activePalette,
+                    layoutMode = layoutMode,
+                    tileStyle = tileStyle,
+                    showLabels = showLabels,
+                    labelOverrides = labelOverrides,
+                    showPinBadge = showPinBadge,
+                    showChordWave = showChordWave,
+                    reduceAnimation = reduceAnimation,
+                    onItemClick = onItemClick,
+                    onItemLongPress = onItemLongPress,
+                    onPlayMixClick = onPlayMixClick,
+                    onLuckyDialRoll = rollHandler,
+                    onReorderPinned = if (tab == YourSpaceDialTab.SPACE) onReorderPinned else null,
+                    onCurrentPageChange = { innerPageByTab[tab] = it },
+                )
+            }
+        }
+
+        val currentTab = tabs.getOrNull(outerPagerState.currentPage)
+        SpeedDialMultiDialDots(
+            tabCounts = tabPageCounts,
+            activeTabIndex = outerPagerState.currentPage,
+            currentInnerPage = currentTab?.let { innerPageByTab[it] } ?: 0,
+            accent = activePalette.accent,
+        )
+    }
+}
+
+private fun computeTabPageCount(
+    tab: YourSpaceDialTab,
+    spaceCount: Int,
+    spacePinnedCount: Int,
+    mixesCount: Int?,
+    artistCount: Int,
+    layoutMode: SpeedDialLayoutMode,
+    showChordWave: Boolean,
+): Int = when (tab) {
+    YourSpaceDialTab.SPACE -> when (layoutMode) {
+        SpeedDialLayoutMode.THREE_BY_THREE ->
+            (computeDialSlots(spaceCount, spacePinnedCount, perPage = 9, includeLucky = showChordWave).size / 9).coerceAtLeast(1)
+        SpeedDialLayoutMode.TWO_BY_FOUR -> {
+            val page1Limit = if (showChordWave) 7 else 8
+            1 + ((spaceCount - page1Limit).coerceAtLeast(0) + 7) / 8
+        }
+        SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> 1
+    }
+    YourSpaceDialTab.MIXES -> when {
+        mixesCount == null || mixesCount <= 0 -> 1
+        layoutMode == SpeedDialLayoutMode.THREE_BY_THREE ->
+            (computeDialSlots(mixesCount, pinnedCount = 0, perPage = 9, includeLucky = false).size / 9).coerceAtLeast(1)
+        layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> ((mixesCount + 7) / 8).coerceAtLeast(1)
+        else -> 1
+    }
+    YourSpaceDialTab.ARTISTS -> when {
+        artistCount <= 0 -> 1
+        layoutMode == SpeedDialLayoutMode.THREE_BY_THREE ->
+            (computeDialSlots(artistCount, pinnedCount = 0, perPage = 9, includeLucky = false).size / 9).coerceAtLeast(1)
+        layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> ((artistCount + 7) / 8).coerceAtLeast(1)
+        else -> 1
+    }
+}
+
+@Composable
+private fun SpeedDialMultiDialDots(
+    tabCounts: List<Pair<YourSpaceDialTab, Int>>,
+    activeTabIndex: Int,
+    currentInnerPage: Int,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    val totalDots = tabCounts.sumOf { it.second }
+    if (totalDots <= 1) return
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        tabCounts.forEachIndexed { tabIdx, (_, pageCount) ->
+            if (tabIdx > 0) {
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(pageCount) { pageIdx ->
+                    val selected = tabIdx == activeTabIndex && pageIdx == currentInnerPage.coerceIn(0, pageCount - 1)
+                    Box(
+                        modifier = Modifier
+                            .size(width = if (selected) 16.dp else 5.dp, height = 5.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) accent
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                            ),
+                    )
+                }
+            }
         }
     }
 }
@@ -467,6 +588,7 @@ private fun YourSpaceTabContent(
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
     onReorderPinned: ((List<ShelfItem>) -> Unit)?,
+    onCurrentPageChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val artworkRows = layoutMode.gridRows
@@ -486,7 +608,7 @@ private fun YourSpaceTabContent(
                 labelOverrides = labelOverrides,
                 showPinBadge = showPinBadge,
                 includeLucky = showChordWave,
-                showSourceBadge = false,
+                showMixBadge = false,
                 isArtistDial = false,
                 reduceAnimation = reduceAnimation,
                 onItemClick = onItemClick,
@@ -494,6 +616,7 @@ private fun YourSpaceTabContent(
                 onPlayMixClick = onPlayMixClick,
                 onLuckyDialRoll = onLuckyDialRoll,
                 onReorderPinned = onReorderPinned,
+                onCurrentPageChange = onCurrentPageChange,
                 modifier = modifier,
             )
         }
@@ -522,7 +645,7 @@ private fun YourSpaceTabContent(
                     labelOverrides = labelOverrides,
                     showPinBadge = showPinBadge,
                     includeLucky = false,
-                    showSourceBadge = true,
+                    showMixBadge = true,
                     isArtistDial = false,
                     reduceAnimation = reduceAnimation,
                     onItemClick = onItemClick,
@@ -530,6 +653,7 @@ private fun YourSpaceTabContent(
                     onPlayMixClick = onPlayMixClick,
                     onLuckyDialRoll = onLuckyDialRoll,
                     onReorderPinned = null,
+                    onCurrentPageChange = onCurrentPageChange,
                     modifier = modifier,
                 )
             }
@@ -555,7 +679,7 @@ private fun YourSpaceTabContent(
                     labelOverrides = labelOverrides,
                     showPinBadge = showPinBadge,
                     includeLucky = false,
-                    showSourceBadge = false,
+                    showMixBadge = false,
                     isArtistDial = true,
                     reduceAnimation = reduceAnimation,
                     onItemClick = onItemClick,
@@ -563,6 +687,7 @@ private fun YourSpaceTabContent(
                     onPlayMixClick = onPlayMixClick,
                     onLuckyDialRoll = onLuckyDialRoll,
                     onReorderPinned = null,
+                    onCurrentPageChange = onCurrentPageChange,
                     modifier = modifier,
                 )
             }
@@ -584,7 +709,7 @@ private fun YourSpaceLayoutSwitch(
     labelOverrides: Set<String>,
     showPinBadge: Boolean,
     includeLucky: Boolean,
-    showSourceBadge: Boolean,
+    showMixBadge: Boolean,
     isArtistDial: Boolean,
     reduceAnimation: Boolean,
     onItemClick: (ShelfItem) -> Unit,
@@ -592,6 +717,7 @@ private fun YourSpaceLayoutSwitch(
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
     onReorderPinned: ((List<ShelfItem>) -> Unit)?,
+    onCurrentPageChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (layoutMode) {
@@ -607,13 +733,14 @@ private fun YourSpaceLayoutSwitch(
             labelOverrides = labelOverrides,
             showPinBadge = showPinBadge,
             includeLucky = includeLucky,
-            showSourceBadge = showSourceBadge,
+            showMixBadge = showMixBadge,
             isArtistDial = isArtistDial,
             reduceAnimation = reduceAnimation,
             onItemClick = onItemClick,
             onItemLongPress = onItemLongPress,
             onLuckyDialRoll = onLuckyDialRoll,
             onReorderPinned = onReorderPinned,
+            onCurrentPageChange = onCurrentPageChange,
             modifier = modifier,
         )
 
@@ -625,12 +752,13 @@ private fun YourSpaceLayoutSwitch(
             palette = palette,
             showPinBadge = showPinBadge,
             showChordWave = includeLucky,
-            showSourceBadge = showSourceBadge,
+            forceMixStyle = showMixBadge,
             reduceAnimation = reduceAnimation,
             onItemClick = onItemClick,
             onLuckyDialRoll = onLuckyDialRoll,
             onItemLongPress = onItemLongPress,
             onPlayMixClick = onPlayMixClick,
+            onCurrentPageChange = onCurrentPageChange,
             modifier = modifier,
         )
 
@@ -772,13 +900,14 @@ private fun HomeSpeedDialArtworkGrid(
     labelOverrides: Set<String>,
     showPinBadge: Boolean,
     includeLucky: Boolean,
-    showSourceBadge: Boolean,
+    showMixBadge: Boolean,
     isArtistDial: Boolean,
     reduceAnimation: Boolean,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
     onReorderPinned: ((List<ShelfItem>) -> Unit)?,
+    onCurrentPageChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val perPage = ARTWORK_COLUMNS * rows
@@ -792,6 +921,9 @@ private fun HomeSpeedDialArtworkGrid(
     val pageCount = (slots.size / perPage).coerceAtLeast(1)
 
     val pagerState = rememberPagerState(pageCount = { pageCount })
+    LaunchedEffect(pagerState.currentPage) {
+        onCurrentPageChange(pagerState.currentPage)
+    }
     val swipeTilt = rememberSwipeTilt(pagerState, reduceAnimation)
 
     val latestSlots by rememberUpdatedState(slots)
@@ -1046,7 +1178,7 @@ private fun HomeSpeedDialArtworkGrid(
                                     isCurrent = isItemCurrent(item, currentSong),
                                     isPlaying = isPlaying,
                                     showLabel = showLabels != (id in labelOverrides),
-                                    showSourceBadge = showSourceBadge,
+                                    showMixBadge = showMixBadge,
                                     isArtistTile = isArtistDial || item.detectType() == SpeedDialItemType.ARTIST,
                                     reduceAnimation = reduceAnimation,
                                     onArtLoaded = { artLoaded[id] = true },
@@ -1094,7 +1226,7 @@ private fun HomeSpeedDialArtworkGrid(
                             isCurrent = false,
                             isPlaying = false,
                             showLabel = showLabels != (liftedId in labelOverrides),
-                            showSourceBadge = showSourceBadge,
+                            showMixBadge = showMixBadge,
                             isArtistTile = isArtistDial || draggedItem.detectType() == SpeedDialItemType.ARTIST,
                             reduceAnimation = reduceAnimation,
                             onClick = {},
@@ -1117,42 +1249,6 @@ private fun HomeSpeedDialArtworkGrid(
                 }
             }
         }
-
-        SpeedDialPageDots(
-            pageCount = pageCount,
-            currentPage = pagerState.currentPage,
-            accent = palette.accent,
-        )
-    }
-}
-
-@Composable
-private fun SpeedDialPageDots(
-    pageCount: Int,
-    currentPage: Int,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    if (pageCount <= 1) return
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp, bottom = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        repeat(pageCount) { pageIdx ->
-            val selected = currentPage == pageIdx
-            Box(
-                modifier = Modifier
-                    .size(width = if (selected) 16.dp else 5.dp, height = 5.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (selected) accent
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                    ),
-            )
-        }
     }
 }
 
@@ -1165,7 +1261,7 @@ private fun ArtworkSpeedDialTile(
     isCurrent: Boolean,
     isPlaying: Boolean,
     showLabel: Boolean,
-    showSourceBadge: Boolean,
+    showMixBadge: Boolean,
     isArtistTile: Boolean,
     reduceAnimation: Boolean,
     onClick: () -> Unit,
@@ -1270,13 +1366,34 @@ private fun ArtworkSpeedDialTile(
             )
         }
 
-        // Top-start tag: Mix Source Badge (Mixes Dial) or LIVE pill
-        if (showSourceBadge) {
-            MixSourceBadge(
-                source = mixBadgeSourceOf(item),
-                artworkUrl = candidateUrl,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
+        // Top-start tag: ChordPlay MIX badge / Spotify source (Mixes Dial) or LIVE pill
+        if (showMixBadge) {
+            val badgeSource = mixBadgeSourceOf(item)
+            if (badgeSource == MixBadgeSource.SPOTIFY) {
+                MixSourceBadge(
+                    source = badgeSource,
+                    artworkUrl = candidateUrl,
+                    modifier = Modifier.align(Alignment.TopStart),
+                )
+            } else {
+                val mixBadgeText = if (palette.accent.luminance() > 0.5f) Color(0xFF0F080B) else Color.White
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(5.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(palette.accent)
+                        .padding(horizontal = 5.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = "MIX",
+                        color = mixBadgeText,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        lineHeight = 9.sp,
+                    )
+                }
+            }
         } else if (type == SpeedDialItemType.LIVE) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1304,23 +1421,23 @@ private fun ArtworkSpeedDialTile(
             }
         }
 
-        // Top-end subtle pin badge
+        // Top-end gold LocationPin badge matching 2×4 card pin icon
         if (isPinned) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(5.dp)
-                    .size(19.dp)
+                    .size(20.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.56f))
-                    .border(0.6.dp, Color.White.copy(alpha = 0.22f), CircleShape),
+                    .background(if (isDark) Color(0xFF121921) else MaterialTheme.colorScheme.surface)
+                    .border(1.dp, if (isDark) Color(0xFF2B3A4A) else Color.Black.copy(alpha = 0.12f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = BitChordIcons.Pin,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(10.5.dp),
+                    imageVector = BitChordIcons.LocationPin,
+                    contentDescription = "Pinned to Your Space",
+                    tint = Color(0xFFD6B27D),
+                    modifier = Modifier.size(12.dp),
                 )
             }
         }
@@ -1469,11 +1586,12 @@ private fun HomeSpeedDialTwoByFour(
     palette: ArtworkPalette,
     showPinBadge: Boolean,
     showChordWave: Boolean,
-    showSourceBadge: Boolean,
+    forceMixStyle: Boolean,
     reduceAnimation: Boolean,
     onItemClick: (ShelfItem) -> Unit,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    onCurrentPageChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
@@ -1485,6 +1603,9 @@ private fun HomeSpeedDialTwoByFour(
     val totalPages = 1 + additionalPages.size
 
     val pagerState = rememberPagerState(pageCount = { totalPages })
+    LaunchedEffect(pagerState.currentPage) {
+        onCurrentPageChange(pagerState.currentPage)
+    }
 
     var showBackButton by remember { mutableStateOf(false) }
     LaunchedEffect(pagerState.isScrollInProgress) {
@@ -1531,7 +1652,7 @@ private fun HomeSpeedDialTwoByFour(
                                     item2 = second,
                                     pinnedIds = pinnedIds,
                                     showPinBadge = showPinBadge,
-                                    showSourceBadge = showSourceBadge,
+                                    forceMixStyle = forceMixStyle,
                                     currentSong = currentSong,
                                     isPlaying = isPlaying,
                                     palette = palette,
@@ -1552,7 +1673,7 @@ private fun HomeSpeedDialTwoByFour(
                                             isCurrent = isItemCurrent(first, currentSong),
                                             isPlaying = isPlaying,
                                             palette = palette,
-                                            showSourceBadge = showSourceBadge,
+                                            forceMixStyle = forceMixStyle,
                                             isCompact = false,
                                             onItemClick = onItemClick,
                                             onItemLongPress = onItemLongPress,
@@ -1589,7 +1710,7 @@ private fun HomeSpeedDialTwoByFour(
                                 item2 = rowItems.getOrNull(1),
                                 pinnedIds = pinnedIds,
                                 showPinBadge = showPinBadge,
-                                showSourceBadge = showSourceBadge,
+                                forceMixStyle = forceMixStyle,
                                 currentSong = currentSong,
                                 isPlaying = isPlaying,
                                 palette = palette,
@@ -1639,12 +1760,6 @@ private fun HomeSpeedDialTwoByFour(
                 }
             }
         }
-
-        SpeedDialPageDots(
-            pageCount = totalPages,
-            currentPage = pagerState.currentPage,
-            accent = palette.accent,
-        )
     }
 }
 
@@ -1722,7 +1837,7 @@ private fun SpeedDialRow(
     item2: ShelfItem?,
     pinnedIds: Set<String>,
     showPinBadge: Boolean,
-    showSourceBadge: Boolean,
+    forceMixStyle: Boolean,
     currentSong: Song?,
     isPlaying: Boolean,
     palette: ArtworkPalette,
@@ -1743,7 +1858,7 @@ private fun SpeedDialRow(
                 isCurrent = isItemCurrent(item1, currentSong),
                 isPlaying = isPlaying,
                 palette = palette,
-                showSourceBadge = showSourceBadge,
+                forceMixStyle = forceMixStyle,
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
@@ -1762,7 +1877,7 @@ private fun SpeedDialRow(
                 isCurrent = isItemCurrent(item2, currentSong),
                 isPlaying = isPlaying,
                 palette = palette,
-                showSourceBadge = showSourceBadge,
+                forceMixStyle = forceMixStyle,
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
@@ -1844,7 +1959,6 @@ private fun SpeedDialArtwork(
     isPinned: Boolean,
     isCurrent: Boolean,
     isPlaying: Boolean,
-    showSourceBadge: Boolean,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onItemClick: (ShelfItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -2112,23 +2226,21 @@ private fun SpeedDialArtwork(
                         )
                     }
 
-                    if (!showSourceBadge) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(2.dp)
-                                .clip(RoundedCornerShape(3.dp))
-                                .background(palette.accent)
-                                .padding(horizontal = 3.dp, vertical = 1.dp),
-                        ) {
-                            Text(
-                                text = "MIX",
-                                color = mixBadgeText,
-                                fontSize = 7.sp,
-                                fontWeight = FontWeight.Black,
-                                lineHeight = 8.sp,
-                            )
-                        }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(2.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(palette.accent)
+                            .padding(horizontal = 3.dp, vertical = 1.dp),
+                    ) {
+                        Text(
+                            text = "MIX",
+                            color = mixBadgeText,
+                            fontSize = 7.sp,
+                            fontWeight = FontWeight.Black,
+                            lineHeight = 8.sp,
+                        )
                     }
 
                     if (!isPinned) {
@@ -2184,16 +2296,6 @@ private fun SpeedDialArtwork(
             }
         }
 
-        if (showSourceBadge) {
-            MixSourceBadge(
-                source = mixBadgeSourceOf(item),
-                artworkUrl = candidateArtUrl,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .clip(RoundedCornerShape(topStart = 12.dp)),
-            )
-        }
-
         if (isCurrent && isPlaying) {
             SearchPlayingBars(modifier = Modifier.align(Alignment.Center))
         }
@@ -2231,12 +2333,12 @@ private fun SpeedDialTile(
     palette: ArtworkPalette,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
-    showSourceBadge: Boolean = false,
+    forceMixStyle: Boolean = false,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
-    val type = item.detectType()
+    val type = if (forceMixStyle) SpeedDialItemType.MIX else item.detectType()
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val tileHeight = if (isCompact) 56.dp else 64.dp
@@ -2300,7 +2402,6 @@ private fun SpeedDialTile(
                 isPinned = isPinned,
                 isCurrent = isCurrent,
                 isPlaying = isPlaying,
-                showSourceBadge = showSourceBadge,
                 onPlayMixClick = onPlayMixClick,
                 onItemClick = onItemClick,
             )
