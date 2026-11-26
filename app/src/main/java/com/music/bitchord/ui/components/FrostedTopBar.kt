@@ -25,9 +25,12 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,20 +60,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,15 +88,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.ic_logo
+import com.music.bitchord.ui.screens.ReplayYearBadge
+import com.music.bitchord.ui.screens.ReplayYearButton
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
 
 /**
@@ -146,6 +161,16 @@ fun topBarHeight(): Dp =
 @Composable
 fun topBarContentPadding(): Dp = topBarHeight() + TopBarContentGap
 
+data class HomeBrandLockupConfig(
+    val collapseProgress: Float,
+    val primaryGlowColor: Color? = null,
+    val isFestivalActive: Boolean = false,
+    val festivalThemeType: String = "",
+    val onFestivalClick: (() -> Unit)? = null,
+    val replayYear: ReplayYearBadge? = null,
+    val onCollapsedClick: () -> Unit = {},
+)
+
 /**
  * The top bar's content — title, back affordance, actions — over no blur of its
  * own.
@@ -176,6 +201,8 @@ fun FrostedTopBar(
     // A lambda, not a value: the drag changes every frame, and reading it in
     // the caller would recompose the whole app on each one.
     pullFraction: () -> Float = { 0f },
+    /** Optional morphing stacked-hero -> compact-pill ChordPlay lockup for Home. */
+    homeBrandLockup: HomeBrandLockupConfig? = null,
     /**
      * A page control filling the bar from the leading gutter to [actions], on
      * no surface of its own — the Search tab's field, which brings its own.
@@ -315,6 +342,15 @@ fun FrostedTopBar(
                     }
                 }
             }
+            if (onBack == null && accessory == null && homeBrandLockup != null) {
+                HomeMorphingBrandLockup(
+                    config = homeBrandLockup,
+                    hazeState = backButtonHazeState,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = BAR_GUTTER, top = 4.dp),
+                )
+            }
             // No wordmark at the leading end: the root tabs carry it above
             // their large heading instead (LargePageTitle in :sharedUi).
             // The accessory takes everything from the leading gutter up to the
@@ -400,6 +436,200 @@ private fun AccessoryPill(
 
 private const val ACCESSORY_HINT_ALPHA = 0.6f
 private val TOP_CONTROL_SIZE = 44.dp
+
+/**
+ * Continuous scroll-driven lockup for Home:
+ * - Expanded (`collapse = 0`): large glowing `ic_logo` aligned with the right profile avatar,
+ *   with `"ChordPlay"` stacked cleanly below it.
+ * - Collapsed (`collapse = 1`): compacts into a frosted glass `[ic_logo ChordPlay]` capsule
+ *   horizontally aligned with the right profile selector.
+ */
+@Composable
+private fun HomeMorphingBrandLockup(
+    config: HomeBrandLockupConfig,
+    hazeState: HazeState?,
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val t = config.collapseProgress.coerceIn(0f, 1f)
+    val eased = t * t * (3f - 2f * t)
+    val pillAlpha = ((t - 0.35f) / 0.65f).coerceIn(0f, 1f)
+
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val collapsedContentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+        glassContentColor()
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val expandedTextColor = MaterialTheme.colorScheme.onBackground
+    val titleColor = lerp(expandedTextColor, collapsedContentColor, pillAlpha)
+
+    val expandedIconSize = TOP_CONTROL_SIZE // 44.dp aligned with right-side TopBarAccountButton
+    val collapsedIconSize = 22.dp
+    val iconScale = 1f + ((collapsedIconSize / expandedIconSize) - 1f) * eased
+    val glowAlpha = 1f - eased * 0.78f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val haloColor = config.primaryGlowColor ?: primaryColor
+
+    val expandedFontSize = 26.sp
+    val collapsedFontSize = 16.5.sp
+    val textScaleRatio = collapsedFontSize.value / expandedFontSize.value
+    val textScale = 1f + (textScaleRatio - 1f) * eased
+
+    var measuredTextWidthPx by remember { mutableIntStateOf(0) }
+    var measuredTextHeightPx by remember { mutableIntStateOf(0) }
+
+    val startPadPx = with(density) { 12.dp.toPx() }
+    val endPadPx = with(density) { 14.dp.toPx() }
+    val collapsedIconPx = with(density) { collapsedIconSize.toPx() }
+    val gapPx = with(density) { 7.dp.toPx() }
+    val halfTopBoxPx = with(density) { (TOP_CONTROL_SIZE / 2f).toPx() }
+    val expandedIconPx = with(density) { expandedIconSize.toPx() }
+    val titleTopGapPx = with(density) { 6.dp.toPx() }
+
+    val fallbackWidthPx = with(density) { 122.dp.toPx() }.roundToInt()
+    val effectiveTextW = if (measuredTextWidthPx > 0) measuredTextWidthPx else fallbackWidthPx
+    val fallbackHeightPx = with(density) { 30.sp.toPx() }.roundToInt()
+    val effectiveTextH = if (measuredTextHeightPx > 0) measuredTextHeightPx else fallbackHeightPx
+
+    val collapsedTextW = effectiveTextW * textScaleRatio
+    val collapsedPillWidthDp = with(density) {
+        (startPadPx + collapsedIconPx + gapPx + collapsedTextW + endPadPx).toDp()
+    }
+    val expandedTextTransY = (expandedIconPx + titleTopGapPx) - (halfTopBoxPx - effectiveTextH * 0.5f)
+    val collapsedTextTransX = startPadPx + collapsedIconPx + gapPx
+
+    val badgeExtraWidthDp = if (config.isFestivalActive && config.festivalThemeType == "diwali") 28.dp else 0.dp
+    val replayBadgeOffsetDp = with(density) {
+        val expandedX = expandedIconPx + with(density) { 10.dp.toPx() } + with(density) { badgeExtraWidthDp.toPx() }
+        val collapsedX = collapsedPillWidthDp.toPx() + with(density) { 8.dp.toPx() }
+        (expandedX + (collapsedX - expandedX) * eased).toDp()
+    }
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(modifier = modifier.height(TOP_CONTROL_SIZE)) {
+        // Frosted glass pill surface behind collapsed lockup
+        Box(
+            modifier = Modifier
+                .width(collapsedPillWidthDp)
+                .height(TOP_CONTROL_SIZE)
+                .graphicsLayer { alpha = pillAlpha }
+                .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+                .then(
+                    if (t > 0.35f) {
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = config.onCollapsedClick,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
+        )
+
+        // Morphing ChordPlay icon mark + ambient artwork aura
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(expandedIconSize)
+                .graphicsLayer {
+                    translationX = startPadPx * eased
+                    scaleX = iconScale
+                    scaleY = iconScale
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                }
+                .then(
+                    if (t <= 0.35f && config.isFestivalActive && config.onFestivalClick != null) {
+                        Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onClick = config.onFestivalClick,
+                            )
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (glowAlpha > 0.02f) {
+                Canvas(
+                    modifier = Modifier
+                        .size(expandedIconSize + 14.dp)
+                        .graphicsLayer { alpha = glowAlpha },
+                ) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            0f to haloColor.copy(alpha = 0.44f),
+                            0.55f to primaryColor.copy(alpha = 0.16f),
+                            1f to Color.Transparent,
+                        ),
+                    )
+                }
+            }
+            Icon(
+                painter = painterResource(Res.drawable.ic_logo),
+                contentDescription = "ChordPlay",
+                tint = primaryColor,
+                modifier = Modifier.size(expandedIconSize),
+            )
+        }
+
+        // Morphing ChordPlay wordmark: stacked beneath icon at rest, tucked beside icon when scrolled
+        Text(
+            text = "ChordPlay",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = expandedFontSize,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.6).sp,
+            ),
+            color = titleColor,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .onSizeChanged {
+                    measuredTextWidthPx = it.width
+                    measuredTextHeightPx = it.height
+                }
+                .graphicsLayer {
+                    translationX = collapsedTextTransX * eased
+                    translationY = expandedTextTransY * (1f - eased)
+                    scaleX = textScale
+                    scaleY = textScale
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                },
+        )
+
+        // Optional festival diya or Replay year badge stays interactive on the top row
+        if (config.isFestivalActive && config.festivalThemeType == "diwali") {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = expandedIconSize + 8.dp)
+                    .graphicsLayer {
+                        alpha = 1f - eased
+                    },
+            ) {
+                AnimatedDiya(size = 22.dp)
+            }
+        }
+        config.replayYear?.let { badge ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = replayBadgeOffsetDp),
+            ) {
+                ReplayYearButton(badge = badge, height = 22.dp)
+            }
+        }
+    }
+}
 
 /** Circular floating back affordance, material-matched to the navbar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)

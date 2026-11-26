@@ -1610,14 +1610,13 @@ private fun ArtworkSpeedDialTile(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(58.dp)
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.72f),
-                            ),
+                            0f to Color.Transparent,
+                            0.48f to Color.Black.copy(alpha = 0.42f),
+                            1f to Color.Black.copy(alpha = 0.80f),
                         ),
                     ),
             )

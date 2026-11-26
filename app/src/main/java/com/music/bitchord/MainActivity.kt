@@ -391,8 +391,11 @@ import com.music.bitchord.ui.screens.LiveStationsScreen
 import com.music.bitchord.data.melody.MelodyMood
 import com.music.bitchord.data.melody.MelodyRules
 import com.music.bitchord.data.melody.MelodyStore
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.data.settings.SongSwipeAction
+import com.music.bitchord.ui.components.HomeBrandLockupConfig
+import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -1315,6 +1318,18 @@ private fun BitChordApp(
     }
 
     val homeListState = rememberLazyListState()
+    val appDesignStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val festivalThemeType by FestivalTheme.festivalThemeType.collectAsStateWithLifecycle()
+    val homeUserName = remember(account?.name) {
+        OnboardingState.name(context).takeIf { it.isNotBlank() } ?: account?.name
+    }
+    val homeCollapseRangePx = with(LocalDensity.current) { 78.dp.toPx() }
+    val homeBrandCollapse by remember(homeListState, homeCollapseRangePx) {
+        derivedStateOf {
+            if (homeListState.firstVisibleItemIndex > 0) 1f
+            else (homeListState.firstVisibleItemScrollOffset / homeCollapseRangePx).coerceIn(0f, 1f)
+        }
+    }
     var homeSpeedDialPage by rememberSaveable { mutableIntStateOf(0) }
     var homeSpeedDialTabName by rememberSaveable { mutableStateOf(com.music.bitchord.data.settings.YourSpaceDialTab.SPACE.name) }
     val radioListState = rememberLazyListState()
@@ -3997,6 +4012,9 @@ private fun BitChordApp(
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),
                                 replayYear = replayYearBadge,
+                                userName = homeUserName,
+                                externalBrandLockup = appDesignStyle == AppDesignStyle.CHORDPLAY,
+                                brandCollapseProgress = homeBrandCollapse,
                                 signedIn = signedIn,
                                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                                 onItemClick = { item, shelfTitle ->
@@ -4647,8 +4665,18 @@ private fun BitChordApp(
                 val artistListState = detail
                     ?.takeIf { isDetailVisible && it.type == BrowseType.ARTIST }
                     ?.let { detailListStates.getOrPut(it.browseId) { LazyListState() } }
-                val topFadeAlpha by remember(artistListState) {
+                val isHomeChordPlayHero = appDesignStyle == AppDesignStyle.CHORDPLAY &&
+                    selectedTab == TAB_HOME &&
+                    detail == null &&
+                    !showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
+                    !showEqualizer && !showReplay && !showSpotify && !showDiscord && !showHistory &&
+                    !showMelody && !showGenres && libraryShowAll == null && selectedMoodGenre == null
+                val homeArtworkColors = rememberArtworkColors(currentSong?.thumbnailUrl)
+                val topFadeAlpha by remember(artistListState, isHomeChordPlayHero, homeBrandCollapse) {
                     derivedStateOf {
+                        if (isHomeChordPlayHero) {
+                            return@derivedStateOf (homeBrandCollapse * 1.15f).coerceIn(0f, 1f)
+                        }
                         val list = artistListState ?: return@derivedStateOf 1f
                         if (list.firstVisibleItemIndex > 0) return@derivedStateOf 1f
                         val header = list.layoutInfo.visibleItemsInfo
@@ -4667,6 +4695,23 @@ private fun BitChordApp(
                 )
 
                 FrostedTopBar(
+                    homeBrandLockup = if (isHomeChordPlayHero) {
+                        HomeBrandLockupConfig(
+                            collapseProgress = homeBrandCollapse,
+                            primaryGlowColor = homeArtworkColors.colors.firstOrNull(),
+                            isFestivalActive = isFestivalActive,
+                            festivalThemeType = festivalThemeType,
+                            onFestivalClick = { FestivalTheme.triggerFestivalPopup() },
+                            replayYear = replayYearBadge,
+                            onCollapsedClick = {
+                                playerSheetScope.launch {
+                                    homeListState.animateScrollToItem(0)
+                                }
+                            },
+                        )
+                    } else {
+                        null
+                    },
                     title = when {
                         showSpotify && detail == null -> stringResource(R.string.spotify)
                         showDiscord -> "Discord"

@@ -21,10 +21,14 @@ import org.jetbrains.compose.resources.DrawableResource
 import androidx.compose.foundation.Image
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -152,9 +156,13 @@ import com.music.bitchord.ui.player.LiveBadge
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.PlayerPlatform
+import com.music.bitchord.ui.player.rememberArtworkColors
 
 /** How far the Listen now heading and feed sit above the shared top inset. */
 private val HOME_TITLE_LIFT = 28.dp
+
+/** Pulls ChordPlay's stacked hero up to align with the top bar's safe-area row. */
+private val HOME_CHORDPLAY_HERO_LIFT = 60.dp
 
 private const val RECENTS_TITLE = "Recents"
 private const val RECENT_TRACKS_PER_COLUMN = 4
@@ -224,6 +232,9 @@ fun HomeScreen(
     replayYear: ReplayYearBadge? = null,
     onFindMoodClick: ((MoodGenre) -> Unit)? = null,
     onFindMoodShowAll: (() -> Unit)? = null,
+    userName: String? = null,
+    externalBrandLockup: Boolean = false,
+    brandCollapseProgress: Float = 0f,
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
@@ -355,46 +366,76 @@ fun HomeScreen(
         }
     }
 
-    PullToRefresh(
-        refreshing = refreshing,
-        onRefresh = onRefresh,
-        state = pullState,
-        modifier = modifier,
-    ) {
-        LazyColumn(
-            state = listState,
+    val artworkPalette = rememberArtworkColors(currentSong?.thumbnailUrl)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val chipAccents = remember(currentSong?.thumbnailUrl, artworkPalette.colors, primaryColor, tertiaryColor) {
+        if (currentSong?.thumbnailUrl != null && artworkPalette.colors.isNotEmpty()) {
+            artworkPalette.colors
+        } else {
+            listOf(primaryColor, tertiaryColor)
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        if (designStyle == AppDesignStyle.CHORDPLAY) {
+            HomeTopAmbientAura(
+                paletteColors = chipAccents,
+                topInset = contentPadding.calculateTopPadding(),
+                collapseProgress = brandCollapseProgress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+            )
+        }
+        PullToRefresh(
+            refreshing = refreshing,
+            onRefresh = onRefresh,
+            state = pullState,
             modifier = Modifier.fillMaxSize(),
-            // The heading sits higher than the other tabs' first row: pull the
-            // whole feed up by [HOME_TITLE_LIFT] with it.
-            contentPadding = if (title != null) {
-                PaddingValues(
-                    top = (contentPadding.calculateTopPadding() - HOME_TITLE_LIFT).coerceAtLeast(0.dp),
-                    bottom = contentPadding.calculateBottomPadding(),
-                )
-            } else {
-                contentPadding
-            },
         ) {
-            if (title != null) {
-                if (designStyle == AppDesignStyle.CHORDPLAY) {
-                    item(key = "chordplay_header", contentType = LazyContent.HEADER) {
-                        ChordPlayHomeHeader(replayYear = replayYear)
-                    }
-                } else {
-                    item(key = "home_title", contentType = LazyContent.HEADER) {
-                        HomeTitle(title = title, replayYear = replayYear)
-                    }
-                }
-            }
-            if (designStyle == AppDesignStyle.CHORDPLAY) {
-                item(key = "mood_chips", contentType = "mood-chips") {
-                    MoodFilterChips(
-                        selectedMood = selectedMood,
-                        onMoodSelect = { selectedMood = it },
-                        modifier = Modifier.padding(bottom = 6.dp),
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                // The heading sits higher than the other tabs' first row: pull the
+                // whole feed up to align with the floating top-bar safe zone.
+                contentPadding = if (title != null) {
+                    val lift = if (designStyle == AppDesignStyle.CHORDPLAY) HOME_CHORDPLAY_HERO_LIFT else HOME_TITLE_LIFT
+                    PaddingValues(
+                        top = (contentPadding.calculateTopPadding() - lift).coerceAtLeast(0.dp),
+                        bottom = contentPadding.calculateBottomPadding(),
                     )
+                } else {
+                    contentPadding
+                },
+            ) {
+                if (title != null) {
+                    if (designStyle == AppDesignStyle.CHORDPLAY) {
+                        item(key = "chordplay_header", contentType = LazyContent.HEADER) {
+                            ChordPlayHomeHeader(
+                                userName = userName,
+                                replayYear = replayYear,
+                                externalBrandLockup = externalBrandLockup,
+                                collapseProgress = brandCollapseProgress,
+                                accentColor = chipAccents.firstOrNull() ?: primaryColor,
+                            )
+                        }
+                    } else {
+                        item(key = "home_title", contentType = LazyContent.HEADER) {
+                            HomeTitle(title = title, replayYear = replayYear)
+                        }
+                    }
                 }
-            }
+                if (designStyle == AppDesignStyle.CHORDPLAY) {
+                    item(key = "mood_chips", contentType = "mood-chips") {
+                        MoodFilterChips(
+                            selectedMood = selectedMood,
+                            onMoodSelect = { selectedMood = it },
+                            accentColors = chipAccents,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                }
             if (!signedIn && onSignIn != null) {
                 item(key = "home:sign-in", contentType = LazyContent.MESSAGE) {
                     SignInBanner(onSignIn = onSignIn, modifier = Modifier.padding(bottom = 8.dp))
@@ -461,6 +502,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 
     if (onLoadMore != null && state is UiState.Success) {
@@ -954,20 +996,82 @@ private fun getGreetingList(userName: String? = null): List<String> = listOf(
     "Turn it up.",
 )
 
+@Composable
+private fun HomeTopAmbientAura(
+    paletteColors: List<Color>,
+    topInset: androidx.compose.ui.unit.Dp,
+    collapseProgress: Float,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = paletteColors.getOrNull(1) ?: MaterialTheme.colorScheme.tertiary
+    val heroTint = paletteColors.firstOrNull() ?: primary
+    val accentWash = paletteColors.getOrNull(2) ?: heroTint
+
+    val scrollAttenuation = (1f - collapseProgress * 0.42f).coerceIn(0.45f, 1f)
+    val baseAlpha = (if (isDark) 0.34f else 0.16f) * scrollAttenuation
+
+    Canvas(
+        modifier = modifier.height(topInset + 250.dp),
+    ) {
+        val leftFocus = Offset(size.width * 0.18f, size.height * 0.24f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to heroTint.copy(alpha = baseAlpha * 1.10f),
+                0.45f to primary.copy(alpha = baseAlpha * 0.52f),
+                1f to Color.Transparent,
+                center = leftFocus,
+                radius = size.width * 0.78f,
+            ),
+            radius = size.width * 0.78f,
+            center = leftFocus,
+        )
+
+        val rightSweep = Offset(size.width * 0.74f, size.height * 0.42f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to secondary.copy(alpha = baseAlpha * 0.78f),
+                0.55f to accentWash.copy(alpha = baseAlpha * 0.26f),
+                1f to Color.Transparent,
+                center = rightSweep,
+                radius = size.width * 0.72f,
+            ),
+            radius = size.width * 0.72f,
+            center = rightSweep,
+        )
+
+        // Ensure complete seamless fade to transparent before Your Space
+        val bg = Color.Transparent
+        drawRect(
+            brush = Brush.verticalGradient(
+                0f to Color.Transparent,
+                0.72f to Color.Transparent,
+                1f to bg,
+            ),
+        )
+    }
+}
+
 /**
- * ChordPlay Living Home Screen dynamic greeting header with cycling greetings.
+ * ChordPlay Living Home Screen stacked hero header with artwork halo,
+ * collapsing brand transition coordination, and cycling witty greetings.
  */
 @Composable
 private fun ChordPlayHomeHeader(
     userName: String? = null,
     replayYear: ReplayYearBadge? = null,
+    externalBrandLockup: Boolean = false,
+    collapseProgress: Float = 0f,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     modifier: Modifier = Modifier,
 ) {
-    val titleStyle = MaterialTheme.typography.headlineMedium
-    val logoHeight = with(LocalDensity.current) { (MaterialTheme.typography.titleLarge.fontSize * LOGO_TO_FONT).toDp() }
-    val initialGreeting = remember(userName) { getMusicalGreeting(userName) }
-    val greetings = remember(userName) {
-        listOf(initialGreeting) + (getGreetingList(userName) - initialGreeting)
+    val cleanUserName = remember(userName) {
+        userName?.trim()?.substringBefore(' ')?.takeIf { it.isNotBlank() }
+    }
+    val initialGreeting = remember(cleanUserName) { getMusicalGreeting(cleanUserName) }
+    val greetings = remember(cleanUserName) {
+        listOf(initialGreeting) + (getGreetingList(cleanUserName) - initialGreeting)
     }
     var greetingIndex by remember { mutableIntStateOf(0) }
 
@@ -981,54 +1085,91 @@ private fun ChordPlayHomeHeader(
 
     val isFestivalActive by FestivalTheme.isFestivalActive.collectAsStateWithLifecycle()
     val festivalThemeType by FestivalTheme.festivalThemeType.collectAsStateWithLifecycle()
+    val density = LocalDensity.current
+    val reservedTitleHeight = with(density) { 30.sp.toDp() }
+    val greetingAlpha = (1f - collapseProgress * 1.65f).coerceIn(0f, 1f)
 
-    Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier
-                .padding(bottom = 8.dp)
-                .then(
-                    if (isFestivalActive) {
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                FestivalTheme.triggerFestivalPopup()
-                            }
-                    } else {
-                        Modifier
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PAGE_GUTTER)
+            .padding(bottom = 8.dp),
+    ) {
+        if (externalBrandLockup) {
+            // FrostedTopBar draws the continuous morphing ic_logo + ChordPlay lockup
+            // in this exact top-left safe-area space so scroll never detaches it.
+            Spacer(Modifier.height(44.dp + 6.dp + reservedTitleHeight + 6.dp))
+        } else {
+            // Standalone / Preview fallback matching the Stacked Hero lockup
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .then(
+                        if (isFestivalActive) {
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { FestivalTheme.triggerFestivalPopup() }
+                        } else {
+                            Modifier
+                        },
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Canvas(modifier = Modifier.size(58.dp)) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                0f to accentColor.copy(alpha = 0.42f),
+                                0.55f to accentColor.copy(alpha = 0.14f),
+                                1f to Color.Transparent,
+                            ),
+                        )
                     }
-                ),
-        ) {
-            if (isFestivalActive && festivalThemeType == "diwali") {
-                AnimatedDiya(size = 22.dp)
+                    Icon(
+                        painter = painterResource(Res.drawable.ic_logo),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
+                if (isFestivalActive && festivalThemeType == "diwali") {
+                    AnimatedDiya(size = 22.dp)
+                }
+                replayYear?.let { badge ->
+                    ReplayYearButton(badge = badge, height = 24.dp)
+                }
             }
-            Icon(
-                painter = painterResource(Res.drawable.ic_logo),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp),
-            )
             Text(
                 text = "ChordPlay",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    letterSpacing = (-0.2).sp,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 26.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.6).sp,
                 ),
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 6.dp),
             )
-            if (isFestivalActive && festivalThemeType == "diwali") {
-                AnimatedDiya(size = 22.dp)
-            }
-            replayYear?.let { badge ->
-                Spacer(Modifier.width(8.dp))
-                ReplayYearButton(badge = badge, height = 24.dp)
-            }
         }
+
+        val greetingInteraction = remember { MutableInteractionSource() }
         Box(
-            modifier = Modifier.clickable {
-                greetingIndex = (greetingIndex + 1) % greetings.size
-            }
+            modifier = Modifier
+                .graphicsLayer {
+                    alpha = greetingAlpha
+                    translationY = -with(density) { 10.dp.toPx() } * collapseProgress
+                }
+                .clickable(
+                    interactionSource = greetingInteraction,
+                    indication = null,
+                    enabled = greetingAlpha > 0.25f,
+                ) {
+                    greetingIndex = (greetingIndex + 1) % greetings.size
+                },
         ) {
             AnimatedContent(
                 targetState = greetings[greetingIndex % greetings.size],
@@ -1040,9 +1181,15 @@ private fun ChordPlayHomeHeader(
             ) { greeting ->
                 Text(
                     text = greeting,
-                    style = titleStyle,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 15.5.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = (-0.1).sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
