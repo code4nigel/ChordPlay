@@ -1264,7 +1264,14 @@ object AppSettings {
             ?.let { saved -> LibraryViewMode.entries.firstOrNull { it.name == saved } }
             ?: LibraryViewMode.GRID
         speedDialLayoutMode.value = prefs.getString(KEY_SPEED_DIAL_LAYOUT_MODE, null)
-            ?.let { saved -> if (saved == "COMPACT_CAROUSEL") SpeedDialLayoutMode.ONE_BY_FOUR_LIST else SpeedDialLayoutMode.entries.firstOrNull { it.name == saved } }
+            ?.let { saved ->
+                when (saved) {
+                    "COMPACT_CAROUSEL" -> SpeedDialLayoutMode.ONE_BY_FOUR_LIST
+                    "THREE_BY_FOUR" -> SpeedDialLayoutMode.THREE_BY_THREE
+                    "TWO_BY_THREE" -> SpeedDialLayoutMode.TWO_BY_FOUR
+                    else -> SpeedDialLayoutMode.entries.firstOrNull { it.name == saved }
+                }
+            }
             ?: SpeedDialLayoutMode.THREE_BY_THREE
         speedDialSource.value = prefs.getString(KEY_SPEED_DIAL_SOURCE, null)
             ?.let { saved -> SpeedDialSource.entries.firstOrNull { it.name == saved } }

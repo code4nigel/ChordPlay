@@ -500,9 +500,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         onToggleLayoutMode = {
                             AppUi.host.setSpeedDialLayoutMode(speedDialLayoutMode.next())
                         },
-                        tabs = availableDialTabs,
-                        activeTab = activeDialTab,
-                        onTabSelect = onDialTabChange,
                         onOpenCustomize = onOpenYourSpaceCustomize,
                     )
                 }
@@ -540,7 +537,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         activeTab = activeDialTab,
                         onTabChange = onDialTabChange,
                         onReorderPinned = onReorderPinnedSpeedDial,
-                        modifier = Modifier.padding(bottom = 6.dp),
+                        modifier = Modifier.padding(bottom = 2.dp),
                     )
                 }
             }

@@ -199,7 +199,7 @@ private class ChordWaveController(
 }
 
 /**
- * Full-bleed square "Chord Wave" discovery tile for the 3×3 and 3×4 Your Space grids.
+ * Full-bleed square "Chord Wave" discovery tile for the 3×3 Your Space grid.
  * Renders 3 layered liquid harmonic ribbons that breathe gently at rest, ripple & surge into a
  * continuous fluid wave while a lucky radio track resolves, and lock with a luminous bloom the
  * moment audio begins playing.
@@ -288,7 +288,7 @@ fun ChordWaveArtworkTile(
 }
 
 /**
- * Compact horizontal "Chord Wave" card for 2×3 Cards and 1×4 List modes.
+ * Compact horizontal "Chord Wave" card for 2×4 Cards and 1×4 List modes.
  */
 @Composable
 fun ChordWaveCompactCard(

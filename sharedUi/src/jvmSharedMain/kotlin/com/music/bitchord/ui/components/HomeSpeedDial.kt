@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -55,10 +54,10 @@ import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Sensors
-import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,6 +80,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -98,6 +98,8 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
@@ -130,9 +132,6 @@ import com.music.bitchord.sharedui.resources.customize_your_space
 import com.music.bitchord.sharedui.resources.your_space
 import com.music.bitchord.sharedui.resources.your_space_artists_empty
 import com.music.bitchord.sharedui.resources.your_space_mixes_empty
-import com.music.bitchord.sharedui.resources.your_space_tab_artists
-import com.music.bitchord.sharedui.resources.your_space_tab_mixes
-import com.music.bitchord.sharedui.resources.your_space_tab_space
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -172,152 +171,83 @@ private const val WIGGLE_TAU = 6.2831855f
 private const val WIGGLE_DIM = 0.48f
 
 /**
- * Section header for Your Space: title, quick layout switcher, live Customize trigger,
- * and subtle tappable dial-tab pills (`Space` · `Mixes` · optional `Artists`).
+ * Section header for Your Space: title, 3-dot Customize trigger (left), and layout switcher (right).
  */
 @Composable
 fun SpeedDialSectionHeader(
     layoutMode: SpeedDialLayoutMode,
     onToggleLayoutMode: () -> Unit,
     modifier: Modifier = Modifier,
-    tabs: List<YourSpaceDialTab> = listOf(YourSpaceDialTab.SPACE),
-    activeTab: YourSpaceDialTab = YourSpaceDialTab.SPACE,
-    onTabSelect: (YourSpaceDialTab) -> Unit = {},
     onOpenCustomize: (() -> Unit)? = null,
 ) {
     val haptics = rememberHaptics()
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PAGE_GUTTER, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(Res.string.your_space),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp,
-                ),
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(Res.string.your_space),
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.5).sp,
+            ),
+            color = MaterialTheme.colorScheme.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (onOpenCustomize != null) {
+                val customizeLabel = stringResource(Res.string.customize_your_space)
                 IconButton(
                     onClick = {
                         haptics.play(Haptic.Tap)
-                        onToggleLayoutMode()
+                        onOpenCustomize()
                     },
                     modifier = Modifier.size(48.dp),
                 ) {
-                    val icon = when (layoutMode) {
-                        SpeedDialLayoutMode.TWO_BY_THREE -> BitChordIcons.GridView
-                        SpeedDialLayoutMode.THREE_BY_THREE,
-                        SpeedDialLayoutMode.THREE_BY_FOUR,
-                        -> Icons.Rounded.Apps
-                        SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> BitChordIcons.ListView
-                    }
                     Icon(
-                        imageVector = icon,
-                        contentDescription = "Switch layout: ${layoutMode.label}",
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = customizeLabel,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp),
                     )
                 }
-                if (onOpenCustomize != null) {
-                    val customizeLabel = stringResource(Res.string.customize_your_space)
-                    IconButton(
-                        onClick = {
-                            haptics.play(Haptic.Tap)
-                            onOpenCustomize()
-                        },
-                        modifier = Modifier.size(48.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = customizeLabel,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
             }
-        }
-
-        if (tabs.size > 1) {
-            Spacer(Modifier.height(2.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            IconButton(
+                onClick = {
+                    haptics.play(Haptic.Tap)
+                    onToggleLayoutMode()
+                },
+                modifier = Modifier.size(48.dp),
             ) {
-                tabs.forEach { tab ->
-                    val selected = tab == activeTab
-                    val label = when (tab) {
-                        YourSpaceDialTab.SPACE -> stringResource(Res.string.your_space_tab_space)
-                        YourSpaceDialTab.MIXES -> stringResource(Res.string.your_space_tab_mixes)
-                        YourSpaceDialTab.ARTISTS -> stringResource(Res.string.your_space_tab_artists)
-                    }
-                    val pillBg = when {
-                        selected -> MaterialTheme.colorScheme.primary.copy(alpha = if (isDark) 0.22f else 0.14f)
-                        isDark -> Color.White.copy(alpha = 0.06f)
-                        else -> Color.Black.copy(alpha = 0.05f)
-                    }
-                    val pillBorder = when {
-                        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
-                        isDark -> Color.White.copy(alpha = 0.08f)
-                        else -> Color.Black.copy(alpha = 0.06f)
-                    }
-                    val textColor = if (selected) {
-                        if (isDark) Color.White else MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Box(
-                        modifier = Modifier
-                            .heightIn(min = 34.dp)
-                            .clip(RoundedCornerShape(50))
-                            .background(pillBg)
-                            .border(0.75.dp, pillBorder, RoundedCornerShape(50))
-                            .clickable(role = Role.Tab) {
-                                if (!selected) {
-                                    haptics.play(Haptic.Select)
-                                    onTabSelect(tab)
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                letterSpacing = 0.1.sp,
-                            ),
-                            color = textColor,
-                            maxLines = 1,
-                        )
-                    }
+                val icon = when (layoutMode) {
+                    SpeedDialLayoutMode.TWO_BY_FOUR -> BitChordIcons.GridView
+                    SpeedDialLayoutMode.THREE_BY_THREE -> Icons.Rounded.Apps
+                    SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> BitChordIcons.ListView
                 }
+                Icon(
+                    imageVector = icon,
+                    contentDescription = "Switch layout: ${layoutMode.label}",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
             }
-            Spacer(Modifier.height(4.dp))
         }
     }
 }
 
 /**
  * Adaptive Speed Dial / Your Space host supporting:
- * - Multi-dial horizontal swipe + header pill switching (`Space`, `Mixes`, optional `Artists`)
- * - Full-bleed 3-column square artwork grids (`3×3` and `3×4`) with selectable edge treatments,
- *   drag-to-reorder pins, velocity-reactive swipe tilt, diagonal staggered entrance, smooth art
+ * - Multi-dial horizontal swipe (`Space`, `Mixes`, optional `Artists`)
+ * - Full-bleed 3-column square artwork grid (`3×3`) with selectable edge treatments,
+ *   drag-to-reorder pins, velocity-reactive swipe tilt, staggered diagonal entrance, smooth art
  *   wipe, and ChordPlay's original **Chord Wave** discovery animation
- * - Classic `2×3` compact cards and `1×4` horizontal track list modes
+ * - Unified `2×4` compact cards and `1×4` horizontal track list modes
  */
 @Composable
 fun HomeSpeedDial(
@@ -448,19 +378,46 @@ fun HomeSpeedDial(
     val handoff = remember(outerPagerState, minFlingPx, rtl) {
         DialTabFlingHandoff(outerPagerState, minFlingPx, rtl)
     }
+    val tabHeights = remember { mutableStateMapOf<YourSpaceDialTab, Int>() }
 
     HorizontalPager(
         state = outerPagerState,
         verticalAlignment = Alignment.Top,
         key = { tabs[it].name },
         beyondViewportPageCount = 1,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds()
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                val maxIdx = tabs.lastIndex.coerceAtLeast(0)
+                val pageFloat = (outerPagerState.currentPage + outerPagerState.currentPageOffsetFraction)
+                    .coerceIn(0f, maxIdx.toFloat())
+                val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
+                val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
+                val frac = pageFloat - fromIdx
+                val fromH = tabHeights[tabs[fromIdx]]
+                val toH = tabHeights[tabs[toIdx]]
+                val targetH = when {
+                    fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
+                    fromH != null -> fromH
+                    else -> placeable.height
+                }.coerceIn(0, constraints.maxHeight)
+                layout(placeable.width, targetH) {
+                    placeable.placeRelative(0, 0)
+                }
+            },
     ) { pageIndex ->
         val tab = tabs[pageIndex]
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .nestedScroll(handoff),
+                .nestedScroll(handoff)
+                .onSizeChanged { size ->
+                    if (size.height > 0 && tabHeights[tab] != size.height) {
+                        tabHeights[tab] = size.height
+                    }
+                },
         ) {
             YourSpaceTabContent(
                 tab = tab,
@@ -516,76 +473,50 @@ private fun YourSpaceTabContent(
     when (tab) {
         YourSpaceDialTab.SPACE -> {
             if (spaceItems.isEmpty()) return
-            when (layoutMode) {
-                SpeedDialLayoutMode.THREE_BY_THREE,
-                SpeedDialLayoutMode.THREE_BY_FOUR,
-                -> HomeSpeedDialArtworkGrid(
-                    items = spaceItems,
-                    pinnedIds = pinnedIds,
-                    rows = artworkRows,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = palette,
-                    tileStyle = tileStyle,
-                    showLabels = showLabels,
-                    labelOverrides = labelOverrides,
-                    showPinBadge = showPinBadge,
-                    includeLucky = showChordWave,
-                    showSourceBadge = false,
-                    isArtistDial = false,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onItemLongPress = onItemLongPress,
-                    onLuckyDialRoll = onLuckyDialRoll,
-                    onReorderPinned = onReorderPinned,
-                    modifier = modifier,
-                )
-
-                SpeedDialLayoutMode.TWO_BY_THREE -> HomeSpeedDialTwoByThree(
-                    items = spaceItems,
-                    pinnedIds = pinnedIds,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = palette,
-                    showPinBadge = showPinBadge,
-                    showChordWave = showChordWave,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onLuckyDialRoll = onLuckyDialRoll,
-                    onItemLongPress = onItemLongPress,
-                    onPlayMixClick = onPlayMixClick,
-                    modifier = modifier,
-                )
-
-                SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> HomeSpeedDialList(
-                    items = spaceItems,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = palette,
-                    showChordWave = showChordWave,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onLuckyDialRoll = onLuckyDialRoll,
-                    onItemLongPress = onItemLongPress,
-                    modifier = modifier,
-                )
-            }
+            YourSpaceLayoutSwitch(
+                items = spaceItems,
+                pinnedIds = pinnedIds,
+                rows = artworkRows,
+                currentSong = currentSong,
+                isPlaying = isPlaying,
+                palette = palette,
+                layoutMode = layoutMode,
+                tileStyle = tileStyle,
+                showLabels = showLabels,
+                labelOverrides = labelOverrides,
+                showPinBadge = showPinBadge,
+                includeLucky = showChordWave,
+                showSourceBadge = false,
+                isArtistDial = false,
+                reduceAnimation = reduceAnimation,
+                onItemClick = onItemClick,
+                onItemLongPress = onItemLongPress,
+                onPlayMixClick = onPlayMixClick,
+                onLuckyDialRoll = onLuckyDialRoll,
+                onReorderPinned = onReorderPinned,
+                modifier = modifier,
+            )
         }
 
         YourSpaceDialTab.MIXES -> {
             when {
-                mixesItems == null -> ArtworkDialSkeletonGrid(rows = artworkRows, modifier = modifier)
+                mixesItems == null -> when (layoutMode) {
+                    SpeedDialLayoutMode.THREE_BY_THREE -> ArtworkDialSkeletonGrid(rows = artworkRows, modifier = modifier)
+                    SpeedDialLayoutMode.TWO_BY_FOUR -> TwoByFourDialSkeletonGrid(modifier = modifier)
+                    SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> ArtworkDialSkeletonGrid(rows = artworkRows, modifier = modifier)
+                }
                 mixesItems.isEmpty() -> EmptyDialNotice(
                     message = stringResource(Res.string.your_space_mixes_empty),
                     modifier = modifier,
                 )
-                else -> HomeSpeedDialArtworkGrid(
+                else -> YourSpaceLayoutSwitch(
                     items = mixesItems,
                     pinnedIds = pinnedIds,
                     rows = artworkRows,
                     currentSong = currentSong,
                     isPlaying = isPlaying,
                     palette = palette,
+                    layoutMode = layoutMode,
                     tileStyle = tileStyle,
                     showLabels = showLabels,
                     labelOverrides = labelOverrides,
@@ -596,6 +527,7 @@ private fun YourSpaceTabContent(
                     reduceAnimation = reduceAnimation,
                     onItemClick = onItemClick,
                     onItemLongPress = onItemLongPress,
+                    onPlayMixClick = onPlayMixClick,
                     onLuckyDialRoll = onLuckyDialRoll,
                     onReorderPinned = null,
                     modifier = modifier,
@@ -610,13 +542,14 @@ private fun YourSpaceTabContent(
                     modifier = modifier,
                 )
             } else {
-                HomeSpeedDialArtworkGrid(
+                YourSpaceLayoutSwitch(
                     items = artistItems,
                     pinnedIds = pinnedIds,
                     rows = artworkRows,
                     currentSong = currentSong,
                     isPlaying = isPlaying,
                     palette = palette,
+                    layoutMode = layoutMode,
                     tileStyle = tileStyle,
                     showLabels = showLabels,
                     labelOverrides = labelOverrides,
@@ -627,12 +560,92 @@ private fun YourSpaceTabContent(
                     reduceAnimation = reduceAnimation,
                     onItemClick = onItemClick,
                     onItemLongPress = onItemLongPress,
+                    onPlayMixClick = onPlayMixClick,
                     onLuckyDialRoll = onLuckyDialRoll,
                     onReorderPinned = null,
                     modifier = modifier,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun YourSpaceLayoutSwitch(
+    items: List<ShelfItem>,
+    pinnedIds: Set<String>,
+    rows: Int,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    palette: ArtworkPalette,
+    layoutMode: SpeedDialLayoutMode,
+    tileStyle: SpeedDialTileStyle,
+    showLabels: Boolean,
+    labelOverrides: Set<String>,
+    showPinBadge: Boolean,
+    includeLucky: Boolean,
+    showSourceBadge: Boolean,
+    isArtistDial: Boolean,
+    reduceAnimation: Boolean,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onPlayMixClick: ((ShelfItem) -> Unit)?,
+    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    onReorderPinned: ((List<ShelfItem>) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    when (layoutMode) {
+        SpeedDialLayoutMode.THREE_BY_THREE -> HomeSpeedDialArtworkGrid(
+            items = items,
+            pinnedIds = pinnedIds,
+            rows = rows,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            palette = palette,
+            tileStyle = tileStyle,
+            showLabels = showLabels,
+            labelOverrides = labelOverrides,
+            showPinBadge = showPinBadge,
+            includeLucky = includeLucky,
+            showSourceBadge = showSourceBadge,
+            isArtistDial = isArtistDial,
+            reduceAnimation = reduceAnimation,
+            onItemClick = onItemClick,
+            onItemLongPress = onItemLongPress,
+            onLuckyDialRoll = onLuckyDialRoll,
+            onReorderPinned = onReorderPinned,
+            modifier = modifier,
+        )
+
+        SpeedDialLayoutMode.TWO_BY_FOUR -> HomeSpeedDialTwoByFour(
+            items = items,
+            pinnedIds = pinnedIds,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            palette = palette,
+            showPinBadge = showPinBadge,
+            showChordWave = includeLucky,
+            showSourceBadge = showSourceBadge,
+            reduceAnimation = reduceAnimation,
+            onItemClick = onItemClick,
+            onLuckyDialRoll = onLuckyDialRoll,
+            onItemLongPress = onItemLongPress,
+            onPlayMixClick = onPlayMixClick,
+            modifier = modifier,
+        )
+
+        SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> HomeSpeedDialList(
+            items = items,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            palette = palette,
+            showChordWave = includeLucky,
+            reduceAnimation = reduceAnimation,
+            onItemClick = onItemClick,
+            onLuckyDialRoll = onLuckyDialRoll,
+            onItemLongPress = onItemLongPress,
+            modifier = modifier,
+        )
     }
 }
 
@@ -712,8 +725,36 @@ private fun ArtworkDialSkeletonGrid(
     }
 }
 
+@Composable
+private fun TwoByFourDialSkeletonGrid(
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        repeat(4) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                repeat(2) {
+                    ShimmerBox(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(64.dp),
+                        shape = RoundedCornerShape(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
- * Full-bleed 3-column square artwork grid for `3×3` and `3×4` modes, Mixes Dial, and Artist Dial.
+ * Full-bleed 3-column square artwork grid for `3×3` mode, Mixes Dial, and Artist Dial.
  * Includes in-grid drag-to-reorder for pinned items, velocity-reactive swipe tilt, staggered
  * diagonal entrance, and smooth diagonal cover wipes.
  */
@@ -1077,29 +1118,40 @@ private fun HomeSpeedDialArtworkGrid(
             }
         }
 
-        // Page indicator dots
-        if (pageCount > 1) {
-            Row(
+        SpeedDialPageDots(
+            pageCount = pageCount,
+            currentPage = pagerState.currentPage,
+            accent = palette.accent,
+        )
+    }
+}
+
+@Composable
+private fun SpeedDialPageDots(
+    pageCount: Int,
+    currentPage: Int,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    if (pageCount <= 1) return
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(pageCount) { pageIdx ->
+            val selected = currentPage == pageIdx
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(22.dp)
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                repeat(pageCount) { pageIdx ->
-                    val selected = pagerState.currentPage == pageIdx
-                    Box(
-                        modifier = Modifier
-                            .size(width = if (selected) 16.dp else 5.dp, height = 5.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (selected) palette.accent
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            ),
-                    )
-                }
-            }
+                    .size(width = if (selected) 16.dp else 5.dp, height = 5.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (selected) accent
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                    ),
+            )
         }
     }
 }
@@ -1409,7 +1461,7 @@ private fun rememberSwipeTilt(
 }
 
 @Composable
-private fun HomeSpeedDialTwoByThree(
+private fun HomeSpeedDialTwoByFour(
     items: List<ShelfItem>,
     pinnedIds: Set<String>,
     currentSong: Song?,
@@ -1417,6 +1469,7 @@ private fun HomeSpeedDialTwoByThree(
     palette: ArtworkPalette,
     showPinBadge: Boolean,
     showChordWave: Boolean,
+    showSourceBadge: Boolean,
     reduceAnimation: Boolean,
     onItemClick: (ShelfItem) -> Unit,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
@@ -1425,32 +1478,35 @@ private fun HomeSpeedDialTwoByThree(
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val page1Limit = if (showChordWave) 5 else 6
+    val page1Limit = if (showChordWave) 7 else 8
     val page1Items = items.take(page1Limit)
     val remainingItems = items.drop(page1Limit)
-    val additionalPages = if (remainingItems.isNotEmpty()) remainingItems.chunked(6) else emptyList()
+    val additionalPages = if (remainingItems.isNotEmpty()) remainingItems.chunked(8) else emptyList()
     val totalPages = 1 + additionalPages.size
 
     val pagerState = rememberPagerState(pageCount = { totalPages })
 
-    var showIndicators by remember { mutableStateOf(false) }
+    var showBackButton by remember { mutableStateOf(false) }
     LaunchedEffect(pagerState.isScrollInProgress) {
         if (pagerState.isScrollInProgress) {
-            showIndicators = true
+            showBackButton = true
         } else {
-            delay(2000L)
-            showIndicators = false
+            delay(1400L)
+            showBackButton = false
         }
     }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+            .padding(vertical = 6.dp),
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             HorizontalPager(
                 state = pagerState,
+                pageSpacing = 12.dp,
+                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth(),
             ) { pageIndex ->
                 Column(
@@ -1458,92 +1514,82 @@ private fun HomeSpeedDialTwoByThree(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (pageIndex == 0) {
-                        SpeedDialRow(
-                            item1 = page1Items.getOrNull(0),
-                            item2 = page1Items.getOrNull(1),
-                            pinnedIds = pinnedIds,
-                            showPinBadge = showPinBadge,
-                            currentSong = currentSong,
-                            isPlaying = isPlaying,
-                            palette = palette,
-                            onItemClick = onItemClick,
-                            onItemLongPress = onItemLongPress,
-                            onPlayMixClick = onPlayMixClick,
-                        )
-                        SpeedDialRow(
-                            item1 = page1Items.getOrNull(2),
-                            item2 = page1Items.getOrNull(3),
-                            pinnedIds = pinnedIds,
-                            showPinBadge = showPinBadge,
-                            currentSong = currentSong,
-                            isPlaying = isPlaying,
-                            palette = palette,
-                            onItemClick = onItemClick,
-                            onItemLongPress = onItemLongPress,
-                            onPlayMixClick = onPlayMixClick,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            val item4 = page1Items.getOrNull(4)
-                            if (item4 != null) {
-                                val id4 = item4.speedDialStableId()
-                                SpeedDialTile(
-                                    item = item4,
-                                    isPinned = showPinBadge && (id4 in pinnedIds || item4.videoId in pinnedIds || item4.browseId in pinnedIds),
-                                    isCurrent = isItemCurrent(item4, currentSong),
+                        val page1Entries: List<ShelfItem?> = buildList {
+                            addAll(page1Items)
+                            if (showChordWave) add(null)
+                        }
+                        val rows = page1Entries.chunked(2)
+                        rows.forEach { pair ->
+                            val first = pair.getOrNull(0)
+                            val second = pair.getOrNull(1)
+                            val hasLuckyInRow = pair.size == 1 && first == null ||
+                                (pair.size == 2 && second == null && showChordWave &&
+                                    page1Entries.lastIndexOf(null) == page1Entries.lastIndex)
+                            if (!hasLuckyInRow) {
+                                SpeedDialRow(
+                                    item1 = first,
+                                    item2 = second,
+                                    pinnedIds = pinnedIds,
+                                    showPinBadge = showPinBadge,
+                                    showSourceBadge = showSourceBadge,
+                                    currentSong = currentSong,
                                     isPlaying = isPlaying,
                                     palette = palette,
-                                    isCompact = false,
                                     onItemClick = onItemClick,
                                     onItemLongPress = onItemLongPress,
                                     onPlayMixClick = onPlayMixClick,
-                                    modifier = Modifier.weight(1f),
                                 )
                             } else {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-
-                            if (showChordWave) {
-                                ChordWaveCompactCard(
-                                    palette = palette,
-                                    isDark = isDark,
-                                    reduceAnimation = reduceAnimation,
-                                    onRoll = onLuckyDialRoll,
-                                    isCompact = false,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            } else {
-                                val item5 = page1Items.getOrNull(5)
-                                if (item5 != null) {
-                                    val id5 = item5.speedDialStableId()
-                                    SpeedDialTile(
-                                        item = item5,
-                                        isPinned = showPinBadge && (id5 in pinnedIds || item5.videoId in pinnedIds || item5.browseId in pinnedIds),
-                                        isCurrent = isItemCurrent(item5, currentSong),
-                                        isPlaying = isPlaying,
-                                        palette = palette,
-                                        isCompact = false,
-                                        onItemClick = onItemClick,
-                                        onItemLongPress = onItemLongPress,
-                                        onPlayMixClick = onPlayMixClick,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                } else {
-                                    Spacer(modifier = Modifier.weight(1f))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (first != null) {
+                                        val firstId = first.speedDialStableId()
+                                        SpeedDialTile(
+                                            item = first,
+                                            isPinned = showPinBadge && (firstId in pinnedIds || first.videoId in pinnedIds || first.browseId in pinnedIds),
+                                            isCurrent = isItemCurrent(first, currentSong),
+                                            isPlaying = isPlaying,
+                                            palette = palette,
+                                            showSourceBadge = showSourceBadge,
+                                            isCompact = false,
+                                            onItemClick = onItemClick,
+                                            onItemLongPress = onItemLongPress,
+                                            onPlayMixClick = onPlayMixClick,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        ChordWaveCompactCard(
+                                            palette = palette,
+                                            isDark = isDark,
+                                            reduceAnimation = reduceAnimation,
+                                            onRoll = onLuckyDialRoll,
+                                            isCompact = false,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    } else {
+                                        ChordWaveCompactCard(
+                                            palette = palette,
+                                            isDark = isDark,
+                                            reduceAnimation = reduceAnimation,
+                                            onRoll = onLuckyDialRoll,
+                                            isCompact = false,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
                     } else {
                         val pageItems = additionalPages.getOrNull(pageIndex - 1).orEmpty()
-                        val rows = pageItems.chunked(2)
-                        rows.forEach { rowItems ->
+                        pageItems.chunked(2).forEach { rowItems ->
                             SpeedDialRow(
                                 item1 = rowItems.getOrNull(0),
                                 item2 = rowItems.getOrNull(1),
                                 pinnedIds = pinnedIds,
                                 showPinBadge = showPinBadge,
+                                showSourceBadge = showSourceBadge,
                                 currentSong = currentSong,
                                 isPlaying = isPlaying,
                                 palette = palette,
@@ -1552,20 +1598,17 @@ private fun HomeSpeedDialTwoByThree(
                                 onPlayMixClick = onPlayMixClick,
                             )
                         }
-                        repeat(3 - rows.size) {
-                            Spacer(modifier = Modifier.height(64.dp))
-                        }
                     }
                 }
             }
 
             androidx.compose.animation.AnimatedVisibility(
-                visible = showIndicators && pagerState.currentPage > 0,
+                visible = showBackButton && pagerState.currentPage > 0,
                 enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { -it },
                 exit = fadeOut(tween(350)) + slideOutHorizontally(tween(350)) { -it },
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = 4.dp),
+                    .padding(start = PAGE_GUTTER + 4.dp),
             ) {
                 val coroutineScope = rememberCoroutineScope()
                 Box(
@@ -1597,39 +1640,11 @@ private fun HomeSpeedDialTwoByThree(
             }
         }
 
-        if (totalPages > 1) {
-            val indicatorAlpha by animateFloatAsState(
-                targetValue = if (showIndicators) 1f else 0f,
-                animationSpec = tween(durationMillis = 300),
-                label = "indicatorAlpha",
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    modifier = Modifier.graphicsLayer { alpha = indicatorAlpha },
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    repeat(totalPages) { pageIdx ->
-                        val isSelected = pagerState.currentPage == pageIdx
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 3.dp)
-                                .size(if (isSelected) 6.dp else 4.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                ),
-                        )
-                    }
-                }
-            }
-        }
+        SpeedDialPageDots(
+            pageCount = totalPages,
+            currentPage = pagerState.currentPage,
+            accent = palette.accent,
+        )
     }
 }
 
@@ -1707,6 +1722,7 @@ private fun SpeedDialRow(
     item2: ShelfItem?,
     pinnedIds: Set<String>,
     showPinBadge: Boolean,
+    showSourceBadge: Boolean,
     currentSong: Song?,
     isPlaying: Boolean,
     palette: ArtworkPalette,
@@ -1727,6 +1743,7 @@ private fun SpeedDialRow(
                 isCurrent = isItemCurrent(item1, currentSong),
                 isPlaying = isPlaying,
                 palette = palette,
+                showSourceBadge = showSourceBadge,
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
@@ -1745,6 +1762,7 @@ private fun SpeedDialRow(
                 isCurrent = isItemCurrent(item2, currentSong),
                 isPlaying = isPlaying,
                 palette = palette,
+                showSourceBadge = showSourceBadge,
                 isCompact = false,
                 onItemClick = onItemClick,
                 onItemLongPress = onItemLongPress,
@@ -1826,6 +1844,7 @@ private fun SpeedDialArtwork(
     isPinned: Boolean,
     isCurrent: Boolean,
     isPlaying: Boolean,
+    showSourceBadge: Boolean,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onItemClick: (ShelfItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -2093,21 +2112,23 @@ private fun SpeedDialArtwork(
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(2.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(palette.accent)
-                            .padding(horizontal = 3.dp, vertical = 1.dp),
-                    ) {
-                        Text(
-                            text = "MIX",
-                            color = mixBadgeText,
-                            fontSize = 7.sp,
-                            fontWeight = FontWeight.Black,
-                            lineHeight = 8.sp,
-                        )
+                    if (!showSourceBadge) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(2.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(palette.accent)
+                                .padding(horizontal = 3.dp, vertical = 1.dp),
+                        ) {
+                            Text(
+                                text = "MIX",
+                                color = mixBadgeText,
+                                fontSize = 7.sp,
+                                fontWeight = FontWeight.Black,
+                                lineHeight = 8.sp,
+                            )
+                        }
                     }
 
                     if (!isPinned) {
@@ -2163,6 +2184,16 @@ private fun SpeedDialArtwork(
             }
         }
 
+        if (showSourceBadge) {
+            MixSourceBadge(
+                source = mixBadgeSourceOf(item),
+                artworkUrl = candidateArtUrl,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .clip(RoundedCornerShape(topStart = 12.dp)),
+            )
+        }
+
         if (isCurrent && isPlaying) {
             SearchPlayingBars(modifier = Modifier.align(Alignment.Center))
         }
@@ -2200,6 +2231,7 @@ private fun SpeedDialTile(
     palette: ArtworkPalette,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    showSourceBadge: Boolean = false,
     isCompact: Boolean = false,
     modifier: Modifier = Modifier,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
@@ -2268,6 +2300,7 @@ private fun SpeedDialTile(
                 isPinned = isPinned,
                 isCurrent = isCurrent,
                 isPlaying = isPlaying,
+                showSourceBadge = showSourceBadge,
                 onPlayMixClick = onPlayMixClick,
                 onItemClick = onItemClick,
             )

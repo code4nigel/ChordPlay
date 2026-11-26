@@ -86,4 +86,16 @@ class SpeedDialConfigTest {
         val songItem = ShelfItem("Track", "Artist", null, videoId = "vid_99", browseId = "VL_ignored")
         assertEquals("vid_99", songItem.speedDialStableId())
     }
+
+    @Test
+    fun speedDialLayoutModeExcludesThreeByFourAndCyclesCleanly() {
+        assertEquals(
+            listOf(SpeedDialLayoutMode.TWO_BY_FOUR, SpeedDialLayoutMode.THREE_BY_THREE, SpeedDialLayoutMode.ONE_BY_FOUR_LIST),
+            SpeedDialLayoutMode.entries,
+        )
+        assertEquals(SpeedDialLayoutMode.THREE_BY_THREE, SpeedDialLayoutMode.TWO_BY_FOUR.next())
+        assertEquals(SpeedDialLayoutMode.ONE_BY_FOUR_LIST, SpeedDialLayoutMode.THREE_BY_THREE.next())
+        assertEquals(SpeedDialLayoutMode.TWO_BY_FOUR, SpeedDialLayoutMode.ONE_BY_FOUR_LIST.next())
+        assertEquals(3, SpeedDialLayoutMode.THREE_BY_THREE.gridRows)
+    }
 }

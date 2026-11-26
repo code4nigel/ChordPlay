@@ -200,7 +200,7 @@ fun YourSpaceCustomizeSheet(
             ) {
                 // Layout Selector
                 val layoutOptions = SpeedDialLayoutMode.entries
-                val layoutLabels = listOf("2×3", "3×3", "3×4", "List")
+                val layoutLabels = listOf("2×4", "3×3", "List")
                 SheetSegmentedSection(
                     title = stringResource(Res.string.speed_dial_layout),
                     labels = layoutLabels,
