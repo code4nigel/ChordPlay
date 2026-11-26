@@ -1883,4 +1883,15 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="taste_marked_ai_notice">Đã đánh dấu %1$s là AI</string>
     <string name="taste_more_like">Phát thêm giống %1$s</string>
     <string name="undo">Hoàn tác</string>
+    <string name="audio_choices_tab_artists">Nghệ sĩ</string>
+    <string name="audio_choices_tab_songs">Bài hát</string>
+    <string name="audio_choices_adjust_hint">Chạm - hoặc + để điều chỉnh mức ưu tiên</string>
+    <string name="audio_choices_decrease">Giảm</string>
+    <string name="audio_choices_increase">Tăng</string>
+    <string name="audio_choices_pushed_less">Giảm bớt</string>
+    <string name="audio_choices_boosted">Ưu tiên</string>
+    <string name="audio_choices_artists_empty">Chưa có nghệ sĩ nào. Hãy nghe nhạc hoặc tinh chỉnh nghệ sĩ trong Chord Wave để xem tại đây.</string>
+    <string name="audio_choices_songs_empty">Chưa có bài hát nào được chỉnh hay chặn. Nhấn giữ Chord Wave để chọn Nhiều hơn, Ít hơn hoặc Không bao giờ.</string>
+    <string name="audio_choices_filter_all">Tất cả</string>
+    <string name="audio_choices_filter_ai_acts">Nghệ sĩ AI</string>
 </resources>

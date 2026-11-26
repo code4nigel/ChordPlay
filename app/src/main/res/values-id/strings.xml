@@ -1944,4 +1944,15 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="taste_marked_ai_notice">%1$s ditandai sebagai AI</string>
     <string name="taste_more_like">Lebih banyak seperti %1$s</string>
     <string name="undo">Urungkan</string>
+    <string name="audio_choices_tab_artists">Artis</string>
+    <string name="audio_choices_tab_songs">Lagu</string>
+    <string name="audio_choices_adjust_hint">Ketuk - atau + untuk mengatur prioritas</string>
+    <string name="audio_choices_decrease">Kurangi</string>
+    <string name="audio_choices_increase">Tambah</string>
+    <string name="audio_choices_pushed_less">Dikurangi</string>
+    <string name="audio_choices_boosted">Ditingkatkan</string>
+    <string name="audio_choices_artists_empty">Belum ada artis yang dilacak. Putar musik atau atur artis di Chord Wave untuk melihatnya di sini.</string>
+    <string name="audio_choices_songs_empty">Belum ada lagu yang disetel atau diblokir. Tekan lama Chord Wave untuk menandai Lebih, Kurang, atau Jangan.</string>
+    <string name="audio_choices_filter_all">Semua</string>
+    <string name="audio_choices_filter_ai_acts">Artis AI</string>
 </resources>

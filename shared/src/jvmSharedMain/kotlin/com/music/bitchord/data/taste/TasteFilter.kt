@@ -160,6 +160,9 @@ object TasteFilter {
             val artistWeight = snapshot.weightFor(TasteCategory.ARTIST, artistKey)
             score += (artistWeight - TasteConstants.DEFAULT_NEUTRAL_WEIGHT) * 0.75f
         }
+        snapshot.tunedSongs[song.videoId]?.let { tuned ->
+            score += (tuned.weight - TasteConstants.DEFAULT_NEUTRAL_WEIGHT) * 0.90f
+        }
         return score.coerceAtLeast(1f)
     }
 

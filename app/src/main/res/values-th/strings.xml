@@ -1950,4 +1950,15 @@
     <string name="taste_marked_ai_notice">ทำเครื่องหมาย %1$s เป็น AI แล้ว</string>
     <string name="taste_more_like">เล่นแนวเดียวกับ %1$s มากขึ้น</string>
     <string name="undo">เลิกทำ</string>
+    <string name="audio_choices_tab_artists">ศิลปิน</string>
+    <string name="audio_choices_tab_songs">เพลง</string>
+    <string name="audio_choices_adjust_hint">แตะ - หรือ + เพื่อปรับลำดับความสำคัญ</string>
+    <string name="audio_choices_decrease">ลดลง</string>
+    <string name="audio_choices_increase">เพิ่มขึ้น</string>
+    <string name="audio_choices_pushed_less">ลดความถี่</string>
+    <string name="audio_choices_boosted">เน้นมากขึ้น</string>
+    <string name="audio_choices_artists_empty">ยังไม่มีศิลปินที่บันทึกไว้ ลองเล่นเพลงหรือปรับแต่งศิลปินใน Chord Wave เพื่อแสดงที่นี่</string>
+    <string name="audio_choices_songs_empty">ยังไม่มีเพลงที่ปรับแต่งหรือบล็อก กดค้างที่ Chord Wave เพื่อเลือก มากขึ้น น้อยลง หรือไม่เล่น</string>
+    <string name="audio_choices_filter_all">ทั้งหมด</string>
+    <string name="audio_choices_filter_ai_acts">ศิลปิน AI</string>
 </resources>

@@ -1910,6 +1910,23 @@ private fun BitChordApp(
     val undoLabel = stringResource(R.string.undo)
     LaunchedEffect(tasteNotice?.id) {
         val notice = tasteNotice ?: return@LaunchedEffect
+        if (notice.checkCurrentPlayback) {
+            val activeSong = player.song
+            if (activeSong != null && TasteFilter.isBlocked(activeSong)) {
+                val activeSource = activeSong.playbackSource.orEmpty()
+                if (activeSource.equals("Chord Wave", ignoreCase = true) ||
+                    ChordWaveEngine.currentWaveSong.value?.videoId == activeSong.videoId
+                ) {
+                    viewModel.playLuckyRadio(onPlayRadio = playRadio)
+                } else {
+                    controller?.seekToNextMediaItem()
+                }
+            }
+        }
+        // Let the modal bottom sheet tear down before showing the floating toast so
+        // the toast never renders underneath the modal dialog window.
+        snapshotFlow { showChordWaveTuneSheet }.first { !it }
+        delay(120)
         queueNoticeId += 1
         val shownId = queueNoticeId
         queueNotice = QueueActionNotice(
@@ -1925,19 +1942,6 @@ private fun BitChordApp(
                 null
             },
         )
-        if (notice.checkCurrentPlayback) {
-            val activeSong = player.song
-            if (activeSong != null && TasteFilter.isBlocked(activeSong)) {
-                val activeSource = activeSong.playbackSource.orEmpty()
-                if (activeSource.equals("Chord Wave", ignoreCase = true) ||
-                    ChordWaveEngine.currentWaveSong.value?.videoId == activeSong.videoId
-                ) {
-                    viewModel.playLuckyRadio(onPlayRadio = playRadio)
-                } else {
-                    controller?.seekToNextMediaItem()
-                }
-            }
-        }
         viewModel.consumeTasteNotice()
     }
 

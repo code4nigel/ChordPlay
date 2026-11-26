@@ -357,6 +357,26 @@ class TasteEngineTest {
         assertTrue(second.videoId != first.videoId)
         assertTrue(second.videoId != "cw3")
 
+        // Blocking restores neutral ordering on unblock & stepNodeWeight adjusts cleanly
+        val hindi = TasteTaxonomy.byKey("hindi")!!
+        val arabic = TasteTaxonomy.byKey("arabic")!!
+        val langKeys = TasteProfileRepository.snapshot.value.activeNodes(TasteCategory.LANGUAGE).map { it.key }
+        assertTrue(langKeys.indexOf("hindi") < langKeys.indexOf("arabic"), "Hindi should sort ahead of Arabic initially, got $langKeys")
+
+        // Stepper +/- shifts weight cleanly and boosts position above equal-weight siblings
+        TasteProfileRepository.stepNodeWeight(TasteTaxonomy.nodeId(arabic), +10f)
+        assertEquals(55f, TasteProfileRepository.snapshot.value.weightForTag(arabic))
+        assertEquals("arabic", TasteProfileRepository.snapshot.value.activeNodes(TasteCategory.LANGUAGE).first().key)
+        TasteProfileRepository.stepNodeWeight(TasteTaxonomy.nodeId(arabic), -20f)
+        assertEquals(35f, TasteProfileRepository.snapshot.value.weightForTag(arabic))
+        assertEquals("hindi", TasteProfileRepository.snapshot.value.activeNodes(TasteCategory.LANGUAGE).first().key)
+
+        // TunedSong boost/reduce persists across JSON round-trip and affects scoreSong
+        val boostedSong = song("ts1", "Boosted Track", "Artist TS")
+        val neutralSong = song("ts2", "Neutral Track", "Artist TS")
+        TasteProfileRepository.boostSong(boostedSong)
+        assertTrue(TasteFilter.scoreSong(boostedSong, TasteProfileRepository.snapshot.value) > TasteFilter.scoreSong(neutralSong, TasteProfileRepository.snapshot.value))
+
         // Discovery sampler returns non-empty query strings
         val (query, _, _) = ChordWaveEngine.sampleBucketQuery(snap, Random(7))
         assertTrue(query.isNotBlank())

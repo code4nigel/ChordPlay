@@ -1971,4 +1971,15 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="taste_marked_ai_notice">%1$s marcado como IA</string>
     <string name="taste_more_like">Mais como %1$s</string>
     <string name="undo">Desfazer</string>
+    <string name="audio_choices_tab_artists">Artistas</string>
+    <string name="audio_choices_tab_songs">Músicas</string>
+    <string name="audio_choices_adjust_hint">Toque em - ou + para ajustar a prioridade</string>
+    <string name="audio_choices_decrease">Diminuir</string>
+    <string name="audio_choices_increase">Aumentar</string>
+    <string name="audio_choices_pushed_less">Reduzido</string>
+    <string name="audio_choices_boosted">Impulsionado</string>
+    <string name="audio_choices_artists_empty">Nenhum artista registrado ainda. Toque músicas ou ajuste um artista no Chord Wave para vê-lo aqui.</string>
+    <string name="audio_choices_songs_empty">Nenhuma música ajustada ou bloqueada ainda. Segure o Chord Wave para marcar Mais, Menos ou Nunca.</string>
+    <string name="audio_choices_filter_all">Todos</string>
+    <string name="audio_choices_filter_ai_acts">Artistas IA</string>
 </resources>

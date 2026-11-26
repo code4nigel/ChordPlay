@@ -1924,4 +1924,15 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="taste_marked_ai_notice">%1$s yapay zeka olarak işaretlendi</string>
     <string name="taste_more_like">%1$s benzeri daha fazla</string>
     <string name="undo">Geri al</string>
+    <string name="audio_choices_tab_artists">Sanatçılar</string>
+    <string name="audio_choices_tab_songs">Şarkılar</string>
+    <string name="audio_choices_adjust_hint">Önceliği ayarlamak için - veya + simgesine dokunun</string>
+    <string name="audio_choices_decrease">Azalt</string>
+    <string name="audio_choices_increase">Artır</string>
+    <string name="audio_choices_pushed_less">Azaltıldı</string>
+    <string name="audio_choices_boosted">Öne çıkarıldı</string>
+    <string name="audio_choices_artists_empty">Henüz takip edilen sanatçı yok. Müzik dinleyin veya Chord Wave\'de bir sanatçıyı ayarlayın.</string>
+    <string name="audio_choices_songs_empty">Henüz ayarlanan veya engellenen şarkı yok. Şarkıları Daha Fazla, Daha Az veya Asla olarak işaretlemek için Chord Wave\'e basılı tutun.</string>
+    <string name="audio_choices_filter_all">Tümü</string>
+    <string name="audio_choices_filter_ai_acts">AI Sanatçılar</string>
 </resources>

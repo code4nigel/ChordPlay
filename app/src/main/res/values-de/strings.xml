@@ -1967,4 +1967,15 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="taste_marked_ai_notice">%1$s als KI markiert</string>
     <string name="taste_more_like">Mehr wie %1$s</string>
     <string name="undo">Rückgängig</string>
+    <string name="audio_choices_tab_artists">Künstler</string>
+    <string name="audio_choices_tab_songs">Titel</string>
+    <string name="audio_choices_adjust_hint">Mit - oder + Priorität anpassen</string>
+    <string name="audio_choices_decrease">Verringern</string>
+    <string name="audio_choices_increase">Erhöhen</string>
+    <string name="audio_choices_pushed_less">Heruntergestuft</string>
+    <string name="audio_choices_boosted">Bevorzugt</string>
+    <string name="audio_choices_artists_empty">Noch keine Künstler erfasst. Spiele Musik ab oder passe einen Künstler in Chord Wave an.</string>
+    <string name="audio_choices_songs_empty">Noch keine Titel abgestimmt oder gesperrt. Halte Chord Wave gedrückt, um Titel auf Mehr, Weniger oder Nie zu setzen.</string>
+    <string name="audio_choices_filter_all">Alle</string>
+    <string name="audio_choices_filter_ai_acts">KI-Künstler</string>
 </resources>

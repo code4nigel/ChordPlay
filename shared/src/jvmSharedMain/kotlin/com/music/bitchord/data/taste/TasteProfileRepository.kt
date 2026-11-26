@@ -63,6 +63,7 @@ object TasteProfileRepository {
 
     private val nodes = LinkedHashMap<String, TasteNode>()
     private val blockedSongs = LinkedHashMap<String, BlockedSong>()
+    private val tunedSongs = LinkedHashMap<String, TunedSong>()
     private val userMarkedAiArtists = LinkedHashSet<String>()
     private var hideAiMusic: Boolean = false
     private var discoveryLevel: DiscoveryLevel = DiscoveryLevel.BALANCED
@@ -114,6 +115,7 @@ object TasteProfileRepository {
             tasteDir = dir?.apply { mkdirs() }
             nodes.clear()
             blockedSongs.clear()
+            tunedSongs.clear()
             userMarkedAiArtists.clear()
             hideAiMusic = false
             discoveryLevel = DiscoveryLevel.BALANCED
@@ -309,12 +311,142 @@ object TasteProfileRepository {
         if (norm.isEmpty()) return
         synchronized(stateLock) {
             val id = TasteTaxonomy.nodeId(TasteCategory.ARTIST, norm)
-            val cur = nodes[id] ?: return
-            nodes[id] = cur.copy(
+            val targetNode = nodes[id]
+            val targetDisplayNorm = targetNode?.displayName?.let(TasteConstants::normalizeArtistKey)
+            var changed = false
+            for ((nodeId, node) in nodes) {
+                if (node.category != TasteCategory.ARTIST || !node.isBlocked) continue
+                val matchesKey = node.id == id || node.key == norm
+                val matchesName = targetDisplayNorm != null &&
+                    TasteConstants.normalizeArtistKey(node.displayName) == targetDisplayNorm
+                if (matchesKey || matchesName) {
+                    nodes[nodeId] = node.copy(
+                        weight = TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                        isBlocked = false,
+                        isPreferred = false,
+                    )
+                    changed = true
+                }
+            }
+            if (changed) markProfileChangedLocked()
+        }
+    }
+
+    /** Manually adjusts any active node (`+` / `-` stepper) and updates priority sorting cleanly. */
+    fun stepNodeWeight(nodeId: String, delta: Float = 10f) {
+        synchronized(stateLock) {
+            val cur = nodes[nodeId] ?: return
+            if (cur.isBlocked) return
+            val nextWeight = (cur.weight + delta).coerceIn(
+                TasteConstants.FLOOR_LESS_WEIGHT,
+                TasteConstants.MAX_WEIGHT,
+            )
+            nodes[nodeId] = cur.copy(
+                weight = nextWeight,
+                manualRank = null,
+                isPreferred = nextWeight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                isAutoAdded = if (nextWeight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT) false else cur.isAutoAdded,
+                lastHeardAt = nowProvider(),
+            )
+            onboardingDismissed = true
+            markProfileChangedLocked()
+        }
+    }
+
+    /** Blocks any node by its [nodeId] (including learned artists, languages, genres, or themes). */
+    fun blockNode(nodeId: String): Boolean {
+        synchronized(stateLock) {
+            val cur = nodes[nodeId] ?: return false
+            val tag = cur.canonicalId?.let(TasteTaxonomy::byId)
+            if (tag != null) {
+                blockTag(tag)
+                return true
+            }
+            if (cur.category == TasteCategory.ARTIST) {
+                blockArtist(cur.displayName, cur.key)
+                return true
+            }
+            nodes[nodeId] = cur.copy(
+                weight = 0f,
+                manualRank = null,
+                isBlocked = true,
+                isPreferred = false,
+                lastHeardAt = nowProvider(),
+            )
+            markProfileChangedLocked()
+            return true
+        }
+    }
+
+    fun unblockNode(nodeId: String) {
+        synchronized(stateLock) {
+            val cur = nodes[nodeId] ?: return
+            val tag = cur.canonicalId?.let(TasteTaxonomy::byId)
+            if (tag != null) {
+                unblockTag(tag)
+                return
+            }
+            if (cur.category == TasteCategory.ARTIST) {
+                unblockArtist(cur.key)
+                return
+            }
+            nodes[nodeId] = cur.copy(
                 weight = TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
                 isBlocked = false,
                 isPreferred = false,
             )
+            markProfileChangedLocked()
+        }
+    }
+
+    fun boostSong(song: Song, delta: Float = TasteConstants.BOOST_DELTA) {
+        stepTunedSongWeight(song = song, delta = delta)
+    }
+
+    fun reduceSong(song: Song, delta: Float = TasteConstants.REDUCE_DELTA) {
+        stepTunedSongWeight(song = song, delta = -delta)
+    }
+
+    fun stepTunedSongWeight(videoId: String, delta: Float) {
+        if (videoId.isBlank()) return
+        synchronized(stateLock) {
+            val cur = tunedSongs[videoId] ?: return
+            val next = (cur.weight + delta).coerceIn(
+                TasteConstants.FLOOR_LESS_WEIGHT,
+                TasteConstants.MAX_WEIGHT,
+            )
+            tunedSongs[videoId] = cur.copy(weight = next, updatedAt = nowProvider())
+            enforceCapsLocked()
+            markProfileChangedLocked()
+        }
+    }
+
+    fun clearTunedSong(videoId: String) {
+        synchronized(stateLock) {
+            if (tunedSongs.remove(videoId) != null) {
+                markProfileChangedLocked()
+            }
+        }
+    }
+
+    private fun stepTunedSongWeight(song: Song, delta: Float) {
+        if (song.videoId.isBlank()) return
+        synchronized(stateLock) {
+            val now = nowProvider()
+            val cur = tunedSongs[song.videoId]
+            val baseWeight = cur?.weight ?: TasteConstants.DEFAULT_NEUTRAL_WEIGHT
+            val nextWeight = (baseWeight + delta).coerceIn(
+                TasteConstants.FLOOR_LESS_WEIGHT,
+                TasteConstants.MAX_WEIGHT,
+            )
+            tunedSongs[song.videoId] = TunedSong(
+                videoId = song.videoId,
+                title = song.title.ifBlank { cur?.title ?: song.videoId },
+                artistName = song.artist.ifBlank { cur?.artistName ?: "" },
+                weight = nextWeight,
+                updatedAt = now,
+            )
+            enforceCapsLocked()
             markProfileChangedLocked()
         }
     }
@@ -466,10 +598,12 @@ object TasteProfileRepository {
             if (includeBlocks) {
                 nodes.clear()
                 blockedSongs.clear()
+                tunedSongs.clear()
                 userMarkedAiArtists.clear()
                 onboardingDismissed = false
                 seedCoreNodesInto(nodes)
             } else {
+                tunedSongs.clear()
                 val iterator = nodes.entries.iterator()
                 while (iterator.hasNext()) {
                     val entry = iterator.next()
@@ -777,6 +911,13 @@ object TasteProfileRepository {
                 .take(dropCount)
                 .forEach { nodes.remove(it.id) }
         }
+        if (tunedSongs.size > TasteConstants.MAX_TUNED_SONGS) {
+            val dropSongs = tunedSongs.size - TasteConstants.MAX_TUNED_SONGS
+            tunedSongs.values
+                .sortedBy { it.updatedAt }
+                .take(dropSongs)
+                .forEach { tunedSongs.remove(it.videoId) }
+        }
     }
 
     private fun enforceTagCacheCaps() {
@@ -804,6 +945,7 @@ object TasteProfileRepository {
         _snapshot.value = TasteSnapshot(
             nodesById = HashMap(nodes),
             blockedSongs = HashMap(blockedSongs),
+            tunedSongs = HashMap(tunedSongs),
             userMarkedAiArtists = HashSet(userMarkedAiArtists),
             hideAiMusic = hideAiMusic,
             discoveryLevel = discoveryLevel,
@@ -820,6 +962,7 @@ object TasteProfileRepository {
         version = 1,
         nodes = nodes.values.toList(),
         blockedSongs = blockedSongs.values.toList(),
+        tunedSongs = tunedSongs.values.toList(),
         userMarkedAiArtists = userMarkedAiArtists.toList(),
         hideAiMusic = hideAiMusic,
         discoveryLevel = discoveryLevel,
@@ -836,6 +979,12 @@ object TasteProfileRepository {
         blockedSongs.clear()
         for (song in disk.blockedSongs) {
             blockedSongs[song.videoId] = song
+        }
+        tunedSongs.clear()
+        for (song in disk.tunedSongs) {
+            tunedSongs[song.videoId] = song.copy(
+                weight = song.weight.coerceIn(TasteConstants.FLOOR_LESS_WEIGHT, TasteConstants.MAX_WEIGHT),
+            )
         }
         userMarkedAiArtists.clear()
         userMarkedAiArtists.addAll(disk.userMarkedAiArtists)

@@ -1971,4 +1971,15 @@
     <string name="taste_marked_ai_notice">%1$s סומן כ-AI</string>
     <string name="taste_more_like">עוד בסגנון %1$s</string>
     <string name="undo">בטל</string>
+    <string name="audio_choices_tab_artists">אמנים</string>
+    <string name="audio_choices_tab_songs">שירים</string>
+    <string name="audio_choices_adjust_hint">הקש על - או + כדי לכוונן עדיפות</string>
+    <string name="audio_choices_decrease">הפחת</string>
+    <string name="audio_choices_increase">הגדל</string>
+    <string name="audio_choices_pushed_less">נדחק לאחור</string>
+    <string name="audio_choices_boosted">מקודם</string>
+    <string name="audio_choices_artists_empty">עדיין אין אמנים במעקב. נגן מוזיקה או כוונן אמן ב-Chord Wave כדי לראותם כאן.</string>
+    <string name="audio_choices_songs_empty">עדיין אין שירים מכווננים או חסומים. לחץ לחיצה ארוכה על Chord Wave כדי לסמן יותר, פחות או לעולם לא.</string>
+    <string name="audio_choices_filter_all">הכול</string>
+    <string name="audio_choices_filter_ai_acts">אמני AI</string>
 </resources>

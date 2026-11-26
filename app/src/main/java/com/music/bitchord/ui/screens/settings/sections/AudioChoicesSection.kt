@@ -18,7 +18,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,15 +40,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Button
@@ -60,11 +60,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,28 +70,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.taste.DiscoveryLevel
 import com.music.bitchord.data.taste.TasteCategory
 import com.music.bitchord.data.taste.TasteConstants
 import com.music.bitchord.data.taste.TasteNode
 import com.music.bitchord.data.taste.TasteProfileRepository
 import com.music.bitchord.data.taste.TasteSnapshot
-import com.music.bitchord.data.taste.TasteTag
 import com.music.bitchord.data.taste.TasteTaxonomy
+import com.music.bitchord.data.taste.TunedSong
 import com.music.bitchord.ui.components.AlertAction
 import com.music.bitchord.ui.components.AlertRule
 import com.music.bitchord.ui.components.GlassAlert
@@ -108,14 +101,29 @@ import com.music.bitchord.ui.screens.SettingsSearchEmpty
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.matchesSearch
 import java.util.Locale
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
-private enum class AudioChoicesTab(val category: TasteCategory?) {
-    LANGUAGES(TasteCategory.LANGUAGE),
-    GENRES(TasteCategory.GENRE),
-    THEMES(TasteCategory.THEME),
-    BLOCKED(null),
+private enum class AudioChoicesTab {
+    LANGUAGES,
+    GENRES,
+    THEMES,
+    ARTISTS,
+    SONGS,
+    BLOCKED,
+}
+
+private enum class TuneFilter {
+    ALL,
+    BOOSTED,
+    LESS,
+    BLOCKED,
+}
+
+private enum class BlockedSubFilter {
+    ALL,
+    ARTISTS,
+    SONGS,
+    AI_ACTS,
+    TAGS,
 }
 
 private enum class QuickPickChoice {
@@ -124,19 +132,19 @@ private enum class QuickPickChoice {
     BLOCK,
 }
 
-private const val TASTE_SWAP_THRESHOLD = 0.58f
-
-private fun <T> List<T>.movedItem(from: Int, to: Int): List<T> {
-    if (from !in indices || to !in indices || from == to) return this
-    return toMutableList().apply { add(to, removeAt(from)) }
+private sealed class UndoBlockAction {
+    data class Node(val node: TasteNode) : UndoBlockAction()
+    data class Track(val song: Song) : UndoBlockAction()
 }
+
+private const val STEP_DELTA = 10f
 
 /**
  * `Settings -> Audio -> Audio Choices` sub-page.
  *
- * Hosts segmented tabs (`Languages | Genres | Themes | Blocked`), an optional first-run
- * quick setup card, drag-to-reorder priority ranking with live probability percentages,
- * 1-tap mute/blocking, Discovery Budget slider/segments, and Reset controls.
+ * Hosts 6 clean tabs (`Languages | Genres | Themes | Artists | Songs | Blocked`), reliable `-` / `+`
+ * priority steppers, 1-tap mute/blocking, category sub-filters for tuned/blocked artists and songs,
+ * Quick Setup, Discovery Budget selector, and Reset controls.
  */
 @Composable
 fun AudioChoicesSection(
@@ -150,12 +158,24 @@ fun AudioChoicesSection(
     var activeTab by remember { mutableStateOf(AudioChoicesTab.LANGUAGES) }
     var showQuickSetupOverride by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    var lastBlockedUndo by remember { mutableStateOf<TasteTag?>(null) }
+    var lastBlockedUndo by remember { mutableStateOf<UndoBlockAction?>(null) }
 
     val scrollState = rememberScrollState()
     val haptic = LocalHapticFeedback.current
 
     val showQuickSetup = (!snapshot.onboardingDismissed || showQuickSetupOverride) && searchQuery.isBlank()
+
+    val blockedTotalCount = remember(snapshot) {
+        val uniqueBlockedArtists = snapshot.blockedNodes(TasteCategory.ARTIST)
+            .distinctBy { TasteConstants.normalizeArtistKey(it.displayName) }
+            .size
+        snapshot.blockedNodes(TasteCategory.LANGUAGE).size +
+            snapshot.blockedNodes(TasteCategory.GENRE).size +
+            snapshot.blockedNodes(TasteCategory.THEME).size +
+            uniqueBlockedArtists +
+            snapshot.userMarkedAiArtists.size +
+            snapshot.blockedSongs.size
+    }
 
     if (showResetDialog) {
         GlassAlert(
@@ -196,12 +216,10 @@ fun AudioChoicesSection(
         }
     }
 
-    var draggedId by remember { mutableStateOf<String?>(null) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(scrollState, enabled = draggedId == null)
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -235,13 +253,17 @@ fun AudioChoicesSection(
             )
         }
 
-        // Undo bar after blocking a tag
+        // Undo bar after blocking a tag, artist, or song
         AnimatedVisibility(
             visible = lastBlockedUndo != null,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically(),
         ) {
-            lastBlockedUndo?.let { tag ->
+            lastBlockedUndo?.let { action ->
+                val label = when (action) {
+                    is UndoBlockAction.Node -> action.node.displayName
+                    is UndoBlockAction.Track -> action.song.title
+                }
                 SettingsGroup(header = null, topSpacing = 8.dp) {
                     Row(
                         modifier = Modifier
@@ -250,14 +272,19 @@ fun AudioChoicesSection(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = stringResource(R.string.audio_choices_blocked_notice, tag.displayName),
+                            text = stringResource(R.string.audio_choices_blocked_notice, label),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
                         TextButton(
                             onClick = {
-                                TasteProfileRepository.unblockTag(tag)
+                                when (action) {
+                                    is UndoBlockAction.Node -> TasteProfileRepository.unblockNode(action.node.id)
+                                    is UndoBlockAction.Track -> TasteProfileRepository.unblockSong(action.song.videoId)
+                                }
                                 lastBlockedUndo = null
                             },
                         ) {
@@ -268,39 +295,89 @@ fun AudioChoicesSection(
             }
         }
 
-        // Segmented tabs: Languages | Genres | Themes | Blocked
-        val tabLabels = listOf(
-            stringResource(R.string.audio_choices_tab_languages),
-            stringResource(R.string.audio_choices_tab_genres),
-            stringResource(R.string.audio_choices_tab_themes),
-            stringResource(R.string.audio_choices_tab_blocked),
-        )
-        SegmentedControl(
-            options = tabLabels,
-            selectedIndex = AudioChoicesTab.entries.indexOf(activeTab),
-            onSelect = { idx ->
-                draggedId = null
-                activeTab = AudioChoicesTab.entries[idx]
-            },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-        )
+        // Scrollable category selector: Languages | Genres | Themes | Artists | Songs | Blocked
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val blockedLabel = if (blockedTotalCount > 0) {
+                "${stringResource(R.string.audio_choices_tab_blocked)} ($blockedTotalCount)"
+            } else {
+                stringResource(R.string.audio_choices_tab_blocked)
+            }
+            val tabs = listOf(
+                AudioChoicesTab.LANGUAGES to stringResource(R.string.audio_choices_tab_languages),
+                AudioChoicesTab.GENRES to stringResource(R.string.audio_choices_tab_genres),
+                AudioChoicesTab.THEMES to stringResource(R.string.audio_choices_tab_themes),
+                AudioChoicesTab.ARTISTS to stringResource(R.string.audio_choices_tab_artists),
+                AudioChoicesTab.SONGS to stringResource(R.string.audio_choices_tab_songs),
+                AudioChoicesTab.BLOCKED to blockedLabel,
+            )
+            tabs.forEach { (tab, title) ->
+                FilterPill(
+                    label = title,
+                    selected = activeTab == tab,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        activeTab = tab
+                    },
+                )
+            }
+        }
 
-        val activeCategory = activeTab.category
-        if (activeCategory != null) {
-            ReorderableCategoryList(
-                category = activeCategory,
+        when (activeTab) {
+            AudioChoicesTab.LANGUAGES -> CategoryStepperList(
+                category = TasteCategory.LANGUAGE,
                 snapshot = snapshot,
                 searchQuery = searchQuery,
-                draggedId = draggedId,
-                onDraggedIdChange = { draggedId = it },
-                onBlockTag = { tag ->
+                onBlockNode = { node ->
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    TasteProfileRepository.blockTag(tag)
-                    lastBlockedUndo = tag
+                    TasteProfileRepository.blockNode(node.id)
+                    lastBlockedUndo = UndoBlockAction.Node(node)
                 },
             )
-        } else {
-            BlockedItemsTab(
+            AudioChoicesTab.GENRES -> CategoryStepperList(
+                category = TasteCategory.GENRE,
+                snapshot = snapshot,
+                searchQuery = searchQuery,
+                onBlockNode = { node ->
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    TasteProfileRepository.blockNode(node.id)
+                    lastBlockedUndo = UndoBlockAction.Node(node)
+                },
+            )
+            AudioChoicesTab.THEMES -> CategoryStepperList(
+                category = TasteCategory.THEME,
+                snapshot = snapshot,
+                searchQuery = searchQuery,
+                onBlockNode = { node ->
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    TasteProfileRepository.blockNode(node.id)
+                    lastBlockedUndo = UndoBlockAction.Node(node)
+                },
+            )
+            AudioChoicesTab.ARTISTS -> ArtistsTab(
+                snapshot = snapshot,
+                searchQuery = searchQuery,
+                onBlockNode = { node ->
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    TasteProfileRepository.blockNode(node.id)
+                    lastBlockedUndo = UndoBlockAction.Node(node)
+                },
+            )
+            AudioChoicesTab.SONGS -> SongsTab(
+                snapshot = snapshot,
+                searchQuery = searchQuery,
+                onBlockSong = { song ->
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    TasteProfileRepository.blockSong(song)
+                    lastBlockedUndo = UndoBlockAction.Track(song)
+                },
+            )
+            AudioChoicesTab.BLOCKED -> BlockedItemsTab(
                 snapshot = snapshot,
                 searchQuery = searchQuery,
             )
@@ -366,250 +443,199 @@ fun AudioChoicesSection(
 }
 
 @Composable
-private fun ReorderableCategoryList(
+private fun CategoryStepperList(
     category: TasteCategory,
     snapshot: TasteSnapshot,
     searchQuery: String,
-    draggedId: String?,
-    onDraggedIdChange: (String?) -> Unit,
-    onBlockTag: (TasteTag) -> Unit,
+    onBlockNode: (TasteNode) -> Unit,
 ) {
     val activeNodes = remember(snapshot, category) { snapshot.activeNodes(category) }
-    var liveOrder by remember(category) { mutableStateOf(activeNodes.map { it.id }) }
-    var totalDrag by remember { mutableFloatStateOf(0f) }
-    var startIndex by remember { mutableIntStateOf(0) }
-    var pitchPx by remember { mutableFloatStateOf(0f) }
-    var lockedPitchPx by remember { mutableFloatStateOf(0f) }
-
-    LaunchedEffect(activeNodes, draggedId) {
-        if (draggedId == null) {
-            liveOrder = activeNodes.map { it.id }
-        }
-    }
-
-    val haptic = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val fallbackPitchPx = with(density) { 64.dp.toPx() }
-
-    val nodeById = remember(activeNodes) { activeNodes.associateBy { it.id } }
-
-    // Live weights preview during drag so probability % shifts in real time
-    val previewWeights = remember(liveOrder, draggedId, nodeById) {
-        if (draggedId == null) {
-            nodeById.mapValues { it.value.weight }
-        } else {
-            val count = liveOrder.size
-            liveOrder.mapIndexed { idx, id ->
-                val t = if (count <= 1) 0f else idx.toFloat() / (count - 1).toFloat()
-                val w = (
-                    TasteConstants.MIN_MANUAL_WEIGHT +
-                        (TasteConstants.MAX_MANUAL_WEIGHT - TasteConstants.MIN_MANUAL_WEIGHT) *
-                        (1f - t).toDouble().pow(1.25).toFloat()
-                    ).coerceIn(TasteConstants.MIN_MANUAL_WEIGHT, TasteConstants.MAX_MANUAL_WEIGHT)
-                id to w
-            }.toMap()
-        }
-    }
-    val weightSum = remember(previewWeights) {
-        previewWeights.values.sum().coerceAtLeast(1f)
-    }
-
-    fun advanceDrag(deltaY: Float) {
-        val id = draggedId ?: return
-        val pitch = lockedPitchPx.takeIf { it > 0f } ?: fallbackPitchPx
-        var index = liveOrder.indexOf(id)
-        if (index < 0) return
-
-        totalDrag = (totalDrag + deltaY).coerceIn(
-            -startIndex * pitch,
-            (liveOrder.lastIndex - startIndex) * pitch,
-        )
-
-        var swapped = false
-        while (true) {
-            val travelled = totalDrag / pitch
-            val moved = (index - startIndex).toFloat()
-            if (travelled > moved + TASTE_SWAP_THRESHOLD && index < liveOrder.lastIndex) {
-                liveOrder = liveOrder.movedItem(index, index + 1)
-                index++
-                swapped = true
-            } else if (travelled < moved - TASTE_SWAP_THRESHOLD && index > 0) {
-                liveOrder = liveOrder.movedItem(index, index - 1)
-                index--
-                swapped = true
-            } else {
-                break
-            }
-        }
-        if (swapped) {
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        }
-    }
-
-    val visibleIds = remember(liveOrder, searchQuery, nodeById) {
+    val visibleNodes = remember(activeNodes, searchQuery) {
         if (searchQuery.isBlank()) {
-            liveOrder
+            activeNodes
         } else {
-            liveOrder.filter { id ->
-                val node = nodeById[id] ?: return@filter false
-                matchesSearch(searchQuery, node.displayName, node.key)
-            }
+            activeNodes.filter { matchesSearch(searchQuery, it.displayName, it.key) }
         }
     }
-
-    if (visibleIds.isEmpty()) {
+    if (visibleNodes.isEmpty()) {
         SettingsSearchEmpty(query = searchQuery)
         return
     }
+    val weightSum = remember(activeNodes) {
+        activeNodes.sumOf { it.weight.toDouble() }.toFloat().coerceAtLeast(1f)
+    }
+    val haptic = LocalHapticFeedback.current
 
     SettingsGroup(
-        header = stringResource(R.string.audio_choices_drag_hint),
+        header = stringResource(R.string.audio_choices_adjust_hint),
         topSpacing = 6.dp,
     ) {
-        visibleIds.forEachIndexed { idx, id ->
-            val node = nodeById[id] ?: return@forEachIndexed
-            val isDragging = draggedId == id
-            val currentIdx = liveOrder.indexOf(id)
-            val liveWeight = previewWeights[id] ?: node.weight
-            val sharePct = ((liveWeight / weightSum) * 100f).coerceIn(0f, 100f)
-
-            key(id) {
+        visibleNodes.forEachIndexed { idx, node ->
+            key(node.id) {
                 if (idx > 0) RowDivider()
-                val tag = node.canonicalId?.let(TasteTaxonomy::byId)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .zIndex(if (isDragging) 10f else 0f)
-                        .graphicsLayer {
-                            if (isDragging) {
-                                val pitch = lockedPitchPx.takeIf { it > 0f } ?: fallbackPitchPx
-                                translationY = totalDrag - (currentIdx - startIndex) * pitch
-                                scaleX = 1.02f
-                                scaleY = 1.02f
-                            }
-                        }
-                        .onSizeChanged { size ->
-                            if (!isDragging && size.height > 0) {
-                                pitchPx = size.height.toFloat()
-                            }
-                        }
-                        .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Drag handle (≡)
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .then(
-                                if (searchQuery.isBlank()) {
-                                    Modifier.pointerInput(id) {
-                                        detectDragGestures(
-                                            onDragStart = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                startIndex = liveOrder.indexOf(id).coerceAtLeast(0)
-                                                lockedPitchPx = pitchPx.takeIf { it > 0f } ?: fallbackPitchPx
-                                                totalDrag = 0f
-                                                onDraggedIdChange(id)
-                                            },
-                                            onDrag = { change, dragAmount ->
-                                                change.consume()
-                                                advanceDrag(dragAmount.y)
-                                            },
-                                            onDragEnd = {
-                                                onDraggedIdChange(null)
-                                                TasteProfileRepository.reorderCategory(category, liveOrder)
-                                            },
-                                            onDragCancel = {
-                                                onDraggedIdChange(null)
-                                                liveOrder = activeNodes.map { it.id }
-                                            },
-                                        )
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.DragHandle,
-                            contentDescription = stringResource(R.string.audio_choices_drag_handle),
-                            tint = if (isDragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
+                val sharePct = ((node.weight / weightSum) * 100f).coerceIn(0f, 100f)
+                TasteStepperRow(
+                    title = node.displayName,
+                    weight = node.weight,
+                    sharePercent = sharePct,
+                    isPreferred = node.isPreferred || node.weight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                    isPushedLess = node.weight < TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                    isAutoAdded = node.isAutoAdded && !node.isPreferred,
+                    onDecrease = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        TasteProfileRepository.stepNodeWeight(node.id, -STEP_DELTA)
+                    },
+                    onIncrease = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        TasteProfileRepository.stepNodeWeight(node.id, +STEP_DELTA)
+                    },
+                    onBlock = { onBlockNode(node) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistsTab(
+    snapshot: TasteSnapshot,
+    searchQuery: String,
+    onBlockNode: (TasteNode) -> Unit,
+) {
+    var filter by remember { mutableStateOf(TuneFilter.ALL) }
+    val haptic = LocalHapticFeedback.current
+
+    val activeArtists = remember(snapshot) {
+        snapshot.activeNodes(TasteCategory.ARTIST)
+            .distinctBy { TasteConstants.normalizeArtistKey(it.displayName) }
+    }
+    val blockedArtists = remember(snapshot) {
+        snapshot.blockedNodes(TasteCategory.ARTIST)
+            .distinctBy { TasteConstants.normalizeArtistKey(it.displayName) }
+    }
+    val markedAi = remember(snapshot) { snapshot.userMarkedAiArtists.sorted() }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                TuneFilter.ALL to stringResource(R.string.audio_choices_filter_all),
+                TuneFilter.BOOSTED to stringResource(R.string.audio_choices_boosted),
+                TuneFilter.LESS to stringResource(R.string.audio_choices_pushed_less),
+                TuneFilter.BLOCKED to stringResource(R.string.audio_choices_tab_blocked),
+            ).forEach { (f, label) ->
+                FilterPill(
+                    label = label,
+                    selected = filter == f,
+                    compact = true,
+                    onClick = { filter = f },
+                )
+            }
+        }
+
+        if (filter == TuneFilter.BLOCKED) {
+            val filteredBlocked = remember(blockedArtists, searchQuery) {
+                blockedArtists.filter { matchesSearch(searchQuery, it.displayName, it.key) }
+            }
+            val filteredAi = remember(markedAi, searchQuery) {
+                markedAi.filter { matchesSearch(searchQuery, it) }
+            }
+            if (filteredBlocked.isEmpty() && filteredAi.isEmpty()) {
+                SettingsGroup(header = null, topSpacing = 8.dp) {
+                    Text(
+                        text = stringResource(R.string.audio_choices_blocked_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 18.dp),
+                    )
+                }
+            } else {
+                SettingsGroup(header = stringResource(R.string.audio_choices_blocked_artists_header), topSpacing = 8.dp) {
+                    filteredBlocked.forEachIndexed { idx, node ->
+                        if (idx > 0) RowDivider()
+                        BlockedRow(
+                            icon = Icons.Rounded.Person,
+                            title = node.displayName,
+                            subtitle = stringResource(R.string.audio_choices_blocked_artist_sub),
+                            actionLabel = stringResource(R.string.audio_choices_unblock),
+                            onAction = { TasteProfileRepository.unblockArtist(node.key) },
                         )
                     }
-
-                    // Tag name + probability bar + %
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 4.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = node.displayName,
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            if (node.isAutoAdded && !node.isPreferred) {
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = stringResource(R.string.audio_choices_auto_added),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = String.format(Locale.US, "%.1f%%", sharePct),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Spacer(Modifier.height(5.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth((liveWeight / TasteConstants.MAX_WEIGHT).coerceIn(0.03f, 1f))
-                                    .fillMaxHeight()
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (node.isPreferred || node.manualRank != null) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                                        },
-                                    ),
-                            )
-                        }
+                    filteredAi.forEachIndexed { idx, key ->
+                        if (idx > 0 || filteredBlocked.isNotEmpty()) RowDivider()
+                        BlockedRow(
+                            icon = Icons.Rounded.SmartToy,
+                            title = key,
+                            subtitle = stringResource(R.string.audio_choices_marked_ai_sub),
+                            actionLabel = stringResource(R.string.audio_choices_unblock),
+                            onAction = { TasteProfileRepository.unmarkArtistAsAi(key) },
+                        )
                     }
+                }
+            }
+            return@Column
+        }
 
-                    // Block / Mute button
-                    if (tag != null) {
-                        IconButton(
-                            onClick = { onBlockTag(tag) },
-                            modifier = Modifier.size(48.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Block,
-                                contentDescription = stringResource(R.string.audio_choices_block_item),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
-                                modifier = Modifier.size(19.dp),
-                            )
-                        }
+        val filteredActive = remember(activeArtists, filter, searchQuery) {
+            activeArtists
+                .filter { node ->
+                    when (filter) {
+                        TuneFilter.ALL -> true
+                        TuneFilter.BOOSTED -> node.weight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT || node.isPreferred
+                        TuneFilter.LESS -> node.weight < TasteConstants.DEFAULT_NEUTRAL_WEIGHT
+                        TuneFilter.BLOCKED -> false
+                    }
+                }
+                .filter { matchesSearch(searchQuery, it.displayName, it.key) }
+        }
+
+        if (filteredActive.isEmpty()) {
+            if (searchQuery.isNotBlank()) {
+                SettingsSearchEmpty(query = searchQuery)
+            } else {
+                SettingsGroup(header = null, topSpacing = 8.dp) {
+                    Text(
+                        text = stringResource(R.string.audio_choices_artists_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 18.dp),
+                    )
+                }
+            }
+        } else {
+            val weightSum = remember(activeArtists) {
+                activeArtists.sumOf { it.weight.toDouble() }.toFloat().coerceAtLeast(1f)
+            }
+            SettingsGroup(
+                header = stringResource(R.string.audio_choices_adjust_hint),
+                topSpacing = 6.dp,
+            ) {
+                filteredActive.forEachIndexed { idx, node ->
+                    key(node.id) {
+                        if (idx > 0) RowDivider()
+                        val sharePct = ((node.weight / weightSum) * 100f).coerceIn(0f, 100f)
+                        TasteStepperRow(
+                            title = node.displayName,
+                            weight = node.weight,
+                            sharePercent = sharePct,
+                            isPreferred = node.isPreferred || node.weight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                            isPushedLess = node.weight < TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                            isAutoAdded = node.isAutoAdded && !node.isPreferred && node.weight >= TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                            onDecrease = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                TasteProfileRepository.stepNodeWeight(node.id, -STEP_DELTA)
+                            },
+                            onIncrease = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                TasteProfileRepository.stepNodeWeight(node.id, +STEP_DELTA)
+                            },
+                            onBlock = { onBlockNode(node) },
+                        )
                     }
                 }
             }
@@ -618,10 +644,363 @@ private fun ReorderableCategoryList(
 }
 
 @Composable
+private fun SongsTab(
+    snapshot: TasteSnapshot,
+    searchQuery: String,
+    onBlockSong: (Song) -> Unit,
+) {
+    var filter by remember { mutableStateOf(TuneFilter.ALL) }
+    val haptic = LocalHapticFeedback.current
+
+    val tunedList = remember(snapshot) {
+        snapshot.tunedSongs.values
+            .filterNot { it.videoId in snapshot.blockedSongIds }
+            .sortedWith(compareByDescending<TunedSong> { it.weight }.thenByDescending { it.updatedAt })
+    }
+    val blockedList = remember(snapshot) {
+        snapshot.blockedSongs.values.sortedByDescending { it.blockedAt }
+    }
+
+    val filteredTuned = remember(tunedList, filter, searchQuery) {
+        tunedList
+            .filter { entry ->
+                when (filter) {
+                    TuneFilter.ALL -> true
+                    TuneFilter.BOOSTED -> entry.weight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT
+                    TuneFilter.LESS -> entry.weight < TasteConstants.DEFAULT_NEUTRAL_WEIGHT
+                    TuneFilter.BLOCKED -> false
+                }
+            }
+            .filter { matchesSearch(searchQuery, it.title, it.artistName) }
+    }
+    val filteredBlocked = remember(blockedList, filter, searchQuery) {
+        if (filter != TuneFilter.ALL && filter != TuneFilter.BLOCKED) {
+            emptyList()
+        } else {
+            blockedList.filter { matchesSearch(searchQuery, it.title, it.artistName) }
+        }
+    }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                TuneFilter.ALL to stringResource(R.string.audio_choices_filter_all),
+                TuneFilter.BOOSTED to stringResource(R.string.audio_choices_boosted),
+                TuneFilter.LESS to stringResource(R.string.audio_choices_pushed_less),
+                TuneFilter.BLOCKED to stringResource(R.string.audio_choices_tab_blocked),
+            ).forEach { (f, label) ->
+                FilterPill(
+                    label = label,
+                    selected = filter == f,
+                    compact = true,
+                    onClick = { filter = f },
+                )
+            }
+        }
+
+        if (filteredTuned.isEmpty() && filteredBlocked.isEmpty()) {
+            if (searchQuery.isNotBlank()) {
+                SettingsSearchEmpty(query = searchQuery)
+            } else {
+                SettingsGroup(header = null, topSpacing = 8.dp) {
+                    Text(
+                        text = stringResource(R.string.audio_choices_songs_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 18.dp),
+                    )
+                }
+            }
+            return@Column
+        }
+
+        if (filteredTuned.isNotEmpty()) {
+            SettingsGroup(
+                header = stringResource(R.string.audio_choices_adjust_hint),
+                topSpacing = 6.dp,
+            ) {
+                filteredTuned.forEachIndexed { idx, entry ->
+                    key(entry.videoId) {
+                        if (idx > 0) RowDivider()
+                        TasteStepperRow(
+                            title = entry.title,
+                            subtitle = entry.artistName,
+                            weight = entry.weight,
+                            sharePercent = entry.weight,
+                            isPreferred = entry.weight > TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                            isPushedLess = entry.weight < TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+                            isAutoAdded = false,
+                            onDecrease = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                TasteProfileRepository.stepTunedSongWeight(entry.videoId, -STEP_DELTA)
+                            },
+                            onIncrease = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                TasteProfileRepository.stepTunedSongWeight(entry.videoId, +STEP_DELTA)
+                            },
+                            onBlock = {
+                                onBlockSong(
+                                    Song(
+                                        videoId = entry.videoId,
+                                        title = entry.title,
+                                        artist = entry.artistName,
+                                        thumbnailUrl = null,
+                                    ),
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        if (filteredBlocked.isNotEmpty()) {
+            SettingsGroup(
+                header = stringResource(R.string.audio_choices_blocked_songs_header),
+                topSpacing = 14.dp,
+            ) {
+                filteredBlocked.forEachIndexed { idx, song ->
+                    if (idx > 0) RowDivider()
+                    BlockedRow(
+                        icon = Icons.Rounded.MusicNote,
+                        title = song.title,
+                        subtitle = song.artistName,
+                        actionLabel = stringResource(R.string.audio_choices_restore),
+                        onAction = { TasteProfileRepository.unblockSong(song.videoId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TasteStepperRow(
+    title: String,
+    weight: Float,
+    sharePercent: Float,
+    isPreferred: Boolean,
+    isPushedLess: Boolean,
+    isAutoAdded: Boolean,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onBlock: () -> Unit,
+    subtitle: String? = null,
+) {
+    val canDecrease = weight > TasteConstants.FLOOR_LESS_WEIGHT + 0.1f
+    val canIncrease = weight < TasteConstants.MAX_WEIGHT - 0.1f
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Title, subtitle, status pill, weight bar, %
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 6.dp, end = 8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (isPushedLess) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.audio_choices_pushed_less),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.14f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                } else if (isPreferred) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.audio_choices_boosted),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                } else if (isAutoAdded) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.audio_choices_auto_added),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = String.format(Locale.US, "%.0f%%", sharePercent),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.height(5.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth((weight / TasteConstants.MAX_WEIGHT).coerceIn(0.03f, 1f))
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                isPushedLess -> MaterialTheme.colorScheme.error.copy(alpha = 0.72f)
+                                isPreferred -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                            },
+                        ),
+                )
+            }
+        }
+
+        // - stepper
+        StepperCircleButton(
+            icon = Icons.Rounded.Remove,
+            contentDescription = stringResource(R.string.audio_choices_decrease),
+            enabled = canDecrease,
+            onClick = onDecrease,
+        )
+        Spacer(Modifier.width(6.dp))
+        // + stepper
+        StepperCircleButton(
+            icon = Icons.Rounded.Add,
+            contentDescription = stringResource(R.string.audio_choices_increase),
+            enabled = canIncrease,
+            onClick = onIncrease,
+        )
+        // Block
+        IconButton(
+            onClick = onBlock,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Block,
+                contentDescription = stringResource(R.string.audio_choices_block_item),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun StepperCircleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val bg = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.09f else 0.03f)
+    val fg = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.9f else 0.28f)
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = fg,
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+private fun FilterPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    compact: Boolean = false,
+) {
+    val bg = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)
+    }
+    val fg = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.84f)
+    }
+    val border = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+    }
+    Box(
+        modifier = Modifier
+            .heightIn(min = if (compact) 32.dp else 36.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(1.dp, border, CircleShape)
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = if (compact) 12.dp else 14.dp,
+                vertical = if (compact) 6.dp else 8.dp,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                fontSize = if (compact) 12.sp else 13.sp,
+            ),
+            color = fg,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
 private fun BlockedItemsTab(
     snapshot: TasteSnapshot,
     searchQuery: String,
 ) {
+    var subFilter by remember { mutableStateOf(BlockedSubFilter.ALL) }
+
     val blockedTags = remember(snapshot, searchQuery) {
         (snapshot.blockedNodes(TasteCategory.LANGUAGE) +
             snapshot.blockedNodes(TasteCategory.GENRE) +
@@ -630,6 +1009,7 @@ private fun BlockedItemsTab(
     }
     val blockedArtists = remember(snapshot, searchQuery) {
         snapshot.blockedNodes(TasteCategory.ARTIST)
+            .distinctBy { TasteConstants.normalizeArtistKey(it.displayName) }
             .filter { matchesSearch(searchQuery, it.displayName, it.key) }
     }
     val markedAiArtists = remember(snapshot, searchQuery) {
@@ -643,72 +1023,106 @@ private fun BlockedItemsTab(
             .filter { matchesSearch(searchQuery, it.title, it.artistName) }
     }
 
-    if (blockedTags.isEmpty() && blockedArtists.isEmpty() && markedAiArtists.isEmpty() && blockedSongs.isEmpty()) {
-        SettingsGroup(header = null, topSpacing = 8.dp) {
-            Text(
-                text = stringResource(R.string.audio_choices_blocked_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 18.dp),
-            )
-        }
-        return
-    }
+    val showTags = (subFilter == BlockedSubFilter.ALL || subFilter == BlockedSubFilter.TAGS) && blockedTags.isNotEmpty()
+    val showArtists = (subFilter == BlockedSubFilter.ALL || subFilter == BlockedSubFilter.ARTISTS) && blockedArtists.isNotEmpty()
+    val showAi = (subFilter == BlockedSubFilter.ALL || subFilter == BlockedSubFilter.AI_ACTS) && markedAiArtists.isNotEmpty()
+    val showSongs = (subFilter == BlockedSubFilter.ALL || subFilter == BlockedSubFilter.SONGS) && blockedSongs.isNotEmpty()
 
-    if (blockedTags.isNotEmpty()) {
-        SettingsGroup(header = stringResource(R.string.audio_choices_blocked_tags_header), topSpacing = 8.dp) {
-            blockedTags.forEachIndexed { idx, node ->
-                if (idx > 0) RowDivider()
-                val tag = node.canonicalId?.let(TasteTaxonomy::byId)
-                BlockedRow(
-                    icon = Icons.Rounded.Block,
-                    title = node.displayName,
-                    subtitle = node.category.name.lowercase().replaceFirstChar { it.uppercase() },
-                    actionLabel = stringResource(R.string.audio_choices_unblock),
-                    onAction = {
-                        if (tag != null) TasteProfileRepository.unblockTag(tag)
-                    },
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                BlockedSubFilter.ALL to stringResource(R.string.audio_choices_filter_all),
+                BlockedSubFilter.ARTISTS to "${stringResource(R.string.audio_choices_tab_artists)} (${blockedArtists.size})",
+                BlockedSubFilter.SONGS to "${stringResource(R.string.audio_choices_tab_songs)} (${blockedSongs.size})",
+                BlockedSubFilter.AI_ACTS to "${stringResource(R.string.audio_choices_filter_ai_acts)} (${markedAiArtists.size})",
+                BlockedSubFilter.TAGS to stringResource(R.string.audio_choices_blocked_tags_header),
+            ).forEach { (f, label) ->
+                FilterPill(
+                    label = label,
+                    selected = subFilter == f,
+                    compact = true,
+                    onClick = { subFilter = f },
                 )
             }
         }
-    }
 
-    if (blockedArtists.isNotEmpty() || markedAiArtists.isNotEmpty()) {
-        SettingsGroup(header = stringResource(R.string.audio_choices_blocked_artists_header), topSpacing = 14.dp) {
-            blockedArtists.forEachIndexed { idx, node ->
-                if (idx > 0) RowDivider()
-                BlockedRow(
-                    icon = Icons.Rounded.Person,
-                    title = node.displayName,
-                    subtitle = stringResource(R.string.audio_choices_blocked_artist_sub),
-                    actionLabel = stringResource(R.string.audio_choices_unblock),
-                    onAction = { TasteProfileRepository.unblockArtist(node.key) },
+        if (!showTags && !showArtists && !showAi && !showSongs) {
+            SettingsGroup(header = null, topSpacing = 8.dp) {
+                Text(
+                    text = stringResource(R.string.audio_choices_blocked_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 18.dp),
                 )
             }
-            markedAiArtists.forEachIndexed { idx, key ->
-                if (idx > 0 || blockedArtists.isNotEmpty()) RowDivider()
-                BlockedRow(
-                    icon = Icons.Rounded.SmartToy,
-                    title = key,
-                    subtitle = stringResource(R.string.audio_choices_marked_ai_sub),
-                    actionLabel = stringResource(R.string.audio_choices_unblock),
-                    onAction = { TasteProfileRepository.unmarkArtistAsAi(key) },
-                )
+            return@Column
+        }
+
+        if (showArtists || showAi) {
+            SettingsGroup(header = stringResource(R.string.audio_choices_blocked_artists_header), topSpacing = 8.dp) {
+                if (showArtists) {
+                    blockedArtists.forEachIndexed { idx, node ->
+                        if (idx > 0) RowDivider()
+                        BlockedRow(
+                            icon = Icons.Rounded.Person,
+                            title = node.displayName,
+                            subtitle = stringResource(R.string.audio_choices_blocked_artist_sub),
+                            actionLabel = stringResource(R.string.audio_choices_unblock),
+                            onAction = { TasteProfileRepository.unblockArtist(node.key) },
+                        )
+                    }
+                }
+                if (showAi) {
+                    markedAiArtists.forEachIndexed { idx, key ->
+                        if (idx > 0 || showArtists) RowDivider()
+                        BlockedRow(
+                            icon = Icons.Rounded.SmartToy,
+                            title = key,
+                            subtitle = stringResource(R.string.audio_choices_marked_ai_sub),
+                            actionLabel = stringResource(R.string.audio_choices_unblock),
+                            onAction = { TasteProfileRepository.unmarkArtistAsAi(key) },
+                        )
+                    }
+                }
             }
         }
-    }
 
-    if (blockedSongs.isNotEmpty()) {
-        SettingsGroup(header = stringResource(R.string.audio_choices_blocked_songs_header), topSpacing = 14.dp) {
-            blockedSongs.forEachIndexed { idx, song ->
-                if (idx > 0) RowDivider()
-                BlockedRow(
-                    icon = Icons.Rounded.MusicNote,
-                    title = song.title,
-                    subtitle = song.artistName,
-                    actionLabel = stringResource(R.string.audio_choices_restore),
-                    onAction = { TasteProfileRepository.unblockSong(song.videoId) },
-                )
+        if (showSongs) {
+            SettingsGroup(header = stringResource(R.string.audio_choices_blocked_songs_header), topSpacing = 14.dp) {
+                blockedSongs.forEachIndexed { idx, song ->
+                    if (idx > 0) RowDivider()
+                    BlockedRow(
+                        icon = Icons.Rounded.MusicNote,
+                        title = song.title,
+                        subtitle = song.artistName,
+                        actionLabel = stringResource(R.string.audio_choices_restore),
+                        onAction = { TasteProfileRepository.unblockSong(song.videoId) },
+                    )
+                }
+            }
+        }
+
+        if (showTags) {
+            SettingsGroup(header = stringResource(R.string.audio_choices_blocked_tags_header), topSpacing = 14.dp) {
+                blockedTags.forEachIndexed { idx, node ->
+                    if (idx > 0) RowDivider()
+                    val tag = node.canonicalId?.let(TasteTaxonomy::byId)
+                    BlockedRow(
+                        icon = Icons.Rounded.Block,
+                        title = node.displayName,
+                        subtitle = node.category.name.lowercase().replaceFirstChar { it.uppercase() },
+                        actionLabel = stringResource(R.string.audio_choices_unblock),
+                        onAction = {
+                            if (tag != null) TasteProfileRepository.unblockTag(tag)
+                        },
+                    )
+                }
             }
         }
     }

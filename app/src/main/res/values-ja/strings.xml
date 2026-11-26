@@ -1945,4 +1945,15 @@
     <string name="taste_marked_ai_notice">%1$s をAIとしてマークしました</string>
     <string name="taste_more_like">%1$s に似た曲を増やします</string>
     <string name="undo">元に戻す</string>
+    <string name="audio_choices_tab_artists">アーティスト</string>
+    <string name="audio_choices_tab_songs">曲</string>
+    <string name="audio_choices_adjust_hint">- / + で優先度を調整</string>
+    <string name="audio_choices_decrease">下げる</string>
+    <string name="audio_choices_increase">上げる</string>
+    <string name="audio_choices_pushed_less">少なめ</string>
+    <string name="audio_choices_boosted">優先</string>
+    <string name="audio_choices_artists_empty">まだアーティストが記録されていません。再生するか Chord Wave で調整するとここに表示されます。</string>
+    <string name="audio_choices_songs_empty">まだ調整またはブロックされた曲はありません。Chord Wave を長押しして「もっと」「少なめ」「禁止」を設定できます。</string>
+    <string name="audio_choices_filter_all">すべて</string>
+    <string name="audio_choices_filter_ai_acts">AIアーティスト</string>
 </resources>

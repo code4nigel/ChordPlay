@@ -2011,4 +2011,15 @@
     <string name="taste_marked_ai_notice">%1$s को AI चिह्नित किया गया</string>
     <string name="taste_more_like">%1$s जैसा और</string>
     <string name="undo">पूर्ववत करें</string>
+    <string name="audio_choices_tab_artists">कलाकार</string>
+    <string name="audio_choices_tab_songs">गाने</string>
+    <string name="audio_choices_adjust_hint">प्राथमिकता बदलने के लिए - या + दबाएँ</string>
+    <string name="audio_choices_decrease">कम करें</string>
+    <string name="audio_choices_increase">बढ़ाएँ</string>
+    <string name="audio_choices_pushed_less">कम प्राथमिकता</string>
+    <string name="audio_choices_boosted">पसंदीदा</string>
+    <string name="audio_choices_artists_empty">अभी तक कोई कलाकार सहेजा नहीं गया। यहाँ देखने के लिए संगीत चलाएँ या Chord Wave में कलाकार को ट्यून करें।</string>
+    <string name="audio_choices_songs_empty">अभी तक कोई गाना ट्यून या ब्लॉक नहीं हुआ। अधिक, कम या कभी नहीं चुनने के लिए Chord Wave को दबाकर रखें।</string>
+    <string name="audio_choices_filter_all">सभी</string>
+    <string name="audio_choices_filter_ai_acts">AI कलाकार</string>
 </resources>

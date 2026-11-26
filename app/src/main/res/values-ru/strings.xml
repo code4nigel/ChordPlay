@@ -1999,4 +1999,15 @@
     <string name="taste_marked_ai_notice">%1$s отмечен как ИИ</string>
     <string name="taste_more_like">Больше похожего на %1$s</string>
     <string name="undo">Отменить</string>
+    <string name="audio_choices_tab_artists">Исполнители</string>
+    <string name="audio_choices_tab_songs">Треки</string>
+    <string name="audio_choices_adjust_hint">Нажимайте - или + для настройки приоритета</string>
+    <string name="audio_choices_decrease">Уменьшить</string>
+    <string name="audio_choices_increase">Увеличить</string>
+    <string name="audio_choices_pushed_less">Реже</string>
+    <string name="audio_choices_boosted">В приоритете</string>
+    <string name="audio_choices_artists_empty">Исполнители пока не добавлены. Слушайте музыку или настройте исполнителя в Chord Wave.</string>
+    <string name="audio_choices_songs_empty">Пока нет настроенных или заблокированных треков. Удерживайте Chord Wave, чтобы выбрать Больше, Меньше или Никогда.</string>
+    <string name="audio_choices_filter_all">Все</string>
+    <string name="audio_choices_filter_ai_acts">ИИ-артисты</string>
 </resources>

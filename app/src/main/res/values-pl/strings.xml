@@ -2050,4 +2050,15 @@
     <string name="taste_marked_ai_notice">Oznaczono %1$s jako AI</string>
     <string name="taste_more_like">Więcej podobnych do %1$s</string>
     <string name="undo">Cofnij</string>
+    <string name="audio_choices_tab_artists">Wykonawcy</string>
+    <string name="audio_choices_tab_songs">Utwory</string>
+    <string name="audio_choices_adjust_hint">Dotknij - lub +, aby dostosować priorytet</string>
+    <string name="audio_choices_decrease">Zmniejsz</string>
+    <string name="audio_choices_increase">Zwiększ</string>
+    <string name="audio_choices_pushed_less">Obniżono</string>
+    <string name="audio_choices_boosted">Wzmocniono</string>
+    <string name="audio_choices_artists_empty">Brak zapisanych wykonawców. Odtwarzaj muzykę lub dostrój wykonawcę w Chord Wave.</string>
+    <string name="audio_choices_songs_empty">Brak dostrojonych ani zablokowanych utworów. Przytrzymaj Chord Wave, aby wybrać Więcej, Mniej lub Nigdy.</string>
+    <string name="audio_choices_filter_all">Wszystkie</string>
+    <string name="audio_choices_filter_ai_acts">Artyści AI</string>
 </resources>

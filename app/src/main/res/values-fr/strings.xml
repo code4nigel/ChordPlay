@@ -1968,4 +1968,15 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="taste_marked_ai_notice">%1$s marqué comme IA</string>
     <string name="taste_more_like">Plus de titres comme %1$s</string>
     <string name="undo">Annuler</string>
+    <string name="audio_choices_tab_artists">Artistes</string>
+    <string name="audio_choices_tab_songs">Titres</string>
+    <string name="audio_choices_adjust_hint">Appuyez sur - ou + pour ajuster la priorité</string>
+    <string name="audio_choices_decrease">Diminuer</string>
+    <string name="audio_choices_increase">Augmenter</string>
+    <string name="audio_choices_pushed_less">Moins mis en avant</string>
+    <string name="audio_choices_boosted">Mis en avant</string>
+    <string name="audio_choices_artists_empty">Aucun artiste suivi pour l\'instant. Écoutez de la musique ou ajustez un artiste dans Chord Wave.</string>
+    <string name="audio_choices_songs_empty">Aucun titre ajusté ou bloqué. Maintenez Chord Wave pour choisir Plus, Moins ou Jamais.</string>
+    <string name="audio_choices_filter_all">Tous</string>
+    <string name="audio_choices_filter_ai_acts">Artistes IA</string>
 </resources>

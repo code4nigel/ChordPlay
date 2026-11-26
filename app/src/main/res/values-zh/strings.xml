@@ -1946,4 +1946,15 @@
     <string name="taste_marked_ai_notice">已将 %1$s 标记为 AI</string>
     <string name="taste_more_like">更多类似 %1$s</string>
     <string name="undo">撤销</string>
+    <string name="audio_choices_tab_artists">艺人</string>
+    <string name="audio_choices_tab_songs">歌曲</string>
+    <string name="audio_choices_adjust_hint">点击 - 或 + 调整优先级</string>
+    <string name="audio_choices_decrease">降低</string>
+    <string name="audio_choices_increase">提高</string>
+    <string name="audio_choices_pushed_less">已减少</string>
+    <string name="audio_choices_boosted">已提高</string>
+    <string name="audio_choices_artists_empty">尚未记录任何艺人。播放音乐或在 Chord Wave 中调整艺人后会显示在此处。</string>
+    <string name="audio_choices_songs_empty">暂无调音或屏蔽歌曲。长按 Chord Wave 可将歌曲设为更多、减少或永不。</string>
+    <string name="audio_choices_filter_all">全部</string>
+    <string name="audio_choices_filter_ai_acts">AI 艺人</string>
 </resources>

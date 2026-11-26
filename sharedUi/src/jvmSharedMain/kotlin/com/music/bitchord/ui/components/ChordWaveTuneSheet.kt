@@ -307,7 +307,7 @@ fun ChordWaveTuneSheet(
                         onAction = { action ->
                             haptics.play(if (action == TasteTuneAction.NEVER) Haptic.Select else Haptic.Tap)
                             onSongAction(song, action)
-                            if (action == TasteTuneAction.NEVER) onDismiss()
+                            onDismiss()
                         },
                     )
 
@@ -335,7 +335,7 @@ fun ChordWaveTuneSheet(
                         onAction = { action ->
                             haptics.play(if (action == TasteTuneAction.NEVER) Haptic.Select else Haptic.Tap)
                             onArtistAction(details.artistName, details.artistId, action)
-                            if (action == TasteTuneAction.NEVER) onDismiss()
+                            onDismiss()
                         },
                     )
 
@@ -351,7 +351,7 @@ fun ChordWaveTuneSheet(
                             if (genre != null) {
                                 haptics.play(if (action == TasteTuneAction.NEVER) Haptic.Select else Haptic.Tap)
                                 onTagAction(genre, action)
-                                if (action == TasteTuneAction.NEVER) onDismiss()
+                                onDismiss()
                             }
                         },
                     )
@@ -368,7 +368,7 @@ fun ChordWaveTuneSheet(
                             if (theme != null) {
                                 haptics.play(if (action == TasteTuneAction.NEVER) Haptic.Select else Haptic.Tap)
                                 onTagAction(theme, action)
-                                if (action == TasteTuneAction.NEVER) onDismiss()
+                                onDismiss()
                             }
                         },
                     )
@@ -385,7 +385,7 @@ fun ChordWaveTuneSheet(
                             if (language != null) {
                                 haptics.play(if (action == TasteTuneAction.NEVER) Haptic.Select else Haptic.Tap)
                                 onTagAction(language, action)
-                                if (action == TasteTuneAction.NEVER) onDismiss()
+                                onDismiss()
                             }
                         },
                     )

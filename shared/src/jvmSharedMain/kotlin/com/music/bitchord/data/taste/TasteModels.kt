@@ -58,6 +58,15 @@ data class BlockedSong(
 )
 
 @Serializable
+data class TunedSong(
+    val videoId: String,
+    val title: String,
+    val artistName: String,
+    val weight: Float = TasteConstants.DEFAULT_NEUTRAL_WEIGHT,
+    val updatedAt: Long = 0L,
+)
+
+@Serializable
 data class MediaTagEntry(
     val entityKey: String,
     val langMask: Int = 0,
@@ -163,6 +172,7 @@ data class SongTagDetails(
 data class TasteSnapshot(
     val nodesById: Map<String, TasteNode> = emptyMap(),
     val blockedSongs: Map<String, BlockedSong> = emptyMap(),
+    val tunedSongs: Map<String, TunedSong> = emptyMap(),
     val userMarkedAiArtists: Set<String> = emptySet(),
     val hideAiMusic: Boolean = false,
     val discoveryLevel: DiscoveryLevel = DiscoveryLevel.BALANCED,
@@ -194,7 +204,7 @@ data class TasteSnapshot(
         .mapNotNull { it.canonicalId?.let(TasteTaxonomy::byId)?.bitMask }
         .fold(0) { acc, bit -> acc or bit }
 
-    val hasPreferences: Boolean = nodesById.values.any {
+    val hasPreferences: Boolean = tunedSongs.isNotEmpty() || nodesById.values.any {
         it.isPreferred || it.isBlocked || it.manualRank != null || it.weight != TasteConstants.DEFAULT_NEUTRAL_WEIGHT
     }
 
@@ -202,10 +212,11 @@ data class TasteSnapshot(
         nodesById.values
             .filter { it.category == category && !it.isBlocked }
             .sortedWith(
-                compareBy<TasteNode> { it.manualRank ?: Int.MAX_VALUE }
+                compareByDescending<TasteNode> { it.weight }
                     .thenByDescending { it.isPreferred }
-                    .thenByDescending { it.weight }
-                    .thenBy { it.displayName },
+                    .thenBy { it.manualRank ?: Int.MAX_VALUE }
+                    .thenBy { it.canonicalId ?: Int.MAX_VALUE }
+                    .thenBy { it.displayName.lowercase(Locale.ROOT) },
             )
 
     fun blockedNodes(category: TasteCategory): List<TasteNode> =
@@ -275,6 +286,7 @@ data class TasteProfileDisk(
     val version: Int = 1,
     val nodes: List<TasteNode> = emptyList(),
     val blockedSongs: List<BlockedSong> = emptyList(),
+    val tunedSongs: List<TunedSong> = emptyList(),
     val userMarkedAiArtists: List<String> = emptyList(),
     val hideAiMusic: Boolean = false,
     val discoveryLevel: DiscoveryLevel = DiscoveryLevel.BALANCED,
@@ -316,6 +328,7 @@ object TasteConstants {
     const val WAVE_COOLDOWN_MS = 6L * 60 * 60 * 1000
 
     const val MAX_PASSIVE_ARTIST_NODES = 500
+    const val MAX_TUNED_SONGS = 200
     const val MAX_CACHED_ARTISTS = 2_000
     const val MAX_CACHED_SONGS = 3_000
     const val MAX_FEED_SHELVES = 10

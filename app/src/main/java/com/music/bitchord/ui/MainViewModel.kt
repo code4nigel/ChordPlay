@@ -3636,6 +3636,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         when (action) {
             TasteTuneAction.MORE -> {
                 val resolved = TagResolver.resolveImmediate(song)
+                TasteProfileRepository.boostSong(song)
                 TasteProfileRepository.boostArtist(song.artist, song.artistId)
                 resolved.languages().take(1).forEach { TasteProfileRepository.boostTag(it) }
                 resolved.genres().take(1).forEach { TasteProfileRepository.boostTag(it) }
@@ -3645,6 +3646,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             TasteTuneAction.LESS -> {
                 val resolved = TagResolver.resolveImmediate(song)
+                TasteProfileRepository.reduceSong(song)
                 TasteProfileRepository.recordQuickSkip(song, resolved)
                 TasteProfileRepository.reduceArtist(song.artist, song.artistId)
                 ChordWaveEngine.purgeBuffer { it.videoId == song.videoId }
