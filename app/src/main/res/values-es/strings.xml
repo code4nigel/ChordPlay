@@ -1857,5 +1857,6 @@
     <string name="miniplayer_animation">Animación de línea de tiempo</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave pinta una onda sedosa con los colores de la carátula; OG Circle recorre el borde.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave pinta una onda sedosa con los colores de la carátula; Aurora Silk mantiene el cristal esmerilado limpio con una cinta luminosa y punto estelar en el borde inferior; OG Circle recorre el borde.</string>
 </resources>

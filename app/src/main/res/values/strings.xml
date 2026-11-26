@@ -1732,7 +1732,8 @@
     <string name="miniplayer_animation">Timeline animation</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave paints a live artwork-colored silk tide across the pill; OG Circle traces playback around the border.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave paints a live artwork-colored silk tide across the pill; Aurora Silk keeps frosted glass clean with a luminous ribbon and starlight dot along the bottom edge; OG Circle traces playback around the border.</string>
     <string name="cover_animation_none">None</string>
     <string name="cover_animation_fade">Fade</string>
     <string name="cover_animation_3d">3D Fade</string>

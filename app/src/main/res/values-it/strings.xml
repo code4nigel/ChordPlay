@@ -1780,5 +1780,6 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="miniplayer_animation">Animazione timeline</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave disegna una marea di seta nei colori della copertina; OG Circle segue il bordo.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave disegna una marea di seta nei colori della copertina; Aurora Silk mantiene il vetro satinato pulito con un nastro luminoso e un punto stellare in basso; OG Circle segue il bordo.</string>
 </resources>

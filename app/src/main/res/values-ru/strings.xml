@@ -1873,5 +1873,6 @@
     <string name="miniplayer_animation">Анимация прогресса</string>
     <string name="miniplayer_style_og_circle">OG Круг</string>
     <string name="miniplayer_style_aurora_wave">Волна Авроры</string>
-    <string name="miniplayer_animation_subtitle">Волна Авроры рисует живую шелковую волну в цветах обложки; OG Круг ведёт линию по контуру.</string>
+    <string name="miniplayer_style_aurora_silk">Шёлк Авроры</string>
+    <string name="miniplayer_animation_subtitle">Волна Авроры рисует шёлковую волну в цветах обложки; Шёлк Авроры оставляет чистое матовое стекло со светящейся лентой и звёздной точкой по нижнему краю; OG Круг ведёт линию по контуру.</string>
 </resources>

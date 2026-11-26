@@ -1845,5 +1845,6 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="miniplayer_animation">Animação da linha do tempo</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave pinta uma onda de seda com as cores da capa; OG Circle contorna a borda.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave pinta uma onda de seda com as cores da capa; Aurora Silk mantém o vidro fosco limpo com uma fita luminosa e ponto estelar na borda inferior; OG Circle contorna a borda.</string>
 </resources>

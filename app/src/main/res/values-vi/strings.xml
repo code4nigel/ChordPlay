@@ -1757,5 +1757,6 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="miniplayer_animation">Hiệu ứng thanh tiến trình</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave vẽ dải sóng lụa theo màu bìa; OG Circle chạy dọc theo viền.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave vẽ dải sóng lụa theo màu bìa; Aurora Silk giữ nền kính mờ tinh gọn với dải lụa sáng và chấm sao ở mép dưới; OG Circle chạy dọc theo viền.</string>
 </resources>

@@ -1885,5 +1885,6 @@
     <string name="miniplayer_animation">टाइमलाइन एनीमेशन</string>
     <string name="miniplayer_style_og_circle">OG सर्कल</string>
     <string name="miniplayer_style_aurora_wave">ऑरोरा वेव</string>
-    <string name="miniplayer_animation_subtitle">ऑरोरा वेव एल्बम रंगों की सिल्क लहर पिल पर चलाता है; OG सर्कल बॉर्डर के चारों ओर प्रगति दिखाता है।</string>
+    <string name="miniplayer_style_aurora_silk">ऑरोरा सिल्क</string>
+    <string name="miniplayer_animation_subtitle">ऑरोरा वेव पिल पर एल्बम रंगों की सिल्क लहर चलाता है; ऑरोरा सिल्क ग्लास को साफ रखकर नीचे चमकदार रिबन और स्टारलाइट डॉट दिखाता है; OG सर्कल बॉर्डर के चारों ओर प्रगति दिखाता है।</string>
 </resources>

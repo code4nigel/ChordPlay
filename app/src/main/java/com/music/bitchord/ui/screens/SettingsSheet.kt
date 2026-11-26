@@ -438,7 +438,7 @@ private fun SettingsHub(
                 val keywords = when (section) {
                     SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe miniplayer timeline"
                     SettingsSection.COVER -> "cover artwork animation fade 3d canvas spotify fullscreen"
-                    SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave pill progress"
+                    SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave silk pill progress"
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
@@ -1241,7 +1241,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.MINIPLAYER,
             icon = Icons.Rounded.Animation,
             queryTarget = stringResource(R.string.miniplayer_animation),
-            keywords = listOf("miniplayer", "timeline", "og circle", "aurora wave", "pill", "progress"),
+            keywords = listOf("miniplayer", "timeline", "og circle", "aurora wave", "aurora silk", "silk", "pill", "progress"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.full_screen_cover_art),

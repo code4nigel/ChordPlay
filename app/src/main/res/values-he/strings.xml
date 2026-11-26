@@ -1845,5 +1845,6 @@
     <string name="miniplayer_animation">אנימציית ציר זמן</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave צובע גל משי בצבעי העטיפה לאורך הכמוסה; OG Circle עוקב סביב המסגרת.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave צובע גל משי בצבעי העטיפה; Aurora Silk שומר על זכוכית נקייה עם סרט אור זוהר ונקודת כוכב בתחתית; OG Circle עוקב סביב המסגרת.</string>
 </resources>

@@ -1841,5 +1841,6 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="miniplayer_animation">Zeitachsen-Animation</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave legt eine lebendige Seidenwelle in Artwork-Farben über die Leiste; OG Circle zeichnet den Fortschritt am Rand entlang.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave legt eine lebendige Seidenwelle in Artwork-Farben über die Leiste; Aurora Silk hält das Milchglas klar und lässt ein leuchtendes Band mit Sternenpunkt am unteren Rand gleiten; OG Circle zeichnet den Fortschritt am Rand entlang.</string>
 </resources>

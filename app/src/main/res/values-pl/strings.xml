@@ -1924,5 +1924,6 @@
     <string name="miniplayer_animation">Animacja osi czasu</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave maluje jedwabistą falę w kolorach okładki; OG Circle obrysowuje postęp wzdłuż krawędzi.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave maluje jedwabistą falę w kolorach okładki; Aurora Silk zachowuje czyste matowe szkło ze świetlistą wstęgą i gwiezdnym punktem u dołu; OG Circle obrysowuje postęp wzdłuż krawędzi.</string>
 </resources>

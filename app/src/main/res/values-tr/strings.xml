@@ -1798,5 +1798,6 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="miniplayer_animation">Zaman çizgisi animasyonu</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave kapak renkleriyle ipek bir dalga çizer; OG Circle ilerlemeyi kenar boyunca izler.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave kapak renkleriyle ipek bir dalga çizer; Aurora Silk buzlu camı temiz tutarak alt kenarda ışıltılı şerit ve yıldız noktası gösterir; OG Circle ilerlemeyi kenar boyunca izler.</string>
 </resources>

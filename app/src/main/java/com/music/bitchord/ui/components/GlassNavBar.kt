@@ -349,7 +349,7 @@ private fun GlassNowPlaying(
         reduceAnimation = reduceAnimation,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
-        enabled = timelineStyle == MiniPlayerTimelineStyle.AURORA_WAVE && durationMs > 0L,
+        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && durationMs > 0L,
         isPlaying = isPlaying,
         isScrubbing = scrubFraction != null,
         reduceAnimation = reduceAnimation,
@@ -457,8 +457,7 @@ private fun GlassNowPlaying(
                     style = timelineStyle,
                     progress = progress,
                     scrubbing = scrubbing,
-                    flowPhase = auroraPhase.flowPhase,
-                    driftPhase = auroraPhase.driftPhase,
+                    phase = auroraPhase,
                     aurora = auroraPalette,
                     isDark = isDark,
                     paths = timelinePaths,
@@ -468,10 +467,10 @@ private fun GlassNowPlaying(
                     style = timelineStyle,
                     progress = progress,
                     scrubbing = scrubbing,
-                    flowPhase = auroraPhase.flowPhase,
+                    phase = auroraPhase,
                     aurora = auroraPalette,
                     ogGlowColor = contentColor,
-                    isInline = true,
+                    isInline = isInline,
                     paths = timelinePaths,
                 )
             }

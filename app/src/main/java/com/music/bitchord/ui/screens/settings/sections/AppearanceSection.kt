@@ -292,7 +292,8 @@ fun AppearanceSection(
             stringResource(R.string.miniplayer_animation),
             stringResource(R.string.miniplayer_style_og_circle),
             stringResource(R.string.miniplayer_style_aurora_wave),
-            "miniplayer", "timeline", "circle", "wave", "aurora",
+            stringResource(R.string.miniplayer_style_aurora_silk),
+            "miniplayer", "timeline", "circle", "wave", "silk", "aurora",
         )
         val anyBelowCover = showMiniPlayer || showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
@@ -334,6 +335,7 @@ fun AppearanceSection(
                             when (miniPlayerTimelineStyle) {
                                 MiniPlayerTimelineStyle.OG_CIRCLE -> R.string.miniplayer_style_og_circle
                                 MiniPlayerTimelineStyle.AURORA_WAVE -> R.string.miniplayer_style_aurora_wave
+                                MiniPlayerTimelineStyle.AURORA_SILK -> R.string.miniplayer_style_aurora_silk
                             },
                         ),
                         onClick = onOpenMiniPlayer,

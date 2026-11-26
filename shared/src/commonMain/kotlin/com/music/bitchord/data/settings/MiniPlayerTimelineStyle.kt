@@ -7,4 +7,7 @@ enum class MiniPlayerTimelineStyle {
 
     /** Artwork-driven translucent aurora silk tide and starlight shoreline inside the pill. */
     AURORA_WAVE,
+
+    /** Clean frosted glass pill with a multi-layered luminous aurora silk ribbon along the bottom edge. */
+    AURORA_SILK,
 }

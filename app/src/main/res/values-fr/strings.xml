@@ -1842,5 +1842,6 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="miniplayer_animation">Animation de la barre de lecture</string>
     <string name="miniplayer_style_og_circle">OG Circle</string>
     <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
-    <string name="miniplayer_animation_subtitle">Aurora Wave déploie une vague de soie aux couleurs de la pochette ; OG Circle trace la progression sur le contour.</string>
+    <string name="miniplayer_style_aurora_silk">Aurora Silk</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave déploie une vague de soie aux couleurs de la pochette ; Aurora Silk garde le verre dépoli épuré avec un ruban lumineux et un point stellaire en bas ; OG Circle trace la progression sur le contour.</string>
 </resources>

@@ -143,8 +143,9 @@ internal fun MiniPlayerSection(
         stringResource(R.string.miniplayer_animation),
         stringResource(R.string.miniplayer_style_og_circle),
         stringResource(R.string.miniplayer_style_aurora_wave),
+        stringResource(R.string.miniplayer_style_aurora_silk),
         stringResource(R.string.miniplayer_animation_subtitle),
-        "miniplayer", "timeline", "progress", "circle", "wave", "aurora", "pill",
+        "miniplayer", "timeline", "progress", "circle", "wave", "silk", "aurora", "pill",
     )
 
     Column(
@@ -174,6 +175,7 @@ internal fun MiniPlayerSection(
                             when (option) {
                                 MiniPlayerTimelineStyle.OG_CIRCLE -> R.string.miniplayer_style_og_circle
                                 MiniPlayerTimelineStyle.AURORA_WAVE -> R.string.miniplayer_style_aurora_wave
+                                MiniPlayerTimelineStyle.AURORA_SILK -> R.string.miniplayer_style_aurora_silk
                             },
                         )
                     },
@@ -230,7 +232,7 @@ private fun MiniPlayerPreview(
         highlight = pHighlight,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
-        enabled = style == MiniPlayerTimelineStyle.AURORA_WAVE,
+        enabled = style != MiniPlayerTimelineStyle.OG_CIRCLE,
         isPlaying = isPlaying,
         isScrubbing = isScrubbing,
         reduceAnimation = reducedMotion,
@@ -258,8 +260,7 @@ private fun MiniPlayerPreview(
                         style = style,
                         progress = progress,
                         scrubbing = isScrubbing,
-                        flowPhase = auroraPhase.flowPhase,
-                        driftPhase = auroraPhase.driftPhase,
+                        phase = auroraPhase,
                         aurora = aurora,
                         isDark = isDark,
                         paths = timelinePaths,
@@ -269,7 +270,7 @@ private fun MiniPlayerPreview(
                         style = style,
                         progress = progress,
                         scrubbing = isScrubbing,
-                        flowPhase = auroraPhase.flowPhase,
+                        phase = auroraPhase,
                         aurora = aurora,
                         ogGlowColor = pPrimary,
                         isInline = false,

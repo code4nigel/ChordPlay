@@ -1819,5 +1819,6 @@
     <string name="miniplayer_animation">タイムラインアニメーション</string>
     <string name="miniplayer_style_og_circle">OG サークル</string>
     <string name="miniplayer_style_aurora_wave">オーロラウェーブ</string>
-    <string name="miniplayer_animation_subtitle">オーロラウェーブはアートワーク色の絹の波を描き、OG サークルは枠線に沿って進行を表示します。</string>
+    <string name="miniplayer_style_aurora_silk">オーロラシルク</string>
+    <string name="miniplayer_animation_subtitle">オーロラウェーブはアートワーク色の絹の波を描き、オーロラシルクは磨りガラスを保ったまま下端に光の帯と星粒を浮かべます。OG サークルは枠線に沿って進行を表示します。</string>
 </resources>

@@ -587,7 +587,7 @@ fun MiniPlayer(
         reduceAnimation = reduceAnimation,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
-        enabled = timelineStyle == MiniPlayerTimelineStyle.AURORA_WAVE && effectiveDurationMs > 0L,
+        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && effectiveDurationMs > 0L,
         isPlaying = isPlaying,
         isScrubbing = scrubFraction != null,
         reduceAnimation = reduceAnimation,
@@ -682,8 +682,7 @@ fun MiniPlayer(
                     style = timelineStyle,
                     progress = progress,
                     scrubbing = scrubbing,
-                    flowPhase = auroraPhase.flowPhase,
-                    driftPhase = auroraPhase.driftPhase,
+                    phase = auroraPhase,
                     aurora = auroraPalette,
                     isDark = isDark,
                     paths = timelinePaths,
@@ -693,7 +692,7 @@ fun MiniPlayer(
                     style = timelineStyle,
                     progress = progress,
                     scrubbing = scrubbing,
-                    flowPhase = auroraPhase.flowPhase,
+                    phase = auroraPhase,
                     aurora = auroraPalette,
                     ogGlowColor = glowColor,
                     isInline = false,

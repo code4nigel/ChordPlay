@@ -1820,5 +1820,6 @@
     <string name="miniplayer_animation">時間軸動畫</string>
     <string name="miniplayer_style_og_circle">OG 圓環</string>
     <string name="miniplayer_style_aurora_wave">極光波浪</string>
-    <string name="miniplayer_animation_subtitle">極光波浪會在膠囊上繪製隨專輯配色的絲綢潮汐；OG 圓環則沿邊框描繪進度。</string>
+    <string name="miniplayer_style_aurora_silk">極光絲綢</string>
+    <string name="miniplayer_animation_subtitle">極光波浪會在膠囊上繪製隨專輯配色的絲綢潮汐；極光絲綢保留純淨毛玻璃並在底部浮現發光絲帶與星光圓點；OG 圓環則沿邊框描繪進度。</string>
 </resources>
