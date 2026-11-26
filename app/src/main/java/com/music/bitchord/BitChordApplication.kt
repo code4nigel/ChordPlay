@@ -74,13 +74,15 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // The player is drawn by the shared UI module; this is what it reads
         // underneath — settings, the Canvas decoder, outputs, the party.
         AndroidStreamHooks.installEarly()
+        // Carry on an active diagnostic logging session if it was explicitly enabled.
+        com.music.bitchord.data.LogRecorder.resumeAtLaunch(this)
         PlayerPlatform.install(AndroidPlayerHost(this))
         com.music.bitchord.ui.AppUi.install(com.music.bitchord.ui.AndroidAppUiHost)
         registerBundledLyricsFonts()
-        // The shared data layer (lyrics, the YouTube Music client) logs to
-        // logcat on debug builds only, as the app's own DebugLog always has.
-        if (BuildConfig.DEBUG) {
-            DebugLog.sink = DebugLog.Sink { level, tag, message, error ->
+        // The shared data layer logs to logcat on debug builds only, and into the
+        // diagnostic session file ONLY when Enable logging is toggled on.
+        DebugLog.sink = DebugLog.Sink { level, tag, message, error ->
+            if (BuildConfig.DEBUG) {
                 when (level) {
                     'D' -> android.util.Log.d(tag, message, error)
                     'I' -> android.util.Log.i(tag, message, error)
@@ -88,7 +90,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                     else -> android.util.Log.e(tag, message, error)
                 }
             }
-        } else {
+            com.music.bitchord.data.TrackLog.toSession(level, tag, message, error)
+        }
+        if (!BuildConfig.DEBUG) {
             // R8 strips android.util.Log from a release build (proguard-rules.pro);
             // this stops Media3 composing the lines it would have handed it.
             androidx.media3.common.util.Log.setLogLevel(androidx.media3.common.util.Log.LOG_LEVEL_OFF)
@@ -108,6 +112,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // The per-app language picker, which YouTube Music's `hl` follows.
         // Full tag (zh-Hant / zh-Hans preserved); Innertube maps to hl/gl.
         Innertube.appLanguage = { AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag() }
+        // The country chosen in Settings > Language & location, which YouTube Music's `gl` follows.
+        com.music.bitchord.data.ContentCountry.chosen = { AppSettings.contentCountry.value }
         migrateScriptOnlyAppLocale()
         LyricsTranslation.cacheDir = cacheDir
         // PlaybackService shares this process, so seeding the cookie here means

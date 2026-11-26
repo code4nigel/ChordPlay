@@ -32,6 +32,7 @@ import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SettingsGroup
 import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.SettingsSearchEmpty
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.matchesSearch
 
@@ -63,12 +64,14 @@ internal fun LocalMusicSection(
     val showFolder = matchesSearch(query, folderTitle, folderLabel, "device audio")
     val showAll = matchesSearch(query, allTitle, allSubtitle)
     val showFilter = matchesSearch(query, filterTitle, filterSubtitle)
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(contentPadding)) {
+    val scrollState = rememberScrollState()
+    Column(Modifier.fillMaxSize().verticalScroll(scrollState).padding(contentPadding)) {
         SettingsSubPageHeader(
             title = stringResource(R.string.local_music),
             onBack = onBack,
             searchQuery = query,
             onSearchQueryChange = { query = it },
+            scrollState = scrollState,
         )
         if (!showFolder && !showAll && !showFilter) {
             SettingsSearchEmpty(query)
@@ -98,7 +101,7 @@ internal fun LocalMusicSection(
                         title = filterTitle,
                         subtitle = filterSubtitle,
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = filter,
                                 onCheckedChange = AppSettings::setFilterNonMusicAudio,
                                 modifier = Modifier.semantics { contentDescription = filterTitle },

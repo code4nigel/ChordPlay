@@ -40,8 +40,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,13 +76,16 @@ fun PillSegmentedControl(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     accentColor: Color? = null,
+    optionFontFamilies: List<FontFamily?>? = null,
+    forceDarkSurface: Boolean = false,
+    labelHorizontalPadding: Dp = LABEL_PADDING,
 ) {
     if (options.isEmpty()) return
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
     val style = MaterialTheme.typography.labelMedium
     val measurer = rememberTextMeasurer()
-    val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    val light = !forceDarkSurface && MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val trackColor = TRACK_FILL.copy(alpha = if (light) LIGHT_TRACK_ALPHA else DARK_TRACK_ALPHA)
     val effectivePill = accentColor ?: MaterialTheme.colorScheme.primary
     val pillColor = effectivePill
@@ -96,12 +101,14 @@ fun PillSegmentedControl(
             .background(trackColor),
     ) {
         val inset = with(density) { TRACK_PADDING.toPx() }
-        val labelPadding = with(density) { LABEL_PADDING.toPx() }
+        val labelPadding = with(density) { labelHorizontalPadding.toPx() }
         val viewport = constraints.maxWidth.toFloat()
         val room = viewport - inset * 2f
-        val natural = remember(options, style, measurer, density) {
-            options.map { label ->
-                measurer.measure(label, style, maxLines = 1, softWrap = false).size.width + labelPadding * 2f
+        val natural = remember(options, optionFontFamilies, style, measurer, density, labelHorizontalPadding) {
+            options.mapIndexed { index, label ->
+                val family = optionFontFamilies?.getOrNull(index)
+                val optionStyle = if (family != null) style.copy(fontFamily = family) else style
+                measurer.measure(label, optionStyle, maxLines = 1, softWrap = false).size.width + labelPadding * 2f
             }
         }
         val needed = natural.sum()
@@ -186,8 +193,10 @@ fun PillSegmentedControl(
                             .padding(vertical = LABEL_VERTICAL_PADDING),
                         contentAlignment = Alignment.Center,
                     ) {
+                        val itemFamily = optionFontFamilies?.getOrNull(index)
                         Text(
                             text = label,
+                            fontFamily = itemFamily,
                             style = style.copy(
                                 fontWeight = if (index == selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal
                             ),

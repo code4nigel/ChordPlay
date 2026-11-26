@@ -13,6 +13,9 @@ package com.music.bitchord.data.settings
 
 import com.music.bitchord.data.settings.CanvasProvider
 import com.music.bitchord.data.settings.CoverAnimationMode
+import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
+import com.music.bitchord.data.settings.PlayerWaveStyle
+import com.music.bitchord.data.settings.TrackAudioWaveform
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.data.LocalMediaRepository
 import android.content.Context
@@ -204,6 +207,30 @@ data class CustomPalette(
     val artworkUrl: String? = null,
 )
 
+/** A root page the bottom navigation bar can show. [id] matches MainActivity's TAB_* keys. */
+enum class NavPage(val id: Int) {
+    HOME(0),
+    RADIO(1),
+    LIBRARY(2),
+    SEARCH(3),
+    ;
+
+    companion object {
+        val pillPages = listOf(HOME, RADIO, LIBRARY)
+        val defaultOrder = pillPages
+    }
+}
+
+/** One entry in an ordered list where each entry can also be switched off. */
+data class OrderedToggle<T>(val item: T, val enabled: Boolean)
+
+enum class KeepScreenOnDuration(val durationMs: Long?) {
+    ONE_MINUTE(60_000L),
+    FIVE_MINUTES(5 * 60_000L),
+    FIFTEEN_MINUTES(15 * 60_000L),
+    INDEFINITELY(null),
+}
+
 enum class DockStyle(val label: String) {
     NORMAL("Normal"),
     ADAPTIVE("Adaptive"),
@@ -340,6 +367,7 @@ object AppSettings {
     val saveToCustomDownloadLocation = MutableStateFlow(false)
     val customDownloadLocationUri = MutableStateFlow<String?>(null)
     val downloadLyricsOffline = MutableStateFlow(false)
+    val neverAskDownloadLyricsOffline = MutableStateFlow(false)
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -494,6 +522,15 @@ object AppSettings {
     /** Whether live preview cards are rendered in settings sub-pages (Appearance, Playback, Lyrics). */
     val showSettingsLivePreviews = MutableStateFlow(true)
 
+    /** Whether to keep the screen awake while ChordPlay is in the foreground. */
+    val keepScreenOn = MutableStateFlow(false)
+
+    /** How long after the last interaction the screen stays awake when [keepScreenOn] is enabled. */
+    val keepScreenOnDuration = MutableStateFlow(KeepScreenOnDuration.FIVE_MINUTES)
+
+    /** Whether known AI music acts are hidden from Home, Search, mixes, and radio. */
+    val hideAiMusic = MutableStateFlow(false)
+
     /** Custom saved palettes frozen from dynamic artwork or manually preserved. */
     val customPalettes = MutableStateFlow<List<CustomPalette>>(emptyList())
 
@@ -529,6 +566,9 @@ object AppSettings {
 
     /** Multiplier for miniplayer expand/minimize animation speed (0.5x to 2.0x). */
     val playerAnimationSpeed = MutableStateFlow(DEFAULT_PLAYER_ANIMATION_SPEED)
+
+    /** Order and visibility of the bottom navigation bar's pill tabs (Search stays pinned at the end). */
+    val navTabs = MutableStateFlow(NavPage.defaultOrder.map { OrderedToggle(it, true) })
 
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(false)
@@ -600,6 +640,12 @@ object AppSettings {
     val translationLanguage = MutableStateFlow("")
 
     /**
+     * Country whose YouTube Music catalogue to show (Settings > Language & location > Country):
+     * an ISO 3166 alpha-2 code (e.g. "IN", "DE", "US"), or blank for automatic.
+     */
+    val contentCountry = MutableStateFlow("")
+
+    /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
      *
@@ -609,6 +655,13 @@ object AppSettings {
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
     val coverAnimation = MutableStateFlow(CoverAnimationMode.DIRECTIONAL_SWEEP)
+    val miniPlayerTimelineStyle = MutableStateFlow(MiniPlayerTimelineStyle.AURORA_SILK)
+    val playerWaveStyle = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
+    val playerElasticConfig = MutableStateFlow(PlayerElasticConfig())
+    val activeTrackWaveform = MutableStateFlow<TrackAudioWaveform?>(null)
+    val liveAudioLevel = MutableStateFlow(0f)
+    @Volatile
+    var onTrackWaveformRequested: ((trackId: String, durationMs: Long) -> Unit)? = null
     val animatedCanvas = MutableStateFlow(true)
 
     /**
@@ -771,11 +824,20 @@ object AppSettings {
     val homeRecentsViewType = MutableStateFlow(LibraryViewType.LIST)
     val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
     val libraryViewMode = MutableStateFlow(LibraryViewMode.GRID)
-    val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.TWO_BY_THREE)
+    val speedDialLayoutMode = MutableStateFlow(SpeedDialLayoutMode.THREE_BY_THREE)
+    val speedDialSource = MutableStateFlow(SpeedDialSource.SMART_BLEND)
+    val speedDialTileStyle = MutableStateFlow(SpeedDialTileStyle.FROSTED_GLASS)
+    val speedDialShowLabels = MutableStateFlow(true)
+    val speedDialLabelOverrides = MutableStateFlow<Set<String>>(emptySet())
+    val speedDialShowPinBadge = MutableStateFlow(true)
+    val speedDialShowMixes = MutableStateFlow(true)
+    val speedDialShowArtists = MutableStateFlow(false)
+    val speedDialShowChordWave = MutableStateFlow(true)
+    val hiddenSpeedDialIds = MutableStateFlow<Set<String>>(emptySet())
     /** Saved Home section order by real feed title or [HomeShelfSlot] token; empty means feed default. */
     val homeShelfOrder = MutableStateFlow<List<String>>(emptyList())
-    /** Home sections hidden by title or [HomeShelfSlot] token; kept in order list so they can be re-enabled. */
-    val hiddenHomeShelves = MutableStateFlow<Set<String>>(emptySet())
+    /** Home sections hidden by title or [HomeShelfSlot] token; Quick picks stays hidden by default until enabled. */
+    val hiddenHomeShelves = MutableStateFlow(setOf(DEFAULT_QUICK_PICKS_SHELF_TITLE))
     /** Whether the ChordPlay Melody entry card is shown on Home. */
     val homeMelodyVisible = MutableStateFlow(true)
     /** Whether the Replay entry card is shown on Home. */
@@ -996,6 +1058,7 @@ object AppSettings {
         this.authStore = authStore
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         readAll()
+        com.music.bitchord.data.aimusic.HideAiMusic.init(context, hideAiMusic.value)
         watchConnection(context)
     }
 
@@ -1030,6 +1093,7 @@ object AppSettings {
         saveToCustomDownloadLocation.value = prefs.getBoolean(KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION, false)
         customDownloadLocationUri.value = prefs.getString(KEY_CUSTOM_DOWNLOAD_LOCATION_URI, null)
         downloadLyricsOffline.value = prefs.getBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, false)
+        neverAskDownloadLyricsOffline.value = prefs.getBoolean(KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixTempoMatching.value = prefs.getBoolean(KEY_AUTOMIX_TEMPO_MATCHING, smartFadeEnabled.value)
@@ -1083,6 +1147,12 @@ object AppSettings {
             .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
         playerAnimationSpeed.value = prefs.getFloat(KEY_PLAYER_ANIMATION_SPEED, DEFAULT_PLAYER_ANIMATION_SPEED)
             .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
+        navTabs.value = readOrdered(
+            prefs.getString(KEY_NAV_TABS, null),
+            NavPage.pillPages,
+            NavPage.pillPages.toSet(),
+            defaultOrder = NavPage.defaultOrder,
+        ) { name -> NavPage.entries.firstOrNull { it.name == name } }.let(::ensureOneTab)
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
@@ -1106,9 +1176,12 @@ object AppSettings {
         ).coerceIn(0f, 1f)
         liquidGlassIntensity.value = prefs.getFloat(KEY_LIQUID_GLASS_INTENSITY, 0.75f).coerceIn(0.1f, 1f)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
-        lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
-            .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        lyricsOffsetMs.value = 0
+        if (prefs.contains(KEY_LYRICS_OFFSET_MS)) {
+            prefs.edit().remove(KEY_LYRICS_OFFSET_MS).apply()
+        }
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
+        contentCountry.value = prefs.getString(KEY_CONTENT_COUNTRY, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1123,6 +1196,32 @@ object AppSettings {
             else -> runCatching { CoverAnimationMode.valueOf(rawCoverAnim) }
                 .getOrDefault(CoverAnimationMode.DIRECTIONAL_SWEEP)
         }
+        val rawMiniPlayerTimeline = prefs.getString(KEY_MINIPLAYER_TIMELINE_STYLE, null)
+        miniPlayerTimelineStyle.value = if (rawMiniPlayerTimeline == null) {
+            MiniPlayerTimelineStyle.AURORA_SILK
+        } else {
+            runCatching { MiniPlayerTimelineStyle.valueOf(rawMiniPlayerTimeline) }
+                .getOrDefault(MiniPlayerTimelineStyle.AURORA_SILK)
+        }
+        val rawPlayerWaveStyle = prefs.getString(KEY_PLAYER_WAVE_STYLE, null)
+        playerWaveStyle.value = if (rawPlayerWaveStyle == null) {
+            PlayerWaveStyle.AURORA_SILK
+        } else {
+            runCatching { PlayerWaveStyle.valueOf(rawPlayerWaveStyle) }
+                .getOrDefault(PlayerWaveStyle.AURORA_SILK)
+        }
+        playerElasticConfig.value = PlayerElasticConfig(
+            enabled = prefs.getBoolean(KEY_PLAYER_ELASTIC_ENABLED, true),
+            playPillInteraction = prefs.getBoolean(KEY_PLAYER_ELASTIC_PLAY_PILL, true),
+            shuffle = prefs.getBoolean(KEY_PLAYER_ELASTIC_SHUFFLE, true),
+            previous = prefs.getBoolean(KEY_PLAYER_ELASTIC_PREVIOUS, true),
+            playPause = prefs.getBoolean(KEY_PLAYER_ELASTIC_PLAY_PAUSE, true),
+            next = prefs.getBoolean(KEY_PLAYER_ELASTIC_NEXT, true),
+            repeat = prefs.getBoolean(KEY_PLAYER_ELASTIC_REPEAT, true),
+            lyrics = prefs.getBoolean(KEY_PLAYER_ELASTIC_LYRICS, true),
+            qualityPill = prefs.getBoolean(KEY_PLAYER_ELASTIC_QUALITY_PILL, true),
+            queue = prefs.getBoolean(KEY_PLAYER_ELASTIC_QUEUE, true),
+        )
         if (prefs.contains("cover_follows_automix")) {
             prefs.edit().remove("cover_follows_automix").apply()
         }
@@ -1245,6 +1344,15 @@ object AppSettings {
             ?.let { saved -> runCatching { AppDesignStyle.valueOf(saved) }.getOrNull() }
             ?: AppDesignStyle.CHORDPLAY
         showSettingsLivePreviews.value = prefs.getBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, true)
+        keepScreenOn.value = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false)
+        keepScreenOnDuration.value = prefs.getString(KEY_KEEP_SCREEN_ON_DURATION, null)
+            ?.let { saved -> runCatching { KeepScreenOnDuration.valueOf(saved) }.getOrNull() }
+            ?: KeepScreenOnDuration.FIVE_MINUTES
+        val hideAi = prefs.getBoolean(KEY_HIDE_AI_MUSIC, false)
+        if (hideAi != hideAiMusic.value) {
+            hideAiMusic.value = hideAi
+            com.music.bitchord.data.aimusic.HideAiMusic.apply(hideAi)
+        }
         homeRecentsViewType.value = readLibraryViewType(KEY_HOME_RECENTS_VIEW_TYPE)
         librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
             ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
@@ -1253,8 +1361,28 @@ object AppSettings {
             ?.let { saved -> LibraryViewMode.entries.firstOrNull { it.name == saved } }
             ?: LibraryViewMode.GRID
         speedDialLayoutMode.value = prefs.getString(KEY_SPEED_DIAL_LAYOUT_MODE, null)
-            ?.let { saved -> if (saved == "COMPACT_CAROUSEL") SpeedDialLayoutMode.ONE_BY_FOUR_LIST else SpeedDialLayoutMode.entries.firstOrNull { it.name == saved } }
-            ?: SpeedDialLayoutMode.TWO_BY_THREE
+            ?.let { saved ->
+                when (saved) {
+                    "COMPACT_CAROUSEL" -> SpeedDialLayoutMode.ONE_BY_FOUR_LIST
+                    "THREE_BY_FOUR" -> SpeedDialLayoutMode.THREE_BY_THREE
+                    "TWO_BY_THREE" -> SpeedDialLayoutMode.TWO_BY_FOUR
+                    else -> SpeedDialLayoutMode.entries.firstOrNull { it.name == saved }
+                }
+            }
+            ?: SpeedDialLayoutMode.THREE_BY_THREE
+        speedDialSource.value = prefs.getString(KEY_SPEED_DIAL_SOURCE, null)
+            ?.let { saved -> SpeedDialSource.entries.firstOrNull { it.name == saved } }
+            ?: SpeedDialSource.SMART_BLEND
+        speedDialTileStyle.value = prefs.getString(KEY_SPEED_DIAL_TILE_STYLE, null)
+            ?.let { saved -> SpeedDialTileStyle.entries.firstOrNull { it.name == saved } }
+            ?: SpeedDialTileStyle.FROSTED_GLASS
+        speedDialShowLabels.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_LABELS, true)
+        speedDialLabelOverrides.value = prefs.getStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, emptySet())?.toSet().orEmpty()
+        speedDialShowPinBadge.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_PIN_BADGE, true)
+        speedDialShowMixes.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_MIXES, true)
+        speedDialShowArtists.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_ARTISTS, false)
+        speedDialShowChordWave.value = prefs.getBoolean(KEY_SPEED_DIAL_SHOW_CHORD_WAVE, true)
+        hiddenSpeedDialIds.value = prefs.getStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, emptySet())?.toSet().orEmpty()
         detailSongSorts.value = readDetailSongSorts()
         amoledDarkMode.value = prefs.getBoolean("amoled_dark_mode", false)
         appFontChoice.value = prefs.getString("app_font_choice", null)
@@ -1273,11 +1401,13 @@ object AppSettings {
         } else {
             // Preserve Speed Dial hide preference from earlier enum-based builds without
             // pulling coarse HomeShelfKey enum names into title-based ordering.
+            // Quick picks stays turned off by default until the user enables it.
             val legacyDisabled = prefs.getStringSet("disabled_home_shelves", null).orEmpty()
-            if (HomeShelfKey.SPEED_DIAL.name in legacyDisabled) {
-                setOf(HomeShelfSlot.SPEED_DIAL)
-            } else {
-                emptySet()
+            buildSet {
+                add(DEFAULT_QUICK_PICKS_SHELF_TITLE)
+                if (HomeShelfKey.SPEED_DIAL.name in legacyDisabled) {
+                    add(HomeShelfSlot.SPEED_DIAL)
+                }
             }
         }
         hiddenHomeShelves.value = resolvedHidden
@@ -1669,12 +1799,83 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_NERD_STATS, value).apply()
     }
 
+    fun setNavTabs(value: List<OrderedToggle<NavPage>>) {
+        val guarded = ensureOneTab(value)
+        navTabs.value = guarded
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_NAV_TABS, writeOrdered(guarded) { it.name }).apply()
+        }
+    }
 
+    fun visibleNavPages(config: List<OrderedToggle<NavPage>> = navTabs.value): List<NavPage> =
+        config.filter { it.enabled }.map { it.item } + NavPage.SEARCH
+
+    private fun ensureOneTab(list: List<OrderedToggle<NavPage>>): List<OrderedToggle<NavPage>> {
+        if (list.any { it.enabled }) return list
+        return list.mapIndexed { idx, entry -> if (idx == 0) entry.copy(enabled = true) else entry }
+    }
+
+    internal fun <T> readOrdered(
+        stored: String?,
+        all: List<T>,
+        defaultOn: Set<T>,
+        defaultOrder: List<T> = all,
+        parse: (String) -> T?,
+    ): List<OrderedToggle<T>> {
+        if (stored.isNullOrBlank()) return defaultOrder.map { OrderedToggle(it, it in defaultOn) }
+        val saved: List<OrderedToggle<T>> = stored.split(",").mapNotNull { entry ->
+            val item: T = parse(entry.substringBefore(':')) ?: return@mapNotNull null
+            OrderedToggle(item, entry.substringAfter(':', "1") != "0")
+        }.distinctBy { it.item }
+        val ordered = saved.filter { it.item in all }.toMutableList()
+        all.forEachIndexed { index, item ->
+            if (ordered.any { it.item == item }) return@forEachIndexed
+            val followers = all.subList(index + 1, all.size)
+            val at = ordered.indexOfFirst { it.item in followers }
+            ordered.add(if (at >= 0) at else ordered.size, OrderedToggle(item, item in defaultOn))
+        }
+        return ordered
+    }
+
+    internal fun <T> writeOrdered(value: List<OrderedToggle<T>>, name: (T) -> String): String =
+        value.joinToString(",") { "${name(it.item)}:${if (it.enabled) 1 else 0}" }
+
+
+
+    /** Blank restores automatic; see [contentCountry]. */
+    fun setContentCountry(value: String) {
+        contentCountry.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_CONTENT_COUNTRY, value).apply()
+        }
+    }
 
     fun setShowSettingsLivePreviews(value: Boolean) {
         showSettingsLivePreviews.value = value
         if (this::prefs.isInitialized) {
             prefs.edit().putBoolean(KEY_SHOW_SETTINGS_LIVE_PREVIEWS, value).apply()
+        }
+    }
+
+    fun setKeepScreenOn(value: Boolean) {
+        keepScreenOn.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_KEEP_SCREEN_ON, value).apply()
+        }
+    }
+
+    fun setKeepScreenOnDuration(value: KeepScreenOnDuration) {
+        keepScreenOnDuration.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_KEEP_SCREEN_ON_DURATION, value.name).apply()
+        }
+    }
+
+    fun setHideAiMusic(value: Boolean) {
+        hideAiMusic.value = value
+        com.music.bitchord.data.aimusic.HideAiMusic.apply(value)
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_HIDE_AI_MUSIC, value).apply()
         }
     }
 
@@ -1693,13 +1894,15 @@ object AppSettings {
         selectCustomPalette(null)
     }
 
+    const val MAX_CUSTOM_PALETTES = 10
+
     fun saveCustomPalette(palette: CustomPalette): Boolean {
         val current = customPalettes.value.toMutableList()
         val existingIndex = current.indexOfFirst { it.id == palette.id }
         if (existingIndex >= 0) {
             current[existingIndex] = palette
         } else {
-            if (current.size >= 5) return false
+            if (current.size >= MAX_CUSTOM_PALETTES) return false
             current.add(palette)
         }
         customPalettes.value = current
@@ -1916,11 +2119,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_LYRICS_BLUR, value).apply()
     }
 
+    /** Per-song in-memory offset; intentionally not persisted so each track starts at 0 ms. */
     fun setLyricsOffsetMs(value: Int) {
         val normalized = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         if (lyricsOffsetMs.value == normalized) return
         lyricsOffsetMs.value = normalized
-        prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2035,6 +2238,36 @@ object AppSettings {
     fun setCoverAnimation(value: CoverAnimationMode) {
         coverAnimation.value = value
         prefs.edit().putString(KEY_COVER_ANIMATION, value.name).apply()
+    }
+
+    fun setMiniPlayerTimelineStyle(value: MiniPlayerTimelineStyle) {
+        miniPlayerTimelineStyle.value = value
+        prefs.edit().putString(KEY_MINIPLAYER_TIMELINE_STYLE, value.name).apply()
+    }
+
+    fun setPlayerWaveStyle(value: PlayerWaveStyle) {
+        playerWaveStyle.value = value
+        prefs.edit().putString(KEY_PLAYER_WAVE_STYLE, value.name).apply()
+    }
+
+    fun setPlayerElasticConfig(value: PlayerElasticConfig) {
+        playerElasticConfig.value = value
+        prefs.edit()
+            .putBoolean(KEY_PLAYER_ELASTIC_ENABLED, value.enabled)
+            .putBoolean(KEY_PLAYER_ELASTIC_PLAY_PILL, value.playPillInteraction)
+            .putBoolean(KEY_PLAYER_ELASTIC_SHUFFLE, value.shuffle)
+            .putBoolean(KEY_PLAYER_ELASTIC_PREVIOUS, value.previous)
+            .putBoolean(KEY_PLAYER_ELASTIC_PLAY_PAUSE, value.playPause)
+            .putBoolean(KEY_PLAYER_ELASTIC_NEXT, value.next)
+            .putBoolean(KEY_PLAYER_ELASTIC_REPEAT, value.repeat)
+            .putBoolean(KEY_PLAYER_ELASTIC_LYRICS, value.lyrics)
+            .putBoolean(KEY_PLAYER_ELASTIC_QUALITY_PILL, value.qualityPill)
+            .putBoolean(KEY_PLAYER_ELASTIC_QUEUE, value.queue)
+            .apply()
+    }
+
+    fun updatePlayerElasticConfig(transform: (PlayerElasticConfig) -> PlayerElasticConfig) {
+        setPlayerElasticConfig(transform(playerElasticConfig.value))
     }
 
     fun setAnimatedCanvas(value: Boolean) {
@@ -2274,6 +2507,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_DOWNLOAD_LYRICS_OFFLINE, value).apply()
     }
 
+    fun setNeverAskDownloadLyricsOffline(value: Boolean) {
+        neverAskDownloadLyricsOffline.value = value
+        prefs.edit().putBoolean(KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE, value).apply()
+    }
+
     fun customDownloadLocationDisplay(): String {
         val uri = customDownloadLocationUri.value
         if (uri.isNullOrBlank()) return "Download/Music/ChordPlay"
@@ -2476,7 +2714,7 @@ object AppSettings {
 
     fun resetHomeShelves() {
         homeShelfOrder.value = emptyList()
-        hiddenHomeShelves.value = emptySet()
+        hiddenHomeShelves.value = setOf(DEFAULT_QUICK_PICKS_SHELF_TITLE)
         homeMelodyVisible.value = true
         homeReplayVisible.value = true
         libraryReplayVisible.value = true
@@ -2503,7 +2741,142 @@ object AppSettings {
 
     fun setSpeedDialLayoutMode(value: SpeedDialLayoutMode) {
         speedDialLayoutMode.value = value
-        prefs.edit().putString(KEY_SPEED_DIAL_LAYOUT_MODE, value.name).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_LAYOUT_MODE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialSource(value: SpeedDialSource) {
+        speedDialSource.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_SOURCE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialTileStyle(value: SpeedDialTileStyle) {
+        speedDialTileStyle.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_SPEED_DIAL_TILE_STYLE, value.name).apply()
+        }
+    }
+
+    fun setSpeedDialShowLabels(value: Boolean) {
+        speedDialShowLabels.value = value
+        speedDialLabelOverrides.value = emptySet()
+        if (this::prefs.isInitialized) {
+            prefs.edit()
+                .putBoolean(KEY_SPEED_DIAL_SHOW_LABELS, value)
+                .putStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, emptySet())
+                .apply()
+        }
+    }
+
+    fun toggleSpeedDialTileLabel(item: ShelfItem) {
+        val id = item.speedDialStableId()
+        if (id.isBlank()) return
+        val current = speedDialLabelOverrides.value
+        val updated = if (id in current) current - id else current + id
+        speedDialLabelOverrides.value = updated
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_SPEED_DIAL_LABEL_OVERRIDES, updated).apply()
+        }
+    }
+
+    fun isSpeedDialLabelShown(item: ShelfItem): Boolean =
+        speedDialShowLabels.value != (item.speedDialStableId() in speedDialLabelOverrides.value)
+
+    fun setSpeedDialShowPinBadge(value: Boolean) {
+        speedDialShowPinBadge.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_PIN_BADGE, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowMixes(value: Boolean) {
+        speedDialShowMixes.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_MIXES, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowArtists(value: Boolean) {
+        speedDialShowArtists.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_ARTISTS, value).apply()
+        }
+    }
+
+    fun setSpeedDialShowChordWave(value: Boolean) {
+        speedDialShowChordWave.value = value
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_SPEED_DIAL_SHOW_CHORD_WAVE, value).apply()
+        }
+    }
+
+    fun reorderPinnedSpeedDial(reordered: List<ShelfItem>) {
+        val current = pinnedSpeedDialItems.value
+        val dedupedReordered = reordered.distinctBy { it.speedDialStableId() }
+        val reorderedIds = dedupedReordered.mapTo(HashSet()) { it.speedDialStableId() }
+        val remainder = current.filterNot { it.speedDialStableId() in reorderedIds }
+        val updated = (dedupedReordered + remainder).distinctBy { it.speedDialStableId() }
+        if (updated == current) return
+        pinnedSpeedDialItems.value = updated
+        if (this::prefs.isInitialized) {
+            savePinnedSpeedDial(updated)
+        }
+    }
+
+    fun hideFromSpeedDial(item: ShelfItem) {
+        val id = item.speedDialStableId()
+        if (id.isBlank()) return
+        val currentPins = pinnedSpeedDialItems.value
+        val updatedPins = currentPins.filterNot { it.speedDialStableId() == id }
+        if (updatedPins != currentPins) {
+            pinnedSpeedDialItems.value = updatedPins
+            if (this::prefs.isInitialized) {
+                savePinnedSpeedDial(updatedPins)
+            }
+        }
+        val updatedHidden = hiddenSpeedDialIds.value + id
+        hiddenSpeedDialIds.value = updatedHidden
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, updatedHidden).apply()
+        }
+    }
+
+    fun resetHiddenSpeedDial() {
+        hiddenSpeedDialIds.value = emptySet()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, emptySet()).apply()
+        }
+    }
+
+    fun refreshPinnedSpeedDialArt(freshItems: List<ShelfItem>) {
+        if (freshItems.isEmpty() || pinnedSpeedDialItems.value.isEmpty()) return
+        val freshArtById = HashMap<String, String>()
+        for (item in freshItems) {
+            val url = item.thumbnailUrl?.takeIf { it.isNotBlank() } ?: continue
+            val id = item.speedDialStableId()
+            if (id.isNotBlank()) freshArtById.putIfAbsent(id, url)
+        }
+        if (freshArtById.isEmpty()) return
+        val current = pinnedSpeedDialItems.value
+        var changed = false
+        val updated = current.map { pin ->
+            val freshUrl = freshArtById[pin.speedDialStableId()]
+            if (freshUrl != null && freshUrl != pin.thumbnailUrl) {
+                changed = true
+                pin.copy(thumbnailUrl = freshUrl)
+            } else {
+                pin
+            }
+        }
+        if (changed) {
+            pinnedSpeedDialItems.value = updated
+            if (this::prefs.isInitialized) {
+                savePinnedSpeedDial(updated)
+            }
+        }
     }
 
     fun setDetailSongSort(browseId: String, value: SongSort) {
@@ -2697,6 +3070,16 @@ object AppSettings {
             current + item
         }
         pinnedSpeedDialItems.value = updated
+        if (matchIndex < 0) {
+            val id = item.speedDialStableId()
+            if (id.isNotBlank() && id in hiddenSpeedDialIds.value) {
+                val unhidden = hiddenSpeedDialIds.value - id
+                hiddenSpeedDialIds.value = unhidden
+                if (this::prefs.isInitialized) {
+                    prefs.edit().putStringSet(KEY_HIDDEN_SPEED_DIAL_IDS, unhidden).apply()
+                }
+            }
+        }
         if (this::prefs.isInitialized) {
             savePinnedSpeedDial(updated)
         }
@@ -2904,6 +3287,8 @@ object AppSettings {
     private const val KEY_SAVE_TO_CUSTOM_DOWNLOAD_LOCATION = "save_to_custom_download_location"
     private const val KEY_CUSTOM_DOWNLOAD_LOCATION_URI = "custom_download_location_uri"
     private const val KEY_DOWNLOAD_LYRICS_OFFLINE = "download_lyrics_offline"
+    private const val KEY_NEVER_ASK_DOWNLOAD_LYRICS_OFFLINE = "never_ask_download_lyrics_offline"
+    private const val DEFAULT_QUICK_PICKS_SHELF_TITLE = "Quick picks"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
@@ -2926,6 +3311,9 @@ object AppSettings {
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_APP_DESIGN_STYLE = "app_design_style"
     private const val KEY_SHOW_SETTINGS_LIVE_PREVIEWS = "show_settings_live_previews"
+    private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+    private const val KEY_KEEP_SCREEN_ON_DURATION = "keep_screen_on_duration"
+    private const val KEY_HIDE_AI_MUSIC = "hide_ai_music"
     private const val KEY_COLOR_PALETTE = "color_palette"
     private const val KEY_CUSTOM_PALETTES = "custom_palettes"
     private const val KEY_ACTIVE_CUSTOM_PALETTE_ID = "active_custom_palette_id"
@@ -2943,6 +3331,7 @@ object AppSettings {
     const val MIN_DISPLAY_DENSITY_SCALE = 0.50f
     const val MAX_DISPLAY_DENSITY_SCALE = 1.25f
     private const val KEY_PLAYER_ANIMATION_SPEED = "player_animation_speed"
+    private const val KEY_NAV_TABS = "nav_tabs"
     const val DEFAULT_PLAYER_ANIMATION_SPEED = 1.0f
     const val MIN_PLAYER_ANIMATION_SPEED = 0.5f
     const val MAX_PLAYER_ANIMATION_SPEED = 2.0f
@@ -2968,7 +3357,20 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_CONTENT_COUNTRY = "content_country"
     private const val KEY_COVER_ANIMATION = "cover_animation"
+    private const val KEY_MINIPLAYER_TIMELINE_STYLE = "miniplayer_timeline_style"
+    private const val KEY_PLAYER_WAVE_STYLE = "player_wave_style"
+    private const val KEY_PLAYER_ELASTIC_ENABLED = "player_elastic_enabled"
+    private const val KEY_PLAYER_ELASTIC_PLAY_PILL = "player_elastic_play_pill"
+    private const val KEY_PLAYER_ELASTIC_SHUFFLE = "player_elastic_shuffle"
+    private const val KEY_PLAYER_ELASTIC_PREVIOUS = "player_elastic_previous"
+    private const val KEY_PLAYER_ELASTIC_PLAY_PAUSE = "player_elastic_play_pause"
+    private const val KEY_PLAYER_ELASTIC_NEXT = "player_elastic_next"
+    private const val KEY_PLAYER_ELASTIC_REPEAT = "player_elastic_repeat"
+    private const val KEY_PLAYER_ELASTIC_LYRICS = "player_elastic_lyrics"
+    private const val KEY_PLAYER_ELASTIC_QUALITY_PILL = "player_elastic_quality_pill"
+    private const val KEY_PLAYER_ELASTIC_QUEUE = "player_elastic_queue"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
@@ -3008,6 +3410,15 @@ object AppSettings {
     private const val KEY_LIBRARY_SORT = "library_sort"
     private const val KEY_LIBRARY_VIEW_MODE = "library_view_mode"
     private const val KEY_SPEED_DIAL_LAYOUT_MODE = "speed_dial_layout_mode"
+    private const val KEY_SPEED_DIAL_SOURCE = "speed_dial_source"
+    private const val KEY_SPEED_DIAL_TILE_STYLE = "speed_dial_tile_style"
+    private const val KEY_SPEED_DIAL_SHOW_LABELS = "speed_dial_show_labels"
+    private const val KEY_SPEED_DIAL_LABEL_OVERRIDES = "speed_dial_label_overrides"
+    private const val KEY_SPEED_DIAL_SHOW_PIN_BADGE = "speed_dial_show_pin_badge"
+    private const val KEY_SPEED_DIAL_SHOW_MIXES = "speed_dial_show_mixes"
+    private const val KEY_SPEED_DIAL_SHOW_ARTISTS = "speed_dial_show_artists"
+    private const val KEY_SPEED_DIAL_SHOW_CHORD_WAVE = "speed_dial_show_chord_wave"
+    private const val KEY_HIDDEN_SPEED_DIAL_IDS = "hidden_speed_dial_ids"
     private const val KEY_HOME_SHELF_ORDER = "home_shelf_title_order"
     private const val KEY_HIDDEN_HOME_SHELVES = "hidden_home_shelf_titles"
     private const val KEY_HOME_MELODY_VISIBLE = "home_melody_visible"

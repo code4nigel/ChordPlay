@@ -277,6 +277,7 @@ internal fun LandscapeAndVideoNowPlaying(
     val landscapeArtScale = 1f
     val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
     val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val panelOpen = panels.lyricsOpen || panels.queueOpen
 
     fun landscapeDockPose(): LandscapeDockPose? {
@@ -355,6 +356,7 @@ internal fun LandscapeAndVideoNowPlaying(
                             SynesthesiaNocturneOverlay(
                                 palette = synesthesiaPalette,
                                 isPlaying = isPlaying,
+                                reduceAnimation = reduceAnimation,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

@@ -6,22 +6,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -60,20 +62,52 @@ internal fun QueuePlaylistSaveDialog(
 ) {
     val title = stringResource(R.string.queue_playlist_title)
     when (state) {
-        QueuePlaylistSaveState.SignIn -> AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(title) },
-            text = { Text(stringResource(R.string.queue_playlist_sign_in)) },
-            confirmButton = { TextButton(onSignIn) { Text(stringResource(R.string.sign_in)) } },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.cancel)) } },
+        QueuePlaylistSaveState.SignIn -> FrostedQueueDialog(
+            title = title,
+            onDismiss = onDismiss,
+            body = {
+                Text(
+                    text = stringResource(R.string.queue_playlist_sign_in),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            },
+            actions = {
+                AlertAction(label = stringResource(R.string.sign_in), emphasised = true, onClick = onSignIn)
+                AlertRule()
+                AlertAction(label = stringResource(R.string.cancel), emphasised = false, onClick = onDismiss)
+            },
         )
         is QueuePlaylistSaveState.Form -> {
             var history by remember(state.capture) { mutableStateOf<QueueHistoryRange?>(null) }
             var review by remember(state.capture) { mutableStateOf<Pair<String, PlaylistPrivacy>?>(null) }
             val snapshot = remember(state.capture, history) { state.capture.select(history) }
+            val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+            val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+            val glassSupported = isGlassSupported() && !reduceDynamicBlur
+            val formShape = RoundedCornerShape(24.dp)
+
             Dialog(onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-                Surface(Modifier.padding(horizontal = 16.dp).widthIn(max = 520.dp).fillMaxWidth(),
-                    shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surface) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .widthIn(max = 520.dp)
+                        .fillMaxWidth()
+                        .clip(formShape)
+                        .then(
+                            if (liquidGlass && glassSupported) {
+                                Modifier.lightweightLiquidGlass(
+                                    shape = formShape,
+                                    fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                )
+                            } else {
+                                Modifier
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+                                    .border(GLASS_EDGE_WIDTH, Color.White.copy(alpha = 0.14f), formShape)
+                            },
+                        ),
+                ) {
                     NewPlaylistForm(
                         onBack = null,
                         onCreate = { name, privacy ->
@@ -96,35 +130,67 @@ internal fun QueuePlaylistSaveDialog(
             }
             review?.let { (name, privacy) ->
                 val available = snapshot.upload.videoIds.isNotEmpty()
-                AlertDialog(
-                    onDismissRequest = { review = null },
-                    title = { Text(title) },
-                    text = {
-                        val message = if (available) R.string.queue_playlist_skip else R.string.queue_playlist_none_available
-                        val missing = snapshot.skipped.joinToString("\n") { "• ${it.title} · ${it.artist}" }
-                        Text(stringResource(message) + if (missing.isEmpty()) "" else "\n\n$missing",
-                            Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()))
+                val message = if (available) R.string.queue_playlist_skip else R.string.queue_playlist_none_available
+                val missing = snapshot.skipped.joinToString("\n") { "• ${it.title} · ${it.artist}" }
+                FrostedQueueDialog(
+                    title = title,
+                    onDismiss = { review = null },
+                    body = {
+                        Text(
+                            text = stringResource(message) + if (missing.isEmpty()) "" else "\n\n$missing",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()),
+                        )
                     },
-                    confirmButton = {
-                        if (available) TextButton({
-                            review = null
-                            onCreate(name, privacy, history, true)
-                        }) { Text(stringResource(R.string.queue_playlist_save_available)) }
-                        else TextButton({ review = null }) { Text(stringResource(R.string.close)) }
+                    actions = {
+                        if (available) {
+                            AlertAction(
+                                label = stringResource(R.string.queue_playlist_save_available),
+                                emphasised = true,
+                                onClick = {
+                                    review = null
+                                    onCreate(name, privacy, history, true)
+                                },
+                            )
+                            AlertRule()
+                            AlertAction(
+                                label = stringResource(R.string.cancel),
+                                emphasised = false,
+                                onClick = { review = null },
+                            )
+                        } else {
+                            AlertAction(
+                                label = stringResource(R.string.close),
+                                emphasised = true,
+                                onClick = { review = null },
+                            )
+                        }
                     },
-                    dismissButton = if (available) {
-                        { TextButton({ review = null }) { Text(stringResource(R.string.cancel)) } }
-                    } else null,
                 )
             }
         }
         QueuePlaylistSaveState.Creating -> QueueSaveProgress(title, R.string.queue_playlist_creating)
-        QueuePlaylistSaveState.CreateUnconfirmed, QueuePlaylistSaveState.ProfileChanged -> AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(title) },
-            text = { Text(stringResource(if (state == QueuePlaylistSaveState.ProfileChanged)
-                R.string.queue_playlist_account_changed else R.string.queue_playlist_creation_unconfirmed)) },
-            confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.close)) } },
+        QueuePlaylistSaveState.CreateUnconfirmed, QueuePlaylistSaveState.ProfileChanged -> FrostedQueueDialog(
+            title = title,
+            onDismiss = onDismiss,
+            body = {
+                Text(
+                    text = stringResource(
+                        if (state == QueuePlaylistSaveState.ProfileChanged) {
+                            R.string.queue_playlist_account_changed
+                        } else {
+                            R.string.queue_playlist_creation_unconfirmed
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            },
+            actions = {
+                AlertAction(label = stringResource(R.string.close), emphasised = true, onClick = onDismiss)
+            },
         )
         is QueuePlaylistSaveState.Receipt -> {
             if (state.status == Status.VERIFYING) {
@@ -137,18 +203,34 @@ internal fun QueuePlaylistSaveDialog(
                 Status.MIX_SAVE_FAILED -> R.string.queue_playlist_mix_failed
                 else -> R.string.queue_playlist_verify_failed
             }
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = { Text(state.pending.title) },
-                text = { Text(stringResource(message)) },
-                confirmButton = {
-                    if (state.status == Status.VERIFIED) {
-                        TextButton({ onOpen(state.pending.browseId, state.pending.title) }) {
-                            Text(stringResource(R.string.open_playlist))
-                        }
-                    } else TextButton(onVerify) { Text(stringResource(R.string.queue_playlist_retry_verify)) }
+            FrostedQueueDialog(
+                title = state.pending.title,
+                onDismiss = onDismiss,
+                body = {
+                    Text(
+                        text = stringResource(message),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
                 },
-                dismissButton = { TextButton(onFinish) { Text(stringResource(R.string.done)) } },
+                actions = {
+                    if (state.status == Status.VERIFIED) {
+                        AlertAction(
+                            label = stringResource(R.string.open_playlist),
+                            emphasised = true,
+                            onClick = { onOpen(state.pending.browseId, state.pending.title) },
+                        )
+                    } else {
+                        AlertAction(
+                            label = stringResource(R.string.queue_playlist_retry_verify),
+                            emphasised = true,
+                            onClick = onVerify,
+                        )
+                    }
+                    AlertRule()
+                    AlertAction(label = stringResource(R.string.done), emphasised = false, onClick = onFinish)
+                },
             )
         }
     }
@@ -156,14 +238,98 @@ internal fun QueuePlaylistSaveDialog(
 
 @Composable
 private fun QueueSaveProgress(title: String, message: Int) {
-    AlertDialog(
-        onDismissRequest = {},
-        icon = { CircularProgressIndicator() },
-        title = { Text(title) },
-        text = { Text(stringResource(message)) },
-        confirmButton = {},
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    FrostedQueueDialog(
+        title = title,
+        onDismiss = {},
+        dismissable = false,
+        body = {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 2.5.dp,
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(message),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 19.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        },
+        actions = null,
     )
+}
+
+@Composable
+private fun FrostedQueueDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    dismissable: Boolean = true,
+    body: @Composable ColumnScope.() -> Unit,
+    actions: (@Composable ColumnScope.() -> Unit)?,
+) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+    val glassSupported = isGlassSupported() && !reduceDynamicBlur
+    val shape = RoundedCornerShape(18.dp)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = dismissable,
+            dismissOnClickOutside = dismissable,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .then(
+                        if (liquidGlass && glassSupported) {
+                            Modifier.lightweightLiquidGlass(
+                                shape = shape,
+                                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                            )
+                        } else {
+                            Modifier
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+                                .border(GLASS_EDGE_WIDTH, Color.White.copy(alpha = 0.14f), shape)
+                        },
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    body()
+                }
+                if (actions != null) {
+                    AlertRule()
+                    actions()
+                }
+            }
+        }
+    }
 }
 
 @Composable

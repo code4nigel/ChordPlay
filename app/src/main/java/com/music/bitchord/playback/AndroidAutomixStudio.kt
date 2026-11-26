@@ -136,6 +136,10 @@ internal class AutomixStudioSession(
         if (AndroidAutomixStudio.state.subscriptionCount.value == 0 && key == null) return
         val pair = currentPair()
         setPair(pair.takeIf { AppSettings.activeSmartFadeEnabled.value })
+        if (pair != null && AndroidAutomixStudio.state.subscriptionCount.value > 0) {
+            if (pair.outgoingAnalysis.waveform == null) requestWaveform(pair.outgoing, pair.outgoingDurationMs)
+            if (pair.incomingAnalysis.waveform == null) requestWaveform(pair.incoming, pair.incomingDurationMs)
+        }
         AndroidAutomixStudio.state.value = pair?.let {
             AutomixStudioState(
                 pair = pairNumber,

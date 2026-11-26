@@ -10,11 +10,14 @@
  */
 package com.music.bitchord.ui.screens.settings.sections
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,26 +29,24 @@ import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.VolumeOff
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.LandscapeFontScale
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.screens.*
 import com.music.bitchord.ui.screens.settings.localizedLabel
 import com.music.bitchord.ui.screens.settings.localizedDetail
@@ -63,6 +64,8 @@ fun PlayerSection(
 ) {
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
@@ -73,11 +76,12 @@ fun PlayerSection(
     val landscapeFontScale by AppSettings.landscapeFontScale.collectAsStateWithLifecycle()
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -85,6 +89,7 @@ fun PlayerSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showPlayerLayout = matchesSearch(
@@ -98,6 +103,12 @@ fun PlayerSection(
             stringResource(R.string.breathing_artwork_aura),
             stringResource(R.string.breathing_artwork_aura_desc),
             "aura", "breathing", "glow",
+        )
+        val showPlayerAnimationSpeed = matchesSearch(
+            searchQuery,
+            stringResource(R.string.player_animation_speed),
+            stringResource(R.string.player_animation_speed_subtitle),
+            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
         )
         val showLegacyMeshGradient = matchesSearch(
             searchQuery,
@@ -149,7 +160,7 @@ fun PlayerSection(
             "landscape", "car", "in-car", "font", "size", "auto", "text", "auto",
         )
 
-        val anyPlayerMatch = showPlayerLayout || showBreathingAura ||
+        val anyPlayerMatch = showPlayerLayout || showBreathingAura || showPlayerAnimationSpeed ||
             showLegacyMeshGradient ||
             showHideSongStatus || showHideLyricsPreview || showPlayNextOnSwipe || showStopMusicOnClose ||
             showLandscapeFontScale || showSmartAlignment || showNerdStats
@@ -184,21 +195,39 @@ fun PlayerSection(
                         title = stringResource(R.string.breathing_artwork_aura),
                         subtitle = stringResource(R.string.breathing_artwork_aura_desc),
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = enableBreathingAura,
                                 onCheckedChange = AppSettings::setEnableBreathingAura,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { AppSettings.setEnableBreathingAura(!enableBreathingAura) },
                     )
                 }
 
+                if (showPlayerAnimationSpeed) {
+                    AnimatedVisibility(
+                        visible = !reduceAnimation,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        Column {
+                            if (showPlayerLayout || showBreathingAura) RowDivider()
+                            SliderRow(
+                                icon = Icons.Rounded.Speed,
+                                title = stringResource(R.string.player_animation_speed),
+                                subtitle = stringResource(R.string.player_animation_speed_subtitle),
+                                value = playerAnimationSpeedLabel(playerAnimationSpeed),
+                                sliderValue = playerAnimationSpeed,
+                                onSliderValue = AppSettings::setPlayerAnimationSpeed,
+                                valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
+                                steps = 14,
+                            )
+                        }
+                    }
+                }
+
                 // Artwork & Video Visuals Section Divider
-                val hasTopVisuals = showPlayerLayout || showBreathingAura
+                val hasTopVisuals = showPlayerLayout || showBreathingAura || (showPlayerAnimationSpeed && !reduceAnimation)
                 val hasArtworkVisuals = showLegacyMeshGradient
                 if (hasArtworkVisuals) {
                     if (hasTopVisuals) {
@@ -212,13 +241,9 @@ fun PlayerSection(
                             title = legacyMeshGradientTitle,
                             subtitle = stringResource(R.string.legacy_mesh_gradient_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = legacyMeshGradient,
                                     onCheckedChange = AppSettings::setLegacyMeshGradient,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setLegacyMeshGradient(!legacyMeshGradient) },
@@ -241,13 +266,9 @@ fun PlayerSection(
                             title = hideSongStatusTitle,
                             subtitle = stringResource(R.string.hide_song_status_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = hideSongStatus,
                                     onCheckedChange = AppSettings::setHideSongStatus,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
@@ -260,13 +281,9 @@ fun PlayerSection(
                             title = stringResource(R.string.hide_lyrics_on_player),
                             subtitle = stringResource(R.string.hide_lyrics_on_player_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = hideLyricsPreview,
                                     onCheckedChange = AppSettings::setHideLyricsPreview,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setHideLyricsPreview(!hideLyricsPreview) },
@@ -284,13 +301,9 @@ fun PlayerSection(
                                 stringResource(R.string.swipe_adds_to_queue)
                             },
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = swipeToPlayNext,
                                     onCheckedChange = AppSettings::setSwipeToPlayNext,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
@@ -304,13 +317,9 @@ fun PlayerSection(
                             title = stopMusicOnCloseTitle,
                             subtitle = stringResource(R.string.stop_music_on_close_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = stopOnTaskRemoved,
                                     onCheckedChange = AppSettings::setStopOnTaskRemoved,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
@@ -350,13 +359,9 @@ fun PlayerSection(
                             title = smartAlignmentTitle,
                             subtitle = stringResource(R.string.smart_version_alignment_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = smartVersionAlignment,
                                     onCheckedChange = AppSettings::setSmartVersionAlignment,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
@@ -370,13 +375,9 @@ fun PlayerSection(
                             title = showNerdStatsTitle,
                             subtitle = stringResource(R.string.show_nerd_stats_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = nerdStats,
                                     onCheckedChange = AppSettings::setShowNerdStats,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setShowNerdStats(!nerdStats) },
@@ -385,5 +386,16 @@ fun PlayerSection(
                 }
             }
         }
+    }
+}
+
+internal fun playerAnimationSpeedLabel(speed: Float): String {
+    val rounded = (kotlin.math.round(speed * 10f) / 10f)
+    return when {
+        rounded <= 0.55f -> "0.5x · Slow"
+        rounded in 0.95f..1.05f -> "1.0x · Default"
+        rounded in 1.45f..1.55f -> "1.5x · Fast"
+        rounded >= 1.95f -> "2.0x · Instant"
+        else -> String.format(Locale.US, "%.1fx", rounded)
     }
 }

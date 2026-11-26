@@ -28,10 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
@@ -61,6 +64,9 @@ fun SearchField(
     /** What the empty field says it is for — the one part that changes per screen. */
     placeholder: String = stringResource(Res.string.search_hint),
     modifier: Modifier = Modifier,
+    containerColor: Color? = null,
+    shape: Shape = remember { SquirclePillShape() },
+    height: Dp = 46.dp,
 ) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -74,12 +80,14 @@ fun SearchField(
         modifier = modifier
             .fillMaxWidth()
             .then(
-                if (LocalSearchFieldOnSurface.current) {
-                    Modifier.fillMaxHeight()
-                } else {
-                    Modifier
-                        .height(46.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, remember { SquirclePillShape() })
+                when {
+                    containerColor != null -> Modifier
+                        .height(height)
+                        .background(containerColor, shape)
+                    LocalSearchFieldOnSurface.current -> Modifier.fillMaxHeight()
+                    else -> Modifier
+                        .height(height)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, shape)
                 },
             )
             // Asymmetric: the magnifier is a button now and wants a real touch

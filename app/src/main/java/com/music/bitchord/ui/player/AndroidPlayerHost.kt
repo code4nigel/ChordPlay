@@ -114,6 +114,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val playerLayoutMode get() = AppSettings.playerLayoutMode
         override val playerInterfaceStyle get() = AppSettings.playerInterfaceStyle
         override fun setPlayerInterfaceStyle(value: com.music.bitchord.data.settings.PlayerInterfaceStyle) = AppSettings.setPlayerInterfaceStyle(value)
+        override val playerWaveStyle get() = AppSettings.playerWaveStyle
+        override fun setPlayerWaveStyle(value: com.music.bitchord.data.settings.PlayerWaveStyle) = AppSettings.setPlayerWaveStyle(value)
+        override val playerElasticConfig get() = AppSettings.playerElasticConfig
+        override fun setPlayerElasticConfig(value: com.music.bitchord.data.settings.PlayerElasticConfig) = AppSettings.setPlayerElasticConfig(value)
+        override val activeTrackWaveform get() = AppSettings.activeTrackWaveform
+        override val liveAudioLevel get() = AppSettings.liveAudioLevel
         override val fullscreenArtworkLyricsStyle get() = AppSettings.fullscreenArtworkLyricsStyle
         override val enableBreathingAura get() = AppSettings.enableBreathingAura
         override val landscapeFontScale get() = AppSettings.landscapeFontScale
@@ -129,6 +135,9 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override fun setLyricsOffsetMs(value: Int) = AppSettings.setLyricsOffsetMs(value)
         override fun setFullscreenArtworkLyricsStyle(value: com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle) =
             AppSettings.setFullscreenArtworkLyricsStyle(value)
+        override fun requestTrackWaveform(trackId: String, durationMs: Long) {
+            AppSettings.onTrackWaveformRequested?.invoke(trackId, durationMs)
+        }
         override fun setAnimatedCanvas(value: Boolean) = AppSettings.setAnimatedCanvas(value)
         override fun setFullBleedArtwork(value: Boolean) = AppSettings.setFullBleedArtwork(value)
         override fun setTapArtworkToToggleFullScreen(value: Boolean) = AppSettings.setTapArtworkToToggleFullScreen(value)

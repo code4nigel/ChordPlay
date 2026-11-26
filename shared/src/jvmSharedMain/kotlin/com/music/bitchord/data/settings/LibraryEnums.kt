@@ -35,14 +35,20 @@ enum class LibraryViewMode {
 
 /** Layout mode for Home Speed Dial section. */
 enum class SpeedDialLayoutMode(val label: String) {
-    TWO_BY_THREE("2×3 Grid"),
-    THREE_BY_THREE("3×3 Grid"),
+    TWO_BY_FOUR("2×4 Cards"),
+    THREE_BY_THREE("3×3 Artwork"),
     ONE_BY_FOUR_LIST("1×4 List");
 
+    val isArtworkGrid: Boolean
+        get() = this == THREE_BY_THREE
+
+    val gridRows: Int
+        get() = 3
+
     fun next(): SpeedDialLayoutMode = when (this) {
-        TWO_BY_THREE -> THREE_BY_THREE
+        TWO_BY_FOUR -> THREE_BY_THREE
         THREE_BY_THREE -> ONE_BY_FOUR_LIST
-        ONE_BY_FOUR_LIST -> TWO_BY_THREE
+        ONE_BY_FOUR_LIST -> TWO_BY_FOUR
     }
 }
 

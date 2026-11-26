@@ -15497,7 +15497,10 @@ fun BitChordDesktopApp() {
 
 
 
-        onDispose { DesktopPlaybackTracker.onTrackChanged(previous) }
+        onDispose {
+            DesktopPlaybackTracker.onTrackChanged(previous)
+            DesktopPlayerSettings.setLyricsOffsetMs(0)
+        }
 
 
 

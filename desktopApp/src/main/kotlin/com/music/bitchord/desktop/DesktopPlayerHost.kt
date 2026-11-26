@@ -15,6 +15,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
+import com.music.bitchord.data.settings.PlayerWaveStyle
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -199,9 +200,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     )
     override val legacyMeshGradient = MutableStateFlow(false)
     override val lyricsBlur = MutableStateFlow(true)
-    override val lyricsOffsetMs = MutableStateFlow(
-        persistence.int(KEY_LYRICS_OFFSET, 0).coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS),
-    )
+    override val lyricsOffsetMs = MutableStateFlow(0)
     override val lyricsSourceOrder = MutableStateFlow<List<LyricsSource>>(LyricsSource.offered)
 
     // A desktop is never on a metered link as far as this app can tell.
@@ -222,7 +221,12 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val versionAlignmentInProgress = MutableStateFlow(false)
     override val appDesignStyle = MutableStateFlow(AppDesignStyle.CHORDPLAY)
     override val playerLayoutMode = MutableStateFlow(PlayerLayoutMode.MODERN_AMBIENT)
+    override val playerWaveStyle = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
     override val fullscreenArtworkLyricsStyle = MutableStateFlow(FullscreenArtworkLyricsStyle.FLOATING_CAPSULE)
+
+    override fun setPlayerWaveStyle(value: PlayerWaveStyle) {
+        playerWaveStyle.value = value
+    }
     override val enableBreathingAura = MutableStateFlow(true)
     override val landscapeFontScale = MutableStateFlow(com.music.bitchord.data.settings.LandscapeFontScale.LARGE)
 
@@ -237,8 +241,8 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     override fun setLyricsOffsetMs(value: Int) {
         val clamped = value.coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
+        if (lyricsOffsetMs.value == clamped) return
         lyricsOffsetMs.value = clamped
-        persistence.saveInt(KEY_LYRICS_OFFSET, clamped)
     }
 
     override fun setFullscreenArtworkLyricsStyle(value: FullscreenArtworkLyricsStyle) {
@@ -251,7 +255,6 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     }
 
     private const val KEY_LAST_SCREEN = "last_player_screen"
-    private const val KEY_LYRICS_OFFSET = "lyrics_offset_ms"
 }
 
 /** Which glyph a mixer gets, from the only thing Java Sound says about it: its name. */

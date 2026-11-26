@@ -72,6 +72,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.lyrics.translationLanguageName
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.data.settings.FullscreenArtworkLyricsStyle
 import com.music.bitchord.ui.player.LyricsCustomStyle
 import com.music.bitchord.ui.player.LyricsFontChoice
@@ -127,10 +128,12 @@ fun LyricsSection(
 
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
 
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
         SettingsSubPageHeader(
@@ -138,6 +141,7 @@ fun LyricsSection(
             onBack = onBack,
             searchQuery = searchQuery,
             onSearchQueryChange = { searchQuery = it },
+            scrollState = scrollState,
         )
 
         val showFontFamily = matchesSearch(
@@ -496,13 +500,9 @@ fun LyricsSection(
                             title = syncedLyricsTitle,
                             subtitle = stringResource(R.string.synced_lyrics_subtitle),
                             trailing = {
-                                Switch(
+                                IosSwitch(
                                     checked = syncedLyrics,
                                     onCheckedChange = AppSettings::setSyncedLyrics,
-                                    colors = SwitchDefaults.colors(
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                    ),
                                 )
                             },
                             onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
@@ -517,13 +517,9 @@ fun LyricsSection(
                                 title = lyricsBlurTitle,
                                 subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
                                 trailing = {
-                                    Switch(
+                                    IosSwitch(
                                         checked = lyricsBlur,
                                         onCheckedChange = AppSettings::setLyricsBlur,
-                                        colors = SwitchDefaults.colors(
-                                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                        ),
                                     )
                                 },
                                 onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },

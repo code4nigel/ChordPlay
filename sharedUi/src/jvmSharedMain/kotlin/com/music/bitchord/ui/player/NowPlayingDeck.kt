@@ -22,7 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -107,6 +110,7 @@ internal fun PortraitControlDeck(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val showInlineLyricStrip = syncedLyricsEnabled && !hideLyricsPreview
+            val lyricOffsetY = if (isWavePlay) 2.dp else 6.dp
             if (!panels.lyricsOpen && showInlineLyricStrip) {
                 if (isLive) {
                     Text(
@@ -115,7 +119,7 @@ internal fun PortraitControlDeck(
                         maxLines = 1,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .offset(y = 6.dp)
+                            .offset(y = lyricOffsetY)
                             .padding(vertical = 4.dp),
                     )
                 } else {
@@ -138,9 +142,12 @@ internal fun PortraitControlDeck(
                     maxLines = 1,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .offset(y = 6.dp)
+                        .offset(y = lyricOffsetY)
                         .padding(vertical = 4.dp),
                 )
+            }
+            if (isWavePlay && !panels.lyricsOpen) {
+                Spacer(Modifier.height(2.dp))
             }
             if (panels.lyricsOpen) {
                 Row(
@@ -220,58 +227,63 @@ internal fun PortraitControlDeck(
                 }
             }
 
-            Spacer(Modifier.height(8.dp + controlSpread / 2))
+            Spacer(Modifier.height(if (isWavePlay) (4.dp + controlSpread * 0.12f) else (8.dp + controlSpread / 2)))
 
             val previousEnabled = !controlsLocked && if (isLive) hasPrevious else (hasPrevious || pastRestartPoint)
-            if (isWavePlay) {
-                ChordPlayTransportDeck(
-                    isPlaying = isPlaying,
-                    isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = previousEnabled,
-                    nextEnabled = !controlsLocked && hasNext,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                    shuffleEnabled = shuffleEnabled,
-                    repeatMode = repeatMode,
-                    onToggleShuffle = onToggleShuffle,
-                    onCycleRepeat = onCycleRepeat,
-                    palette = synesthesiaPalette,
-                    hazeState = playerHaze,
-                    queueOpen = panels.queueOpen,
-                    isLive = isLive,
-                )
-            } else {
-                TransportRow(
-                    isPlaying = isPlaying,
-                    isLoading = isLoading || audioVersionSwitching,
-                    previousEnabled = previousEnabled,
-                    nextEnabled = !controlsLocked && hasNext,
-                    onPrevious = onPrevious,
-                    onPlayPause = onPlayPause,
-                    onNext = onNext,
-                )
-            }
-
-            if (!isWavePlay) {
-                Spacer(Modifier.height(12.dp + controlSpread / 2))
-
-                if (!hideVolumeBar) {
-                    VolumeRow(
-                        value = { volume.level.value },
-                        onValueChange = onVolumeChange,
-                        onValueChangeFinished = onVolumeChangeFinished,
+            val deckScope = rememberCoroutineScope()
+            val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+            val deckCoupling = remember(deckScope) { DeckPhysicsCoupling(deckScope) { reduceAnimation } }
+            CompositionLocalProvider(LocalDeckPhysicsCoupling provides if (isWavePlay) deckCoupling else null) {
+                if (isWavePlay) {
+                    ChordPlayTransportDeck(
+                        isPlaying = isPlaying,
+                        isLoading = isLoading || audioVersionSwitching,
+                        previousEnabled = previousEnabled,
+                        nextEnabled = !controlsLocked && hasNext,
+                        onPrevious = onPrevious,
+                        onPlayPause = onPlayPause,
+                        onNext = onNext,
+                        shuffleEnabled = shuffleEnabled,
+                        repeatMode = repeatMode,
+                        onToggleShuffle = onToggleShuffle,
+                        onCycleRepeat = onCycleRepeat,
+                        palette = synesthesiaPalette,
+                        hazeState = playerHaze,
+                        queueOpen = panels.queueOpen,
+                        isLive = isLive,
                     )
                 } else {
-                    Spacer(Modifier.height(VOLUME_ROW_HEIGHT))
+                    TransportRow(
+                        isPlaying = isPlaying,
+                        isLoading = isLoading || audioVersionSwitching,
+                        previousEnabled = previousEnabled,
+                        nextEnabled = !controlsLocked && hasNext,
+                        onPrevious = onPrevious,
+                        onPlayPause = onPlayPause,
+                        onNext = onNext,
+                    )
                 }
 
-                Spacer(Modifier.height(6.dp))
-            } else {
-                Spacer(Modifier.height(14.dp + controlSpread / 3))
-            }
+                if (!isWavePlay) {
+                    Spacer(Modifier.height(12.dp + controlSpread / 2))
 
-            playerActions()
+                    if (!hideVolumeBar) {
+                        VolumeRow(
+                            value = { volume.level.value },
+                            onValueChange = onVolumeChange,
+                            onValueChangeFinished = onVolumeChangeFinished,
+                        )
+                    } else {
+                        Spacer(Modifier.height(VOLUME_ROW_HEIGHT))
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+                } else {
+                    Spacer(Modifier.height(10.dp + controlSpread * 0.25f))
+                }
+
+                playerActions()
+            }
             Spacer(Modifier.height(18.dp))
         }
     }

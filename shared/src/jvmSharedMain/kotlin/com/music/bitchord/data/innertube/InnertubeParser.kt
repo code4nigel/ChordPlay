@@ -295,6 +295,7 @@ object InnertubeParser {
                             isVideo = song.isVideo,
                             isLive = song.isLive,
                             liveViewersText = song.liveViewersText,
+                            artistIds = song.artistIds(),
                         )
                     }
                 // A chart row with nothing to play — "Top artists" lists the
@@ -329,6 +330,7 @@ object InnertubeParser {
                 isVideo = it.isVideo,
                 isLive = it.isLive,
                 liveViewersText = it.liveViewersText,
+                artistIds = it.artistIds(),
             )
         }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
@@ -1502,8 +1504,18 @@ object InnertubeParser {
                 pageType?.contains("PLAYLIST") == true -> BrowseType.PLAYLIST
                 else -> null
             },
+            artistIds = renderer.o("subtitle").a("runs").orEmpty().channelIds(),
         )
     }
+
+    /** The artist channels ("UC…") that a line of runs links to, in its order. */
+    private fun List<JsonElement>.channelIds(): List<String> = mapNotNull { run ->
+        run.o("navigationEndpoint").o("browseEndpoint").s("browseId")?.takeIf { it.startsWith("UC") }
+    }.distinct()
+
+    /** Every artist channel a parsed row credits, the lead's first. */
+    private fun Song.artistIds(): List<String> =
+        (listOfNotNull(artistId) + artists.mapNotNull { it.browseId }).filter { it.startsWith("UC") }.distinct()
 
     /**
      * Parses YouTube `WEB` search (`videoRenderer` entries) strictly for

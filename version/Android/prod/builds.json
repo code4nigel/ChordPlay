@@ -1,5 +1,29 @@
 [
   {
+    "timestamp": "2026-11-25 02:05:00",
+    "versionCode": 112,
+    "versionName": "2.2.8",
+    "variant": "prodRelease",
+    "files": [
+      {
+        "FileName": "ChordPlay-v2.2.8-vc112-prodRelease-arm64-v8a.apk",
+        "SizeMB": 35.57
+      },
+      {
+        "FileName": "ChordPlay-v2.2.8-vc112-prodRelease-armeabi-v7a.apk",
+        "SizeMB": 34.52
+      },
+      {
+        "FileName": "ChordPlay-v2.2.8-vc112-prodRelease-universal.apk",
+        "SizeMB": 59.83
+      },
+      {
+        "FileName": "ChordPlay-v2.2.8-vc112-prodRelease-x86_64.apk",
+        "SizeMB": 37.42
+      }
+    ]
+  },
+  {
     "timestamp": "2026-11-25 01:00:46",
     "versionCode": 111,
     "versionName": "2.2.8",

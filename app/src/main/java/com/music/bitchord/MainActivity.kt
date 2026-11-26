@@ -20,8 +20,10 @@ import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Rational
 import android.view.View
+import android.view.WindowManager
 import com.music.bitchord.ui.player.AndroidPlayerHost
 import com.music.bitchord.ui.player.PlayerPlatform
 import android.widget.Toast
@@ -53,8 +55,14 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -133,6 +141,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -165,6 +174,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
@@ -217,7 +227,13 @@ import com.music.bitchord.ui.screens.libraryLinks
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
 import com.music.bitchord.ui.screens.ListenTogetherScreen
 import com.music.bitchord.ui.screens.PartyServerEditor
+import com.music.bitchord.data.settings.NavPage
+import com.music.bitchord.ui.components.artworkPageSurface
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import com.music.bitchord.ui.screens.SettingsDockingSearchField
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.SettingsSearchHostState
 import com.music.bitchord.ui.screens.settings.SettingsSection
 import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
@@ -265,8 +281,11 @@ import com.music.bitchord.ui.components.BrowseActionsSheet
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.BulkAddProgressDialog
 import com.music.bitchord.ui.BulkAddProgress
+import com.music.bitchord.ui.components.AlertAction
+import com.music.bitchord.ui.components.AlertRule
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.DownloadManagerSheet
+import com.music.bitchord.ui.components.GlassAlert
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.QueuePlaylistSaveDialog
 import com.music.bitchord.ui.components.ReorderPlaylistSheet
@@ -310,6 +329,7 @@ import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalAppBackdropFrozen
 import com.music.bitchord.ui.components.LocalAppHazeState
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
+import com.music.bitchord.ui.components.LocalPageActive
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
@@ -337,6 +357,9 @@ import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
 import com.music.bitchord.ui.components.ServerEditorHost
 import com.music.bitchord.ui.components.UpdateAvailableDialog
+import com.music.bitchord.ui.components.YourSpaceCustomizeSheet
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import com.music.bitchord.ui.components.DiwaliCelebrationDialog
 import com.music.bitchord.ui.utils.FestivalTheme
 import com.music.bitchord.ui.components.WebDavConflictAlert
@@ -382,8 +405,11 @@ import com.music.bitchord.ui.screens.LiveStationsScreen
 import com.music.bitchord.data.melody.MelodyMood
 import com.music.bitchord.data.melody.MelodyRules
 import com.music.bitchord.data.melody.MelodyStore
+import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.data.settings.SongSwipeAction
+import com.music.bitchord.ui.components.HomeBrandLockupConfig
+import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -403,6 +429,8 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -424,7 +452,56 @@ internal fun shouldSkipAfterDislike(
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
 
+@Composable
+private fun KeepScreenOnEffect(
+    window: android.view.Window,
+    interactionAtFlow: StateFlow<Long>,
+    onResetInteraction: () -> Unit,
+) {
+    val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
+    val keepScreenOnDuration by AppSettings.keepScreenOnDuration.collectAsStateWithLifecycle()
+    var isActivityResumed by remember { mutableStateOf(false) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    isActivityResumed = true
+                    onResetInteraction()
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> isActivityResumed = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(keepScreenOn, keepScreenOnDuration, isActivityResumed) {
+        if (!keepScreenOn || !isActivityResumed) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            return@LaunchedEffect
+        }
+        interactionAtFlow.collectLatest { interactedAt ->
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            val timeoutMs = keepScreenOnDuration.durationMs
+            if (timeoutMs != null) {
+                val elapsed = (SystemClock.elapsedRealtime() - interactedAt).coerceAtLeast(0L)
+                val remaining = (timeoutMs - elapsed).coerceAtLeast(0L)
+                delay(remaining)
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
+}
+
 class MainActivity : AppCompatActivity() {
+
+    private val lastUserInteractionAt = MutableStateFlow(SystemClock.elapsedRealtime())
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        lastUserInteractionAt.value = SystemClock.elapsedRealtime()
+    }
 
     fun triggerPictureInPicture(): Boolean {
         if (!packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return false
@@ -495,6 +572,11 @@ class MainActivity : AppCompatActivity() {
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
             val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
+            KeepScreenOnEffect(
+                window = window,
+                interactionAtFlow = lastUserInteractionAt,
+                onResetInteraction = { lastUserInteractionAt.value = SystemClock.elapsedRealtime() },
+            )
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
                 val currentDisplay = composeView.display ?: activityDisplay
@@ -541,7 +623,7 @@ class MainActivity : AppCompatActivity() {
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
                     LocalAppBackdropFrozen provides {
-                        GlassMotion.nav.frozen() || GlassMotion.scroll.frozen()
+                        GlassMotion.sheet.frozen() || GlassMotion.nav.frozen() || GlassMotion.scroll.frozen()
                     },
                 ) {
                 // The window's width, measured rather than asked for.
@@ -684,7 +766,26 @@ private fun BitChordApp(
     // rather than inside the bar because the page's scroll is what drives it,
     // and the page is a sibling of the bar rather than a child.
     val navBarScroll = rememberFloatingTabBarScrollConnection()
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val navTabConfig by AppSettings.navTabs.collectAsStateWithLifecycle()
+    val barPages = remember(navTabConfig) {
+        AppSettings.visibleNavPages(navTabConfig).map { page ->
+            when (page) {
+                NavPage.HOME -> TAB_HOME
+                NavPage.RADIO -> TAB_RADIO
+                NavPage.LIBRARY -> TAB_LIBRARY
+                NavPage.SEARCH -> TAB_SEARCH
+            }
+        }
+    }
+    val startTab = if (TAB_HOME in barPages) TAB_HOME else barPages.first()
+    var selectedTab by rememberSaveable { mutableIntStateOf(startTab) }
+    val selectedBarIndex = barPages.indexOf(selectedTab).coerceAtLeast(0)
+    LaunchedEffect(barPages) {
+        if (selectedTab !in barPages) {
+            selectedTab = barPages.first()
+        }
+    }
+    val settingsSearchHost = remember { SettingsSearchHostState() }
     /**
      * Whether the player's sheet is up. The player is always a full-screen
      * take-over raised over the page, on every window size — the library
@@ -781,6 +882,7 @@ private fun BitChordApp(
     var editingPartyServer by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var showMelody by rememberSaveable { mutableStateOf(false) }
+    var showYourSpaceCustomize by rememberSaveable { mutableStateOf(false) }
     var showGenres by rememberSaveable { mutableStateOf(false) }
     var showAllLiveStations by rememberSaveable { mutableStateOf(false) }
     var showMelodySave by remember { mutableStateOf(false) }
@@ -1262,6 +1364,17 @@ private fun BitChordApp(
     var convertedVideoId by remember { mutableStateOf<String?>(null) }
     // Optimistically updated track for instant UI updates when switching versions
     var optimisticVersionSong by remember { mutableStateOf<Song?>(null) }
+    var lastLyricsOffsetSongId by remember { mutableStateOf(player.song?.videoId) }
+    LaunchedEffect(player.song?.videoId) {
+        val currentId = player.song?.videoId
+        if (currentId != lastLyricsOffsetSongId) {
+            if (lastLyricsOffsetSongId != null) {
+                AppSettings.setLyricsOffsetMs(0)
+            }
+            lastLyricsOffsetSongId = currentId
+        }
+    }
+
     // Track whether alternate (film/video vs release/audio) version exists for current track
     var hasAlternateVersion by remember { mutableStateOf(false) }
 
@@ -1294,6 +1407,20 @@ private fun BitChordApp(
     }
 
     val homeListState = rememberLazyListState()
+    val appDesignStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val festivalThemeType by FestivalTheme.festivalThemeType.collectAsStateWithLifecycle()
+    val homeUserName = remember(account?.name) {
+        OnboardingState.name(context).takeIf { it.isNotBlank() } ?: account?.name
+    }
+    val homeCollapseRangePx = with(LocalDensity.current) { 78.dp.toPx() }
+    val homeBrandCollapse by remember(homeListState, homeCollapseRangePx) {
+        derivedStateOf {
+            if (homeListState.firstVisibleItemIndex > 0) 1f
+            else (homeListState.firstVisibleItemScrollOffset / homeCollapseRangePx).coerceIn(0f, 1f)
+        }
+    }
+    var homeSpeedDialPage by rememberSaveable { mutableIntStateOf(0) }
+    var homeSpeedDialTabName by rememberSaveable { mutableStateOf(com.music.bitchord.data.settings.YourSpaceDialTab.SPACE.name) }
     val radioListState = rememberLazyListState()
     val genresListState = rememberLazyListState()
     val moodGenreListState = rememberLazyListState()
@@ -1419,13 +1546,16 @@ private fun BitChordApp(
     val replayLabel = stringResource(R.string.replay)
     val queueLabel = stringResource(R.string.queue)
     val sharedLinkLabel = stringResource(R.string.shared_link)
-    val tabs = remember(homeLabel, radioLabel, libraryLabel, searchLabel) {
-        listOf(
-            BottomTab(homeLabel, BitChordIcons.Home, BitChordIcons.Home),
-            BottomTab(radioLabel, BitChordIcons.TabRadio, BitChordIcons.TabRadio),
-            BottomTab(libraryLabel, BitChordIcons.TabLibrary, BitChordIcons.TabLibrary),
-            BottomTab(searchLabel, BitChordIcons.TabSearch, BitChordIcons.TabSearch),
+    val pageTabs = remember(homeLabel, radioLabel, libraryLabel, searchLabel) {
+        mapOf(
+            TAB_HOME to BottomTab(homeLabel, BitChordIcons.Home, BitChordIcons.Home),
+            TAB_RADIO to BottomTab(radioLabel, BitChordIcons.TabRadio, BitChordIcons.TabRadio),
+            TAB_LIBRARY to BottomTab(libraryLabel, BitChordIcons.TabLibrary, BitChordIcons.TabLibrary),
+            TAB_SEARCH to BottomTab(searchLabel, BitChordIcons.TabSearch, BitChordIcons.TabSearch),
         )
+    }
+    val tabs = remember(pageTabs, barPages) {
+        barPages.map { pageTabs.getValue(it) }
     }
 
     val melodyArt = (melodyQueue as? UiState.Success)?.data?.firstOrNull()?.thumbnailUrl
@@ -2314,6 +2444,8 @@ private fun BitChordApp(
      * permission arrives as forty loose tracks.
      */
     var downloadPendingFrom by remember { mutableStateOf<DownloadTarget?>(null) }
+    var pendingOfflineLyricsPrompt by remember { mutableStateOf<Pair<List<Song>, DownloadTarget?>?>(null) }
+    var pendingPlaylistOfflineLyricsId by remember { mutableStateOf<String?>(null) }
     val notifyPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { /* Refusing costs the progress notification, not the download. */ }
@@ -2340,7 +2472,8 @@ private fun BitChordApp(
         if (granted && id != null) updatePlaylistDownloads(id)
     }
     val requestPlaylistDownloadUpdate: (String) -> Unit = { id ->
-        if (AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
+        if ((AppSettings.exportDownloads.value || (AppSettings.saveToCustomDownloadLocation.value && !DownloadStore.usesCustomSafTree())) &&
+            DownloadStore.needsLegacyPermission() &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) {
             pendingPlaylistUpdate = id
@@ -2430,7 +2563,7 @@ private fun BitChordApp(
     // it decomposed into — see [Downloads.rememberCollection]. Null for a single
     // track, which is not a release however many of them are asked for one at a
     // time.
-    val startDownload: (List<Song>, DownloadTarget?) -> Unit = download@{ requested, from ->
+    val executeDownloadNow: (List<Song>, DownloadTarget?) -> Unit = download@{ requested, from ->
         if (from?.playlist == true && Downloads.collectionFor(from.id)?.syncProfile != null) {
             requestPlaylistDownloadUpdate(from.id)
             return@download
@@ -2496,7 +2629,8 @@ private fun BitChordApp(
         }
         if (from == null && !blocked) Downloads.keepDownloads(requested.map { it.videoId })
         if (songs.isNotEmpty() && !blocked) {
-            val needsStorage = AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
+            val needsStorage = (AppSettings.exportDownloads.value || (AppSettings.saveToCustomDownloadLocation.value && !DownloadStore.usesCustomSafTree())) &&
+                DownloadStore.needsLegacyPermission() &&
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -2548,6 +2682,28 @@ private fun BitChordApp(
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+    val startDownload: (List<Song>, DownloadTarget?) -> Unit = start@{ requested, from ->
+        if (from?.playlist == true && Downloads.collectionFor(from.id)?.syncProfile != null) {
+            if (!AppSettings.downloadLyricsOffline.value && !AppSettings.neverAskDownloadLyricsOffline.value) {
+                pendingPlaylistOfflineLyricsId = from.id
+                return@start
+            }
+            requestPlaylistDownloadUpdate(from.id)
+            return@start
+        }
+        val saved = Downloads.saved.value
+        val uncached = requested.filter { it.videoId !in saved }
+        val blocked = uncached.isNotEmpty() && !AppSettings.downloadsAllowedNow
+        if (uncached.isNotEmpty() &&
+            !blocked &&
+            !AppSettings.downloadLyricsOffline.value &&
+            !AppSettings.neverAskDownloadLyricsOffline.value
+        ) {
+            pendingOfflineLyricsPrompt = requested to from
+            return@start
+        }
+        executeDownloadNow(requested, from)
     }
     /**
      * One track on its own, which is never a release.
@@ -3214,15 +3370,15 @@ private fun BitChordApp(
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
             // rather than throwing both away.
-            if (detail == null && !showReplay) selectedTab = TAB_HOME
+            if (detail == null && !showReplay) selectedTab = startTab
         }
         BackHandler(
             enabled = detail == null && !showSettings && !showAccountScrobbling && !showSpotify &&
                 !showSources && !showListenTogether && !showEqualizer && !showReplay &&
                 !showMelody && !showGenres && selectedMoodGenre == null &&
-                selectedTab != TAB_HOME,
+                selectedTab != startTab,
         ) {
-            selectedTab = TAB_HOME
+            selectedTab = startTab
         }
         BackHandler(enabled = showDiwaliDialog) { dismissDiwaliDialog() }
         BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
@@ -3705,11 +3861,13 @@ private fun BitChordApp(
                             },
                             onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                             onAppLanguage = { showAppLanguage = true },
+                            onShowUpdate = { showUpdateDialog = true },
                             contentPadding = listPadding,
                             homeShelfTitles = homeShelfTitles,
                             currentSection = currentSettingsSection,
                             onSectionChange = { currentSettingsSection = it },
                             driveAlerts = driveAlerts,
+                            searchHost = settingsSearchHost,
                         )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
@@ -3965,13 +4123,19 @@ private fun BitChordApp(
                     } else when (key.removePrefix(TAB_KEY).toIntOrNull() ?: selectedTab) {
                         TAB_HOME -> IsolatedScope {
                             val speedDialBase by viewModel.speedDialBaseItems.collectAsStateWithLifecycle()
-                            HomeScreen(
+                            val mixesDialItems by viewModel.mixesDialItems.collectAsStateWithLifecycle()
+                            val artistDialItems by viewModel.artistDialItems.collectAsStateWithLifecycle()
+                            CompositionLocalProvider(LocalPageActive provides !pageHiddenByPlayer) {
+                                HomeScreen(
                                 state = homeState,
                                 listState = homeListState,
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),
                                 replayYear = replayYearBadge,
+                                userName = homeUserName,
+                                externalBrandLockup = appDesignStyle == AppDesignStyle.CHORDPLAY,
+                                brandCollapseProgress = homeBrandCollapse,
                                 signedIn = signedIn,
                                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                                 onItemClick = { item, shelfTitle ->
@@ -4106,16 +4270,43 @@ private fun BitChordApp(
                                 loadingMore = homeLoadingMore,
                                 recentlyPlayedLoading = homeRecentlyPlayedLoading,
                                 onLuckyDialClick = { viewModel.playLuckyRadio(onPlayRadio = playRadio) },
+                                onLuckyDialRoll = { onLanded ->
+                                    viewModel.playLuckyRadio(
+                                        onPlayRadio = playRadio,
+                                        onSongPicked = { picked ->
+                                            playerSheetScope.launch {
+                                                withTimeoutOrNull(10_000L) {
+                                                    snapshotFlow {
+                                                        player.song?.videoId == picked.videoId && player.isPlaying
+                                                    }.first { it }
+                                                }
+                                                onLanded()
+                                            }
+                                        },
+                                        onFailed = onLanded,
+                                    )
+                                },
                                 precomputedSpeedDialBase = speedDialBase,
+                                mixesDialItems = mixesDialItems,
+                                artistDialItems = artistDialItems,
+                                savedSpeedDialPage = homeSpeedDialPage,
+                                onSpeedDialPageChange = { homeSpeedDialPage = it },
+                                savedSpeedDialTab = com.music.bitchord.data.settings.YourSpaceDialTab.entries
+                                    .firstOrNull { it.name == homeSpeedDialTabName }
+                                    ?: com.music.bitchord.data.settings.YourSpaceDialTab.SPACE,
+                                onSpeedDialTabChange = { homeSpeedDialTabName = it.name },
+                                onReorderPinnedSpeedDial = AppSettings::reorderPinnedSpeedDial,
+                                onOpenYourSpaceCustomize = { showYourSpaceCustomize = true },
                                 melodyItem = melodyTile,
                                 onMelodyClick = { showMelody = true },
                                 onOpenReplay = {
                                     replayLandingPage = ReplayStoryPage.INTRO
                                     showReplay = true
                                 },
-                                onFindMoodClick = viewModel::openMoodGenre,
-                                onFindMoodShowAll = { showGenres = true },
-                            )
+                                    onFindMoodClick = viewModel::openMoodGenre,
+                                    onFindMoodShowAll = { showGenres = true },
+                                )
+                            }
                         }
                         TAB_RADIO -> if (showAllLiveStations) {
                             LiveStationsScreen(
@@ -4596,8 +4787,18 @@ private fun BitChordApp(
                 val artistListState = detail
                     ?.takeIf { isDetailVisible && it.type == BrowseType.ARTIST }
                     ?.let { detailListStates.getOrPut(it.browseId) { LazyListState() } }
-                val topFadeAlpha by remember(artistListState) {
+                val isHomeChordPlayHero = appDesignStyle == AppDesignStyle.CHORDPLAY &&
+                    selectedTab == TAB_HOME &&
+                    detail == null &&
+                    !showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
+                    !showEqualizer && !showReplay && !showSpotify && !showDiscord && !showHistory &&
+                    !showMelody && !showGenres && libraryShowAll == null && selectedMoodGenre == null
+                val homeArtworkColors = rememberArtworkColors(currentSong?.thumbnailUrl)
+                val topFadeAlpha by remember(artistListState, isHomeChordPlayHero, homeBrandCollapse) {
                     derivedStateOf {
+                        if (isHomeChordPlayHero) {
+                            return@derivedStateOf (homeBrandCollapse * 1.15f).coerceIn(0f, 1f)
+                        }
                         val list = artistListState ?: return@derivedStateOf 1f
                         if (list.firstVisibleItemIndex > 0) return@derivedStateOf 1f
                         val header = list.layoutInfo.visibleItemsInfo
@@ -4615,7 +4816,28 @@ private fun BitChordApp(
                         .graphicsLayer { alpha = topFadeAlpha },
                 )
 
+                val settingsSearchActive = showSettings && settingsSubScreen == null &&
+                    !showAccountScrobbling && !showSources && !showListenTogether &&
+                    !showEqualizer && !showReplay && !showDiscord && !showSpotify
+
                 FrostedTopBar(
+                    homeBrandLockup = if (isHomeChordPlayHero) {
+                        HomeBrandLockupConfig(
+                            collapseProgress = homeBrandCollapse,
+                            primaryGlowColor = homeArtworkColors.colors.firstOrNull(),
+                            isFestivalActive = isFestivalActive,
+                            festivalThemeType = festivalThemeType,
+                            onFestivalClick = { FestivalTheme.triggerFestivalPopup() },
+                            replayYear = replayYearBadge,
+                            onCollapsedClick = {
+                                playerSheetScope.launch {
+                                    homeListState.animateScrollToItem(0)
+                                }
+                            },
+                        )
+                    } else {
+                        null
+                    },
                     title = when {
                         showSpotify && detail == null -> stringResource(R.string.spotify)
                         showDiscord -> "Discord"
@@ -4633,7 +4855,7 @@ private fun BitChordApp(
                         detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
                         detail != null -> detail.title
                         selectedMoodGenre != null -> selectedMoodGenre?.title.orEmpty()
-                        else -> tabs[selectedTab].let {
+                        else -> pageTabs.getValue(selectedTab).let {
                             if (it.label == "Play") stringResource(R.string.listen_now) else it.label
                         }
                     },
@@ -4683,7 +4905,7 @@ private fun BitChordApp(
                                 currentSettingsSection = currentSettingsSection?.parentSection()
                             } else {
                                 showSettings = false
-                                if (detail == null && !showReplay) selectedTab = TAB_HOME
+                                if (detail == null && !showReplay) selectedTab = startTab
                             }
                         })
                         showReplay -> ({ showReplay = false })
@@ -4693,36 +4915,56 @@ private fun BitChordApp(
                         else -> null
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
-                    // Only on the Search tab itself, not on anything pushed over it.
-                    accessory = if (pageDestination == "$TAB_KEY$TAB_SEARCH") {
-                        {
-                            // The search field lives up here in the bar, beside the
-                            // account photo, so it answers the nav bar's Search tap
-                            // itself: focus and keyboard, the way the page used to.
-                            val keyboard = LocalSoftwareKeyboardController.current
-                            LaunchedEffect(searchFocusRequested) {
-                                if (searchFocusRequested) {
-                                    searchFieldFocus.requestFocus()
-                                    keyboard?.show()
-                                    searchFocusRequested = false
+                    actionsShown = !settingsSearchActive,
+                    accessoryHasOwnSurface = settingsSearchActive,
+                    accessory = when {
+                        settingsSearchActive -> {
+                            {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .onGloballyPositioned { settingsSearchHost.dock.slotBounds = it.boundsInRoot() },
+                                ) {
+                                    SettingsDockingSearchField(
+                                        state = settingsSearchHost.dock,
+                                        query = settingsSearchHost.query,
+                                        onQueryChange = { settingsSearchHost.onQueryChange(it) },
+                                        surface = artworkPageSurface(CircleShape, hazeState),
+                                    )
                                 }
                             }
-                            SearchField(
-                                query = query,
-                                onQueryChange = viewModel::onQueryChange,
-                                onSubmit = viewModel::submitSearch,
-                                focusRequester = searchFieldFocus,
-                                placeholder = org.jetbrains.compose.resources.stringResource(
-                                    when (searchSource) {
-                                        SearchSource.LOCAL -> SharedRes.string.search_library_hint
-                                        SearchSource.LIBRARY -> SharedRes.string.search_library_hint
-                                        SearchSource.ADDONS -> SharedRes.string.search_addons_hint
-                                        SearchSource.YOUTUBE -> SharedRes.string.search_hint
-                                    },
-                                ),
-                            )
                         }
-                    } else null,
+                        pageDestination == "$TAB_KEY$TAB_SEARCH" -> {
+                            {
+                                // The search field lives up here in the bar, beside the
+                                // account photo, so it answers the nav bar's Search tap
+                                // itself: focus and keyboard, the way the page used to.
+                                val keyboard = LocalSoftwareKeyboardController.current
+                                LaunchedEffect(searchFocusRequested) {
+                                    if (searchFocusRequested) {
+                                        searchFieldFocus.requestFocus()
+                                        keyboard?.show()
+                                        searchFocusRequested = false
+                                    }
+                                }
+                                SearchField(
+                                    query = query,
+                                    onQueryChange = viewModel::onQueryChange,
+                                    onSubmit = viewModel::submitSearch,
+                                    focusRequester = searchFieldFocus,
+                                    placeholder = org.jetbrains.compose.resources.stringResource(
+                                        when (searchSource) {
+                                            SearchSource.LOCAL -> SharedRes.string.search_library_hint
+                                            SearchSource.LIBRARY -> SharedRes.string.search_library_hint
+                                            SearchSource.ADDONS -> SharedRes.string.search_addons_hint
+                                            SearchSource.YOUTUBE -> SharedRes.string.search_hint
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                        else -> null
+                    },
                     actions = {
                         // This is intentionally scoped to Listen together: the
                         // round-trip time is meaningful while coordinating a
@@ -4998,8 +5240,8 @@ private fun BitChordApp(
                     IsolatedScope {
                         GlassNavBar(
                             tabs = tabs,
-                            selectedIndex = selectedTab,
-                            onTabSelected = onTabSelected,
+                            selectedIndex = selectedBarIndex,
+                            onTabSelected = { index -> onTabSelected(barPages[index]) },
                             scrollConnection = navBarScroll,
                             song = player.song,
                             isPlaying = player.isPlaying,
@@ -5084,9 +5326,9 @@ private fun BitChordApp(
                     }
                     FloatingBottomBar(
                         tabs = tabs,
-                        selectedIndex = selectedTab,
+                        selectedIndex = selectedBarIndex,
                         hazeState = hazeState,
-                        onTabSelected = onTabSelected,
+                        onTabSelected = { index -> onTabSelected(barPages[index]) },
                     )
                 }
             }
@@ -5612,6 +5854,12 @@ private fun BitChordApp(
             }
         }
 
+        YourSpaceCustomizeSheet(
+            visible = showYourSpaceCustomize,
+            onDismiss = { showYourSpaceCustomize = false },
+            hazeState = hazeState,
+        )
+
         // ---- Share the Replay ----
         if (showReplayShare) {
             replay.summary?.takeUnless { it.isEmpty }?.let { summary ->
@@ -6120,6 +6368,62 @@ private fun BitChordApp(
                 },
             )
         }
+
+        if (pendingOfflineLyricsPrompt != null || pendingPlaylistOfflineLyricsId != null) {
+            val proceedPendingDownload: () -> Unit = {
+                val batch = pendingOfflineLyricsPrompt
+                val playlistId = pendingPlaylistOfflineLyricsId
+                pendingOfflineLyricsPrompt = null
+                pendingPlaylistOfflineLyricsId = null
+                if (batch != null) {
+                    executeDownloadNow(batch.first, batch.second)
+                } else if (playlistId != null) {
+                    requestPlaylistDownloadUpdate(playlistId)
+                }
+            }
+            GlassAlert(
+                title = stringResource(R.string.offline_lyrics_prompt_title),
+                onDismiss = {
+                    pendingOfflineLyricsPrompt = null
+                    pendingPlaylistOfflineLyricsId = null
+                },
+                footerActions = {
+                    AlertAction(
+                        label = stringResource(R.string.okay),
+                        emphasised = true,
+                        onClick = {
+                            AppSettings.setDownloadLyricsOffline(true)
+                            proceedPendingDownload()
+                        },
+                    )
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.not_now),
+                        emphasised = false,
+                        onClick = {
+                            proceedPendingDownload()
+                        },
+                    )
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.never),
+                        emphasised = false,
+                        onClick = {
+                            AppSettings.setNeverAskDownloadLyricsOffline(true)
+                            proceedPendingDownload()
+                        },
+                    )
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.offline_lyrics_prompt_message),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 19.sp),
+                    color = LocalContentColor.current.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 
     CompositionLocalProvider(
@@ -6286,7 +6590,7 @@ private data class CollectionPlaylistTarget(
     val songs: List<Song>,
 )
 
-/** Animated modal wrapper for Add-to-Playlist sheets with subtle slide and fade transitions. */
+/** Animated modal wrapper for playlist sheets with spring entrance, drag-to-dismiss, and smooth exit. */
 @Composable
 private fun <T : Any> AnimatedPlaylistOverlaySheet(
     item: T?,
@@ -6307,7 +6611,9 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
 
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val animationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceMotion by rememberUpdatedState(reduceAnimation)
+    val speed = animationSpeed.coerceIn(0.5f, 2.0f)
     val isLiquidGlassActive = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
     val artworkPalette = thumbnailUrl(shown)?.takeIf { it.isNotBlank() }?.let {
         rememberArtworkPalette(imageUrl = it)
@@ -6324,34 +6630,149 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
     val playlistPalette = artworkPalette?.let {
         if (darkPlaylistSurface) it.copy(background = playlistColors.fill) else it
     }
+
+    val scope = rememberCoroutineScope()
     val progress = remember { Animatable(0f) }
+    val dragY = remember { Animatable(0f) }
+    var sheetHeight by remember { mutableIntStateOf(0) }
+    var readyToSlide by remember { mutableStateOf(false) }
+    var isAnimating by remember { mutableStateOf(false) }
+
+    val density = LocalDensity.current
+    val fallbackSlidePx = with(density) { 360.dp.toPx() }
+    val bottomMarginPx = with(density) { 16.dp.toPx() }
+    val dismissDragThresholdPx = with(density) { 84.dp.toPx() }
+    val flingVelocityPx = with(density) { 750.dp.toPx() }
+
+    DisposableEffect(Unit) {
+        onDispose { GlassMotion.sheet.settled() }
+    }
+
     LaunchedEffect(open) {
         if (open) {
-            progress.animateTo(
-                targetValue = 1f,
-                animationSpec = if (reduceMotion) {
-                    tween(durationMillis = 100, easing = LinearEasing)
-                } else {
-                    tween(durationMillis = 200, easing = FastOutSlowInEasing)
-                },
-            )
+            dragY.snapTo(0f)
+            if (reduceMotion) {
+                readyToSlide = true
+                progress.snapTo(1f)
+                isAnimating = false
+            } else {
+                isAnimating = true
+                if (progress.value == 0f) {
+                    readyToSlide = false
+                    // Let composition, size measurement, and initial frost settle while invisible.
+                    withFrameNanos { }
+                    readyToSlide = true
+                }
+                GlassMotion.sheet.moved()
+                progress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.90f,
+                        stiffness = 440f * speed * speed,
+                        visibilityThreshold = 0.002f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                isAnimating = false
+            }
         } else {
-            progress.animateTo(
-                targetValue = 0f,
-                animationSpec = if (reduceMotion) {
-                    tween(durationMillis = 90, easing = LinearEasing)
-                } else {
-                    tween(durationMillis = 160, easing = FastOutSlowInEasing)
-                },
-            )
-            last = null
+            if (reduceMotion) {
+                progress.snapTo(0f)
+                dragY.snapTo(0f)
+                isAnimating = false
+                readyToSlide = false
+                last = null
+            } else {
+                isAnimating = true
+                readyToSlide = true
+                GlassMotion.sheet.moved()
+                progress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = 620f * speed * speed,
+                        visibilityThreshold = 0.004f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                dragY.snapTo(0f)
+                isAnimating = false
+                readyToSlide = false
+                last = null
+            }
+        }
+    }
+
+    val releaseDrag: (Float) -> Unit = { velocityY ->
+        val currentDrag = dragY.value
+        val threshold = if (sheetHeight > 0) {
+            minOf(sheetHeight * 0.25f, dismissDragThresholdPx)
+        } else {
+            dismissDragThresholdPx
+        }
+        if (currentDrag > threshold || (currentDrag > 12f && velocityY > flingVelocityPx)) {
+            onDismiss()
+        } else if (currentDrag > 0f) {
+            scope.launch {
+                isAnimating = true
+                GlassMotion.sheet.moved()
+                dragY.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = 0.88f,
+                        stiffness = 520f * speed * speed,
+                        visibilityThreshold = 0.5f,
+                    ),
+                )
+                GlassMotion.sheet.settled()
+                isAnimating = false
+            }
+        }
+    }
+
+    val sheetNestedScroll = remember(open) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!open || source != NestedScrollSource.UserInput) return Offset.Zero
+                val current = dragY.value
+                if (current > 0f && available.y < 0f) {
+                    val consumed = available.y.coerceAtLeast(-current)
+                    scope.launch { dragY.snapTo((current + consumed).coerceAtLeast(0f)) }
+                    return Offset(0f, consumed)
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (!open || source != NestedScrollSource.UserInput || available.y <= 0f) return Offset.Zero
+                GlassMotion.sheet.moved()
+                scope.launch { dragY.snapTo((dragY.value + available.y).coerceAtLeast(0f)) }
+                return Offset(0f, available.y)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (dragY.value > 0f) {
+                    releaseDrag(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (dragY.value > 0f) {
+                    releaseDrag(available.y)
+                    return available
+                }
+                return Velocity.Zero
+            }
         }
     }
 
     BackHandler(enabled = open, onBack = onDismiss)
-    val p = progress.value.coerceIn(0f, 1f)
-    val density = LocalDensity.current
-    val slideDistancePx = if (reduceAnimation) 0f else with(density) { 40.dp.toPx() }
 
     CompositionLocalProvider(LocalAppBackdrop provides backdrop) {
         Box(
@@ -6363,7 +6784,15 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.42f * p))
+                    .drawBehind {
+                        val p = progress.value.coerceIn(0f, 1f)
+                        val h = sheetHeight.toFloat().coerceAtLeast(1f)
+                        val dragFade = (1f - dragY.value / h).coerceIn(0f, 1f)
+                        val scrimAlpha = 0.42f * p * dragFade
+                        if (scrimAlpha > 0f) {
+                            drawRect(Color.Black.copy(alpha = scrimAlpha))
+                        }
+                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -6371,7 +6800,7 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                         onClick = onDismiss,
                     ),
             )
-            if (p > 0f) Box(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -6379,9 +6808,34 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                     .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                     .padding(horizontal = 8.dp, vertical = 8.dp)
                     .heightIn(max = 620.dp)
+                    .onSizeChanged { sheetHeight = it.height }
                     .graphicsLayer {
-                        translationY = (1f - p) * slideDistancePx
+                        val p = progress.value.coerceIn(0f, 1f)
+                        if (!readyToSlide && !reduceMotion) {
+                            // Pre-warm at resting coordinates while completely transparent.
+                            translationY = 0f
+                            alpha = 0f
+                        } else {
+                            val slideDistance = if (reduceMotion) {
+                                0f
+                            } else if (sheetHeight > 0) {
+                                sheetHeight.toFloat() + bottomMarginPx
+                            } else {
+                                fallbackSlidePx
+                            }
+                            val dragOffset = dragY.value.coerceAtLeast(0f)
+                            val remainingTravel = (slideDistance - dragOffset).coerceAtLeast(0f)
+                            translationY = if (reduceMotion) 0f else dragOffset + (1f - p) * remainingTravel
+                            alpha = if (reduceMotion) p else (p * 1.8f).coerceIn(0f, 1f)
+                        }
+                        compositingStrategy = CompositingStrategy.Offscreen
                     }
+                    .shadow(
+                        elevation = 24.dp,
+                        shape = RoundedCornerShape(30.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.30f),
+                        spotColor = Color.Black.copy(alpha = 0.30f),
+                    )
                     .iosMenuPanel(
                         colors = playlistColors,
                         translucent = true,
@@ -6396,14 +6850,29 @@ private fun <T : Any> AnimatedPlaylistOverlaySheet(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.70f)
                             else -> null
                         },
-                        castsShadow = true,
+                        castsShadow = false,
+                        freezeGeometry = { readyToSlide && (isAnimating || dragY.value > 0f) },
                     )
                     .then(
                         if (darkPlaylistSurface && !reduceDynamicBlur && (backdropRecorded || hazeState != null)) {
                             Modifier.background(playlistColors.fill.copy(alpha = 0.55f))
                         } else Modifier,
                     )
-                    .pointerInput(Unit) {},
+                    .nestedScroll(sheetNestedScroll)
+                    .pointerInput(open) {
+                        if (open) {
+                            detectVerticalDragGestures(
+                                onDragEnd = { releaseDrag(0f) },
+                                onDragCancel = { releaseDrag(0f) },
+                            ) { _, dragAmount ->
+                                val next = (dragY.value + dragAmount).coerceAtLeast(0f)
+                                if (next > 0f || dragY.value > 0f) {
+                                    GlassMotion.sheet.moved()
+                                    scope.launch { dragY.snapTo(next) }
+                                }
+                            }
+                        }
+                    },
             ) {
                 if (darkPlaylistSurface) {
                     val scheme = MaterialTheme.colorScheme.copy(

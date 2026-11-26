@@ -179,6 +179,15 @@ fun rememberArtworkTopBandLuminance(
     artPx: Int = CARD_ART_PX,
 ): Float? = rememberArtworkSeed(imageUrl, artPx)?.topBandLuminance
 
+/**
+ * Returns the cached dominant swatch color of [imageUrl], or null while decoding.
+ */
+@Composable
+fun rememberArtworkDominant(
+    imageUrl: String?,
+    artPx: Int = CARD_ART_PX,
+): Color? = rememberArtworkSeed(imageUrl, artPx)?.dominant
+
 @Composable
 private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
     val context = LocalPlatformContext.current

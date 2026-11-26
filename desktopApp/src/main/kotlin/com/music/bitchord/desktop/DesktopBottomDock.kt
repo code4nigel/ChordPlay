@@ -27,7 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Headphones
+
 import androidx.compose.material.icons.rounded.FitScreen
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -338,8 +338,8 @@ internal fun DesktopBottomDock(
                 // Device Switcher
                 DesktopToolbarButton(onClick = onOpenAudioOutput, size = 30.dp) {
                     Icon(
-                        imageVector = Icons.Rounded.Headphones,
-                        contentDescription = "Audio output",
+                        imageVector = BitChordIcons.Earbuds,
+                        contentDescription = "Audio options",
                         tint = DesktopSecondary,
                         modifier = Modifier.size(18.dp),
                     )

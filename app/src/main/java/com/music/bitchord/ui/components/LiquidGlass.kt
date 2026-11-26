@@ -187,6 +187,7 @@ fun Modifier.liquidGlass(
     shape: CornerBasedShape,
     backdrop: Backdrop? = null,
     frozen: () -> Boolean = LocalAppBackdropFrozen.current,
+    freezeGeometry: () -> Boolean = { false },
 ): Modifier {
     val isSupported = isGlassSupported()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -300,5 +301,6 @@ fun Modifier.liquidGlass(
                 GlassMotion.scroll.frozen() ||
                 frozen()
         },
+        freezeGeometry = freezeGeometry,
     )
 }

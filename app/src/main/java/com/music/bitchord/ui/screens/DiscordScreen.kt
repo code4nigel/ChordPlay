@@ -41,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -258,14 +259,10 @@ fun DiscordScreen(
                 subtitle = if (connected) null else stringResource(R.string.connect_account_first),
                 enabled = connected,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = rpcEnabled && connected,
                         onCheckedChange = AppSettings::setDiscordRpcEnabled,
                         enabled = connected,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordRpcEnabled(!rpcEnabled) },
@@ -277,14 +274,10 @@ fun DiscordScreen(
                 subtitle = stringResource(R.string.lead_with_song_subtitle),
                 enabled = connected && rpcEnabled,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = useDetails,
                         onCheckedChange = AppSettings::setDiscordUseDetails,
                         enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordUseDetails(!useDetails) },
@@ -296,14 +289,10 @@ fun DiscordScreen(
                 subtitle = stringResource(R.string.discord_show_audio_quality_subtitle),
                 enabled = connected && rpcEnabled,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = showAudioQuality,
                         onCheckedChange = AppSettings::setDiscordShowAudioQuality,
                         enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordShowAudioQuality(!showAudioQuality) },
@@ -315,14 +304,10 @@ fun DiscordScreen(
                 subtitle = stringResource(R.string.customize_card_subtitle),
                 enabled = connected && rpcEnabled,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = advancedMode,
                         onCheckedChange = AppSettings::setDiscordAdvancedMode,
                         enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordAdvancedMode(!advancedMode) },
@@ -363,13 +348,9 @@ fun DiscordScreen(
                         title = stringResource(R.string.first_button),
                         subtitle = button1Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_1 },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = button1Visible,
                                 onCheckedChange = AppSettings::setDiscordButton1Visible,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_1) },
@@ -380,13 +361,9 @@ fun DiscordScreen(
                         title = stringResource(R.string.second_button),
                         subtitle = button2Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_2 },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = button2Visible,
                                 onCheckedChange = AppSettings::setDiscordButton2Visible,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_2) },

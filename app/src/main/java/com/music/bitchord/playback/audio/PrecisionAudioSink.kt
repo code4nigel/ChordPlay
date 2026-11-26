@@ -77,6 +77,7 @@ class PrecisionAudioSink(
      * sink's to write; the spare stays quiet.
      */
     private val isAudible: () -> Boolean = { true },
+    private val onAudibleBlock: ((samples: FloatArray, frameCount: Int, channelCount: Int) -> Unit)? = null,
 ) : ForwardingAudioSink(delegate) {
 
     private var deckVolume = 1f
@@ -360,6 +361,9 @@ class PrecisionAudioSink(
 
             // Process normalized Float32 samples through custom DSP chain
             dspChain.process(audioBlock)
+            if (isAudible()) {
+                onAudibleBlock?.invoke(audioBlock.samples, decodedFrames, channelCount)
+            }
 
             // Encode processed samples to target PCM output buffer (Float32 or PCM16)
             outputByteBuffer.clear()

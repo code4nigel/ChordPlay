@@ -107,6 +107,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private val resolver by lazy { context.contentResolver }
 
     private val results = ConcurrentHashMap<String, TrackAnalysis>()
+    private val fastWaveforms = ConcurrentHashMap<String, WaveformPeaks>()
+    private val fastWaveformInFlight = ConcurrentHashMap.newKeySet<String>()
+    private val fastWaveformPrefix = ConcurrentHashMap<String, Long>()
     private val waveformBackfills = ConcurrentHashMap.newKeySet<String>()
     private val restoreInFlight = ConcurrentHashMap.newKeySet<String>()
     private val running = ConcurrentHashMap.newKeySet<String>()
@@ -195,30 +198,100 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         }
     }
 
+    /** Dedicated lightweight streaming peak scanner so waveforms never wait behind slow ONNX inference. */
+    private val waveformExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "bitchord-waveform-fast").apply {
+            isDaemon = true
+            priority = Thread.NORM_PRIORITY - 1
+        }
+    }
+
     /**
      * What is known about [trackId] right now: never a computation, never a
-     * block. Returns an empty analysis for anything not yet finished, which
-     * [assessTransitionTier] reads as no evidence rather than as a failure.
+     * block. Returns an empty analysis for anything not yet finished, merging any
+     * fast streaming [WaveformPeaks] already scanned while ONNX passes run.
      */
-    fun analysisFor(trackId: String): TrackAnalysis = results[trackId] ?: TrackAnalysis(trackId = trackId)
+    fun analysisFor(trackId: String): TrackAnalysis {
+        val base = results[trackId] ?: TrackAnalysis(trackId = trackId)
+        if (base.waveform != null) return base
+        val fast = fastWaveforms[trackId] ?: return base
+        return base.copy(waveform = fast)
+    }
 
-    /** Upgrade a pre-Studio analysis only when its audio can already be read from disk. */
-    fun requestLegacyWaveform(trackId: String, playbackUri: Uri, duration: Double) {
-        val analysis = results[trackId]?.takeIf { it.isUsable && it.waveform == null } ?: return
-        if (stopped || duration <= 0 || trackId in running || !waveformBackfills.add(trackId)) return
-        executor.execute {
-            runCatching {
-                val uri = sourceAnalysisUris[trackId] ?: playbackUri
-                val copy = copyToRead(trackId, uri, duration) ?: return@runCatching
-                if (stopped) return@runCatching
-                val (pcm, start) = copy.open()?.use { AudioDecoder.decodeRegion(it, 0.0, duration) { stopped } }
-                    ?: return@runCatching
-                val peaks = WaveformPeaks.fromPcm(pcm.samples, pcm.sampleRate, start) ?: return@runCatching
-                val updated = analysis.copy(waveform = peaks)
-                if (!stopped && results.replace(trackId, analysis, updated)) store.save(trackId, updated)
-            }
-            waveformBackfills.remove(trackId)
+    /**
+     * Scans normalized peak bars for [trackId] on [waveformExecutor] without allocating
+     * large PCM arrays or blocking on BeatTracker / VocalTracker ONNX passes.
+     */
+    fun requestFastWaveform(trackId: String, playbackUri: Uri, duration: Double) {
+        if (trackId.isBlank() || stopped) return
+        val existingWave = analysisFor(trackId).waveform
+        if (existingWave != null && duration > 0.0 && (existingWave.end - existingWave.start) >= duration * 0.90) {
+            return
         }
+        val analysisUri = analysisUriFor(trackId, playbackUri) ?: return
+        val local = LocalAudioSource.isLocal(analysisUri)
+        val prefixKey = if (local) {
+            Long.MAX_VALUE
+        } else {
+            val best = cache.renditionsOf(analysisUri)
+                .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(analysisUri.getQueryParameter("v"), it.key) }
+                .filter { it.cachedPrefix > 0L && it.key !in badRenditions }
+                .let { list ->
+                    list.firstOrNull { it.isComplete }
+                        ?: list.maxByOrNull { it.cachedPrefix }?.takeIf { it.cachedPrefix >= FAST_MIN_PREFIX_BYTES }
+                } ?: return
+            if (best.isComplete) Long.MAX_VALUE else best.cachedPrefix
+        }
+        val prevPrefix = fastWaveformPrefix[trackId]
+        if (prevPrefix != null && prevPrefix == prefixKey) return
+        if (prevPrefix != null && prefixKey != Long.MAX_VALUE && prefixKey < prevPrefix + FAST_RETRY_GROWTH_BYTES) {
+            return
+        }
+        if (!fastWaveformInFlight.add(trackId)) return
+
+        waveformExecutor.execute {
+            try {
+                Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+                if (stopped) return@execute
+                fastWaveformPrefix[trackId] = prefixKey
+                val copy = copyToRead(trackId, analysisUri, duration)
+                val openSource: (() -> MediaDataSource?)? = if (copy != null) {
+                    copy.open
+                } else if (!local) {
+                    val partial = cache.renditionsOf(analysisUri)
+                        .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(analysisUri.getQueryParameter("v"), it.key) }
+                        .filter { it.cachedPrefix >= FAST_MIN_PREFIX_BYTES && it.key !in badRenditions }
+                        .maxByOrNull { it.cachedPrefix }
+                    partial?.let { r -> { cache.renditionDataSource(analysisUri, r) } }
+                } else {
+                    null
+                }
+                val peaks = openSource?.invoke()?.use {
+                    AudioDecoder.decodeWaveformPeaks(it, durationHintSeconds = duration) { stopped }
+                } ?: return@execute
+                if (stopped) return@execute
+                val existing = fastWaveforms[trackId]
+                if (existing == null || (peaks.end - peaks.start) >= (existing.end - existing.start)) {
+                    fastWaveforms[trackId] = peaks
+                }
+                results[trackId]?.let { recorded ->
+                    val recordedWave = recorded.waveform
+                    if (recordedWave == null || (peaks.end - peaks.start) > (recordedWave.end - recordedWave.start)) {
+                        val updated = recorded.copy(waveform = peaks)
+                        if (results.replace(trackId, recorded, updated)) {
+                            store.save(trackId, updated)
+                        }
+                    }
+                }
+            } finally {
+                fastWaveformInFlight.remove(trackId)
+            }
+        }
+    }
+
+    /** Upgrade a pre-Studio analysis using zero-allocation streaming peak decode. */
+    fun requestLegacyWaveform(trackId: String, playbackUri: Uri, duration: Double) {
+        requestFastWaveform(trackId, playbackUri, duration)
     }
 
     /**
@@ -262,8 +335,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     fun isAnalysing(trackId: String): Boolean = trackId in running
 
     fun isWaveformPending(trackId: String, uri: Uri): Boolean =
-        isAnalysing(trackId) || trackId in waveformBackfills || trackId in restoreInFlight ||
-            trackId in sourceResolutions || cache.isAnalysisHeadInFlight(sourceAnalysisUris[trackId] ?: uri)
+        isAnalysing(trackId) || trackId in fastWaveformInFlight || trackId in waveformBackfills ||
+            trackId in restoreInFlight || trackId in sourceResolutions ||
+            cache.isAnalysisHeadInFlight(sourceAnalysisUris[trackId] ?: uri)
 
     /**
      * Queues [trackId] (playing at [uri]) for analysis if it is not already
@@ -293,7 +367,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // a catalogue match on the network for a track the party will never
         // mix. See [stopped].
         if (stopped) return
-        if (trackId in running) return
         val analysisUri = analysisUriFor(trackId, uri) ?: return
 
         // Only the canonical YouTube rendition of this recording will do, not
@@ -304,6 +377,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // earlier session short-circuits the whole path rather than being
         // re-earned from audio the cache may since have evicted.
         restoreOnce(trackId)
+        requestFastWaveform(trackId, uri, durationSeconds)
+
+        if (trackId in running) return
 
         // A track playing off the device is not a download in progress. Every
         // byte of it is already there, and none of those bytes are in the cache:
@@ -990,9 +1066,14 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             pcm.samples
         }
 
+        val features = TrackFeatures.analyze(samples, effectiveDuration)
+        val peaks = WaveformPeaks.fromPcm(samples, structRate, actualStart) ?: fastWaveforms[trackId]
+        if (peaks != null && !stopped) {
+            fastWaveforms[trackId] = peaks
+        }
         return Structural(
-            TrackFeatures.analyze(samples, effectiveDuration),
-            waveform = WaveformPeaks.fromPcm(samples, structRate, actualStart),
+            features = features,
+            waveform = peaks,
         )
     }
 
@@ -1299,7 +1380,11 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
     fun release() {
         executor.shutdownNow()
+        waveformExecutor.shutdownNow()
         sourceResolutionScope.cancel()
+        fastWaveforms.clear()
+        fastWaveformInFlight.clear()
+        fastWaveformPrefix.clear()
         sourceAnalysisUris.clear()
         sourceResolutions.clear()
         sourceResolutionAttempted.clear()
@@ -1390,5 +1475,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
          * whose first attempt covered only a few seconds.
          */
         const val HEAD_RETRY_GROWTH = 2
+        const val FAST_MIN_PREFIX_BYTES = 32L * 1024L
+        const val FAST_RETRY_GROWTH_BYTES = 256L * 1024L
     }
 }

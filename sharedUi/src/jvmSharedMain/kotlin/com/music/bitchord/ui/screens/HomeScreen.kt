@@ -21,9 +21,14 @@ import org.jetbrains.compose.resources.DrawableResource
 import androidx.compose.foundation.Image
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,6 +42,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,6 +92,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -123,6 +130,9 @@ import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.HomeShelfKey
+import com.music.bitchord.data.settings.SpeedDialSource
+import com.music.bitchord.data.settings.YourSpaceDialTab
+import com.music.bitchord.data.settings.speedDialStableId
 import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
@@ -146,9 +156,13 @@ import com.music.bitchord.ui.player.LiveBadge
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.PlayerPlatform
+import com.music.bitchord.ui.player.rememberArtworkColors
 
 /** How far the Listen now heading and feed sit above the shared top inset. */
 private val HOME_TITLE_LIFT = 28.dp
+
+/** Pulls ChordPlay's stacked hero up to align with the top bar's safe-area row. */
+private val HOME_CHORDPLAY_HERO_LIFT = 60.dp
 
 private const val RECENTS_TITLE = "Recents"
 private const val RECENT_TRACKS_PER_COLUMN = 4
@@ -157,6 +171,11 @@ fun ShelfItem.matchesCurrentlyPlaying(song: Song?): Boolean {
     song ?: return false
     if (videoId == null) return false
     return videoId == song.videoId || (title == song.title && subtitle == song.artist)
+}
+
+private object HomeDialSessionMemory {
+    var page: Int = 0
+    var tab: YourSpaceDialTab = YourSpaceDialTab.SPACE
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,18 +215,34 @@ fun HomeScreen(
     currentSong: Song? = null,
     isPlaying: Boolean = false,
     onLuckyDialClick: (() -> Unit)? = null,
+    onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)? = null,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
     precomputedSpeedDialBase: List<ShelfItem>? = null,
+    mixesDialItems: List<ShelfItem>? = null,
+    artistDialItems: List<ShelfItem> = emptyList(),
+    savedSpeedDialPage: Int? = null,
+    onSpeedDialPageChange: ((Int) -> Unit)? = null,
+    savedSpeedDialTab: YourSpaceDialTab? = null,
+    onSpeedDialTabChange: ((YourSpaceDialTab) -> Unit)? = null,
+    onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)? = null,
+    onOpenYourSpaceCustomize: (() -> Unit)? = null,
     melodyItem: ShelfItem? = null,
     onMelodyClick: (() -> Unit)? = null,
     onOpenReplay: (() -> Unit)? = null,
     replayYear: ReplayYearBadge? = null,
     onFindMoodClick: ((MoodGenre) -> Unit)? = null,
     onFindMoodShowAll: (() -> Unit)? = null,
+    userName: String? = null,
+    externalBrandLockup: Boolean = false,
+    brandCollapseProgress: Float = 0f,
 ) {
     val recentsViewType by AppUi.host.homeRecentsViewType.collectAsStateWithLifecycle()
     val designStyle by AppUi.host.appDesignStyle.collectAsStateWithLifecycle()
     val speedDialLayoutMode by AppUi.host.speedDialLayoutMode.collectAsStateWithLifecycle()
+    val speedDialSource by AppUi.host.speedDialSource.collectAsStateWithLifecycle()
+    val hiddenSpeedDialIds by AppUi.host.hiddenSpeedDialIds.collectAsStateWithLifecycle()
+    val speedDialShowMixes by AppUi.host.speedDialShowMixes.collectAsStateWithLifecycle()
+    val speedDialShowArtists by AppUi.host.speedDialShowArtists.collectAsStateWithLifecycle()
     val homeShelfOrder by AppUi.host.homeShelfOrder.collectAsStateWithLifecycle()
     val hiddenHomeShelves by AppUi.host.hiddenHomeShelves.collectAsStateWithLifecycle()
     val homeMelodyVisible by AppUi.host.homeMelodyVisible.collectAsStateWithLifecycle()
@@ -215,15 +250,55 @@ fun HomeScreen(
     val hideHomeVideos by AppUi.host.hideHomeVideos.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
+    var localDialPage by remember { mutableIntStateOf(savedSpeedDialPage ?: HomeDialSessionMemory.page) }
+    var localDialTab by remember { mutableStateOf(savedSpeedDialTab ?: HomeDialSessionMemory.tab) }
+    val currentDialPage = savedSpeedDialPage ?: localDialPage
+    val activeDialTab = savedSpeedDialTab ?: localDialTab
+    val updateDialPage: (Int) -> Unit = { page ->
+        localDialPage = page
+        HomeDialSessionMemory.page = page
+        onSpeedDialPageChange?.invoke(page)
+    }
+    val updateDialTab: (YourSpaceDialTab) -> Unit = { tab ->
+        localDialTab = tab
+        HomeDialSessionMemory.tab = tab
+        onSpeedDialTabChange?.invoke(tab)
+    }
+
+    val availableDialTabs = remember(speedDialShowMixes, speedDialShowArtists) {
+        buildList {
+            add(YourSpaceDialTab.SPACE)
+            if (speedDialShowMixes) add(YourSpaceDialTab.MIXES)
+            if (speedDialShowArtists) add(YourSpaceDialTab.ARTISTS)
+        }
+    }
+    LaunchedEffect(availableDialTabs) {
+        if (activeDialTab !in availableDialTabs) {
+            updateDialTab(YourSpaceDialTab.SPACE)
+        }
+    }
 
     val pinnedSpeedDial by AppUi.host.pinnedSpeedDial.collectAsStateWithLifecycle()
     val pinnedIds = remember(pinnedSpeedDial) {
-        (pinnedSpeedDial.mapNotNull { it.videoId } + pinnedSpeedDial.mapNotNull { it.browseId }).toSet()
+        (pinnedSpeedDial.mapNotNull { it.videoId } +
+            pinnedSpeedDial.mapNotNull { it.browseId } +
+            pinnedSpeedDial.map { it.speedDialStableId() }).toSet()
     }
 
-    val baseSpeedDialItems = precomputedSpeedDialBase ?: remember(state, designStyle, pinnedSpeedDial) {
+    val baseSpeedDialItems = precomputedSpeedDialBase ?: remember(
+        state,
+        designStyle,
+        pinnedSpeedDial,
+        speedDialSource,
+        hiddenSpeedDialIds,
+    ) {
         if (designStyle == AppDesignStyle.CHORDPLAY && state is UiState.Success) {
-            computeSpeedDialBaseItems(state.data, pinnedSpeedDial)
+            computeSpeedDialBaseItems(
+                shelves = state.data,
+                pinnedSpeedDial = pinnedSpeedDial,
+                source = speedDialSource,
+                hiddenIds = hiddenSpeedDialIds,
+            )
         } else {
             emptyList()
         }
@@ -237,7 +312,8 @@ fun HomeScreen(
         }
     }
 
-    val showSpeedDial = speedDialItems.isNotEmpty() && HomeShelfSlot.SPEED_DIAL !in hiddenHomeShelves
+    val showSpeedDial = (speedDialItems.isNotEmpty() || (designStyle == AppDesignStyle.CHORDPLAY && (speedDialShowMixes || speedDialShowArtists))) &&
+        HomeShelfSlot.SPEED_DIAL !in hiddenHomeShelves
     val showMelodyCard = melodyItem != null && onMelodyClick != null &&
         homeMelodyVisible && HomeShelfSlot.MELODY !in hiddenHomeShelves
     val showReplayCard = onOpenReplay != null &&
@@ -253,6 +329,7 @@ fun HomeScreen(
         showSpeedDial,
         showMelodyCard,
         showReplayCard,
+        onFindMoodClick != null,
     ) {
         if (state !is UiState.Success) {
             emptyList()
@@ -279,6 +356,9 @@ fun HomeScreen(
             } else {
                 moodFiltered
             }
+            val showFindYourMood = onFindMoodClick != null &&
+                HomeShelfSlot.FIND_YOUR_MOOD !in hiddenHomeShelves &&
+                (visibleShelves.isNotEmpty() || showSpeedDial)
             buildHomeFeedEntries(
                 shelves = visibleShelves,
                 savedOrder = homeShelfOrder,
@@ -286,50 +366,81 @@ fun HomeScreen(
                 showSpeedDial = showSpeedDial,
                 showMelody = showMelodyCard,
                 showReplay = showReplayCard,
+                showFindYourMood = showFindYourMood,
             )
         }
     }
 
-    PullToRefresh(
-        refreshing = refreshing,
-        onRefresh = onRefresh,
-        state = pullState,
-        modifier = modifier,
-    ) {
-        LazyColumn(
-            state = listState,
+    val artworkPalette = rememberArtworkColors(currentSong?.thumbnailUrl)
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
+    val chipAccents = remember(currentSong?.thumbnailUrl, artworkPalette.colors, primaryColor, tertiaryColor) {
+        if (currentSong?.thumbnailUrl != null && artworkPalette.colors.isNotEmpty()) {
+            artworkPalette.colors
+        } else {
+            listOf(primaryColor, tertiaryColor)
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        if (designStyle == AppDesignStyle.CHORDPLAY) {
+            HomeTopAmbientAura(
+                paletteColors = chipAccents,
+                topInset = contentPadding.calculateTopPadding(),
+                collapseProgress = brandCollapseProgress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+            )
+        }
+        PullToRefresh(
+            refreshing = refreshing,
+            onRefresh = onRefresh,
+            state = pullState,
             modifier = Modifier.fillMaxSize(),
-            // The heading sits higher than the other tabs' first row: pull the
-            // whole feed up by [HOME_TITLE_LIFT] with it.
-            contentPadding = if (title != null) {
-                PaddingValues(
-                    top = (contentPadding.calculateTopPadding() - HOME_TITLE_LIFT).coerceAtLeast(0.dp),
-                    bottom = contentPadding.calculateBottomPadding(),
-                )
-            } else {
-                contentPadding
-            },
         ) {
-            if (title != null) {
-                if (designStyle == AppDesignStyle.CHORDPLAY) {
-                    item(key = "chordplay_header", contentType = LazyContent.HEADER) {
-                        ChordPlayHomeHeader(replayYear = replayYear)
-                    }
-                } else {
-                    item(key = "home_title", contentType = LazyContent.HEADER) {
-                        HomeTitle(title = title, replayYear = replayYear)
-                    }
-                }
-            }
-            if (designStyle == AppDesignStyle.CHORDPLAY) {
-                item(key = "mood_chips", contentType = "mood-chips") {
-                    MoodFilterChips(
-                        selectedMood = selectedMood,
-                        onMoodSelect = { selectedMood = it },
-                        modifier = Modifier.padding(bottom = 6.dp),
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                // The heading sits higher than the other tabs' first row: pull the
+                // whole feed up to align with the floating top-bar safe zone.
+                contentPadding = if (title != null) {
+                    val lift = if (designStyle == AppDesignStyle.CHORDPLAY) HOME_CHORDPLAY_HERO_LIFT else HOME_TITLE_LIFT
+                    PaddingValues(
+                        top = (contentPadding.calculateTopPadding() - lift).coerceAtLeast(0.dp),
+                        bottom = contentPadding.calculateBottomPadding(),
                     )
+                } else {
+                    contentPadding
+                },
+            ) {
+                if (title != null) {
+                    if (designStyle == AppDesignStyle.CHORDPLAY) {
+                        item(key = "chordplay_header", contentType = LazyContent.HEADER) {
+                            ChordPlayHomeHeader(
+                                userName = userName,
+                                replayYear = replayYear,
+                                externalBrandLockup = externalBrandLockup,
+                                collapseProgress = brandCollapseProgress,
+                                accentColor = chipAccents.firstOrNull() ?: primaryColor,
+                            )
+                        }
+                    } else {
+                        item(key = "home_title", contentType = LazyContent.HEADER) {
+                            HomeTitle(title = title, replayYear = replayYear)
+                        }
+                    }
                 }
-            }
+                if (designStyle == AppDesignStyle.CHORDPLAY) {
+                    item(key = "mood_chips", contentType = "mood-chips") {
+                        MoodFilterChips(
+                            selectedMood = selectedMood,
+                            onMoodSelect = { selectedMood = it },
+                            accentColors = chipAccents,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                }
             if (!signedIn && onSignIn != null) {
                 item(key = "home:sign-in", contentType = LazyContent.MESSAGE) {
                     SignInBanner(onSignIn = onSignIn, modifier = Modifier.padding(bottom = 8.dp))
@@ -361,6 +472,15 @@ fun HomeScreen(
                     itemsHomeEntries(
                         entries = orderedEntries,
                         speedDialItems = speedDialItems,
+                        mixesDialItems = mixesDialItems,
+                        artistDialItems = artistDialItems,
+                        availableDialTabs = availableDialTabs,
+                        activeDialTab = activeDialTab,
+                        onDialTabChange = updateDialTab,
+                        savedDialPage = currentDialPage,
+                        onDialPageChange = updateDialPage,
+                        onReorderPinnedSpeedDial = onReorderPinnedSpeedDial,
+                        onOpenYourSpaceCustomize = onOpenYourSpaceCustomize,
                         pinnedIds = pinnedIds,
                         speedDialLayoutMode = speedDialLayoutMode,
                         melodyItem = melodyItem,
@@ -370,6 +490,7 @@ fun HomeScreen(
                         onItemLongPress = onItemLongPress,
                         onPlayMixClick = onPlayMixClick,
                         onLuckyDialClick = onLuckyDialClick,
+                        onLuckyDialRoll = onLuckyDialRoll,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         recentsViewType = recentsViewType,
@@ -386,6 +507,7 @@ fun HomeScreen(
                 }
             }
         }
+    }
     }
 
     if (onLoadMore != null && state is UiState.Success) {
@@ -415,6 +537,15 @@ fun HomeScreen(
 private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     entries: List<HomeFeedEntry>,
     speedDialItems: List<ShelfItem>,
+    mixesDialItems: List<ShelfItem>?,
+    artistDialItems: List<ShelfItem>,
+    availableDialTabs: List<YourSpaceDialTab>,
+    activeDialTab: YourSpaceDialTab,
+    onDialTabChange: (YourSpaceDialTab) -> Unit,
+    savedDialPage: Int,
+    onDialPageChange: (Int) -> Unit,
+    onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)?,
+    onOpenYourSpaceCustomize: (() -> Unit)?,
     pinnedIds: Set<String>,
     speedDialLayoutMode: com.music.bitchord.data.settings.SpeedDialLayoutMode,
     melodyItem: ShelfItem?,
@@ -424,6 +555,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialClick: (() -> Unit)?,
+    onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)?,
     currentSong: Song?,
     isPlaying: Boolean,
     recentsViewType: LibraryViewType,
@@ -433,8 +565,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     onFindMoodShowAll: (() -> Unit)? = null,
 ) {
     val keyCounts = mutableMapOf<String, Int>()
-    var shelvesEmitted = 0
-    var moodShelfEmitted = false
     entries.forEachIndexed { index, entry ->
         when (entry) {
             HomeFeedEntry.SpeedDial -> {
@@ -444,6 +574,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         onToggleLayoutMode = {
                             AppUi.host.setSpeedDialLayoutMode(speedDialLayoutMode.next())
                         },
+                        onOpenCustomize = onOpenYourSpaceCustomize,
                     )
                 }
                 item(key = "home_speed_dial", contentType = "speed-dial") {
@@ -453,7 +584,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         layoutMode = speedDialLayoutMode,
-                        onItemClick = { item -> onItemClick(item, "Your Space") },
+                        onItemClick = { item ->
+                            val sourceLabel = when (activeDialTab) {
+                                YourSpaceDialTab.SPACE -> "Your Space"
+                                YourSpaceDialTab.MIXES -> "Mixes Dial"
+                                YourSpaceDialTab.ARTISTS -> "Artist Dial"
+                            }
+                            onItemClick(item, sourceLabel)
+                        },
                         onPlayMixClick = onPlayMixClick,
                         onLuckyDialClick = {
                             if (onLuckyDialClick != null) {
@@ -462,13 +600,31 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                                 val candidate = (speedDialItems.filter { it.videoId != null }.shuffled().firstOrNull()
                                     ?: speedDialItems.shuffled().firstOrNull())
                                 if (candidate != null) {
-                                    onItemClick(candidate, "Roll a Dice")
+                                    onItemClick(candidate, "Chord Wave")
                                 }
                             }
                         },
+                        onLuckyDialRoll = onLuckyDialRoll,
                         onItemLongPress = onItemLongPress,
-                        modifier = Modifier.padding(bottom = 6.dp),
+                        mixesItems = mixesDialItems,
+                        artistItems = artistDialItems,
+                        activeTab = activeDialTab,
+                        onTabChange = onDialTabChange,
+                        savedPage = savedDialPage,
+                        onPageChange = onDialPageChange,
+                        onReorderPinned = onReorderPinnedSpeedDial,
+                        modifier = Modifier.padding(bottom = 2.dp),
                     )
+                }
+            }
+            HomeFeedEntry.FindYourMood -> {
+                if (onFindMoodClick != null) {
+                    item(key = "home:find_your_mood", contentType = "find-your-mood") {
+                        HomeFindYourMoodShelf(
+                            onClick = onFindMoodClick,
+                            onShowAll = onFindMoodShowAll ?: {},
+                        )
+                    }
                 }
             }
             HomeFeedEntry.Melody -> {
@@ -552,25 +708,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         )
                     }
                 }
-                shelvesEmitted++
-                if (!moodShelfEmitted && shelvesEmitted == 2 && onFindMoodClick != null) {
-                    moodShelfEmitted = true
-                    item(key = "home:find_your_mood", contentType = "find-your-mood") {
-                        HomeFindYourMoodShelf(
-                            onClick = onFindMoodClick,
-                            onShowAll = onFindMoodShowAll ?: {},
-                        )
-                    }
-                }
             }
-        }
-    }
-    if (!moodShelfEmitted && shelvesEmitted > 0 && onFindMoodClick != null) {
-        item(key = "home:find_your_mood", contentType = "find-your-mood") {
-            HomeFindYourMoodShelf(
-                onClick = onFindMoodClick,
-                onShowAll = onFindMoodShowAll ?: {},
-            )
         }
     }
 }
@@ -744,6 +882,7 @@ fun CompactTrackRow(
     onLongPress: (() -> Unit)?,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    isPinned: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -765,6 +904,30 @@ fun CompactTrackRow(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             if (isCurrent && isPlaying) SearchPlayingBars(Modifier.align(Alignment.Center))
+            if (isPinned) {
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF121921) else MaterialTheme.colorScheme.surface)
+                        .border(
+                            1.dp,
+                            if (isDark) Color(0xFF2B3A4A) else Color.Black.copy(alpha = 0.12f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = BitChordIcons.LocationPin,
+                        contentDescription = "Pinned to Your Space",
+                        tint = Color(0xFFD6B27D),
+                        modifier = Modifier.size(10.5.dp),
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -797,115 +960,229 @@ fun CompactTrackRow(
  * font size rather than a fixed dp, so the two keep their proportion under the
  * system font scale.
  */
-/**
- * Dynamic witty musical greeting based on device local time (Option B):
- * - 05:00 - 11:59: "Ears first, questions later."
- * - 12:00 - 16:59: "Back in the mix, $userName." / "Back in the groove."
- * - 17:00 - 21:59: "Your soundtrack awaits."
- * - 22:00 - 04:59: "Turn it up."
- */
-internal fun getMusicalGreeting(userName: String? = null): String {
+internal data class WeightedGreeting(
+    val text: String,
+    val weight: Int,
+)
+
+internal fun weightedGreetings(userName: String? = null): List<WeightedGreeting> {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    return when (hour) {
+    val timeGreeting = when (hour) {
         in 5..11 -> "Ears first, questions later."
         in 12..16 -> if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the groove."
         in 17..21 -> "Your soundtrack awaits."
         else -> "Turn it up."
     }
+    val mixGreeting = if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the mix."
+    val pool = linkedMapOf(
+        "Music sounds better with you." to 5,
+        "Happy listening." to 5,
+        timeGreeting to 1,
+        mixGreeting to 1,
+        "Ears first, questions later." to 1,
+        "Your soundtrack awaits." to 1,
+        "Turn it up." to 1,
+    )
+    return pool.map { (text, weight) -> WeightedGreeting(text, weight) }
 }
 
 /**
- * Dynamic witty musical greetings:
- * 1. "Back in the mix, $userName." / "Back in the mix."
- * 2. "Ears first, questions later."
- * 3. "Your soundtrack awaits."
- * 4. "Turn it up."
+ * Weighted musical greeting favouring ChordPlay's signature lines ("Music sounds better with you."
+ * and "Happy listening.") while mixing in time-aware phrases.
  */
-private fun getGreetingList(userName: String? = null): List<String> = listOf(
-    if (!userName.isNullOrBlank()) "Back in the mix, $userName." else "Back in the mix.",
-    "Ears first, questions later.",
-    "Your soundtrack awaits.",
-    "Turn it up.",
-)
+internal fun getMusicalGreeting(
+    userName: String? = null,
+    excluding: String? = null,
+    rollProvider: (Int) -> Int = { bound -> kotlin.random.Random.nextInt(bound) },
+): String {
+    val candidates = weightedGreetings(userName).let { all ->
+        if (excluding != null) all.filterNot { it.text == excluding }.ifEmpty { all } else all
+    }
+    val totalWeight = candidates.sumOf { it.weight }
+    if (totalWeight <= 0) return "Music sounds better with you."
+    var roll = rollProvider(totalWeight)
+    for (entry in candidates) {
+        roll -= entry.weight
+        if (roll < 0) return entry.text
+    }
+    return candidates.first().text
+}
+
+@Composable
+private fun HomeTopAmbientAura(
+    paletteColors: List<Color>,
+    topInset: androidx.compose.ui.unit.Dp,
+    collapseProgress: Float,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = paletteColors.getOrNull(1) ?: MaterialTheme.colorScheme.tertiary
+    val heroTint = paletteColors.firstOrNull() ?: primary
+    val accentWash = paletteColors.getOrNull(2) ?: heroTint
+
+    val scrollAttenuation = (1f - collapseProgress * 0.42f).coerceIn(0.45f, 1f)
+    val baseAlpha = (if (isDark) 0.34f else 0.16f) * scrollAttenuation
+
+    Canvas(
+        modifier = modifier.height(topInset + 250.dp),
+    ) {
+        val leftFocus = Offset(size.width * 0.18f, size.height * 0.24f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to heroTint.copy(alpha = baseAlpha * 1.10f),
+                0.45f to primary.copy(alpha = baseAlpha * 0.52f),
+                1f to Color.Transparent,
+                center = leftFocus,
+                radius = size.width * 0.78f,
+            ),
+            radius = size.width * 0.78f,
+            center = leftFocus,
+        )
+
+        val rightSweep = Offset(size.width * 0.74f, size.height * 0.42f)
+        drawCircle(
+            brush = Brush.radialGradient(
+                0f to secondary.copy(alpha = baseAlpha * 0.78f),
+                0.55f to accentWash.copy(alpha = baseAlpha * 0.26f),
+                1f to Color.Transparent,
+                center = rightSweep,
+                radius = size.width * 0.72f,
+            ),
+            radius = size.width * 0.72f,
+            center = rightSweep,
+        )
+
+        // Ensure complete seamless fade to transparent before Your Space
+        val bg = Color.Transparent
+        drawRect(
+            brush = Brush.verticalGradient(
+                0f to Color.Transparent,
+                0.72f to Color.Transparent,
+                1f to bg,
+            ),
+        )
+    }
+}
 
 /**
- * ChordPlay Living Home Screen dynamic greeting header with cycling greetings.
+ * ChordPlay Living Home Screen stacked hero header with artwork halo,
+ * collapsing brand transition coordination, and cycling witty greetings.
  */
 @Composable
 private fun ChordPlayHomeHeader(
     userName: String? = null,
     replayYear: ReplayYearBadge? = null,
+    externalBrandLockup: Boolean = false,
+    collapseProgress: Float = 0f,
+    accentColor: Color = MaterialTheme.colorScheme.primary,
     modifier: Modifier = Modifier,
 ) {
-    val titleStyle = MaterialTheme.typography.headlineMedium
-    val logoHeight = with(LocalDensity.current) { (MaterialTheme.typography.titleLarge.fontSize * LOGO_TO_FONT).toDp() }
-    val initialGreeting = remember(userName) { getMusicalGreeting(userName) }
-    val greetings = remember(userName) {
-        listOf(initialGreeting) + (getGreetingList(userName) - initialGreeting)
+    val cleanUserName = remember(userName) {
+        userName?.trim()?.substringBefore(' ')?.takeIf { it.isNotBlank() }
     }
-    var greetingIndex by remember { mutableIntStateOf(0) }
+    var currentGreeting by remember(cleanUserName) {
+        mutableStateOf(getMusicalGreeting(cleanUserName))
+    }
 
-    // Rotate slowly (every 60 seconds) so the greeting stays calm, readable, and premium
-    LaunchedEffect(greetings) {
+    // Rotate calmly every 2-3 minutes so the greeting refreshes naturally
+    LaunchedEffect(cleanUserName) {
         while (true) {
-            delay(60_000L)
-            greetingIndex = (greetingIndex + 1) % greetings.size
+            delay(kotlin.random.Random.nextLong(120_000L, 180_001L))
+            currentGreeting = getMusicalGreeting(cleanUserName, excluding = currentGreeting)
         }
     }
 
     val isFestivalActive by FestivalTheme.isFestivalActive.collectAsStateWithLifecycle()
     val festivalThemeType by FestivalTheme.festivalThemeType.collectAsStateWithLifecycle()
+    val density = LocalDensity.current
+    val reservedTitleHeight = with(density) { 30.sp.toDp() }
+    val greetingAlpha = (1f - collapseProgress * 1.65f).coerceIn(0f, 1f)
 
-    Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 6.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier
-                .padding(bottom = 8.dp)
-                .then(
-                    if (isFestivalActive) {
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                FestivalTheme.triggerFestivalPopup()
-                            }
-                    } else {
-                        Modifier
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = PAGE_GUTTER)
+            .padding(bottom = 8.dp),
+    ) {
+        if (externalBrandLockup) {
+            // FrostedTopBar draws the continuous morphing ic_logo + ChordPlay lockup
+            // in this exact top-left safe-area space so scroll never detaches it.
+            Spacer(Modifier.height(44.dp + 6.dp + reservedTitleHeight + 6.dp))
+        } else {
+            // Standalone / Preview fallback matching the Stacked Hero lockup
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .then(
+                        if (isFestivalActive) {
+                            Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { FestivalTheme.triggerFestivalPopup() }
+                        } else {
+                            Modifier
+                        },
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Canvas(modifier = Modifier.size(58.dp)) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                0f to accentColor.copy(alpha = 0.42f),
+                                0.55f to accentColor.copy(alpha = 0.14f),
+                                1f to Color.Transparent,
+                            ),
+                        )
                     }
-                ),
-        ) {
-            if (isFestivalActive && festivalThemeType == "diwali") {
-                AnimatedDiya(size = 22.dp)
+                    Icon(
+                        painter = painterResource(Res.drawable.ic_logo),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp),
+                    )
+                }
+                if (isFestivalActive && festivalThemeType == "diwali") {
+                    AnimatedDiya(size = 22.dp)
+                }
+                replayYear?.let { badge ->
+                    ReplayYearButton(badge = badge, height = 24.dp)
+                }
             }
-            Icon(
-                painter = painterResource(Res.drawable.ic_logo),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp),
-            )
             Text(
                 text = "ChordPlay",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    letterSpacing = (-0.2).sp,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 26.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.6).sp,
                 ),
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 6.dp),
             )
-            if (isFestivalActive && festivalThemeType == "diwali") {
-                AnimatedDiya(size = 22.dp)
-            }
-            replayYear?.let { badge ->
-                Spacer(Modifier.width(8.dp))
-                ReplayYearButton(badge = badge, height = 24.dp)
-            }
         }
+
+        val greetingInteraction = remember { MutableInteractionSource() }
         Box(
-            modifier = Modifier.clickable {
-                greetingIndex = (greetingIndex + 1) % greetings.size
-            }
+            modifier = Modifier
+                .graphicsLayer {
+                    alpha = greetingAlpha
+                    translationY = -with(density) { 10.dp.toPx() } * collapseProgress
+                }
+                .clickable(
+                    interactionSource = greetingInteraction,
+                    indication = null,
+                    enabled = greetingAlpha > 0.25f,
+                ) {
+                    currentGreeting = getMusicalGreeting(cleanUserName, excluding = currentGreeting)
+                },
         ) {
             AnimatedContent(
-                targetState = greetings[greetingIndex % greetings.size],
+                targetState = currentGreeting,
                 transitionSpec = {
                     (slideInVertically(animationSpec = tween(350)) { height -> height / 2 } + fadeIn(animationSpec = tween(350)))
                         .togetherWith(slideOutVertically(animationSpec = tween(250)) { height -> -height / 2 } + fadeOut(animationSpec = tween(250)))
@@ -914,9 +1191,15 @@ private fun ChordPlayHomeHeader(
             ) { greeting ->
                 Text(
                     text = greeting,
-                    style = titleStyle,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 15.5.sp,
+                        lineHeight = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = (-0.1).sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.74f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -1978,8 +2261,14 @@ fun clearShelfKeyCache() {
 fun computeSpeedDialBaseItems(
     shelves: List<HomeShelf>,
     pinnedSpeedDial: List<ShelfItem>,
+    source: SpeedDialSource = SpeedDialSource.SMART_BLEND,
+    historySongs: List<Song> = emptyList(),
+    spotifyMixes: List<ShelfItem> = emptyList(),
+    hiddenIds: Set<String> = emptySet(),
 ): List<ShelfItem> {
-    if (shelves.isEmpty() && pinnedSpeedDial.isEmpty()) return emptyList()
+    if (shelves.isEmpty() && pinnedSpeedDial.isEmpty() && historySongs.isEmpty() && spotifyMixes.isEmpty()) {
+        return emptyList()
+    }
     val shelfMixes = shelves.flatMap { shelf ->
         shelf.items.filter { item ->
             val bId = item.browseId.orEmpty()
@@ -2010,8 +2299,19 @@ fun computeSpeedDialBaseItems(
     val rankedTracks = (favTracks + recentTracks).distinctBy { it.videoId ?: it.title }
     val collections = shelves.flatMap { it.items }.filter { it.browseId != null && !it.browseId!!.startsWith("RD") && !it.browseId!!.startsWith("VLRD") }.distinctBy { it.browseId }
 
-    return buildList {
-        addAll(pinnedSpeedDial)
+    val historyTiles = historySongs.map { song ->
+        ShelfItem(
+            title = song.title,
+            subtitle = song.artist,
+            thumbnailUrl = song.thumbnailUrl,
+            videoId = song.videoId,
+            browseId = null,
+            isVideo = song.isVideo || song.isLive,
+            isLive = song.isLive,
+        )
+    }
+
+    val smartBlend = buildList {
         var mIdx = 0; var tIdx = 0; var cIdx = 0
         while (size < 26 && (mIdx < allMixes.size || tIdx < rankedTracks.size || cIdx < collections.size)) {
             if (mIdx < allMixes.size) add(allMixes[mIdx++])
@@ -2019,7 +2319,30 @@ fun computeSpeedDialBaseItems(
             if (cIdx < collections.size) add(collections[cIdx++])
             if (tIdx < rankedTracks.size) add(rankedTracks[tIdx++])
         }
-    }.distinctBy { it.videoId ?: it.browseId ?: it.title }
+    }
+
+    val ytOrdered = buildList {
+        val listenAgain = shelves.filter { it.title.contains("listen again", true) || it.title.contains("quick", true) || it.title.equals(RECENTS_TITLE, true) }
+            .flatMap { it.items }
+        addAll(listenAgain)
+        addAll(allMixes)
+        addAll(collections)
+        addAll(rankedTracks)
+    }
+
+    val pool = when (source) {
+        SpeedDialSource.SMART_BLEND -> smartBlend
+        SpeedDialSource.YOUTUBE_MUSIC -> ytOrdered
+        SpeedDialSource.HISTORY -> historyTiles + rankedTracks
+        SpeedDialSource.SPOTIFY -> spotifyMixes + smartBlend
+    }
+
+    val visiblePins = pinnedSpeedDial.filterNot { it.speedDialStableId() in hiddenIds }
+    val visiblePool = pool.filterNot { it.speedDialStableId() in hiddenIds }
+
+    return (visiblePins + visiblePool)
+        .distinctBy { it.speedDialStableId().ifBlank { it.videoId ?: it.browseId ?: it.title } }
+        .take(36)
 }
 
 private fun filterSpeedDialItems(

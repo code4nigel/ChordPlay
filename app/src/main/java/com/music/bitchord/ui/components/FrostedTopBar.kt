@@ -15,19 +15,27 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,22 +63,36 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,16 +101,25 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.ic_logo
+import com.music.bitchord.ui.screens.ReplayYearBadge
+import com.music.bitchord.ui.screens.ReplayYearButton
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import org.jetbrains.compose.resources.painterResource
+import kotlin.math.PI
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 /**
  * The bar's own height, above whatever inset it is sitting under.
@@ -146,6 +177,16 @@ fun topBarHeight(): Dp =
 @Composable
 fun topBarContentPadding(): Dp = topBarHeight() + TopBarContentGap
 
+data class HomeBrandLockupConfig(
+    val collapseProgress: Float,
+    val primaryGlowColor: Color? = null,
+    val isFestivalActive: Boolean = false,
+    val festivalThemeType: String = "",
+    val onFestivalClick: (() -> Unit)? = null,
+    val replayYear: ReplayYearBadge? = null,
+    val onCollapsedClick: () -> Unit = {},
+)
+
 /**
  * The top bar's content — title, back affordance, actions — over no blur of its
  * own.
@@ -176,12 +217,18 @@ fun FrostedTopBar(
     // A lambda, not a value: the drag changes every frame, and reading it in
     // the caller would recompose the whole app on each one.
     pullFraction: () -> Float = { 0f },
+    /** Optional morphing stacked-hero -> compact-pill ChordPlay lockup for Home. */
+    homeBrandLockup: HomeBrandLockupConfig? = null,
     /**
      * A page control filling the bar from the leading gutter to [actions], on
      * no surface of its own — the Search tab's field, which brings its own.
      * Root tabs have no back button there for it to collide with.
      */
     accessory: (@Composable () -> Unit)? = null,
+    /** False on Settings, where the docking search field runs to the trailing edge. */
+    actionsShown: Boolean = true,
+    /** True when [accessory] paints its own pill surface (so resizing it resizes its glass). */
+    accessoryHasOwnSurface: Boolean = false,
     actions: @Composable () -> Unit = {},
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -315,38 +362,81 @@ fun FrostedTopBar(
                     }
                 }
             }
+            if (onBack == null && accessory == null && homeBrandLockup != null) {
+                HomeMorphingBrandLockup(
+                    config = homeBrandLockup,
+                    hazeState = backButtonHazeState,
+                    refreshing = refreshing,
+                    pullFraction = pullFraction,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(start = BAR_GUTTER, top = 4.dp),
+                )
+            }
             // No wordmark at the leading end: the root tabs carry it above
             // their large heading instead (LargePageTitle in :sharedUi).
             // The accessory takes everything from the leading gutter up to the
             // actions, which keep their own width at the trailing end.
             val edge = if (useFloatingChrome) BAR_GUTTER else 4.dp
+            val accessoryStart = when {
+                onBack == null -> edge
+                useFloatingChrome -> BAR_GUTTER + TOP_CONTROL_SIZE + ACCESSORY_GAP
+                else -> 4.dp + 48.dp + ACCESSORY_GAP
+            }
             Row(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = edge) else Modifier)
+                    .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = accessoryStart) else Modifier)
                     // Same outer edge as the navbar; PILL_INSET below is
                     // internal padding around the icons, not extra margin.
                     .padding(end = edge),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (accessory != null) {
-                    AccessoryPill(
-                        floating = useFloatingChrome,
-                        hazeState = backButtonHazeState,
-                        modifier = Modifier.weight(1f),
-                        content = accessory,
-                    )
-                    Spacer(Modifier.width(ACCESSORY_GAP))
+                    if (accessoryHasOwnSurface) {
+                        val glass = useFloatingChrome && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+                        Box(modifier = Modifier.weight(1f)) {
+                            CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
+                                if (glass) {
+                                    val glassContent = glassContentColor()
+                                    MaterialTheme(
+                                        colorScheme = MaterialTheme.colorScheme.copy(
+                                            onBackground = glassContent,
+                                            onSurfaceVariant = glassContent.copy(alpha = ACCESSORY_HINT_ALPHA),
+                                            primary = glassContent,
+                                        ),
+                                        content = accessory,
+                                    )
+                                } else {
+                                    accessory()
+                                }
+                            }
+                        }
+                    } else {
+                        AccessoryPill(
+                            floating = useFloatingChrome,
+                            hazeState = backButtonHazeState,
+                            modifier = Modifier.weight(1f),
+                            content = accessory,
+                        )
+                    }
+                    if (actionsShown) {
+                        Spacer(Modifier.width(ACCESSORY_GAP))
+                    }
                 }
-                if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
-                } else {
-                    actions()
+                if (actionsShown) {
+                    if (useFloatingChrome) {
+                        ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    } else {
+                        actions()
+                    }
                 }
             }
         }
         HorizontalDivider(thickness = 0.5.dp, color = dividerColor)
-        RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
+        if (homeBrandLockup == null) {
+            RefreshPuck(refreshing = refreshing, pullFraction = pullFraction)
+        }
     }
 }
 
@@ -400,6 +490,408 @@ private fun AccessoryPill(
 
 private const val ACCESSORY_HINT_ALPHA = 0.6f
 private val TOP_CONTROL_SIZE = 44.dp
+
+/**
+ * Continuous scroll-driven lockup for Home:
+ * - Expanded (`collapse = 0`): large glowing `ic_logo` aligned with the right profile avatar,
+ *   with `"ChordPlay"` stacked cleanly below it.
+ * - Collapsed (`collapse = 1`): compacts into a frosted glass `[ic_logo ChordPlay]` capsule
+ *   horizontally aligned with the right profile selector.
+ */
+@Composable
+private fun HomeMorphingBrandLockup(
+    config: HomeBrandLockupConfig,
+    hazeState: HazeState?,
+    refreshing: Boolean = false,
+    pullFraction: () -> Float = { 0f },
+    modifier: Modifier = Modifier,
+) {
+    val density = LocalDensity.current
+    val t = config.collapseProgress.coerceIn(0f, 1f)
+    val eased = t * t * (3f - 2f * t)
+    val pillAlpha = ((t - 0.35f) / 0.65f).coerceIn(0f, 1f)
+
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val collapsedContentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+        glassContentColor()
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val expandedTextColor = MaterialTheme.colorScheme.onBackground
+    val titleColor = lerp(expandedTextColor, collapsedContentColor, pillAlpha)
+
+    val expandedIconSize = TOP_CONTROL_SIZE // 44.dp aligned with right-side TopBarAccountButton
+    val collapsedIconSize = 22.dp
+    val iconScale = 1f + ((collapsedIconSize / expandedIconSize) - 1f) * eased
+    val glowAlpha = 1f - eased * 0.78f
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val haloColor = config.primaryGlowColor ?: primaryColor
+
+    val expandedFontSize = 26.sp
+    val collapsedFontSize = 16.5.sp
+    val textScaleRatio = collapsedFontSize.value / expandedFontSize.value
+    val textScale = 1f + (textScaleRatio - 1f) * eased
+
+    var measuredTextWidthPx by remember { mutableIntStateOf(0) }
+    var measuredTextHeightPx by remember { mutableIntStateOf(0) }
+
+    val startPadPx = with(density) { 12.dp.toPx() }
+    val endPadPx = with(density) { 14.dp.toPx() }
+    val collapsedIconPx = with(density) { collapsedIconSize.toPx() }
+    val gapPx = with(density) { 7.dp.toPx() }
+    val halfTopBoxPx = with(density) { (TOP_CONTROL_SIZE / 2f).toPx() }
+    val expandedIconPx = with(density) { expandedIconSize.toPx() }
+    val titleTopGapPx = with(density) { 6.dp.toPx() }
+
+    val fallbackWidthPx = with(density) { 122.dp.toPx() }.roundToInt()
+    val effectiveTextW = if (measuredTextWidthPx > 0) measuredTextWidthPx else fallbackWidthPx
+    val fallbackHeightPx = with(density) { 30.sp.toPx() }.roundToInt()
+    val effectiveTextH = if (measuredTextHeightPx > 0) measuredTextHeightPx else fallbackHeightPx
+
+    val collapsedTextW = effectiveTextW * textScaleRatio
+    val collapsedPillWidthDp = with(density) {
+        (startPadPx + collapsedIconPx + gapPx + collapsedTextW + endPadPx).toDp()
+    }
+    val expandedTextTransY = (expandedIconPx + titleTopGapPx) - (halfTopBoxPx - effectiveTextH * 0.5f)
+    val collapsedTextTransX = startPadPx + collapsedIconPx + gapPx
+
+    val badgeExtraWidthDp = if (config.isFestivalActive && config.festivalThemeType == "diwali") 28.dp else 0.dp
+    val replayBadgeOffsetDp = with(density) {
+        val expandedX = expandedIconPx + with(density) { 10.dp.toPx() } + with(density) { badgeExtraWidthDp.toPx() }
+        val collapsedX = collapsedPillWidthDp.toPx() + with(density) { 8.dp.toPx() }
+        (expandedX + (collapsedX - expandedX) * eased).toDp()
+    }
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Box(modifier = modifier.height(TOP_CONTROL_SIZE)) {
+        // Frosted glass pill surface behind collapsed lockup
+        Box(
+            modifier = Modifier
+                .width(collapsedPillWidthDp)
+                .height(TOP_CONTROL_SIZE)
+                .graphicsLayer { alpha = pillAlpha }
+                .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+                .then(
+                    if (t > 0.35f) {
+                        Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = config.onCollapsedClick,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
+        )
+
+        // Morphing ChordPlay icon mark + ambient artwork aura
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(expandedIconSize)
+                .graphicsLayer {
+                    translationX = startPadPx * eased
+                    scaleX = iconScale
+                    scaleY = iconScale
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                }
+                .then(
+                    if (t <= 0.35f && config.isFestivalActive && config.onFestivalClick != null) {
+                        Modifier
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onClick = config.onFestivalClick,
+                            )
+                    } else {
+                        Modifier
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            ChordPlayPullRefreshIcon(
+                iconSize = expandedIconSize,
+                primaryColor = primaryColor,
+                haloColor = haloColor,
+                glowAlpha = glowAlpha,
+                refreshing = refreshing,
+                pullFraction = pullFraction,
+                reduceAnimation = reduceAnimation,
+            )
+        }
+
+        // Morphing ChordPlay wordmark: stacked beneath icon at rest, tucked beside icon when scrolled
+        Text(
+            text = "ChordPlay",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontSize = expandedFontSize,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.6).sp,
+            ),
+            color = titleColor,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .onSizeChanged {
+                    measuredTextWidthPx = it.width
+                    measuredTextHeightPx = it.height
+                }
+                .graphicsLayer {
+                    translationX = collapsedTextTransX * eased
+                    translationY = expandedTextTransY * (1f - eased)
+                    scaleX = textScale
+                    scaleY = textScale
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                },
+        )
+
+        // Optional festival diya or Replay year badge stays interactive on the top row
+        if (config.isFestivalActive && config.festivalThemeType == "diwali") {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = expandedIconSize + 8.dp)
+                    .graphicsLayer {
+                        alpha = 1f - eased
+                    },
+            ) {
+                AnimatedDiya(size = 22.dp)
+            }
+        }
+        config.replayYear?.let { badge ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = replayBadgeOffsetDp),
+            ) {
+                ReplayYearButton(badge = badge, height = 22.dp)
+            }
+        }
+    }
+}
+
+private const val HOME_REFRESH_MIN_CYCLE_MS = 1150L
+
+/**
+ * Animated Home brand mark for pull-to-refresh:
+ * As the user pulls down, the ChordPlay emblem winds up with a progressive orbital arc;
+ * during refresh it morphs cleanly into a circling harmonic wave icon, then settles back
+ * into the ChordPlay emblem once complete.
+ */
+@Composable
+private fun ChordPlayPullRefreshIcon(
+    iconSize: Dp,
+    primaryColor: Color,
+    haloColor: Color,
+    glowAlpha: Float,
+    refreshing: Boolean,
+    pullFraction: () -> Float,
+    reduceAnimation: Boolean,
+) {
+    val currentPull by rememberUpdatedState(pullFraction)
+    var visualRefreshing by remember { mutableStateOf(refreshing) }
+    var refreshStartedAt by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(refreshing, reduceAnimation) {
+        if (refreshing) {
+            refreshStartedAt = System.currentTimeMillis()
+            visualRefreshing = true
+        } else if (visualRefreshing) {
+            if (!reduceAnimation) {
+                val remaining = HOME_REFRESH_MIN_CYCLE_MS - (System.currentTimeMillis() - refreshStartedAt)
+                if (remaining > 0L) delay(remaining)
+            }
+            visualRefreshing = false
+        }
+    }
+
+    val pullProgress by remember {
+        derivedStateOf { currentPull().coerceIn(0f, 1.35f) }
+    }
+    val pullClamped = pullProgress.coerceIn(0f, 1f)
+    val refreshMix by animateFloatAsState(
+        targetValue = if (visualRefreshing) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 260f),
+        label = "chordPlayPullRefreshMix",
+    )
+
+    val waveActive = (refreshMix > 0.02f || visualRefreshing) && !reduceAnimation
+    val orbitDeg = if (waveActive) {
+        val transition = rememberInfiniteTransition(label = "chordPlayRefreshOrbit")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "orbitDeg",
+        ).value
+    } else {
+        0f
+    }
+
+    val wavePhase = if (waveActive) {
+        val transition = rememberInfiniteTransition(label = "chordPlayRefreshWave")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = (2.0 * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1100, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "wavePhase",
+        ).value
+    } else {
+        0f
+    }
+
+    val logoAlpha = (1f - refreshMix * 1.25f).coerceIn(0f, 1f)
+    val logoScale = 1f - 0.32f * refreshMix - (if (!visualRefreshing) 0.14f * pullClamped else 0f)
+    val logoRotation = if (visualRefreshing) 140f * refreshMix else -24f * pullClamped
+    val waveAlpha = ((refreshMix - 0.10f) / 0.90f).coerceIn(0f, 1f)
+    val haloBoost = (glowAlpha + 0.30f * maxOf(pullClamped, refreshMix)).coerceIn(0f, 1f)
+
+    Box(
+        modifier = Modifier.size(iconSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (haloBoost > 0.02f) {
+            Canvas(
+                modifier = Modifier
+                    .size(iconSize + 14.dp)
+                    .graphicsLayer { alpha = haloBoost },
+            ) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        0f to haloColor.copy(alpha = 0.44f),
+                        0.55f to primaryColor.copy(alpha = 0.16f),
+                        1f to Color.Transparent,
+                    ),
+                )
+            }
+        }
+
+        // Pull progress sweep ring (visible while pulling before refresh settles back)
+        if (!visualRefreshing && pullProgress > 0.02f && refreshMix < 0.05f) {
+            Canvas(modifier = Modifier.size(iconSize)) {
+                val stroke = 2.4.dp.toPx()
+                val pad = stroke * 0.9f
+                val arcSize = Size(size.width - pad * 2f, size.height - pad * 2f)
+                drawArc(
+                    color = primaryColor.copy(alpha = (0.30f + 0.60f * pullClamped).coerceIn(0f, 0.9f)),
+                    startAngle = -90f + pullProgress * 75f,
+                    sweepAngle = (pullClamped * 290f).coerceIn(0f, 300f),
+                    useCenter = false,
+                    topLeft = Offset(pad, pad),
+                    size = arcSize,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round),
+                )
+            }
+        }
+
+        // Resting / pulling ChordPlay emblem
+        if (logoAlpha > 0.01f) {
+            Icon(
+                painter = painterResource(Res.drawable.ic_logo),
+                contentDescription = "ChordPlay",
+                tint = primaryColor,
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer {
+                        alpha = logoAlpha
+                        scaleX = logoScale
+                        scaleY = logoScale
+                        rotationZ = logoRotation
+                    },
+            )
+        }
+
+        // Active circling Wave emblem
+        if (waveAlpha > 0.01f) {
+            Canvas(
+                modifier = Modifier
+                    .size(iconSize)
+                    .graphicsLayer {
+                        alpha = waveAlpha
+                        val s = 0.72f + 0.28f * waveAlpha
+                        scaleX = s
+                        scaleY = s
+                    },
+            ) {
+                val w = size.width
+                val h = size.height
+                val cx = w * 0.5f
+                val cy = h * 0.5f
+                val stroke = 2.6.dp.toPx()
+                val arcPad = stroke * 0.85f
+                val arcSize = Size(w - arcPad * 2f, h - arcPad * 2f)
+
+                // Soft luminous center medallion
+                drawCircle(
+                    color = primaryColor.copy(alpha = 0.16f * waveAlpha),
+                    radius = w * 0.42f,
+                    center = Offset(cx, cy),
+                )
+
+                // Revolving circular orbital arc around the wave bars
+                rotate(degrees = orbitDeg, pivot = Offset(cx, cy)) {
+                    drawArc(
+                        brush = Brush.sweepGradient(
+                            0.0f to primaryColor.copy(alpha = 0.06f),
+                            0.45f to primaryColor.copy(alpha = 0.55f),
+                            0.72f to primaryColor,
+                            1.0f to primaryColor.copy(alpha = 0.06f),
+                            center = Offset(cx, cy),
+                        ),
+                        startAngle = -90f,
+                        sweepAngle = 260f,
+                        useCenter = false,
+                        topLeft = Offset(arcPad, arcPad),
+                        size = arcSize,
+                        style = Stroke(width = stroke, cap = StrokeCap.Round),
+                    )
+                    // Orbiting wave crest pearl
+                    val r = (w - arcPad * 2f) * 0.5f
+                    drawCircle(
+                        color = primaryColor,
+                        radius = stroke * 0.72f,
+                        center = Offset(cx, cy - r),
+                    )
+                }
+
+                // Centered animated 5-bar sonic wave glyph
+                val barCount = 5
+                val barW = w * 0.072f
+                val gap = w * 0.048f
+                val totalBarsW = barCount * barW + (barCount - 1) * gap
+                val startX = cx - totalBarsW * 0.5f
+                val envelope = floatArrayOf(0.55f, 0.85f, 1.0f, 0.85f, 0.55f)
+                for (i in 0 until barCount) {
+                    val animFactor = if (reduceAnimation) {
+                        0.72f
+                    } else {
+                        0.50f + 0.50f * sin((wavePhase + i * 0.85f).toDouble()).toFloat()
+                    }
+                    val barH = (h * 0.42f * envelope[i] * animFactor).coerceAtLeast(barW)
+                    val x = startX + i * (barW + gap)
+                    drawRoundRect(
+                        color = primaryColor,
+                        topLeft = Offset(x, cy - barH * 0.5f),
+                        size = Size(barW, barH),
+                        cornerRadius = CornerRadius(barW * 0.5f, barW * 0.5f),
+                    )
+                }
+            }
+        }
+    }
+}
 
 /** Circular floating back affordance, material-matched to the navbar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
@@ -486,7 +978,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 /** The navbar's exact material choice, reusable by every floating top control. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
-private fun artworkPageSurface(
+internal fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
 ): Modifier {

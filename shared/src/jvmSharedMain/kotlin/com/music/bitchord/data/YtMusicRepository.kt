@@ -12,6 +12,7 @@
 package com.music.bitchord.data
 
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.aimusic.AiMusicFilter
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
@@ -77,7 +78,7 @@ object YtMusicRepository {
      */
     suspend fun home(): Result<HomeFeed> = call("home") {
         val home = Innertube.browse("FEmusic_home")
-        HomeFeed(InnertubeParser.parseHome(home), InnertubeParser.continuationToken(home))
+        HomeFeed(AiMusicFilter.shelves(InnertubeParser.parseHome(home)), InnertubeParser.continuationToken(home))
     }
 
     /** Recently played is rendered independently, at the top of the Play page. */
@@ -85,7 +86,7 @@ object YtMusicRepository {
 
     /** Extra Play shelves are independently fetchable so each can appear as soon as it arrives. */
     suspend fun homeSupplement(browseId: String): Result<List<HomeShelf>> = call("home:$browseId") {
-        shelvesOf(browseId)
+        AiMusicFilter.shelves(shelvesOf(browseId))
     }
 
     val HOME_SUPPLEMENT_BROWSE_IDS = listOf(
@@ -102,7 +103,7 @@ object YtMusicRepository {
     suspend fun moreHome(token: String): Result<HomeFeed> = call("home:more") {
         val response = Innertube.browseContinuation(token)
         HomeFeed(
-            shelves = InnertubeParser.parseHomeContinuation(response),
+            shelves = AiMusicFilter.shelves(InnertubeParser.parseHomeContinuation(response)),
             continuation = InnertubeParser.continuationToken(response),
         )
     }
@@ -243,37 +244,69 @@ object YtMusicRepository {
     }
 
     suspend fun homeQuickPicksShelf(): Result<HomeShelf?> = call("home:quickPicks") {
-        val songs = quickPicks().getOrNull().orEmpty().take(20)
+        val songs = AiMusicFilter.songs(quickPicks().getOrNull().orEmpty()).take(20)
         if (songs.isEmpty()) null
         else HomeShelf(
             title = "Quick picks",
-            items = songs.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) },
+            items = songs.map {
+                ShelfItem(
+                    title = it.title,
+                    subtitle = it.artist,
+                    thumbnailUrl = it.thumbnailUrl,
+                    videoId = it.videoId,
+                    browseId = null,
+                    artistIds = (listOfNotNull(it.artistId) + it.artists.mapNotNull { ref -> ref.browseId }).distinct(),
+                )
+            },
             subtitle = "",
         )
     }
 
     suspend fun homeRemixesShelf(): Result<HomeShelf?> = call("home:remixes") {
         val response = Innertube.search("trending remixes club mix", SearchFilter.SONGS.params)
-        val tracks = InnertubeParser.parseSearchPage(response).rows.mapNotNull {
-            (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
-        }
+        val tracks = AiMusicFilter.songs(
+            InnertubeParser.parseSearchPage(response).rows.mapNotNull {
+                (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
+            },
+        )
         if (tracks.isEmpty()) null
         else HomeShelf(
             title = "Remixes & Edits",
-            items = tracks.take(12).map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) },
+            items = tracks.take(12).map {
+                ShelfItem(
+                    title = it.title,
+                    subtitle = it.artist,
+                    thumbnailUrl = it.thumbnailUrl,
+                    videoId = it.videoId,
+                    browseId = null,
+                    artistIds = (listOfNotNull(it.artistId) + it.artists.mapNotNull { ref -> ref.browseId }).distinct(),
+                )
+            },
             subtitle = "",
         )
     }
 
     suspend fun homeMusicVideosShelf(): Result<HomeShelf?> = call("home:videos") {
         val response = Innertube.search("official music videos hits", SearchFilter.VIDEOS.params)
-        val tracks = InnertubeParser.parseSearchPage(response, includeVideos = true).rows.mapNotNull {
-            (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
-        }
+        val tracks = AiMusicFilter.songs(
+            InnertubeParser.parseSearchPage(response, includeVideos = true).rows.mapNotNull {
+                (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
+            },
+        )
         if (tracks.isEmpty()) null
         else HomeShelf(
             title = "Music Videos for You",
-            items = tracks.take(12).map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null, isVideo = true) },
+            items = tracks.take(12).map {
+                ShelfItem(
+                    title = it.title,
+                    subtitle = it.artist,
+                    thumbnailUrl = it.thumbnailUrl,
+                    videoId = it.videoId,
+                    browseId = null,
+                    isVideo = true,
+                    artistIds = (listOfNotNull(it.artistId) + it.artists.mapNotNull { ref -> ref.browseId }).distinct(),
+                )
+            },
             subtitle = "",
         )
     }
@@ -396,10 +429,11 @@ object YtMusicRepository {
      */
     suspend fun moodGenreShelves(browseId: String, params: String?): Result<List<HomeShelf>> {
         val key = "$browseId:${params.orEmpty()}"
-        moodGenreShelfCache[key]?.let { return Result.success(it) }
+        moodGenreShelfCache[key]?.let { return Result.success(AiMusicFilter.shelves(it)) }
         return call("mood-genre:$browseId") {
             InnertubeParser.parseHome(Innertube.browse(browseId, params))
         }.also { result -> result.getOrNull()?.let { moodGenreShelfCache.putIfAbsent(key, it) } }
+            .map(AiMusicFilter::shelves)
     }
 
     /** A category card borrows the first real cover from the playlists it opens. */
@@ -454,7 +488,8 @@ object YtMusicRepository {
                 Innertube.search(query, params),
                 includeVideos = !isLibrary && filter == SearchFilter.VIDEOS,
             ).let { page ->
-                SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
+                val rows = page.rows.distinctBy { it.identityKey() }
+                SearchPage(if (isLibrary) rows else AiMusicFilter.searchRows(rows), page.continuation)
             }
         }
 
@@ -566,7 +601,7 @@ object YtMusicRepository {
             Innertube.searchContinuation(token),
             includeVideos = filter == SearchFilter.VIDEOS,
         ).let { page ->
-            SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
+            SearchPage(AiMusicFilter.searchRows(page.rows.distinctBy { it.identityKey() }), page.continuation)
         }
     }
 
@@ -611,7 +646,7 @@ object YtMusicRepository {
                 Innertube.searchTypeahead(input),
                 includeVideos = false,
             ).let { page ->
-                SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
+                SearchPage(AiMusicFilter.searchRows(page.rows.distinctBy { it.identityKey() }), page.continuation)
             }
         }
 
@@ -809,7 +844,7 @@ object YtMusicRepository {
      * seed track itself comes back first, so callers filter what they have.
      */
     suspend fun radio(videoId: String): Result<List<Song>> = call("radio:$videoId") {
-        InnertubeParser.parseWatchQueue(Innertube.next(videoId))
+        AiMusicFilter.songs(InnertubeParser.parseWatchQueue(Innertube.next(videoId)), keepVideoId = videoId)
     }
 
     /**
@@ -946,8 +981,23 @@ object YtMusicRepository {
         }
         // Only a playlist has an owner in the sense that matters — see
         // parsePlaylistOwned — and only its own first response can be asked.
-        if (!browseId.startsWith("VL") || response == null) page
+        val finalized = if (!browseId.startsWith("VL") || response == null) page
         else page.copy(owned = InnertubeParser.parsePlaylistOwned(response))
+        finalized.withoutAiMusic(browseId)
+    }
+
+    /**
+     * "Hide AI music" on a page of songs: YouTube's suggestions under a playlist
+     * always, and the rows themselves on a YouTube mix (`RD` / `VLRD`). Albums
+     * and user playlists stay intact.
+     */
+    private fun SongPage.withoutAiMusic(browseId: String?): SongPage {
+        if (!AiMusicFilter.active) return this
+        val isEndlessMix = browseId != null && (browseId.startsWith("RD") || browseId.startsWith("VLRD"))
+        return copy(
+            songs = if (isEndlessMix) AiMusicFilter.songs(songs) else songs,
+            suggested = AiMusicFilter.songs(suggested),
+        )
     }
 
     /**
@@ -971,7 +1021,7 @@ object YtMusicRepository {
 
     /** The page [SongPage.continuation] points at. */
     suspend fun moreSongs(token: String): Result<SongPage> = call("browse:more") {
-        pageOf(Innertube.browseContinuation(token))
+        pageOf(Innertube.browseContinuation(token)).withoutAiMusic(null)
     }
 
     /**
@@ -1391,7 +1441,9 @@ object YtMusicRepository {
 
     /** Personalised "Mixed for you" playlists (Supermix, My Mix 1..7, mood mixes). */
     suspend fun mixedForYou(language: String? = null): Result<List<ShelfItem>> = call("explore:mixedForYou") {
-        InnertubeParser.parseTwoRowItemsDeep(Innertube.browse("FEmusic_mixed_for_you", language = language))
+        AiMusicFilter.items(
+            InnertubeParser.parseTwoRowItemsDeep(Innertube.browse("FEmusic_mixed_for_you", language = language)),
+        )
     }
 
     /**
@@ -1399,8 +1451,10 @@ object YtMusicRepository {
      * consistent even when YouTube localises the visible mix names.
      */
     suspend fun mixedForYouKeyed(): Result<List<KeyedMix>> = call("explore:mixedForYouKeyed") {
-        val localized = InnertubeParser.parseTwoRowItemsDeep(
-            Innertube.browse("FEmusic_mixed_for_you"),
+        val localized = AiMusicFilter.items(
+            InnertubeParser.parseTwoRowItemsDeep(
+                Innertube.browse("FEmusic_mixed_for_you"),
+            ),
         )
         if (Innertube.currentLanguage.startsWith("en", ignoreCase = true) || localized.isEmpty()) {
             return@call localized.map { KeyedMix(it, it.title) }
