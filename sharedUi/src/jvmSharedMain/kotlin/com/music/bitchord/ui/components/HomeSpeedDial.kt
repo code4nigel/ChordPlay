@@ -10,7 +10,6 @@
  */
 package com.music.bitchord.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -19,10 +18,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,7 +60,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -84,7 +79,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -102,7 +99,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -140,8 +136,10 @@ import com.music.bitchord.ui.player.PlayerPlatform
 import com.music.bitchord.ui.screens.CompactTrackRow
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -265,6 +263,8 @@ fun HomeSpeedDial(
     artistItems: List<ShelfItem> = emptyList(),
     activeTab: YourSpaceDialTab = YourSpaceDialTab.SPACE,
     onTabChange: (YourSpaceDialTab) -> Unit = {},
+    savedPage: Int = 0,
+    onPageChange: (Int) -> Unit = {},
     onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)? = null,
     onReorderPinned: ((List<ShelfItem>) -> Unit)? = null,
 ) {
@@ -324,64 +324,907 @@ fun HomeSpeedDial(
     val spacePinnedIds = remember(pinnedIds) {
         pinnedIds.mapTo(HashSet()) { it.removePrefix("VL") } + pinnedIds
     }
-    val spacePinnedCount = remember(items, spacePinnedIds) {
-        items.takeWhile { it.speedDialStableId() in spacePinnedIds }.size
+
+    if (layoutMode == SpeedDialLayoutMode.ONE_BY_FOUR_LIST) {
+        HomeSpeedDialListPager(
+            tabs = tabs,
+            spaceItems = items,
+            mixesItems = mixesItems,
+            artistItems = artistItems,
+            pinnedIds = spacePinnedIds,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            palette = activePalette,
+            showPinBadge = showPinBadge,
+            showChordWave = showChordWave,
+            reduceAnimation = reduceAnimation,
+            activeTab = activeTab,
+            onTabChange = onTabChange,
+            onItemClick = onItemClick,
+            onItemLongPress = onItemLongPress,
+            onLuckyDialRoll = rollHandler,
+            modifier = modifier,
+        )
+        return
     }
-    val innerPageByTab = remember { mutableStateMapOf<YourSpaceDialTab, Int>() }
-    val tabPageCounts = remember(
+
+    HomeSpeedDialUnifiedPager(
+        tabs = tabs,
+        spaceItems = items,
+        mixesItems = mixesItems,
+        artistItems = artistItems,
+        pinnedIds = spacePinnedIds,
+        currentSong = currentSong,
+        isPlaying = isPlaying,
+        palette = activePalette,
+        layoutMode = layoutMode,
+        tileStyle = tileStyle,
+        showLabels = showLabels,
+        labelOverrides = labelOverrides,
+        showPinBadge = showPinBadge,
+        showChordWave = showChordWave,
+        reduceAnimation = reduceAnimation,
+        savedPage = savedPage,
+        onPageChange = onPageChange,
+        onTabChange = onTabChange,
+        onItemClick = onItemClick,
+        onItemLongPress = onItemLongPress,
+        onPlayMixClick = onPlayMixClick,
+        onLuckyDialRoll = rollHandler,
+        onReorderPinned = onReorderPinned,
+        modifier = modifier,
+    )
+}
+
+private const val MAX_NORMAL_DIAL_PAGES = 3
+
+private sealed class DialPageSpec(
+    val tab: YourSpaceDialTab,
+    val localPage: Int,
+    val key: String,
+) {
+    class ArtworkPage(
+        tab: YourSpaceDialTab,
+        localPage: Int,
+        val slots: IntArray,
+        val showMixBadge: Boolean,
+        val isArtistDial: Boolean,
+        val canReorderPins: Boolean,
+    ) : DialPageSpec(tab, localPage, "${tab.name}:art:$localPage")
+
+    class CardsPage(
+        tab: YourSpaceDialTab,
+        localPage: Int,
+        val entries: List<ShelfItem?>,
+        val forceMixStyle: Boolean,
+    ) : DialPageSpec(tab, localPage, "${tab.name}:cards:$localPage")
+
+    class SkeletonPage(
+        tab: YourSpaceDialTab,
+        val isTwoByFour: Boolean,
+    ) : DialPageSpec(tab, 0, "${tab.name}:skeleton")
+
+    class EmptyPage(
+        tab: YourSpaceDialTab,
+        val isMixes: Boolean,
+    ) : DialPageSpec(tab, 0, "${tab.name}:empty")
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HomeSpeedDialUnifiedPager(
+    tabs: List<YourSpaceDialTab>,
+    spaceItems: List<ShelfItem>,
+    mixesItems: List<ShelfItem>?,
+    artistItems: List<ShelfItem>,
+    pinnedIds: Set<String>,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    palette: ArtworkPalette,
+    layoutMode: SpeedDialLayoutMode,
+    tileStyle: SpeedDialTileStyle,
+    showLabels: Boolean,
+    labelOverrides: Set<String>,
+    showPinBadge: Boolean,
+    showChordWave: Boolean,
+    reduceAnimation: Boolean,
+    savedPage: Int,
+    onPageChange: (Int) -> Unit,
+    onTabChange: (YourSpaceDialTab) -> Unit,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onPlayMixClick: ((ShelfItem) -> Unit)?,
+    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    onReorderPinned: ((List<ShelfItem>) -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val rows = layoutMode.gridRows
+    val artworkPerPage = ARTWORK_COLUMNS * rows
+    val spacePinnedTotal = remember(spaceItems, pinnedIds) {
+        spaceItems.takeWhile { it.speedDialStableId() in pinnedIds }.size
+    }
+    val maxSpaceItems = remember(layoutMode, showChordWave, spacePinnedTotal) {
+        val normalCap = when (layoutMode) {
+            SpeedDialLayoutMode.THREE_BY_THREE ->
+                MAX_NORMAL_DIAL_PAGES * artworkPerPage - if (showChordWave) 1 else 0
+            SpeedDialLayoutMode.TWO_BY_FOUR ->
+                MAX_NORMAL_DIAL_PAGES * 8 - if (showChordWave) 1 else 0
+            SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> 12
+        }
+        normalCap.coerceAtLeast(spacePinnedTotal)
+    }
+    val cappedSpaceItems = remember(spaceItems, maxSpaceItems) {
+        spaceItems.take(maxSpaceItems)
+    }
+
+    var spaceOrder by remember(cappedSpaceItems) { mutableStateOf(cappedSpaceItems) }
+    val spacePinnedCount = remember(spaceOrder, pinnedIds) {
+        spaceOrder.takeWhile { it.speedDialStableId() in pinnedIds }.size
+    }
+
+    val pages = remember(
         tabs,
-        items.size,
-        mixesItems?.size,
-        artistItems.size,
+        spaceOrder,
         spacePinnedCount,
+        mixesItems,
+        artistItems,
         layoutMode,
         showChordWave,
     ) {
-        tabs.map { tab ->
-            tab to computeTabPageCount(
-                tab = tab,
-                spaceCount = items.size,
-                spacePinnedCount = spacePinnedCount,
-                mixesCount = mixesItems?.size,
-                artistCount = artistItems.size,
-                layoutMode = layoutMode,
-                showChordWave = showChordWave,
-            )
+        buildUnifiedDialPages(
+            tabs = tabs,
+            spaceItems = spaceOrder,
+            spacePinnedCount = spacePinnedCount,
+            mixesItems = mixesItems,
+            artistItems = artistItems,
+            layoutMode = layoutMode,
+            artworkPerPage = artworkPerPage,
+            showChordWave = showChordWave,
+        )
+    }
+
+    if (pages.isEmpty()) return
+
+    val spacePageCount = remember(pages) {
+        pages.count { it.tab == YourSpaceDialTab.SPACE }
+    }
+
+    val pagerState = rememberPagerState(
+        initialPage = savedPage.coerceIn(0, (pages.size - 1).coerceAtLeast(0)),
+        pageCount = { pages.size },
+    )
+    var pendingRestorePage by remember {
+        mutableStateOf(savedPage.takeIf { it > (pages.size - 1).coerceAtLeast(0) })
+    }
+    LaunchedEffect(pages.size) {
+        val target = pendingRestorePage
+        if (target != null && target in pages.indices) {
+            pendingRestorePage = null
+            pagerState.scrollToPage(target)
+        }
+    }
+    LaunchedEffect(pagerState, pages) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { pageIdx ->
+                if (pendingRestorePage != null) return@collect
+                onPageChange(pageIdx)
+                pages.getOrNull(pageIdx)?.tab?.let(onTabChange)
+            }
+    }
+
+    val swipeTilt = rememberSwipeTilt(pagerState, reduceAnimation)
+
+    val latestPages by rememberUpdatedState(pages)
+    val latestSpaceOrder by rememberUpdatedState(spaceOrder)
+    val latestCappedSpaceItems by rememberUpdatedState(cappedSpaceItems)
+    val latestSpacePinnedCount by rememberUpdatedState(spacePinnedCount)
+    val latestSpacePageCount by rememberUpdatedState(spacePageCount)
+    val latestReorder by rememberUpdatedState(onReorderPinned)
+    val latestMenu by rememberUpdatedState(onItemLongPress)
+
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var dragPos by remember { mutableStateOf(Offset.Zero) }
+    var grab by remember { mutableStateOf(Offset.Zero) }
+    var edge by remember { mutableIntStateOf(0) }
+
+    val isReordering = dragId != null
+    val wiggleLevel by animateFloatAsState(
+        targetValue = if (isReordering && !reduceAnimation) 1f else 0f,
+        animationSpec = tween(200),
+        label = "artworkWiggle",
+    )
+    var wiggleClock by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isReordering, reduceAnimation) {
+        if (!isReordering || reduceAnimation) return@LaunchedEffect
+        val start = withFrameMillis { it }
+        while (true) {
+            withFrameMillis { wiggleClock = (it - start) / 1000f }
         }
     }
 
-    if (tabs.size == 1) {
-        Column(modifier = modifier.fillMaxWidth()) {
-            YourSpaceTabContent(
-                tab = YourSpaceDialTab.SPACE,
-                spaceItems = items,
-                mixesItems = mixesItems,
-                artistItems = artistItems,
-                pinnedIds = spacePinnedIds,
-                currentSong = currentSong,
-                isPlaying = isPlaying,
-                palette = activePalette,
-                layoutMode = layoutMode,
-                tileStyle = tileStyle,
-                showLabels = showLabels,
-                labelOverrides = labelOverrides,
-                showPinBadge = showPinBadge,
-                showChordWave = showChordWave,
-                reduceAnimation = reduceAnimation,
-                onItemClick = onItemClick,
-                onItemLongPress = onItemLongPress,
-                onPlayMixClick = onPlayMixClick,
-                onLuckyDialRoll = rollHandler,
-                onReorderPinned = onReorderPinned,
-                onCurrentPageChange = { innerPageByTab[YourSpaceDialTab.SPACE] = it },
-            )
-            SpeedDialMultiDialDots(
-                tabCounts = tabPageCounts,
-                activeTabIndex = 0,
-                currentInnerPage = innerPageByTab[YourSpaceDialTab.SPACE] ?: 0,
-                accent = activePalette.accent,
-            )
+    LaunchedEffect(edge, dragId) {
+        if (dragId == null || edge == 0) return@LaunchedEffect
+        while (true) {
+            delay(550L)
+            val maxSpacePage = (latestSpacePageCount - 1).coerceAtLeast(0)
+            val target = (pagerState.currentPage + edge).coerceIn(0, maxSpacePage)
+            if (target != pagerState.currentPage) {
+                pagerState.animateScrollToPage(target)
+            }
+            delay(380L)
         }
+    }
+
+    val enteredIds = remember { HashSet<String>() }
+    val artLoaded = remember(cappedSpaceItems, mixesItems, artistItems) {
+        mutableStateMapOf<String, Boolean>()
+    }
+    val pageHeights = remember { mutableStateMapOf<Int, Int>() }
+    val density = LocalDensity.current
+    val haptics = rememberHaptics()
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp, bottom = 2.dp),
+    ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val contentWidth = maxWidth - PAGE_GUTTER * 2
+            val tileSide = ((contentWidth - ARTWORK_GAP * (ARTWORK_COLUMNS - 1)) / ARTWORK_COLUMNS).coerceAtLeast(64.dp)
+
+            val tilePx = with(density) { tileSide.toPx() }
+            val gapPx = with(density) { ARTWORK_GAP.toPx() }
+            val gutterPx = with(density) { PAGE_GUTTER.toPx() }
+            val widthPx = with(density) { maxWidth.toPx() }
+            val edgePx = with(density) { EDGE_PAGE_ZONE.toPx() }
+
+            fun cellOrigin(cell: Int) = Offset(
+                (cell % ARTWORK_COLUMNS) * (tilePx + gapPx),
+                (cell / ARTWORK_COLUMNS) * (tilePx + gapPx),
+            )
+
+            fun hitSpaceCell(pos: Offset, pageIdx: Int): Pair<DialPageSpec.ArtworkPage, Int>? {
+                val spec = latestPages.getOrNull(pageIdx) as? DialPageSpec.ArtworkPage ?: return null
+                if (!spec.canReorderPins) return null
+                val x = pos.x - gutterPx
+                val col = floor(x / (tilePx + gapPx)).toInt()
+                val row = floor(pos.y / (tilePx + gapPx)).toInt()
+                if (col !in 0 until ARTWORK_COLUMNS || row !in 0 until rows) return null
+                if (x - col * (tilePx + gapPx) > tilePx || pos.y - row * (tilePx + gapPx) > tilePx) return null
+                val cell = row * ARTWORK_COLUMNS + col
+                return (spec to cell).takeIf { cell in spec.slots.indices && spec.slots[cell] >= 0 }
+            }
+
+            fun targetOrderForCell(targetLocalCell: Int, targetPageIdx: Int): Int {
+                val targetSpec = latestPages.getOrNull(targetPageIdx) as? DialPageSpec.ArtworkPage ?: return 0
+                val direct = targetSpec.slots.getOrNull(targetLocalCell)?.takeIf { it >= 0 }
+                if (direct != null) return direct
+                var count = 0
+                for (p in 0..targetPageIdx) {
+                    val pageSpec = latestPages.getOrNull(p) as? DialPageSpec.ArtworkPage ?: continue
+                    val limit = if (p == targetPageIdx) targetLocalCell.coerceAtMost(pageSpec.slots.size) else pageSpec.slots.size
+                    for (c in 0 until limit) {
+                        if (pageSpec.slots[c] >= 0) count++
+                    }
+                }
+                return count
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(layoutMode, rows, tilePx, gapPx, gutterPx) {
+                        if (layoutMode != SpeedDialLayoutMode.THREE_BY_THREE) return@pointerInput
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            val endedEarly = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                                var done = false
+                                while (!done) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                    done = change == null || change.changedToUp() ||
+                                        event.changes.size > 1 ||
+                                        (change.position - down.position).getDistance() > viewConfiguration.touchSlop
+                                }
+                                true
+                            }
+                            if (endedEarly != null) return@awaitEachGesture
+
+                            val startPage = pagerState.currentPage
+                            val (spec, cell) = hitSpaceCell(down.position, startPage) ?: return@awaitEachGesture
+                            val orderIdx = spec.slots[cell]
+                            val reorderCallback = latestReorder ?: return@awaitEachGesture
+                            if (orderIdx < 0 || orderIdx >= latestSpacePinnedCount) return@awaitEachGesture
+
+                            val heldItem = latestSpaceOrder.getOrNull(orderIdx) ?: return@awaitEachGesture
+                            val heldId = heldItem.speedDialStableId()
+                            haptics.play(Haptic.Select)
+                            dragId = heldId
+                            dragPos = down.position
+                            grab = down.position - cellOrigin(cell) - Offset(gutterPx, 0f)
+
+                            var moved = false
+                            var committed = false
+                            try {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                    val lifted = !change.pressed
+                                    change.consume()
+                                    if (lifted) {
+                                        committed = true
+                                        if (moved) {
+                                            haptics.play(Haptic.Select)
+                                            reorderCallback(latestSpaceOrder.take(latestSpacePinnedCount))
+                                        } else {
+                                            latestMenu?.invoke(heldItem)
+                                        }
+                                        break
+                                    }
+                                    dragPos = change.position
+                                    if (!moved && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                                        moved = true
+                                    }
+                                    val curPage = pagerState.currentPage
+                                    if (moved && !pagerState.isScrollInProgress && latestPages.getOrNull(curPage)?.tab == YourSpaceDialTab.SPACE) {
+                                        val x = dragPos.x - gutterPx
+                                        val col = floor(x / (tilePx + gapPx)).toInt().coerceIn(0, ARTWORK_COLUMNS - 1)
+                                        val row = floor(dragPos.y / (tilePx + gapPx)).toInt().coerceIn(0, rows - 1)
+                                        val targetCell = row * ARTWORK_COLUMNS + col
+                                        val targetOrder = targetOrderForCell(targetCell, curPage)
+                                            .coerceIn(0, (latestSpacePinnedCount - 1).coerceAtLeast(0))
+                                        val currentIdx = latestSpaceOrder.indexOfFirst { it.speedDialStableId() == heldId }
+                                        if (currentIdx >= 0 && targetOrder != currentIdx) {
+                                            spaceOrder = latestSpaceOrder.toMutableList().apply {
+                                                add(targetOrder, removeAt(currentIdx))
+                                            }
+                                            haptics.play(Haptic.Tick)
+                                        }
+                                    }
+                                    edge = when {
+                                        !moved -> 0
+                                        dragPos.x < edgePx -> -1
+                                        dragPos.x > widthPx - edgePx -> 1
+                                        else -> 0
+                                    }
+                                }
+                            } finally {
+                                if (!committed) spaceOrder = latestCappedSpaceItems
+                                dragId = null
+                                edge = 0
+                            }
+                        }
+                    },
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    pageSpacing = 12.dp,
+                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                    verticalAlignment = Alignment.Top,
+                    beyondViewportPageCount = 1,
+                    userScrollEnabled = dragId == null,
+                    key = { pages[it].key },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clipToBounds()
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(constraints)
+                            val maxIdx = (pages.lastIndex).coerceAtLeast(0)
+                            val pageFloat = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                                .coerceIn(0f, maxIdx.toFloat())
+                            val fromIdx = floor(pageFloat).toInt().coerceIn(0, maxIdx)
+                            val toIdx = ceil(pageFloat).toInt().coerceIn(0, maxIdx)
+                            val frac = pageFloat - fromIdx
+                            val fromH = pageHeights[fromIdx]
+                            val toH = pageHeights[toIdx]
+                            val targetH = when {
+                                fromH != null && toH != null -> (fromH + (toH - fromH) * frac).roundToInt()
+                                fromH != null -> fromH
+                                else -> placeable.height
+                            }.coerceIn(0, constraints.maxHeight)
+                            layout(placeable.width, targetH) {
+                                placeable.placeRelative(0, 0)
+                            }
+                        },
+                ) { pageIndex ->
+                    val spec = pages[pageIndex]
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { size ->
+                                if (size.height > 0 && pageHeights[pageIndex] != size.height) {
+                                    pageHeights[pageIndex] = size.height
+                                }
+                            },
+                    ) {
+                        when (spec) {
+                            is DialPageSpec.ArtworkPage -> {
+                                val pageItems = when (spec.tab) {
+                                    YourSpaceDialTab.SPACE -> spaceOrder
+                                    YourSpaceDialTab.MIXES -> mixesItems.orEmpty()
+                                    YourSpaceDialTab.ARTISTS -> artistItems
+                                }
+                                val gridHeight = tileSide * rows + ARTWORK_GAP * (rows - 1)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(gridHeight),
+                                ) {
+                                    for (cell in 0 until artworkPerPage) {
+                                        val slotVal = spec.slots.getOrElse(cell) { -1 }
+                                        if (slotVal == -1) continue
+
+                                        val origin = cellOrigin(cell)
+                                        if (slotVal == SPEED_DIAL_SLOT_LUCKY) {
+                                            val entering = remember("lucky_wave") {
+                                                enteredIds.add("lucky_wave") && pageIndex == pagerState.currentPage && !reduceAnimation
+                                            }
+                                            val appear = remember { Animatable(if (entering) 0f else 1f) }
+                                            LaunchedEffect(appear) {
+                                                if (appear.value >= 1f) return@LaunchedEffect
+                                                delay((cell / ARTWORK_COLUMNS + cell % ARTWORK_COLUMNS) * 40L)
+                                                appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+                                            }
+                                            ChordWaveArtworkTile(
+                                                palette = palette,
+                                                tileStyle = tileStyle,
+                                                showLabel = showLabels,
+                                                reduceAnimation = reduceAnimation,
+                                                onRoll = onLuckyDialRoll,
+                                                dim = { if (isReordering) WIGGLE_DIM * wiggleLevel else 0f },
+                                                modifier = Modifier
+                                                    .offset { IntOffset(origin.x.roundToInt(), origin.y.roundToInt()) }
+                                                    .size(tileSide)
+                                                    .graphicsLayer {
+                                                        val s = if (entering) 0.93f + 0.07f * appear.value else 1f
+                                                        scaleX = s
+                                                        scaleY = s
+                                                        alpha = appear.value.coerceIn(0f, 1f)
+                                                        rotationY = swipeTilt.value
+                                                        cameraDistance = SWIPE_TILT_CAMERA_DISTANCE * this.density
+                                                    },
+                                            )
+                                            continue
+                                        }
+
+                                        val item = pageItems.getOrNull(slotVal) ?: continue
+                                        val id = item.speedDialStableId()
+                                        key("${spec.tab.name}:$id") {
+                                            val targetOrigin = origin.let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) }
+                                            val animatedOffset by animateIntOffsetAsState(
+                                                targetValue = targetOrigin,
+                                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                                label = "dialArtworkOffset",
+                                            )
+
+                                            val enterKey = "${spec.tab.name}:$id"
+                                            val entering = remember(enterKey) {
+                                                enteredIds.add(enterKey) && pageIndex == pagerState.currentPage && !reduceAnimation
+                                            }
+                                            val appear = remember(enterKey) { Animatable(if (entering) 0f else 1f) }
+                                            LaunchedEffect(appear) {
+                                                if (appear.value >= 1f) return@LaunchedEffect
+                                                withTimeoutOrNull(450L) {
+                                                    snapshotFlow { artLoaded[enterKey] == true }.first { it }
+                                                }
+                                                delay((cell / ARTWORK_COLUMNS + cell % ARTWORK_COLUMNS) * 40L)
+                                                appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
+                                            }
+
+                                            val isPinned = id in pinnedIds
+                                            val phase = remember(id) { (id.hashCode() and 0xFFFF) / 65535f * WIGGLE_TAU }
+
+                                            ArtworkSpeedDialTile(
+                                                item = item,
+                                                palette = palette,
+                                                tileStyle = tileStyle,
+                                                isPinned = isPinned && showPinBadge,
+                                                isCurrent = isItemCurrent(item, currentSong),
+                                                isPlaying = isPlaying,
+                                                showLabel = showLabels != (id in labelOverrides),
+                                                showMixBadge = spec.showMixBadge,
+                                                isArtistTile = spec.isArtistDial || item.detectType() == SpeedDialItemType.ARTIST,
+                                                reduceAnimation = reduceAnimation,
+                                                onArtLoaded = { artLoaded[enterKey] = true },
+                                                dim = {
+                                                    if (isReordering && (!spec.canReorderPins || !isPinned)) {
+                                                        WIGGLE_DIM * wiggleLevel
+                                                    } else {
+                                                        0f
+                                                    }
+                                                },
+                                                onClick = { onItemClick(item) },
+                                                onLongPress = if (spec.canReorderPins && onReorderPinned != null && isPinned) {
+                                                    null
+                                                } else {
+                                                    onItemLongPress?.let { { it(item) } }
+                                                },
+                                                modifier = Modifier
+                                                    .offset { animatedOffset }
+                                                    .size(tileSide)
+                                                    .graphicsLayer {
+                                                        val shown = appear.value
+                                                        var s = if (entering) 0.93f + 0.07f * shown else 1f
+                                                        val w = wiggleLevel
+                                                        if (w > 0f && spec.canReorderPins && isPinned) {
+                                                            s *= 1f - WIGGLE_SHRINK * w
+                                                            rotationZ = sin(wiggleClock * WIGGLE_SPEED + phase) * WIGGLE_DEGREES * w
+                                                        } else {
+                                                            rotationZ = 0f
+                                                        }
+                                                        scaleX = s
+                                                        scaleY = s
+                                                        alpha = if (dragId == id && spec.canReorderPins) 0f else shown.coerceIn(0f, 1f)
+                                                        rotationY = swipeTilt.value
+                                                        cameraDistance = SWIPE_TILT_CAMERA_DISTANCE * this.density
+                                                    },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            is DialPageSpec.CardsPage -> {
+                                CardsPageContent(
+                                    entries = spec.entries,
+                                    pinnedIds = pinnedIds,
+                                    showPinBadge = showPinBadge,
+                                    forceMixStyle = spec.forceMixStyle,
+                                    currentSong = currentSong,
+                                    isPlaying = isPlaying,
+                                    palette = palette,
+                                    isDark = isDark,
+                                    reduceAnimation = reduceAnimation,
+                                    onItemClick = onItemClick,
+                                    onItemLongPress = onItemLongPress,
+                                    onPlayMixClick = onPlayMixClick,
+                                    onLuckyDialRoll = onLuckyDialRoll,
+                                )
+                            }
+
+                            is DialPageSpec.SkeletonPage -> {
+                                if (spec.isTwoByFour) {
+                                    TwoByFourDialSkeletonGrid(horizontalPadding = 0.dp)
+                                } else {
+                                    ArtworkDialSkeletonGrid(rows = rows, horizontalPadding = 0.dp)
+                                }
+                            }
+
+                            is DialPageSpec.EmptyPage -> {
+                                EmptyDialNotice(
+                                    message = stringResource(
+                                        if (spec.isMixes) Res.string.your_space_mixes_empty
+                                        else Res.string.your_space_artists_empty,
+                                    ),
+                                    horizontalPadding = 0.dp,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Floating lifted tile following pointer while dragging a pinned 3×3 item
+                val liftedId = dragId
+                if (liftedId != null && layoutMode == SpeedDialLayoutMode.THREE_BY_THREE) {
+                    spaceOrder.firstOrNull { it.speedDialStableId() == liftedId }?.let { draggedItem ->
+                        ArtworkSpeedDialTile(
+                            item = draggedItem,
+                            palette = palette,
+                            tileStyle = tileStyle,
+                            isPinned = showPinBadge,
+                            isCurrent = false,
+                            isPlaying = false,
+                            showLabel = showLabels != (liftedId in labelOverrides),
+                            showMixBadge = false,
+                            isArtistTile = draggedItem.detectType() == SpeedDialItemType.ARTIST,
+                            reduceAnimation = reduceAnimation,
+                            onClick = {},
+                            onLongPress = null,
+                            modifier = Modifier
+                                .offset {
+                                    IntOffset(
+                                        (dragPos.x - grab.x).roundToInt(),
+                                        (dragPos.y - grab.y).roundToInt(),
+                                    )
+                                }
+                                .size(tileSide)
+                                .graphicsLayer {
+                                    scaleX = 1.07f
+                                    scaleY = 1.07f
+                                }
+                                .shadow(14.dp, SmoothCornerShape(14.dp)),
+                        )
+                    }
+                }
+            }
+        }
+
+        SpeedDialMorphDots(
+            pagerState = pagerState,
+            accent = palette.accent,
+            reduceAnimation = reduceAnimation,
+        )
+    }
+}
+
+private fun buildUnifiedDialPages(
+    tabs: List<YourSpaceDialTab>,
+    spaceItems: List<ShelfItem>,
+    spacePinnedCount: Int,
+    mixesItems: List<ShelfItem>?,
+    artistItems: List<ShelfItem>,
+    layoutMode: SpeedDialLayoutMode,
+    artworkPerPage: Int,
+    showChordWave: Boolean,
+): List<DialPageSpec> = buildList {
+    tabs.forEach { tab ->
+        when (tab) {
+            YourSpaceDialTab.SPACE -> {
+                if (spaceItems.isEmpty()) return@forEach
+                when (layoutMode) {
+                    SpeedDialLayoutMode.THREE_BY_THREE -> {
+                        val slots = computeDialSlots(
+                            itemCount = spaceItems.size,
+                            pinnedCount = spacePinnedCount,
+                            perPage = artworkPerPage,
+                            includeLucky = showChordWave,
+                        )
+                        val count = (slots.size / artworkPerPage).coerceAtLeast(1)
+                        for (p in 0 until count) {
+                            add(
+                                DialPageSpec.ArtworkPage(
+                                    tab = tab,
+                                    localPage = p,
+                                    slots = slots.sliceArray(p * artworkPerPage until (p + 1) * artworkPerPage),
+                                    showMixBadge = false,
+                                    isArtistDial = false,
+                                    canReorderPins = true,
+                                ),
+                            )
+                        }
+                    }
+
+                    SpeedDialLayoutMode.TWO_BY_FOUR -> {
+                        val page1Limit = if (showChordWave) 7 else 8
+                        val page1Entries = buildList<ShelfItem?> {
+                            addAll(spaceItems.take(page1Limit))
+                            if (showChordWave) add(null)
+                        }
+                        add(
+                            DialPageSpec.CardsPage(
+                                tab = tab,
+                                localPage = 0,
+                                entries = page1Entries,
+                                forceMixStyle = false,
+                            ),
+                        )
+                        spaceItems.drop(page1Limit).chunked(8).forEachIndexed { idx, chunk ->
+                            add(
+                                DialPageSpec.CardsPage(
+                                    tab = tab,
+                                    localPage = idx + 1,
+                                    entries = chunk,
+                                    forceMixStyle = false,
+                                ),
+                            )
+                        }
+                    }
+
+                    SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> Unit
+                }
+            }
+
+            YourSpaceDialTab.MIXES -> {
+                val list = mixesItems
+                when {
+                    list == null -> add(DialPageSpec.SkeletonPage(tab, layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR))
+                    list.isEmpty() -> add(DialPageSpec.EmptyPage(tab, isMixes = true))
+                    layoutMode == SpeedDialLayoutMode.THREE_BY_THREE -> {
+                        val slots = computeDialSlots(
+                            itemCount = list.size,
+                            pinnedCount = 0,
+                            perPage = artworkPerPage,
+                            includeLucky = false,
+                        )
+                        val count = (slots.size / artworkPerPage).coerceAtLeast(1)
+                        for (p in 0 until count) {
+                            add(
+                                DialPageSpec.ArtworkPage(
+                                    tab = tab,
+                                    localPage = p,
+                                    slots = slots.sliceArray(p * artworkPerPage until (p + 1) * artworkPerPage),
+                                    showMixBadge = true,
+                                    isArtistDial = false,
+                                    canReorderPins = false,
+                                ),
+                            )
+                        }
+                    }
+
+                    layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> {
+                        list.take(MAX_NORMAL_DIAL_PAGES * 8).chunked(8).forEachIndexed { idx, chunk ->
+                            add(
+                                DialPageSpec.CardsPage(
+                                    tab = tab,
+                                    localPage = idx,
+                                    entries = chunk,
+                                    forceMixStyle = true,
+                                ),
+                            )
+                        }
+                    }
+
+                    else -> Unit
+                }
+            }
+
+            YourSpaceDialTab.ARTISTS -> {
+                when {
+                    artistItems.isEmpty() -> add(DialPageSpec.EmptyPage(tab, isMixes = false))
+                    layoutMode == SpeedDialLayoutMode.THREE_BY_THREE -> {
+                        val slots = computeDialSlots(
+                            itemCount = artistItems.size,
+                            pinnedCount = 0,
+                            perPage = artworkPerPage,
+                            includeLucky = false,
+                        )
+                        val count = (slots.size / artworkPerPage).coerceAtLeast(1)
+                        for (p in 0 until count) {
+                            add(
+                                DialPageSpec.ArtworkPage(
+                                    tab = tab,
+                                    localPage = p,
+                                    slots = slots.sliceArray(p * artworkPerPage until (p + 1) * artworkPerPage),
+                                    showMixBadge = false,
+                                    isArtistDial = true,
+                                    canReorderPins = false,
+                                ),
+                            )
+                        }
+                    }
+
+                    layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> {
+                        artistItems.take(MAX_NORMAL_DIAL_PAGES * 8).chunked(8).forEachIndexed { idx, chunk ->
+                            add(
+                                DialPageSpec.CardsPage(
+                                    tab = tab,
+                                    localPage = idx,
+                                    entries = chunk,
+                                    forceMixStyle = false,
+                                ),
+                            )
+                        }
+                    }
+
+                    else -> Unit
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardsPageContent(
+    entries: List<ShelfItem?>,
+    pinnedIds: Set<String>,
+    showPinBadge: Boolean,
+    forceMixStyle: Boolean,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    palette: ArtworkPalette,
+    isDark: Boolean,
+    reduceAnimation: Boolean,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onPlayMixClick: ((ShelfItem) -> Unit)?,
+    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val rows = entries.chunked(2)
+        rows.forEachIndexed { rowIndex, pair ->
+            val first = pair.getOrNull(0)
+            val second = pair.getOrNull(1)
+            val hasLucky = (first == null && rowIndex == rows.lastIndex) ||
+                (pair.size == 2 && second == null)
+            if (!hasLucky) {
+                SpeedDialRow(
+                    item1 = first,
+                    item2 = second,
+                    pinnedIds = pinnedIds,
+                    showPinBadge = showPinBadge,
+                    forceMixStyle = forceMixStyle,
+                    currentSong = currentSong,
+                    isPlaying = isPlaying,
+                    palette = palette,
+                    onItemClick = onItemClick,
+                    onItemLongPress = onItemLongPress,
+                    onPlayMixClick = onPlayMixClick,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (first != null) {
+                        val firstId = first.speedDialStableId()
+                        SpeedDialTile(
+                            item = first,
+                            isPinned = showPinBadge && (firstId in pinnedIds || first.videoId in pinnedIds || first.browseId in pinnedIds),
+                            isCurrent = isItemCurrent(first, currentSong),
+                            isPlaying = isPlaying,
+                            palette = palette,
+                            forceMixStyle = forceMixStyle,
+                            isCompact = false,
+                            onItemClick = onItemClick,
+                            onItemLongPress = onItemLongPress,
+                            onPlayMixClick = onPlayMixClick,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ChordWaveCompactCard(
+                            palette = palette,
+                            isDark = isDark,
+                            reduceAnimation = reduceAnimation,
+                            onRoll = onLuckyDialRoll,
+                            isCompact = false,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        ChordWaveCompactCard(
+                            palette = palette,
+                            isDark = isDark,
+                            reduceAnimation = reduceAnimation,
+                            onRoll = onLuckyDialRoll,
+                            isCompact = false,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeSpeedDialListPager(
+    tabs: List<YourSpaceDialTab>,
+    spaceItems: List<ShelfItem>,
+    mixesItems: List<ShelfItem>?,
+    artistItems: List<ShelfItem>,
+    pinnedIds: Set<String>,
+    currentSong: Song?,
+    isPlaying: Boolean,
+    palette: ArtworkPalette,
+    showPinBadge: Boolean,
+    showChordWave: Boolean,
+    reduceAnimation: Boolean,
+    activeTab: YourSpaceDialTab,
+    onTabChange: (YourSpaceDialTab) -> Unit,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (tabs.size == 1) {
+        HomeSpeedDialList(
+            items = spaceItems,
+            pinnedIds = pinnedIds,
+            showPinBadge = showPinBadge,
+            currentSong = currentSong,
+            isPlaying = isPlaying,
+            palette = palette,
+            showChordWave = showChordWave,
+            reduceAnimation = reduceAnimation,
+            onItemClick = onItemClick,
+            onLuckyDialRoll = onLuckyDialRoll,
+            onItemLongPress = onItemLongPress,
+            modifier = modifier,
+        )
         return
     }
 
@@ -389,27 +1232,19 @@ fun HomeSpeedDial(
         initialPage = tabs.indexOf(activeTab).coerceAtLeast(0),
         pageCount = { tabs.size },
     )
-
-    LaunchedEffect(activeTab, tabs) {
-        val target = tabs.indexOf(activeTab)
-        if (target >= 0 && outerPagerState.currentPage != target && !outerPagerState.isScrollInProgress) {
-            outerPagerState.animateScrollToPage(
-                target,
-                animationSpec = if (reduceAnimation) spring(stiffness = Spring.StiffnessHigh) else spring(stiffness = Spring.StiffnessMediumLow),
-            )
-        }
-    }
-
     LaunchedEffect(outerPagerState, tabs) {
-        snapshotFlow { outerPagerState.settledPage }.collect { pageIdx ->
-            tabs.getOrNull(pageIdx)?.let { onTabChange(it) }
-        }
+        snapshotFlow { outerPagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { pageIdx ->
+                tabs.getOrNull(pageIdx)?.let(onTabChange)
+            }
     }
 
-    val minFlingPx = with(LocalDensity.current) { 400.dp.toPx() }
+    val scope = rememberCoroutineScope()
+    val minFlingPx = with(LocalDensity.current) { 320.dp.toPx() }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val handoff = remember(outerPagerState, minFlingPx, rtl) {
-        DialTabFlingHandoff(outerPagerState, minFlingPx, rtl)
+    val handoff = remember(outerPagerState, scope, minFlingPx, rtl) {
+        DialTabFlingHandoff(outerPagerState, scope, minFlingPx, rtl)
     }
     val tabHeights = remember { mutableStateMapOf<YourSpaceDialTab, Int>() }
 
@@ -453,332 +1288,121 @@ fun HomeSpeedDial(
                         }
                     },
             ) {
-                YourSpaceTabContent(
-                    tab = tab,
-                    spaceItems = items,
-                    mixesItems = mixesItems,
-                    artistItems = artistItems,
-                    pinnedIds = spacePinnedIds,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = activePalette,
-                    layoutMode = layoutMode,
-                    tileStyle = tileStyle,
-                    showLabels = showLabels,
-                    labelOverrides = labelOverrides,
-                    showPinBadge = showPinBadge,
-                    showChordWave = showChordWave,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onItemLongPress = onItemLongPress,
-                    onPlayMixClick = onPlayMixClick,
-                    onLuckyDialRoll = rollHandler,
-                    onReorderPinned = if (tab == YourSpaceDialTab.SPACE) onReorderPinned else null,
-                    onCurrentPageChange = { innerPageByTab[tab] = it },
-                )
+                when (tab) {
+                    YourSpaceDialTab.SPACE -> HomeSpeedDialList(
+                        items = spaceItems,
+                        pinnedIds = pinnedIds,
+                        showPinBadge = showPinBadge,
+                        currentSong = currentSong,
+                        isPlaying = isPlaying,
+                        palette = palette,
+                        showChordWave = showChordWave,
+                        reduceAnimation = reduceAnimation,
+                        onItemClick = onItemClick,
+                        onLuckyDialRoll = onLuckyDialRoll,
+                        onItemLongPress = onItemLongPress,
+                    )
+                    YourSpaceDialTab.MIXES -> when {
+                        mixesItems == null -> ArtworkDialSkeletonGrid(rows = 3)
+                        mixesItems.isEmpty() -> EmptyDialNotice(
+                            message = stringResource(Res.string.your_space_mixes_empty),
+                        )
+                        else -> HomeSpeedDialList(
+                            items = mixesItems,
+                            pinnedIds = pinnedIds,
+                            showPinBadge = showPinBadge,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            palette = palette,
+                            showChordWave = false,
+                            reduceAnimation = reduceAnimation,
+                            onItemClick = onItemClick,
+                            onLuckyDialRoll = onLuckyDialRoll,
+                            onItemLongPress = onItemLongPress,
+                        )
+                    }
+                    YourSpaceDialTab.ARTISTS -> if (artistItems.isEmpty()) {
+                        EmptyDialNotice(
+                            message = stringResource(Res.string.your_space_artists_empty),
+                        )
+                    } else {
+                        HomeSpeedDialList(
+                            items = artistItems,
+                            pinnedIds = pinnedIds,
+                            showPinBadge = showPinBadge,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            palette = palette,
+                            showChordWave = false,
+                            reduceAnimation = reduceAnimation,
+                            onItemClick = onItemClick,
+                            onLuckyDialRoll = onLuckyDialRoll,
+                            onItemLongPress = onItemLongPress,
+                        )
+                    }
+                }
             }
         }
 
-        val currentTab = tabs.getOrNull(outerPagerState.currentPage)
-        SpeedDialMultiDialDots(
-            tabCounts = tabPageCounts,
-            activeTabIndex = outerPagerState.currentPage,
-            currentInnerPage = currentTab?.let { innerPageByTab[it] } ?: 0,
-            accent = activePalette.accent,
+        SpeedDialMorphDots(
+            pagerState = outerPagerState,
+            accent = palette.accent,
+            reduceAnimation = reduceAnimation,
         )
     }
 }
 
-private fun computeTabPageCount(
-    tab: YourSpaceDialTab,
-    spaceCount: Int,
-    spacePinnedCount: Int,
-    mixesCount: Int?,
-    artistCount: Int,
-    layoutMode: SpeedDialLayoutMode,
-    showChordWave: Boolean,
-): Int = when (tab) {
-    YourSpaceDialTab.SPACE -> when (layoutMode) {
-        SpeedDialLayoutMode.THREE_BY_THREE ->
-            (computeDialSlots(spaceCount, spacePinnedCount, perPage = 9, includeLucky = showChordWave).size / 9).coerceAtLeast(1)
-        SpeedDialLayoutMode.TWO_BY_FOUR -> {
-            val page1Limit = if (showChordWave) 7 else 8
-            1 + ((spaceCount - page1Limit).coerceAtLeast(0) + 7) / 8
-        }
-        SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> 1
-    }
-    YourSpaceDialTab.MIXES -> when {
-        mixesCount == null || mixesCount <= 0 -> 1
-        layoutMode == SpeedDialLayoutMode.THREE_BY_THREE ->
-            (computeDialSlots(mixesCount, pinnedCount = 0, perPage = 9, includeLucky = false).size / 9).coerceAtLeast(1)
-        layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> ((mixesCount + 7) / 8).coerceAtLeast(1)
-        else -> 1
-    }
-    YourSpaceDialTab.ARTISTS -> when {
-        artistCount <= 0 -> 1
-        layoutMode == SpeedDialLayoutMode.THREE_BY_THREE ->
-            (computeDialSlots(artistCount, pinnedCount = 0, perPage = 9, includeLucky = false).size / 9).coerceAtLeast(1)
-        layoutMode == SpeedDialLayoutMode.TWO_BY_FOUR -> ((artistCount + 7) / 8).coerceAtLeast(1)
-        else -> 1
-    }
-}
-
 @Composable
-private fun SpeedDialMultiDialDots(
-    tabCounts: List<Pair<YourSpaceDialTab, Int>>,
-    activeTabIndex: Int,
-    currentInnerPage: Int,
+private fun SpeedDialMorphDots(
+    pagerState: PagerState,
     accent: Color,
+    reduceAnimation: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val totalDots = tabCounts.sumOf { it.second }
-    if (totalDots <= 1) return
+    val count = pagerState.pageCount
+    if (count <= 1) return
 
-    Row(
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    val density = LocalDensity.current
+    val dotPx = with(density) { 5.dp.toPx() }
+    val pillPx = with(density) { 16.dp.toPx() }
+    val gapPx = with(density) { 5.dp.toPx() }
+    val totalWidth = 5.dp * (count - 1) + 16.dp + 5.dp * (count - 1)
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 2.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(top = 6.dp, bottom = 2.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        tabCounts.forEachIndexed { tabIdx, (_, pageCount) ->
-            if (tabIdx > 0) {
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                repeat(pageCount) { pageIdx ->
-                    val selected = tabIdx == activeTabIndex && pageIdx == currentInnerPage.coerceIn(0, pageCount - 1)
-                    Box(
-                        modifier = Modifier
-                            .size(width = if (selected) 16.dp else 5.dp, height = 5.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (selected) accent
-                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                            ),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun YourSpaceTabContent(
-    tab: YourSpaceDialTab,
-    spaceItems: List<ShelfItem>,
-    mixesItems: List<ShelfItem>?,
-    artistItems: List<ShelfItem>,
-    pinnedIds: Set<String>,
-    currentSong: Song?,
-    isPlaying: Boolean,
-    palette: ArtworkPalette,
-    layoutMode: SpeedDialLayoutMode,
-    tileStyle: SpeedDialTileStyle,
-    showLabels: Boolean,
-    labelOverrides: Set<String>,
-    showPinBadge: Boolean,
-    showChordWave: Boolean,
-    reduceAnimation: Boolean,
-    onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
-    onPlayMixClick: ((ShelfItem) -> Unit)?,
-    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
-    onReorderPinned: ((List<ShelfItem>) -> Unit)?,
-    onCurrentPageChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val artworkRows = layoutMode.gridRows
-    when (tab) {
-        YourSpaceDialTab.SPACE -> {
-            if (spaceItems.isEmpty()) return
-            YourSpaceLayoutSwitch(
-                items = spaceItems,
-                pinnedIds = pinnedIds,
-                rows = artworkRows,
-                currentSong = currentSong,
-                isPlaying = isPlaying,
-                palette = palette,
-                layoutMode = layoutMode,
-                tileStyle = tileStyle,
-                showLabels = showLabels,
-                labelOverrides = labelOverrides,
-                showPinBadge = showPinBadge,
-                includeLucky = showChordWave,
-                showMixBadge = false,
-                isArtistDial = false,
-                reduceAnimation = reduceAnimation,
-                onItemClick = onItemClick,
-                onItemLongPress = onItemLongPress,
-                onPlayMixClick = onPlayMixClick,
-                onLuckyDialRoll = onLuckyDialRoll,
-                onReorderPinned = onReorderPinned,
-                onCurrentPageChange = onCurrentPageChange,
-                modifier = modifier,
-            )
-        }
-
-        YourSpaceDialTab.MIXES -> {
-            when {
-                mixesItems == null -> when (layoutMode) {
-                    SpeedDialLayoutMode.THREE_BY_THREE -> ArtworkDialSkeletonGrid(rows = artworkRows, modifier = modifier)
-                    SpeedDialLayoutMode.TWO_BY_FOUR -> TwoByFourDialSkeletonGrid(modifier = modifier)
-                    SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> ArtworkDialSkeletonGrid(rows = artworkRows, modifier = modifier)
-                }
-                mixesItems.isEmpty() -> EmptyDialNotice(
-                    message = stringResource(Res.string.your_space_mixes_empty),
-                    modifier = modifier,
-                )
-                else -> YourSpaceLayoutSwitch(
-                    items = mixesItems,
-                    pinnedIds = pinnedIds,
-                    rows = artworkRows,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = palette,
-                    layoutMode = layoutMode,
-                    tileStyle = tileStyle,
-                    showLabels = showLabels,
-                    labelOverrides = labelOverrides,
-                    showPinBadge = showPinBadge,
-                    includeLucky = false,
-                    showMixBadge = true,
-                    isArtistDial = false,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onItemLongPress = onItemLongPress,
-                    onPlayMixClick = onPlayMixClick,
-                    onLuckyDialRoll = onLuckyDialRoll,
-                    onReorderPinned = null,
-                    onCurrentPageChange = onCurrentPageChange,
-                    modifier = modifier,
-                )
-            }
-        }
-
-        YourSpaceDialTab.ARTISTS -> {
-            if (artistItems.isEmpty()) {
-                EmptyDialNotice(
-                    message = stringResource(Res.string.your_space_artists_empty),
-                    modifier = modifier,
-                )
+        Canvas(modifier = Modifier.size(width = totalWidth, height = 5.dp)) {
+            val progress = if (reduceAnimation) {
+                pagerState.currentPage.toFloat()
             } else {
-                YourSpaceLayoutSwitch(
-                    items = artistItems,
-                    pinnedIds = pinnedIds,
-                    rows = artworkRows,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                    palette = palette,
-                    layoutMode = layoutMode,
-                    tileStyle = tileStyle,
-                    showLabels = showLabels,
-                    labelOverrides = labelOverrides,
-                    showPinBadge = showPinBadge,
-                    includeLucky = false,
-                    showMixBadge = false,
-                    isArtistDial = true,
-                    reduceAnimation = reduceAnimation,
-                    onItemClick = onItemClick,
-                    onItemLongPress = onItemLongPress,
-                    onPlayMixClick = onPlayMixClick,
-                    onLuckyDialRoll = onLuckyDialRoll,
-                    onReorderPinned = null,
-                    onCurrentPageChange = onCurrentPageChange,
-                    modifier = modifier,
+                (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                    .coerceIn(0f, (count - 1).toFloat())
+            }
+            val corner = CornerRadius(dotPx / 2f, dotPx / 2f)
+            var x = 0f
+            for (i in 0 until count) {
+                val closeness = (1f - abs(progress - i)).coerceIn(0f, 1f)
+                val width = dotPx + (pillPx - dotPx) * closeness
+                val color = lerp(inactiveColor, accent, closeness)
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x, 0f),
+                    size = Size(width, dotPx),
+                    cornerRadius = corner,
                 )
+                x += width + gapPx
             }
         }
-    }
-}
-
-@Composable
-private fun YourSpaceLayoutSwitch(
-    items: List<ShelfItem>,
-    pinnedIds: Set<String>,
-    rows: Int,
-    currentSong: Song?,
-    isPlaying: Boolean,
-    palette: ArtworkPalette,
-    layoutMode: SpeedDialLayoutMode,
-    tileStyle: SpeedDialTileStyle,
-    showLabels: Boolean,
-    labelOverrides: Set<String>,
-    showPinBadge: Boolean,
-    includeLucky: Boolean,
-    showMixBadge: Boolean,
-    isArtistDial: Boolean,
-    reduceAnimation: Boolean,
-    onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
-    onPlayMixClick: ((ShelfItem) -> Unit)?,
-    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
-    onReorderPinned: ((List<ShelfItem>) -> Unit)?,
-    onCurrentPageChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    when (layoutMode) {
-        SpeedDialLayoutMode.THREE_BY_THREE -> HomeSpeedDialArtworkGrid(
-            items = items,
-            pinnedIds = pinnedIds,
-            rows = rows,
-            currentSong = currentSong,
-            isPlaying = isPlaying,
-            palette = palette,
-            tileStyle = tileStyle,
-            showLabels = showLabels,
-            labelOverrides = labelOverrides,
-            showPinBadge = showPinBadge,
-            includeLucky = includeLucky,
-            showMixBadge = showMixBadge,
-            isArtistDial = isArtistDial,
-            reduceAnimation = reduceAnimation,
-            onItemClick = onItemClick,
-            onItemLongPress = onItemLongPress,
-            onLuckyDialRoll = onLuckyDialRoll,
-            onReorderPinned = onReorderPinned,
-            onCurrentPageChange = onCurrentPageChange,
-            modifier = modifier,
-        )
-
-        SpeedDialLayoutMode.TWO_BY_FOUR -> HomeSpeedDialTwoByFour(
-            items = items,
-            pinnedIds = pinnedIds,
-            currentSong = currentSong,
-            isPlaying = isPlaying,
-            palette = palette,
-            showPinBadge = showPinBadge,
-            showChordWave = includeLucky,
-            forceMixStyle = showMixBadge,
-            reduceAnimation = reduceAnimation,
-            onItemClick = onItemClick,
-            onLuckyDialRoll = onLuckyDialRoll,
-            onItemLongPress = onItemLongPress,
-            onPlayMixClick = onPlayMixClick,
-            onCurrentPageChange = onCurrentPageChange,
-            modifier = modifier,
-        )
-
-        SpeedDialLayoutMode.ONE_BY_FOUR_LIST -> HomeSpeedDialList(
-            items = items,
-            currentSong = currentSong,
-            isPlaying = isPlaying,
-            palette = palette,
-            showChordWave = includeLucky,
-            reduceAnimation = reduceAnimation,
-            onItemClick = onItemClick,
-            onLuckyDialRoll = onLuckyDialRoll,
-            onItemLongPress = onItemLongPress,
-            modifier = modifier,
-        )
     }
 }
 
 private class DialTabFlingHandoff(
     private val state: PagerState,
+    private val scope: CoroutineScope,
     private val minFlingPx: Float,
     private val reversed: Boolean,
 ) : NestedScrollConnection {
@@ -792,7 +1416,9 @@ private class DialTabFlingHandoff(
             velocity >= minFlingPx -> floor(position)
             else -> round(position)
         }.toInt().coerceIn(0, (state.pageCount - 1).coerceAtLeast(0))
-        state.animateScrollToPage(target, animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+        scope.launch {
+            state.animateScrollToPage(target, animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+        }
         return available
     }
 }
@@ -800,13 +1426,14 @@ private class DialTabFlingHandoff(
 @Composable
 private fun EmptyDialNotice(
     message: String,
+    horizontalPadding: androidx.compose.ui.unit.Dp = PAGE_GUTTER,
     modifier: Modifier = Modifier,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp)
+            .padding(horizontal = horizontalPadding, vertical = 8.dp)
             .height(176.dp)
             .clip(SmoothCornerShape(18.dp))
             .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.04f))
@@ -830,12 +1457,13 @@ private fun EmptyDialNotice(
 @Composable
 private fun ArtworkDialSkeletonGrid(
     rows: Int,
+    horizontalPadding: androidx.compose.ui.unit.Dp = PAGE_GUTTER,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+            .padding(horizontal = horizontalPadding, vertical = 6.dp),
     ) {
         val tileSide = (maxWidth - ARTWORK_GAP * (ARTWORK_COLUMNS - 1)) / ARTWORK_COLUMNS
         Column(verticalArrangement = Arrangement.spacedBy(ARTWORK_GAP)) {
@@ -855,12 +1483,13 @@ private fun ArtworkDialSkeletonGrid(
 
 @Composable
 private fun TwoByFourDialSkeletonGrid(
+    horizontalPadding: androidx.compose.ui.unit.Dp = PAGE_GUTTER,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
+            .padding(horizontal = horizontalPadding, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         repeat(4) {
@@ -875,377 +1504,6 @@ private fun TwoByFourDialSkeletonGrid(
                             .height(64.dp),
                         shape = RoundedCornerShape(22.dp),
                     )
-                }
-            }
-        }
-    }
-}
-
-/**
- * Full-bleed 3-column square artwork grid for `3×3` mode, Mixes Dial, and Artist Dial.
- * Includes in-grid drag-to-reorder for pinned items, velocity-reactive swipe tilt, staggered
- * diagonal entrance, and smooth diagonal cover wipes.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun HomeSpeedDialArtworkGrid(
-    items: List<ShelfItem>,
-    pinnedIds: Set<String>,
-    rows: Int,
-    currentSong: Song?,
-    isPlaying: Boolean,
-    palette: ArtworkPalette,
-    tileStyle: SpeedDialTileStyle,
-    showLabels: Boolean,
-    labelOverrides: Set<String>,
-    showPinBadge: Boolean,
-    includeLucky: Boolean,
-    showMixBadge: Boolean,
-    isArtistDial: Boolean,
-    reduceAnimation: Boolean,
-    onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
-    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
-    onReorderPinned: ((List<ShelfItem>) -> Unit)?,
-    onCurrentPageChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val perPage = ARTWORK_COLUMNS * rows
-    var order by remember(items) { mutableStateOf(items) }
-    val pinnedCount = remember(order, pinnedIds) {
-        order.takeWhile { it.speedDialStableId() in pinnedIds }.size
-    }
-    val slots = remember(order.size, pinnedCount, perPage, includeLucky) {
-        computeDialSlots(order.size, pinnedCount, perPage, includeLucky)
-    }
-    val pageCount = (slots.size / perPage).coerceAtLeast(1)
-
-    val pagerState = rememberPagerState(pageCount = { pageCount })
-    LaunchedEffect(pagerState.currentPage) {
-        onCurrentPageChange(pagerState.currentPage)
-    }
-    val swipeTilt = rememberSwipeTilt(pagerState, reduceAnimation)
-
-    val latestSlots by rememberUpdatedState(slots)
-    val latestOrder by rememberUpdatedState(order)
-    val latestItems by rememberUpdatedState(items)
-    val latestPinnedCount by rememberUpdatedState(pinnedCount)
-    val latestPageCount by rememberUpdatedState(pageCount)
-    val latestReorder by rememberUpdatedState(onReorderPinned)
-    val latestMenu by rememberUpdatedState(onItemLongPress)
-
-    var dragId by remember { mutableStateOf<String?>(null) }
-    var dragPos by remember { mutableStateOf(Offset.Zero) }
-    var grab by remember { mutableStateOf(Offset.Zero) }
-    var edge by remember { mutableIntStateOf(0) }
-
-    val isReordering = dragId != null
-    val wiggleLevel by animateFloatAsState(
-        targetValue = if (isReordering && !reduceAnimation) 1f else 0f,
-        animationSpec = tween(200),
-        label = "artworkWiggle",
-    )
-    var wiggleClock by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isReordering, reduceAnimation) {
-        if (!isReordering || reduceAnimation) return@LaunchedEffect
-        val start = withFrameMillis { it }
-        while (true) {
-            withFrameMillis { wiggleClock = (it - start) / 1000f }
-        }
-    }
-
-    LaunchedEffect(edge, dragId) {
-        if (dragId == null || edge == 0) return@LaunchedEffect
-        while (true) {
-            delay(550L)
-            val target = (pagerState.currentPage + edge).coerceIn(0, latestPageCount - 1)
-            if (target != pagerState.currentPage) {
-                pagerState.animateScrollToPage(target)
-            }
-            delay(380L)
-        }
-    }
-
-    val enteredIds = remember { HashSet<String>() }
-    val artLoaded = remember(items) { mutableStateMapOf<String, Boolean>() }
-    val density = LocalDensity.current
-    val haptics = rememberHaptics()
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val contentWidth = maxWidth - PAGE_GUTTER * 2
-            val tileSide = ((contentWidth - ARTWORK_GAP * (ARTWORK_COLUMNS - 1)) / ARTWORK_COLUMNS).coerceAtLeast(64.dp)
-            val gridHeight = tileSide * rows + ARTWORK_GAP * (rows - 1)
-
-            val tilePx = with(density) { tileSide.toPx() }
-            val gapPx = with(density) { ARTWORK_GAP.toPx() }
-            val gutterPx = with(density) { PAGE_GUTTER.toPx() }
-            val widthPx = with(density) { maxWidth.toPx() }
-            val edgePx = with(density) { EDGE_PAGE_ZONE.toPx() }
-
-            fun cellOrigin(cell: Int) = Offset(
-                (cell % ARTWORK_COLUMNS) * (tilePx + gapPx),
-                (cell / ARTWORK_COLUMNS) * (tilePx + gapPx),
-            )
-
-            fun toOrderIndex(shownIndex: Int): Int? =
-                latestSlots.getOrNull(shownIndex)?.takeIf { it >= 0 }
-
-            fun orderTargetAt(shownIndex: Int): Int =
-                toOrderIndex(shownIndex)
-                    ?: (0 until shownIndex.coerceAtMost(latestSlots.size)).count { latestSlots[it] >= 0 }
-
-            fun hitCell(pos: Offset, page: Int): Int? {
-                val x = pos.x - gutterPx
-                val col = floor(x / (tilePx + gapPx)).toInt()
-                val row = floor(pos.y / (tilePx + gapPx)).toInt()
-                if (col !in 0 until ARTWORK_COLUMNS || row !in 0 until rows) return null
-                if (x - col * (tilePx + gapPx) > tilePx || pos.y - row * (tilePx + gapPx) > tilePx) return null
-                return (page * perPage + row * ARTWORK_COLUMNS + col).takeIf {
-                    it < latestSlots.size && latestSlots[it] >= 0
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(rows, tilePx, gapPx, gutterPx) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            val endedEarly = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                                var done = false
-                                while (!done) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    val change = event.changes.firstOrNull { it.id == down.id }
-                                    done = change == null || change.changedToUp() ||
-                                        event.changes.size > 1 ||
-                                        (change.position - down.position).getDistance() > viewConfiguration.touchSlop
-                                }
-                                true
-                            }
-                            if (endedEarly != null) return@awaitEachGesture
-
-                            val page = pagerState.currentPage
-                            val shownIdx = hitCell(down.position, page) ?: return@awaitEachGesture
-                            val orderIdx = toOrderIndex(shownIdx) ?: return@awaitEachGesture
-                            val reorderCallback = latestReorder ?: return@awaitEachGesture
-                            if (orderIdx >= latestPinnedCount) return@awaitEachGesture
-
-                            val heldItem = latestOrder.getOrNull(orderIdx) ?: return@awaitEachGesture
-                            val heldId = heldItem.speedDialStableId()
-                            haptics.play(Haptic.Select)
-                            dragId = heldId
-                            dragPos = down.position
-                            grab = down.position - cellOrigin(shownIdx - page * perPage) - Offset(gutterPx, 0f)
-
-                            var moved = false
-                            var committed = false
-                            try {
-                                while (true) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                    val lifted = !change.pressed
-                                    change.consume()
-                                    if (lifted) {
-                                        committed = true
-                                        if (moved) {
-                                            haptics.play(Haptic.Select)
-                                            reorderCallback(latestOrder.take(latestPinnedCount))
-                                        } else {
-                                            latestMenu?.invoke(heldItem)
-                                        }
-                                        break
-                                    }
-                                    dragPos = change.position
-                                    if (!moved && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
-                                        moved = true
-                                    }
-                                    if (moved && !pagerState.isScrollInProgress) {
-                                        val x = dragPos.x - gutterPx
-                                        val col = floor(x / (tilePx + gapPx)).toInt().coerceIn(0, ARTWORK_COLUMNS - 1)
-                                        val row = floor(dragPos.y / (tilePx + gapPx)).toInt().coerceIn(0, rows - 1)
-                                        val targetShown = pagerState.currentPage * perPage + row * ARTWORK_COLUMNS + col
-                                        val targetOrder = orderTargetAt(targetShown)
-                                            .coerceIn(0, (latestPinnedCount - 1).coerceAtLeast(0))
-                                        val currentIdx = latestOrder.indexOfFirst { it.speedDialStableId() == heldId }
-                                        if (currentIdx >= 0 && targetOrder != currentIdx) {
-                                            order = latestOrder.toMutableList().apply { add(targetOrder, removeAt(currentIdx)) }
-                                            haptics.play(Haptic.Tick)
-                                        }
-                                    }
-                                    edge = when {
-                                        !moved -> 0
-                                        dragPos.x < edgePx -> -1
-                                        dragPos.x > widthPx - edgePx -> 1
-                                        else -> 0
-                                    }
-                                }
-                            } finally {
-                                if (!committed) order = latestItems
-                                dragId = null
-                                edge = 0
-                            }
-                        }
-                    },
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    pageSpacing = 12.dp,
-                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                    verticalAlignment = Alignment.Top,
-                    userScrollEnabled = dragId == null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { page ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(gridHeight),
-                    ) {
-                        for (cell in 0 until perPage) {
-                            val slotIdx = page * perPage + cell
-                            if (slotIdx >= slots.size) continue
-                            val slotVal = slots[slotIdx]
-                            if (slotVal == -1) continue
-
-                            if (slotVal == SPEED_DIAL_SLOT_LUCKY) {
-                                val origin = cellOrigin(cell)
-                                val entering = remember("lucky_wave") {
-                                    enteredIds.add("lucky_wave") && page == pagerState.currentPage && !reduceAnimation
-                                }
-                                val appear = remember { Animatable(if (entering) 0f else 1f) }
-                                LaunchedEffect(appear) {
-                                    if (appear.value >= 1f) return@LaunchedEffect
-                                    delay((cell / ARTWORK_COLUMNS + cell % ARTWORK_COLUMNS) * 40L)
-                                    appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
-                                }
-                                ChordWaveArtworkTile(
-                                    palette = palette,
-                                    tileStyle = tileStyle,
-                                    showLabel = showLabels,
-                                    reduceAnimation = reduceAnimation,
-                                    onRoll = onLuckyDialRoll,
-                                    dim = { if (isReordering) WIGGLE_DIM * wiggleLevel else 0f },
-                                    modifier = Modifier
-                                        .offset { IntOffset(origin.x.roundToInt(), origin.y.roundToInt()) }
-                                        .size(tileSide)
-                                        .graphicsLayer {
-                                            val s = if (entering) 0.93f + 0.07f * appear.value else 1f
-                                            scaleX = s
-                                            scaleY = s
-                                            alpha = appear.value.coerceIn(0f, 1f)
-                                            rotationY = swipeTilt.value
-                                            cameraDistance = SWIPE_TILT_CAMERA_DISTANCE * this.density
-                                        },
-                                )
-                                continue
-                            }
-
-                            val item = order.getOrNull(slotVal) ?: continue
-                            val id = item.speedDialStableId()
-                            key(id) {
-                                val targetOrigin = cellOrigin(cell).let { IntOffset(it.x.roundToInt(), it.y.roundToInt()) }
-                                val animatedOffset by animateIntOffsetAsState(
-                                    targetValue = targetOrigin,
-                                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                                    label = "dialArtworkOffset",
-                                )
-
-                                val entering = remember(id) {
-                                    enteredIds.add(id) && page == pagerState.currentPage && !reduceAnimation
-                                }
-                                val appear = remember(id) { Animatable(if (entering) 0f else 1f) }
-                                LaunchedEffect(appear) {
-                                    if (appear.value >= 1f) return@LaunchedEffect
-                                    withTimeoutOrNull(450L) {
-                                        snapshotFlow { artLoaded[id] == true }.first { it }
-                                    }
-                                    delay((cell / ARTWORK_COLUMNS + cell % ARTWORK_COLUMNS) * 40L)
-                                    appear.animateTo(1f, tween(320, easing = FastOutSlowInEasing))
-                                }
-
-                                val isPinned = id in pinnedIds
-                                val phase = remember(id) { (id.hashCode() and 0xFFFF) / 65535f * WIGGLE_TAU }
-
-                                ArtworkSpeedDialTile(
-                                    item = item,
-                                    palette = palette,
-                                    tileStyle = tileStyle,
-                                    isPinned = isPinned && showPinBadge,
-                                    isCurrent = isItemCurrent(item, currentSong),
-                                    isPlaying = isPlaying,
-                                    showLabel = showLabels != (id in labelOverrides),
-                                    showMixBadge = showMixBadge,
-                                    isArtistTile = isArtistDial || item.detectType() == SpeedDialItemType.ARTIST,
-                                    reduceAnimation = reduceAnimation,
-                                    onArtLoaded = { artLoaded[id] = true },
-                                    dim = { if (isReordering && !isPinned) WIGGLE_DIM * wiggleLevel else 0f },
-                                    onClick = { onItemClick(item) },
-                                    onLongPress = if (onReorderPinned != null && isPinned) {
-                                        null
-                                    } else {
-                                        onItemLongPress?.let { { it(item) } }
-                                    },
-                                    modifier = Modifier
-                                        .offset { animatedOffset }
-                                        .size(tileSide)
-                                        .graphicsLayer {
-                                            val shown = appear.value
-                                            var s = if (entering) 0.93f + 0.07f * shown else 1f
-                                            val w = wiggleLevel
-                                            if (w > 0f && isPinned) {
-                                                s *= 1f - WIGGLE_SHRINK * w
-                                                rotationZ = sin(wiggleClock * WIGGLE_SPEED + phase) * WIGGLE_DEGREES * w
-                                            } else {
-                                                rotationZ = 0f
-                                            }
-                                            scaleX = s
-                                            scaleY = s
-                                            alpha = if (dragId == id) 0f else shown.coerceIn(0f, 1f)
-                                            rotationY = swipeTilt.value
-                                            cameraDistance = SWIPE_TILT_CAMERA_DISTANCE * this.density
-                                        },
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Floating lifted tile following pointer while dragging a pinned item
-                val liftedId = dragId
-                if (liftedId != null) {
-                    order.firstOrNull { it.speedDialStableId() == liftedId }?.let { draggedItem ->
-                        ArtworkSpeedDialTile(
-                            item = draggedItem,
-                            palette = palette,
-                            tileStyle = tileStyle,
-                            isPinned = showPinBadge,
-                            isCurrent = false,
-                            isPlaying = false,
-                            showLabel = showLabels != (liftedId in labelOverrides),
-                            showMixBadge = showMixBadge,
-                            isArtistTile = isArtistDial || draggedItem.detectType() == SpeedDialItemType.ARTIST,
-                            reduceAnimation = reduceAnimation,
-                            onClick = {},
-                            onLongPress = null,
-                            modifier = Modifier
-                                .offset {
-                                    IntOffset(
-                                        (dragPos.x - grab.x).roundToInt(),
-                                        (dragPos.y - grab.y).roundToInt(),
-                                    )
-                                }
-                                .size(tileSide)
-                                .graphicsLayer {
-                                    scaleX = 1.07f
-                                    scaleY = 1.07f
-                                }
-                                .shadow(14.dp, SmoothCornerShape(14.dp)),
-                        )
-                    }
                 }
             }
         }
@@ -1578,194 +1836,10 @@ private fun rememberSwipeTilt(
 }
 
 @Composable
-private fun HomeSpeedDialTwoByFour(
-    items: List<ShelfItem>,
-    pinnedIds: Set<String>,
-    currentSong: Song?,
-    isPlaying: Boolean,
-    palette: ArtworkPalette,
-    showPinBadge: Boolean,
-    showChordWave: Boolean,
-    forceMixStyle: Boolean,
-    reduceAnimation: Boolean,
-    onItemClick: (ShelfItem) -> Unit,
-    onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
-    onCurrentPageChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    onPlayMixClick: ((ShelfItem) -> Unit)? = null,
-) {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val page1Limit = if (showChordWave) 7 else 8
-    val page1Items = items.take(page1Limit)
-    val remainingItems = items.drop(page1Limit)
-    val additionalPages = if (remainingItems.isNotEmpty()) remainingItems.chunked(8) else emptyList()
-    val totalPages = 1 + additionalPages.size
-
-    val pagerState = rememberPagerState(pageCount = { totalPages })
-    LaunchedEffect(pagerState.currentPage) {
-        onCurrentPageChange(pagerState.currentPage)
-    }
-
-    var showBackButton by remember { mutableStateOf(false) }
-    LaunchedEffect(pagerState.isScrollInProgress) {
-        if (pagerState.isScrollInProgress) {
-            showBackButton = true
-        } else {
-            delay(1400L)
-            showBackButton = false
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            HorizontalPager(
-                state = pagerState,
-                pageSpacing = 12.dp,
-                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                verticalAlignment = Alignment.Top,
-                modifier = Modifier.fillMaxWidth(),
-            ) { pageIndex ->
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (pageIndex == 0) {
-                        val page1Entries: List<ShelfItem?> = buildList {
-                            addAll(page1Items)
-                            if (showChordWave) add(null)
-                        }
-                        val rows = page1Entries.chunked(2)
-                        rows.forEach { pair ->
-                            val first = pair.getOrNull(0)
-                            val second = pair.getOrNull(1)
-                            val hasLuckyInRow = pair.size == 1 && first == null ||
-                                (pair.size == 2 && second == null && showChordWave &&
-                                    page1Entries.lastIndexOf(null) == page1Entries.lastIndex)
-                            if (!hasLuckyInRow) {
-                                SpeedDialRow(
-                                    item1 = first,
-                                    item2 = second,
-                                    pinnedIds = pinnedIds,
-                                    showPinBadge = showPinBadge,
-                                    forceMixStyle = forceMixStyle,
-                                    currentSong = currentSong,
-                                    isPlaying = isPlaying,
-                                    palette = palette,
-                                    onItemClick = onItemClick,
-                                    onItemLongPress = onItemLongPress,
-                                    onPlayMixClick = onPlayMixClick,
-                                )
-                            } else {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    if (first != null) {
-                                        val firstId = first.speedDialStableId()
-                                        SpeedDialTile(
-                                            item = first,
-                                            isPinned = showPinBadge && (firstId in pinnedIds || first.videoId in pinnedIds || first.browseId in pinnedIds),
-                                            isCurrent = isItemCurrent(first, currentSong),
-                                            isPlaying = isPlaying,
-                                            palette = palette,
-                                            forceMixStyle = forceMixStyle,
-                                            isCompact = false,
-                                            onItemClick = onItemClick,
-                                            onItemLongPress = onItemLongPress,
-                                            onPlayMixClick = onPlayMixClick,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        ChordWaveCompactCard(
-                                            palette = palette,
-                                            isDark = isDark,
-                                            reduceAnimation = reduceAnimation,
-                                            onRoll = onLuckyDialRoll,
-                                            isCompact = false,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                    } else {
-                                        ChordWaveCompactCard(
-                                            palette = palette,
-                                            isDark = isDark,
-                                            reduceAnimation = reduceAnimation,
-                                            onRoll = onLuckyDialRoll,
-                                            isCompact = false,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        val pageItems = additionalPages.getOrNull(pageIndex - 1).orEmpty()
-                        pageItems.chunked(2).forEach { rowItems ->
-                            SpeedDialRow(
-                                item1 = rowItems.getOrNull(0),
-                                item2 = rowItems.getOrNull(1),
-                                pinnedIds = pinnedIds,
-                                showPinBadge = showPinBadge,
-                                forceMixStyle = forceMixStyle,
-                                currentSong = currentSong,
-                                isPlaying = isPlaying,
-                                palette = palette,
-                                onItemClick = onItemClick,
-                                onItemLongPress = onItemLongPress,
-                                onPlayMixClick = onPlayMixClick,
-                            )
-                        }
-                    }
-                }
-            }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = showBackButton && pagerState.currentPage > 0,
-                enter = fadeIn(tween(250)) + slideInHorizontally(tween(250)) { -it },
-                exit = fadeOut(tween(350)) + slideOutHorizontally(tween(350)) { -it },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = PAGE_GUTTER + 4.dp),
-            ) {
-                val coroutineScope = rememberCoroutineScope()
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.65f))
-                        .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape)
-                        .clickable {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(
-                                    page = 0,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMediumLow,
-                                    ),
-                                )
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = BitChordIcons.ChevronLeft,
-                        contentDescription = "Return to First Page",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun HomeSpeedDialList(
     items: List<ShelfItem>,
+    pinnedIds: Set<String>,
+    showPinBadge: Boolean,
     currentSong: Song?,
     isPlaying: Boolean,
     palette: ArtworkPalette,
@@ -1783,12 +1857,18 @@ private fun HomeSpeedDialList(
             contentPadding = PaddingValues(horizontal = PAGE_GUTTER, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            val allListItems = items.take(16)
+            val allListItems = items.take(if (showChordWave) 11 else 12)
             val columns = allListItems.chunked(4)
-            items(columns) { column ->
+            val tuckWaveIntoLastColumn = showChordWave && columns.isNotEmpty() && columns.last().size < 4
+            val appendStandaloneWave = showChordWave && (columns.isEmpty() || (columns.last().size == 4 && columns.size < 3))
+
+            items(columns.size) { colIndex ->
+                val column = columns[colIndex]
                 Column(Modifier.width(columnWidth)) {
                     column.forEach { item ->
+                        val id = item.speedDialStableId()
                         val isCurrent = isItemCurrent(item, currentSong)
+                        val isPinned = showPinBadge && (id in pinnedIds || item.videoId in pinnedIds || item.browseId in pinnedIds)
                         CompactTrackRow(
                             title = item.title,
                             subtitle = cleanTypeSubtitle(item.subtitle, item.detectType()),
@@ -1797,11 +1877,23 @@ private fun HomeSpeedDialList(
                             onLongPress = onItemLongPress?.let { { it(item) } },
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,
+                            isPinned = isPinned,
+                        )
+                    }
+                    if (tuckWaveIntoLastColumn && colIndex == columns.lastIndex) {
+                        Spacer(Modifier.height(4.dp))
+                        ChordWaveCompactCard(
+                            palette = palette,
+                            isDark = isDark,
+                            reduceAnimation = reduceAnimation,
+                            onRoll = onLuckyDialRoll,
+                            isCompact = true,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
             }
-            if (showChordWave) {
+            if (appendStandaloneWave) {
                 item(key = "speed_dial_list_lucky") {
                     Column(
                         modifier = Modifier

@@ -335,8 +335,8 @@
     <string name="speed_dial_layout">פריסה</string>
     <string name="speed_dial_picks">מקור בחירות</string>
     <string name="speed_dial_tile_border">סגנון אריח</string>
-    <string name="speed_dial_mixes_dial">לוח מיקסים</string>
-    <string name="speed_dial_artist_dial">לוח אמנים</string>
+    <string name="speed_dial_mixes_dial">עמוד מיקסים</string>
+    <string name="speed_dial_artist_dial">עמוד אמנים</string>
     <string name="speed_dial_chord_wave">אריח Chord Wave</string>
     <string name="speed_dial_show_names">הצג שמות אריחים</string>
     <string name="speed_dial_show_pins">הצג סיכות הצמדה</string>

@@ -335,8 +335,8 @@
     <string name="speed_dial_layout">Layout</string>
     <string name="speed_dial_picks">Auswahlquelle</string>
     <string name="speed_dial_tile_border">Kachelstil</string>
-    <string name="speed_dial_mixes_dial">Mix-Auswahl</string>
-    <string name="speed_dial_artist_dial">Künstler-Auswahl</string>
+    <string name="speed_dial_mixes_dial">Mixes-Seite</string>
+    <string name="speed_dial_artist_dial">Künstler-Seite</string>
     <string name="speed_dial_chord_wave">Chord-Wave-Kachel</string>
     <string name="speed_dial_show_names">Kachelnamen anzeigen</string>
     <string name="speed_dial_show_pins">Pin-Symbole anzeigen</string>

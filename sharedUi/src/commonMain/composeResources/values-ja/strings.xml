@@ -335,8 +335,8 @@
     <string name="speed_dial_layout">レイアウト</string>
     <string name="speed_dial_picks">ピックのソース</string>
     <string name="speed_dial_tile_border">タイルスタイル</string>
-    <string name="speed_dial_mixes_dial">ミックスダイヤル</string>
-    <string name="speed_dial_artist_dial">アーティストダイヤル</string>
+    <string name="speed_dial_mixes_dial">ミックスページ</string>
+    <string name="speed_dial_artist_dial">アーティストページ</string>
     <string name="speed_dial_chord_wave">Chord Wave タイル</string>
     <string name="speed_dial_show_names">タイル名を表示</string>
     <string name="speed_dial_show_pins">ピンバッジを表示</string>

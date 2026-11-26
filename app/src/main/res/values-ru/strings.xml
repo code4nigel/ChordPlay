@@ -1857,8 +1857,8 @@
     <string name="speed_dial_layout">Макет</string>
     <string name="speed_dial_picks">Источник подборок</string>
     <string name="speed_dial_tile_border">Стиль плиток</string>
-    <string name="speed_dial_mixes_dial">Панель миксов</string>
-    <string name="speed_dial_artist_dial">Панель исполнителей</string>
+    <string name="speed_dial_mixes_dial">Страница миксов</string>
+    <string name="speed_dial_artist_dial">Страница исполнителей</string>
     <string name="speed_dial_chord_wave">Плитка Chord Wave</string>
     <string name="speed_dial_show_names">Показывать названия</string>
     <string name="speed_dial_show_pins">Показывать значки закрепления</string>

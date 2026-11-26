@@ -1808,8 +1808,8 @@
     <string name="speed_dial_layout">เลย์เอาต์</string>
     <string name="speed_dial_picks">แหล่งที่มาของรายการแนะนำ</string>
     <string name="speed_dial_tile_border">สไตล์ไทล์</string>
-    <string name="speed_dial_mixes_dial">แผงมิกซ์</string>
-    <string name="speed_dial_artist_dial">แผงศิลปิน</string>
+    <string name="speed_dial_mixes_dial">หน้ามิกซ์</string>
+    <string name="speed_dial_artist_dial">หน้าศิลปิน</string>
     <string name="speed_dial_chord_wave">ไทล์ Chord Wave</string>
     <string name="speed_dial_show_names">แสดงชื่อไทล์</string>
     <string name="speed_dial_show_pins">แสดงสัญลักษณ์ปักหมุด</string>

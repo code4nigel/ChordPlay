@@ -219,8 +219,8 @@
     <string name="speed_dial_layout">Layout</string>
     <string name="speed_dial_picks">Picks source</string>
     <string name="speed_dial_tile_border">Tile style</string>
-    <string name="speed_dial_mixes_dial">Mixes Dial</string>
-    <string name="speed_dial_artist_dial">Artist Dial</string>
+    <string name="speed_dial_mixes_dial">Mixes page</string>
+    <string name="speed_dial_artist_dial">Artist page</string>
     <string name="speed_dial_chord_wave">Chord Wave tile</string>
     <string name="speed_dial_show_names">Show tile names</string>
     <string name="speed_dial_show_pins">Show pin badges</string>

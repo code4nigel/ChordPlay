@@ -1869,8 +1869,8 @@
     <string name="speed_dial_layout">लेआउट</string>
     <string name="speed_dial_picks">पिक्स स्रोत</string>
     <string name="speed_dial_tile_border">टाइल स्टाइल</string>
-    <string name="speed_dial_mixes_dial">मिक्स डायल</string>
-    <string name="speed_dial_artist_dial">कलाकार डायल</string>
+    <string name="speed_dial_mixes_dial">मिक्स पेज</string>
+    <string name="speed_dial_artist_dial">कलाकार पेज</string>
     <string name="speed_dial_chord_wave">Chord Wave टाइल</string>
     <string name="speed_dial_show_names">टाइल के नाम दिखाएं</string>
     <string name="speed_dial_show_pins">पिन बैज दिखाएं</string>

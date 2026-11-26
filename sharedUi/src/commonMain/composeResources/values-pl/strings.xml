@@ -339,8 +339,8 @@
     <string name="speed_dial_layout">Układ</string>
     <string name="speed_dial_picks">Źródło propozycji</string>
     <string name="speed_dial_tile_border">Styl kafelków</string>
-    <string name="speed_dial_mixes_dial">Panel miksów</string>
-    <string name="speed_dial_artist_dial">Panel wykonawców</string>
+    <string name="speed_dial_mixes_dial">Strona miksów</string>
+    <string name="speed_dial_artist_dial">Strona wykonawców</string>
     <string name="speed_dial_chord_wave">Kafelek Chord Wave</string>
     <string name="speed_dial_show_names">Pokaż nazwy kafelków</string>
     <string name="speed_dial_show_pins">Pokaż ikony przypięcia</string>

@@ -23,6 +23,7 @@ import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,6 +88,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -162,6 +165,11 @@ fun ShelfItem.matchesCurrentlyPlaying(song: Song?): Boolean {
     return videoId == song.videoId || (title == song.title && subtitle == song.artist)
 }
 
+private object HomeDialSessionMemory {
+    var page: Int = 0
+    var tab: YourSpaceDialTab = YourSpaceDialTab.SPACE
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -204,6 +212,10 @@ fun HomeScreen(
     precomputedSpeedDialBase: List<ShelfItem>? = null,
     mixesDialItems: List<ShelfItem>? = null,
     artistDialItems: List<ShelfItem> = emptyList(),
+    savedSpeedDialPage: Int? = null,
+    onSpeedDialPageChange: ((Int) -> Unit)? = null,
+    savedSpeedDialTab: YourSpaceDialTab? = null,
+    onSpeedDialTabChange: ((YourSpaceDialTab) -> Unit)? = null,
     onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)? = null,
     onOpenYourSpaceCustomize: (() -> Unit)? = null,
     melodyItem: ShelfItem? = null,
@@ -227,7 +239,20 @@ fun HomeScreen(
     val hideHomeVideos by AppUi.host.hideHomeVideos.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
-    var activeDialTab by remember { mutableStateOf(YourSpaceDialTab.SPACE) }
+    var localDialPage by remember { mutableIntStateOf(savedSpeedDialPage ?: HomeDialSessionMemory.page) }
+    var localDialTab by remember { mutableStateOf(savedSpeedDialTab ?: HomeDialSessionMemory.tab) }
+    val currentDialPage = savedSpeedDialPage ?: localDialPage
+    val activeDialTab = savedSpeedDialTab ?: localDialTab
+    val updateDialPage: (Int) -> Unit = { page ->
+        localDialPage = page
+        HomeDialSessionMemory.page = page
+        onSpeedDialPageChange?.invoke(page)
+    }
+    val updateDialTab: (YourSpaceDialTab) -> Unit = { tab ->
+        localDialTab = tab
+        HomeDialSessionMemory.tab = tab
+        onSpeedDialTabChange?.invoke(tab)
+    }
 
     val availableDialTabs = remember(speedDialShowMixes, speedDialShowArtists) {
         buildList {
@@ -238,7 +263,7 @@ fun HomeScreen(
     }
     LaunchedEffect(availableDialTabs) {
         if (activeDialTab !in availableDialTabs) {
-            activeDialTab = YourSpaceDialTab.SPACE
+            updateDialTab(YourSpaceDialTab.SPACE)
         }
     }
 
@@ -405,7 +430,9 @@ fun HomeScreen(
                         artistDialItems = artistDialItems,
                         availableDialTabs = availableDialTabs,
                         activeDialTab = activeDialTab,
-                        onDialTabChange = { activeDialTab = it },
+                        onDialTabChange = updateDialTab,
+                        savedDialPage = currentDialPage,
+                        onDialPageChange = updateDialPage,
                         onReorderPinnedSpeedDial = onReorderPinnedSpeedDial,
                         onOpenYourSpaceCustomize = onOpenYourSpaceCustomize,
                         pinnedIds = pinnedIds,
@@ -468,6 +495,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     availableDialTabs: List<YourSpaceDialTab>,
     activeDialTab: YourSpaceDialTab,
     onDialTabChange: (YourSpaceDialTab) -> Unit,
+    savedDialPage: Int,
+    onDialPageChange: (Int) -> Unit,
     onReorderPinnedSpeedDial: ((List<ShelfItem>) -> Unit)?,
     onOpenYourSpaceCustomize: (() -> Unit)?,
     pinnedIds: Set<String>,
@@ -536,6 +565,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                         artistItems = artistDialItems,
                         activeTab = activeDialTab,
                         onTabChange = onDialTabChange,
+                        savedPage = savedDialPage,
+                        onPageChange = onDialPageChange,
                         onReorderPinned = onReorderPinnedSpeedDial,
                         modifier = Modifier.padding(bottom = 2.dp),
                     )
@@ -814,6 +845,7 @@ fun CompactTrackRow(
     onLongPress: (() -> Unit)?,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    isPinned: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -835,6 +867,30 @@ fun CompactTrackRow(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
             if (isCurrent && isPlaying) SearchPlayingBars(Modifier.align(Alignment.Center))
+            if (isPinned) {
+                val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF121921) else MaterialTheme.colorScheme.surface)
+                        .border(
+                            1.dp,
+                            if (isDark) Color(0xFF2B3A4A) else Color.Black.copy(alpha = 0.12f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = BitChordIcons.LocationPin,
+                        contentDescription = "Pinned to Your Space",
+                        tint = Color(0xFFD6B27D),
+                        modifier = Modifier.size(10.5.dp),
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {

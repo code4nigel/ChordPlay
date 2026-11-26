@@ -1741,8 +1741,8 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="speed_dial_layout">Bố cục</string>
     <string name="speed_dial_picks">Nguồn đề xuất</string>
     <string name="speed_dial_tile_border">Kiểu ô</string>
-    <string name="speed_dial_mixes_dial">Bảng Bản phối</string>
-    <string name="speed_dial_artist_dial">Bảng Nghệ sĩ</string>
+    <string name="speed_dial_mixes_dial">Trang Bản phối</string>
+    <string name="speed_dial_artist_dial">Trang Nghệ sĩ</string>
     <string name="speed_dial_chord_wave">Ô Chord Wave</string>
     <string name="speed_dial_show_names">Hiện tên ô</string>
     <string name="speed_dial_show_pins">Hiện huy hiệu ghim</string>

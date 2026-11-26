@@ -1315,6 +1315,8 @@ private fun BitChordApp(
     }
 
     val homeListState = rememberLazyListState()
+    var homeSpeedDialPage by rememberSaveable { mutableIntStateOf(0) }
+    var homeSpeedDialTabName by rememberSaveable { mutableStateOf(com.music.bitchord.data.settings.YourSpaceDialTab.SPACE.name) }
     val radioListState = rememberLazyListState()
     val genresListState = rememberLazyListState()
     val moodGenreListState = rememberLazyListState()
@@ -4148,6 +4150,12 @@ private fun BitChordApp(
                                 precomputedSpeedDialBase = speedDialBase,
                                 mixesDialItems = mixesDialItems,
                                 artistDialItems = artistDialItems,
+                                savedSpeedDialPage = homeSpeedDialPage,
+                                onSpeedDialPageChange = { homeSpeedDialPage = it },
+                                savedSpeedDialTab = com.music.bitchord.data.settings.YourSpaceDialTab.entries
+                                    .firstOrNull { it.name == homeSpeedDialTabName }
+                                    ?: com.music.bitchord.data.settings.YourSpaceDialTab.SPACE,
+                                onSpeedDialTabChange = { homeSpeedDialTabName = it.name },
                                 onReorderPinnedSpeedDial = AppSettings::reorderPinnedSpeedDial,
                                 onOpenYourSpaceCustomize = { showYourSpaceCustomize = true },
                                 melodyItem = melodyTile,

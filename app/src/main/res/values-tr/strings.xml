@@ -1782,8 +1782,8 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="speed_dial_layout">Düzen</string>
     <string name="speed_dial_picks">Seçim kaynağı</string>
     <string name="speed_dial_tile_border">Karo stili</string>
-    <string name="speed_dial_mixes_dial">Miks Kadranı</string>
-    <string name="speed_dial_artist_dial">Sanatçı Kadranı</string>
+    <string name="speed_dial_mixes_dial">Miksler sayfası</string>
+    <string name="speed_dial_artist_dial">Sanatçı sayfası</string>
     <string name="speed_dial_chord_wave">Chord Wave karosu</string>
     <string name="speed_dial_show_names">Karo adlarını göster</string>
     <string name="speed_dial_show_pins">Sabitleme rozetlerini göster</string>

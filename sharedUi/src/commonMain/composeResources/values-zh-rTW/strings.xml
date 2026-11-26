@@ -335,8 +335,8 @@
     <string name="speed_dial_layout">版面配置</string>
     <string name="speed_dial_picks">推薦來源</string>
     <string name="speed_dial_tile_border">圖磚樣式</string>
-    <string name="speed_dial_mixes_dial">合輯撥盤</string>
-    <string name="speed_dial_artist_dial">藝人撥盤</string>
+    <string name="speed_dial_mixes_dial">合輯頁面</string>
+    <string name="speed_dial_artist_dial">藝人頁面</string>
     <string name="speed_dial_chord_wave">Chord Wave 圖磚</string>
     <string name="speed_dial_show_names">顯示圖磚名稱</string>
     <string name="speed_dial_show_pins">顯示釘選圖示</string>

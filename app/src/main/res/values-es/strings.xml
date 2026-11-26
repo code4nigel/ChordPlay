@@ -1841,8 +1841,8 @@
     <string name="speed_dial_layout">Diseño</string>
     <string name="speed_dial_picks">Fuente de sugerencias</string>
     <string name="speed_dial_tile_border">Estilo de tarjeta</string>
-    <string name="speed_dial_mixes_dial">Dial de mezclas</string>
-    <string name="speed_dial_artist_dial">Dial de artistas</string>
+    <string name="speed_dial_mixes_dial">Página de mezclas</string>
+    <string name="speed_dial_artist_dial">Página de artistas</string>
     <string name="speed_dial_chord_wave">Tarjeta Chord Wave</string>
     <string name="speed_dial_show_names">Mostrar nombres</string>
     <string name="speed_dial_show_pins">Mostrar insignias de pin</string>

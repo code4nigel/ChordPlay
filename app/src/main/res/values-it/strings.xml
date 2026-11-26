@@ -1764,8 +1764,8 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="speed_dial_layout">Layout</string>
     <string name="speed_dial_picks">Origine suggerimenti</string>
     <string name="speed_dial_tile_border">Stile riquadro</string>
-    <string name="speed_dial_mixes_dial">Quadrante Mix</string>
-    <string name="speed_dial_artist_dial">Quadrante Artisti</string>
+    <string name="speed_dial_mixes_dial">Pagina Mix</string>
+    <string name="speed_dial_artist_dial">Pagina Artisti</string>
     <string name="speed_dial_chord_wave">Riquadro Chord Wave</string>
     <string name="speed_dial_show_names">Mostra nomi riquadri</string>
     <string name="speed_dial_show_pins">Mostra badge pin</string>

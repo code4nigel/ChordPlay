@@ -1826,8 +1826,8 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="speed_dial_layout">Disposition</string>
     <string name="speed_dial_picks">Source des sélections</string>
     <string name="speed_dial_tile_border">Style de tuile</string>
-    <string name="speed_dial_mixes_dial">Cadran des mix</string>
-    <string name="speed_dial_artist_dial">Cadran des artistes</string>
+    <string name="speed_dial_mixes_dial">Page des mix</string>
+    <string name="speed_dial_artist_dial">Page des artistes</string>
     <string name="speed_dial_chord_wave">Tuile Chord Wave</string>
     <string name="speed_dial_show_names">Afficher les noms</string>
     <string name="speed_dial_show_pins">Afficher les épingles</string>

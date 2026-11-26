@@ -335,8 +335,8 @@
     <string name="speed_dial_layout">Tata letak</string>
     <string name="speed_dial_picks">Sumber pilihan</string>
     <string name="speed_dial_tile_border">Gaya ubin</string>
-    <string name="speed_dial_mixes_dial">Dial Mix</string>
-    <string name="speed_dial_artist_dial">Dial Artis</string>
+    <string name="speed_dial_mixes_dial">Halaman Mix</string>
+    <string name="speed_dial_artist_dial">Halaman Artis</string>
     <string name="speed_dial_chord_wave">Ubin Chord Wave</string>
     <string name="speed_dial_show_names">Tampilkan nama ubin</string>
     <string name="speed_dial_show_pins">Tampilkan lencana pin</string>
