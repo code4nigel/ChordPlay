@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.ui.rememberIsForeground
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -50,33 +51,41 @@ fun ChordPlayAmbientAura(
     model: Any?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    reduceAnimation: Boolean = false,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "ChordPlayAuraPulse")
+    val isForeground = rememberIsForeground()
+    val targetScale: Float
+    val targetAlpha: Float
+    if (isPlaying && isForeground && !reduceAnimation) {
+        val infiniteTransition = rememberInfiniteTransition(label = "ChordPlayAuraPulse")
 
-    // Breathing pulse scale: 1.05f to 1.12f when playing
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1.05f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "AuraScalePulse",
-    )
+        // Breathing pulse scale: 1.05f to 1.12f when playing
+        val pulseScale by infiniteTransition.animateFloat(
+            initialValue = 1.05f,
+            targetValue = 1.12f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "AuraScalePulse",
+        )
 
-    // Breathing pulse opacity: 0.45f to 0.78f when playing
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 0.78f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "AuraAlphaPulse",
-    )
-
-    val targetScale = if (isPlaying) pulseScale else 1.01f
-    val targetAlpha = if (isPlaying) pulseAlpha else 0.22f
+        // Breathing pulse opacity: 0.45f to 0.78f when playing
+        val pulseAlpha by infiniteTransition.animateFloat(
+            initialValue = 0.45f,
+            targetValue = 0.78f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2800, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "AuraAlphaPulse",
+        )
+        targetScale = pulseScale
+        targetAlpha = pulseAlpha
+    } else {
+        targetScale = 1.01f
+        targetAlpha = 0.22f
+    }
 
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
@@ -116,6 +125,7 @@ fun SynesthesiaNocturneOverlay(
     palette: MeshPalette,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    reduceAnimation: Boolean = false,
 ) {
     val c0 by animateColorAsState(
         targetValue = palette.colors.getOrElse(0) { Color(0xFFFF4B2B) },
@@ -133,16 +143,21 @@ fun SynesthesiaNocturneOverlay(
         label = "synC2",
     )
 
-    val infinite = rememberInfiniteTransition(label = "SynesthesiaRibbons")
-    val phase by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "RibbonPhase",
-    )
+    val isForeground = rememberIsForeground()
+    val phase = if (isPlaying && isForeground && !reduceAnimation) {
+        val infinite = rememberInfiniteTransition(label = "SynesthesiaRibbons")
+        infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = (2f * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 9000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "RibbonPhase",
+        ).value
+    } else {
+        0f
+    }
     val activeAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.55f,
         animationSpec = tween(700),

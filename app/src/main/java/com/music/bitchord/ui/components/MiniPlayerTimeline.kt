@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
+import com.music.bitchord.ui.rememberIsForeground
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -77,8 +78,10 @@ internal fun rememberMiniPlayerAuroraPhase(
         )
     }
 
-    LaunchedEffect(enabled, isPlaying, isScrubbing, reduceAnimation) {
-        if (!enabled) return@LaunchedEffect
+    val isForeground = rememberIsForeground()
+
+    LaunchedEffect(enabled, isForeground, isPlaying, isScrubbing, reduceAnimation) {
+        if (!enabled || !isForeground) return@LaunchedEffect
         if (reduceAnimation) {
             state.scrubMix = if (isScrubbing) 1f else 0f
             state.settleMix = if (isPlaying || isScrubbing) 1f else 0f

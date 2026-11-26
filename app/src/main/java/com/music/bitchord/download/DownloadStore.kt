@@ -6,6 +6,7 @@ import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.LocalMediaRepository
@@ -60,6 +61,14 @@ object DownloadStore {
     const val FOLDER = "ChordPlay"
 
     private val relativePath = "${Environment.DIRECTORY_MUSIC}/$FOLDER"
+    private val customDefaultRelativePath = "${Environment.DIRECTORY_DOWNLOADS}/Music/$FOLDER"
+
+    /** Whether a user-selected custom SAF tree URI is currently configured. */
+    fun usesCustomSafTree(): Boolean {
+        if (!AppSettings.saveToCustomDownloadLocation.value) return false
+        val uriString = AppSettings.customDownloadLocationUri.value ?: return false
+        return runCatching { DocumentsContract.isTreeUri(Uri.parse(uriString)) }.getOrDefault(false)
+    }
 
     /**
      * Whether saving needs `WRITE_EXTERNAL_STORAGE` asked for at runtime.
@@ -158,42 +167,89 @@ object DownloadStore {
         if (customLocEnabled) {
             val customUri = AppSettings.customDownloadLocationUri.value
             if (!customUri.isNullOrBlank()) {
+                val parsedUri = Uri.parse(customUri)
+                if (DocumentsContract.isTreeUri(parsedUri)) {
+                    return findSafDocument(context, parsedUri, name)
+                }
                 val folder = LocalMediaRepository.selectedFolder(customUri)
                 if (folder != null) {
                     val file = File(folder.absolutePath, name)
                     if (file.exists()) return Uri.fromFile(file)
                 }
+                return null
+            }
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mediaStoreEntry(
+                    context = context,
+                    name = name,
+                    collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    relativeFilter = "%Music/$FOLDER%",
+                )
             } else {
-                val defaultDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
-                val file = File(defaultDir, name)
-                if (file.exists()) return Uri.fromFile(file)
+                File(customDefaultLegacyDir(), name).takeIf { it.exists() }?.let(Uri::fromFile)
             }
         }
         return if (!AppSettings.exportDownloads.value && !customLocEnabled) {
             privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            mediaStoreEntry(context, name)
+            mediaStoreEntry(
+                context = context,
+                name = name,
+                collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                relativeFilter = "%$FOLDER%",
+            )
         } else {
             legacyFile(name).takeIf { it.exists() }?.let(Uri::fromFile)
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
+    private fun mediaStoreEntry(
+        context: Context,
+        name: String,
+        collection: Uri,
+        relativeFilter: String,
+    ): Uri? = runCatching {
         context.contentResolver.query(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            collection,
             arrayOf(MediaStore.MediaColumns._ID),
             "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND " +
                 "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?",
-            arrayOf(name, "%$FOLDER%"),
+            arrayOf(name, relativeFilter),
             null,
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI.buildUpon()
+            collection.buildUpon()
                 .appendPath(cursor.getLong(0).toString())
                 .build()
         }
     }.onFailure { Log.w(TAG, "media store lookup failed for $name: ${it.message}") }.getOrNull()
+
+    private fun findSafDocument(context: Context, treeUri: Uri, name: String): Uri? = runCatching {
+        val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, rootDocId)
+        context.contentResolver.query(
+            childrenUri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val idIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameIdx = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            if (idIdx < 0 || nameIdx < 0) return@use null
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIdx) == name) {
+                    val docId = cursor.getString(idIdx) ?: continue
+                    return@use DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                }
+            }
+            null
+        }
+    }.onFailure { Log.w(TAG, "SAF lookup failed for $name: ${it.message}") }.getOrNull()
 
     /**
      * Whether [uri] still names a file that is there.
@@ -217,6 +273,9 @@ object DownloadStore {
                     file.parentFile?.deleteRecursively() == true
                 } else file.delete()
             } == true
+        } else if (DocumentsContract.isDocumentUri(context, uri)) {
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                .getOrElse { context.contentResolver.delete(uri, null, null) > 0 }
         } else {
             context.contentResolver.delete(uri, null, null) > 0
         }
@@ -235,12 +294,14 @@ object DownloadStore {
         private val context: Context,
         val uri: Uri,
         val name: String,
-        /** Set on the legacy path only: the `.part` file being written. */
+        /** Set on the legacy/file path only: the `.part` file being written. */
         private val part: File?,
-        /** Set on the legacy path only: what [part] is renamed to. */
+        /** Set on the legacy/file path only: what [part] is renamed to. */
         private val target: File?,
+        private val isMediaStorePending: Boolean = false,
+        private val isSafDocument: Boolean = false,
     ) {
-        /** The bytes being built, whether this is a MediaStore row or a legacy `.part` file. */
+        /** The bytes being built, whether this is a MediaStore row, SAF doc, or `.part` file. */
         val tagUri: Uri get() = part?.let(Uri::fromFile) ?: uri
 
         fun openStream(): OutputStream =
@@ -262,18 +323,28 @@ object DownloadStore {
                 )
                 return Uri.fromFile(target)
             }
-            context.contentResolver.update(
-                uri,
-                ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) },
-                null,
-                null,
-            )
+            if (isMediaStorePending) {
+                runCatching {
+                    context.contentResolver.update(
+                        uri,
+                        ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) },
+                        null,
+                        null,
+                    )
+                }.onFailure { Log.w(TAG, "could not clear IS_PENDING on $uri: ${it.message}") }
+            }
             return uri
         }
 
         fun abort() {
             part?.delete()
-            if (part == null) runCatching { context.contentResolver.delete(uri, null, null) }
+            if (part == null) {
+                if (isSafDocument) {
+                    runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+                } else {
+                    runCatching { context.contentResolver.delete(uri, null, null) }
+                }
+            }
         }
     }
 
@@ -288,16 +359,64 @@ object DownloadStore {
         val customLocEnabled = AppSettings.saveToCustomDownloadLocation.value
         if (customLocEnabled) {
             val customUri = AppSettings.customDownloadLocationUri.value
-            val folder: File = if (!customUri.isNullOrBlank()) {
+            if (!customUri.isNullOrBlank()) {
+                val parsedUri = Uri.parse(customUri)
+                if (DocumentsContract.isTreeUri(parsedUri)) {
+                    val parentDocUri = DocumentsContract.buildDocumentUriUsingTree(
+                        parsedUri,
+                        DocumentsContract.getTreeDocumentId(parsedUri),
+                    )
+                    findSafDocument(context, parsedUri, name)?.let { existingDoc ->
+                        runCatching { DocumentsContract.deleteDocument(context.contentResolver, existingDoc) }
+                    }
+                    val docUri = runCatching {
+                        DocumentsContract.createDocument(context.contentResolver, parentDocUri, mimeType, name)
+                    }.getOrElse { cause ->
+                        Log.w(TAG, "SAF createDocument failed for $name: ${cause.message}")
+                        error("Could not create $name in selected download folder")
+                    } ?: error("Could not create $name in selected download folder")
+                    return Pending(
+                        context = context,
+                        uri = docUri,
+                        name = name,
+                        part = null,
+                        target = null,
+                        isSafDocument = true,
+                    )
+                }
                 val selected = LocalMediaRepository.selectedFolder(customUri)
-                if (selected != null) File(selected.absolutePath)
-                else File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
-            } else {
-                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "Music/ChordPlay")
+                    ?: error("Selected download folder is unavailable")
+                val folder = File(selected.absolutePath)
+                if (!folder.exists() && !folder.mkdirs()) error("Could not create ${folder.path}")
+                val target = File(folder, name)
+                val part = File(folder, ".$name.part")
+                part.delete()
+                return Pending(context, Uri.fromFile(target), name, part = part, target = target)
             }
-            if (!folder.exists() && !folder.mkdirs()) {
-                Log.w(TAG, "could not make custom dir ${folder.path}")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, customDefaultRelativePath)
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+                val uri = runCatching {
+                    context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                }.getOrElse { cause ->
+                    Log.w(TAG, "the downloads store refused $mimeType for $name: ${cause.message}")
+                    error("Android won't store ${name.substringAfterLast('.', mimeType)} files in Downloads")
+                } ?: error("Could not create $name in Downloads")
+                return Pending(
+                    context = context,
+                    uri = uri,
+                    name = name,
+                    part = null,
+                    target = null,
+                    isMediaStorePending = true,
+                )
             }
+            val folder = customDefaultLegacyDir()
+            if (!folder.exists() && !folder.mkdirs()) error("Could not create ${folder.path}")
             val target = File(folder, name)
             val part = File(folder, ".$name.part")
             part.delete()
@@ -332,7 +451,14 @@ object DownloadStore {
                 Log.w(TAG, "the media store refused $mimeType for $name: ${cause.message}")
                 error("Android won't store ${name.substringAfterLast('.', mimeType)} files in Music")
             } ?: error("Could not create $name in Music")
-            return Pending(context, uri, name, part = null, target = null)
+            return Pending(
+                context = context,
+                uri = uri,
+                name = name,
+                part = null,
+                target = null,
+                isMediaStorePending = true,
+            )
         }
 
         val target = legacyFile(name)
@@ -347,6 +473,12 @@ object DownloadStore {
     private fun legacyFile(name: String) = File(
         File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), FOLDER),
         name,
+    )
+
+    @Suppress("DEPRECATION")
+    private fun customDefaultLegacyDir() = File(
+        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+        "Music/$FOLDER",
     )
 
     private fun privateFile(context: Context, name: String) =

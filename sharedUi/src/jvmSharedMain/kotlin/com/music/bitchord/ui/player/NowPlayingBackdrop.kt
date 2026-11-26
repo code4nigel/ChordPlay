@@ -106,6 +106,7 @@ internal fun BoxScope.PortraitBackdrop(
     playerHaze: HazeState,
 ) {
     val animSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val animatedPanelProgress by animateFloatAsState(
         targetValue = if (panelOpen) 1f else 0f,
         animationSpec = tween(durationMillis = (420f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
@@ -156,6 +157,7 @@ internal fun BoxScope.PortraitBackdrop(
         SynesthesiaNocturneOverlay(
             palette = synesthesiaPalette,
             isPlaying = isPlaying,
+            reduceAnimation = reduceAnimation,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = nocturneAlpha() },

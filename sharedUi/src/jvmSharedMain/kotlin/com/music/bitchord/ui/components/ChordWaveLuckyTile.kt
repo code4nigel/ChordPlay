@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -82,6 +83,7 @@ import com.music.bitchord.ui.graphics.paletteSwatches
 import com.music.bitchord.ui.graphics.toImageBitmap
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.rememberIsForeground
 import com.music.bitchord.ui.theme.ArtworkPalette
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -112,6 +114,9 @@ private const val WAVE_SETTLE_MS = 820
 private const val WAVE_BLOOM_RISE_MS = 220
 private const val WAVE_BLOOM_FADE_MS = 780
 private const val COLOR_FADE_MS = 1100
+
+/** Whether the hosting page is visible (e.g. not completely covered by the full player). */
+val LocalPageActive = compositionLocalOf { true }
 
 /**
  * Preserves continuous integrated phases across pager swipes and scroll recycling
@@ -151,10 +156,14 @@ private fun rememberChordWaveController(
     controller.isPlaying = isPlaying
     controller.onRoll = onRoll
 
+    val isForeground = rememberIsForeground()
+    val isPageActive = LocalPageActive.current
+    val animActive = !reduceAnimation && isForeground && isPageActive
+
     // Continuous velocity integration: flowPhase += dt * speed guarantees
     // C1-smooth acceleration and deceleration without rewinds or loop seams.
-    LaunchedEffect(reduceAnimation) {
-        if (reduceAnimation) return@LaunchedEffect
+    LaunchedEffect(animActive) {
+        if (!animActive) return@LaunchedEffect
         var lastMs = withFrameMillis { it }
         while (true) {
             val now = withFrameMillis { it }

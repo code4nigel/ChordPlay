@@ -1,5 +1,15 @@
 [
   {
+    "timestamp": "2026-11-26 21:09:39",
+    "versionCode": 121,
+    "versionName": "2.2.9",
+    "variant": "devDebug",
+    "files": {
+      "FileName": "ChordPlay-v2.2.9-vc121-devDebug-arm64-v8a.apk",
+      "SizeMB": 67.23
+    }
+  },
+  {
     "timestamp": "2026-11-26 17:50:57",
     "versionCode": 120,
     "versionName": "2.2.9",

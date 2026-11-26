@@ -587,7 +587,7 @@ fun MiniPlayer(
         reduceAnimation = reduceAnimation,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
-        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && effectiveDurationMs > 0L,
+        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && effectiveDurationMs > 0L && dock?.panelShown != true,
         isPlaying = isPlaying,
         isScrubbing = scrubFraction != null,
         reduceAnimation = reduceAnimation,

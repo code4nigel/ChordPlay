@@ -349,7 +349,7 @@ private fun GlassNowPlaying(
         reduceAnimation = reduceAnimation,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
-        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && durationMs > 0L,
+        enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && durationMs > 0L && dock?.panelShown != true,
         isPlaying = isPlaying,
         isScrubbing = scrubFraction != null,
         reduceAnimation = reduceAnimation,

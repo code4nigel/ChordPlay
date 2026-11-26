@@ -120,6 +120,7 @@ import com.music.bitchord.ui.components.OdometerText
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.rememberIsForeground
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -313,17 +314,18 @@ fun SynesthesiaWaveformScrubber(
         label = "LiveWaveAmp",
     )
 
-    val infinite = rememberInfiniteTransition(label = "WaveBreath")
-    val wavePhase by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 4200, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "WavePhase",
-    )
-    val livePhase = if (!liveWaveMotion && effectiveStyle == PlayerWaveStyle.OG_WAVE && isPlaying && !reduceAnimation) {
+    val isForeground = rememberIsForeground()
+    val livePhase = if (!liveWaveMotion && effectiveStyle == PlayerWaveStyle.OG_WAVE && isPlaying && isForeground && !reduceAnimation) {
+        val infinite = rememberInfiniteTransition(label = "WaveBreath")
+        val wavePhase by infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = (2f * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 4200, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "WavePhase",
+        )
         wavePhase
     } else {
         0f
@@ -1404,32 +1406,41 @@ fun ChordPlayTransportDeck(
         label = "DeckSkipIconSize",
     )
 
-    val infinite = rememberInfiniteTransition(label = "OrbContours")
-    val orbPhase by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = (2f * PI).toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "OrbPhase",
-    )
-    val breathScale by infinite.animateFloat(
-        initialValue = 0.978f,
-        targetValue = 1.032f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "OrbBreath",
-    )
+    val isForeground = rememberIsForeground()
+    val orbActive = isPlaying && isForeground && !reduceAnimation
+    val orbPhase: Float
+    val breathScale: Float
+    if (orbActive) {
+        val infinite = rememberInfiniteTransition(label = "OrbContours")
+        orbPhase = infinite.animateFloat(
+            initialValue = 0f,
+            targetValue = (2f * PI).toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 6500, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "OrbPhase",
+        ).value
+        breathScale = infinite.animateFloat(
+            initialValue = 0.978f,
+            targetValue = 1.032f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 2200),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "OrbBreath",
+        ).value
+    } else {
+        orbPhase = 0f
+        breathScale = 1f
+    }
 
     val ringsAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
         animationSpec = tween(500),
         label = "OrbRingsAlpha",
     )
-    val liveBreathScale = if (isPlaying && !reduceAnimation) breathScale else 1f
+    val liveBreathScale = breathScale
     val buttonDullAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.80f,
         animationSpec = tween(400),

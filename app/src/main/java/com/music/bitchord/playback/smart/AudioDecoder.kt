@@ -23,6 +23,7 @@
 
 package com.music.bitchord.playback.smart
 
+import android.media.AudioFormat
 import android.media.MediaCodec
 import android.media.MediaDataSource
 import android.media.MediaExtractor
@@ -111,22 +112,95 @@ object AudioDecoder {
      * it stopped rather than merely ignored.
      */
     private class PcmScratch {
-        var shorts = ShortArray(8192)
+        var floats = FloatArray(8192)
+        private var bytes = ByteArray(16384)
+        private var shorts = ShortArray(8192)
 
-        fun load(buffer: ByteBuffer, info: MediaCodec.BufferInfo): Int {
+        fun loadFloats(buffer: ByteBuffer, info: MediaCodec.BufferInfo, pcmEncoding: Int): Int {
             val byteCount = info.size.coerceAtLeast(0)
-            val shortCount = byteCount / 2
-            if (shortCount <= 0) return 0
-            if (shorts.size < shortCount) {
-                shorts = ShortArray(max(shortCount, shorts.size * 2))
-            }
+            if (byteCount <= 0) return 0
             val view = buffer.duplicate().apply {
                 order(ByteOrder.LITTLE_ENDIAN)
                 position(info.offset)
-                limit(info.offset + shortCount * 2)
-            }.asShortBuffer()
-            view.get(shorts, 0, shortCount)
-            return shortCount
+                limit(info.offset + byteCount)
+            }
+            return when (pcmEncoding) {
+                AudioFormat.ENCODING_PCM_FLOAT -> {
+                    val sampleCount = byteCount / 4
+                    if (sampleCount <= 0) return 0
+                    ensureFloats(sampleCount)
+                    view.limit(info.offset + sampleCount * 4)
+                    view.asFloatBuffer().get(floats, 0, sampleCount)
+                    sampleCount
+                }
+                AudioFormat.ENCODING_PCM_8BIT -> {
+                    val sampleCount = byteCount
+                    ensureFloats(sampleCount)
+                    ensureBytes(sampleCount)
+                    view.get(bytes, 0, sampleCount)
+                    for (i in 0 until sampleCount) {
+                        floats[i] = ((bytes[i].toInt() and 0xFF) - 128) / 128f
+                    }
+                    sampleCount
+                }
+                ENCODING_PCM_24BIT_PACKED -> {
+                    val sampleCount = byteCount / 3
+                    if (sampleCount <= 0) return 0
+                    ensureFloats(sampleCount)
+                    val packedBytes = sampleCount * 3
+                    ensureBytes(packedBytes)
+                    view.limit(info.offset + packedBytes)
+                    view.get(bytes, 0, packedBytes)
+                    for (i in 0 until sampleCount) {
+                        val b = i * 3
+                        val raw = (bytes[b].toInt() and 0xFF) or
+                            ((bytes[b + 1].toInt() and 0xFF) shl 8) or
+                            (bytes[b + 2].toInt() shl 16)
+                        floats[i] = raw / 8_388_608f
+                    }
+                    sampleCount
+                }
+                ENCODING_PCM_32BIT -> {
+                    val sampleCount = byteCount / 4
+                    if (sampleCount <= 0) return 0
+                    ensureFloats(sampleCount)
+                    val packedBytes = sampleCount * 4
+                    ensureBytes(packedBytes)
+                    view.limit(info.offset + packedBytes)
+                    view.get(bytes, 0, packedBytes)
+                    for (i in 0 until sampleCount) {
+                        val b = i * 4
+                        val raw = (bytes[b].toInt() and 0xFF) or
+                            ((bytes[b + 1].toInt() and 0xFF) shl 8) or
+                            ((bytes[b + 2].toInt() and 0xFF) shl 16) or
+                            (bytes[b + 3].toInt() shl 24)
+                        floats[i] = (raw.toDouble() / 2_147_483_648.0).toFloat()
+                    }
+                    sampleCount
+                }
+                else -> {
+                    val sampleCount = byteCount / 2
+                    if (sampleCount <= 0) return 0
+                    ensureFloats(sampleCount)
+                    if (shorts.size < sampleCount) {
+                        shorts = ShortArray(max(sampleCount, shorts.size * 2))
+                    }
+                    view.limit(info.offset + sampleCount * 2)
+                    view.asShortBuffer().get(shorts, 0, sampleCount)
+                    for (i in 0 until sampleCount) {
+                        floats[i] = shorts[i] / 32768f
+                    }
+                    sampleCount
+                }
+            }
+        }
+
+        private fun ensureFloats(count: Int) {
+            if (floats.size < count) floats = FloatArray(max(count, floats.size * 2))
+        }
+
+        private fun ensureBytes(count: Int) {
+            if (bytes.size < count) bytes = ByteArray(max(count, bytes.size * 2))
         }
     }
 
@@ -148,8 +222,8 @@ object AudioDecoder {
     ): Pair<Pcm, Double>? {
         val scratch = PcmScratch()
         val chunks = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels ->
-            chunks += toMono(buffer, info, channels, scratch)
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, pcmEncoding ->
+            chunks += toMono(buffer, info, channels, pcmEncoding, scratch)
         } ?: return null
         return Pcm(flatten(chunks), decoded.first) to decoded.second
     }
@@ -171,8 +245,8 @@ object AudioDecoder {
         val scratch = PcmScratch()
         val left = ArrayList<FloatArray>()
         val right = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels ->
-            toStereo(buffer, info, channels, left, right, scratch)
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels, pcmEncoding ->
+            toStereo(buffer, info, channels, pcmEncoding, left, right, scratch)
         } ?: return null
         return StereoPcm(flatten(left), flatten(right), decoded.first) to decoded.second
     }
@@ -227,6 +301,7 @@ object AudioDecoder {
             val bufferInfo = MediaCodec.BufferInfo()
             var outputChannels = max(1, format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 1)
             var outputRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0
+            var pcmEncoding = format.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: AudioFormat.ENCODING_PCM_16BIT
             var actualStartSeconds = 0.0
             var sawFirstSample = false
             var decodedFrames = 0L
@@ -234,6 +309,7 @@ object AudioDecoder {
             var inputDone = false
             var outputDone = false
             var reachedEosFlag = false
+            var idleSpins = 0
 
             while (!outputDone) {
                 if (abort()) return null
@@ -243,9 +319,13 @@ object AudioDecoder {
                 while (!inputDone && fed < 4) {
                     val inputIndex = codec.dequeueInputBuffer(0L)
                     if (inputIndex < 0) break
-                    madeProgress = true
                     fed++
-                    val inputBuffer = codec.getInputBuffer(inputIndex) ?: continue
+                    val inputBuffer = codec.getInputBuffer(inputIndex)
+                    if (inputBuffer == null) {
+                        codec.queueInputBuffer(inputIndex, 0, 0, 0, 0)
+                        break
+                    }
+                    madeProgress = true
                     val sampleSize = extractor.readSampleData(inputBuffer, 0)
                     val sampleTimeUs = extractor.sampleTime
                     if (sampleSize < 0) {
@@ -268,6 +348,7 @@ object AudioDecoder {
                             val newFormat = codec.outputFormat
                             outputRate = newFormat.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: outputRate
                             outputChannels = max(1, newFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: outputChannels)
+                            pcmEncoding = newFormat.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: pcmEncoding
                         }
                         outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER ||
                             outputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> break
@@ -283,14 +364,14 @@ object AudioDecoder {
                                     sawFirstSample = true
                                 }
                                 codec.getOutputBuffer(outputIndex)?.let { output ->
-                                    val shortCount = scratch.load(output, bufferInfo)
-                                    val frames = shortCount / outputChannels
+                                    val sampleCount = scratch.loadFloats(output, bufferInfo, pcmEncoding)
+                                    val frames = sampleCount / outputChannels
                                     if (frames > 0) {
-                                        val shorts = scratch.shorts
+                                        val floats = scratch.floats
                                         // Stride down within each decoded buffer so CPU cost stays tiny
                                         // (~10-25x faster on full songs) while accurately capturing envelope.
                                         val stride = max(1, frames / 24)
-                                        val invScale = 1f / (32768f * outputChannels)
+                                        val invCh = 1f / outputChannels
                                         val bufStartSec = actualStartSeconds + decodedFrames.toDouble() / outputRate
                                         var f = 0
                                         while (f < frames) {
@@ -298,11 +379,11 @@ object AudioDecoder {
                                             val binIdx = (sampleSec / binDuration).toInt()
                                             if (binIdx in 0 until binCount) {
                                                 val base = f * outputChannels
-                                                var chSum = 0
+                                                var chSum = 0f
                                                 for (c in 0 until outputChannels) {
-                                                    chSum += shorts[base + c]
+                                                    chSum += floats[base + c]
                                                 }
-                                                val a = abs(chSum * invScale)
+                                                val a = abs(chSum * invCh)
                                                 binSumSq[binIdx] += (a * a).toDouble()
                                                 if (a > binPeak[binIdx]) binPeak[binIdx] = a
                                                 binCountSamples[binIdx]++
@@ -336,6 +417,13 @@ object AudioDecoder {
                         }
                         onProgress(snapBins, snapHas, frac, effectiveDuration)
                     }
+                }
+
+                if (madeProgress) {
+                    idleSpins = 0
+                } else if (++idleSpins >= MAX_IDLE_SPINS) {
+                    Log.w(TAG, "Waveform bin decoder stalled after $idleSpins idle iterations")
+                    break
                 }
             }
 
@@ -426,11 +514,13 @@ object AudioDecoder {
             val bufferInfo = MediaCodec.BufferInfo()
             var outputChannels = max(1, format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 1)
             var outputRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0
+            var pcmEncoding = format.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: AudioFormat.ENCODING_PCM_16BIT
             var actualStartSeconds = 0.0
             var sawFirstSample = false
             var decodedSeconds = 0.0
             var inputDone = false
             var outputDone = false
+            var idleSpins = 0
 
             while (!outputDone) {
                 if (abort()) return null
@@ -440,9 +530,13 @@ object AudioDecoder {
                 while (!inputDone && fed < 4) {
                     val inputIndex = codec.dequeueInputBuffer(0L)
                     if (inputIndex < 0) break
-                    madeProgress = true
                     fed++
-                    val inputBuffer = codec.getInputBuffer(inputIndex) ?: continue
+                    val inputBuffer = codec.getInputBuffer(inputIndex)
+                    if (inputBuffer == null) {
+                        codec.queueInputBuffer(inputIndex, 0, 0, 0, 0)
+                        break
+                    }
+                    madeProgress = true
                     val sampleSize = extractor.readSampleData(inputBuffer, 0)
                     val sampleTimeUs = extractor.sampleTime
                     if (sampleSize < 0) {
@@ -465,6 +559,7 @@ object AudioDecoder {
                             val newFormat = codec.outputFormat
                             outputRate = newFormat.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: outputRate
                             outputChannels = max(1, newFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: outputChannels)
+                            pcmEncoding = newFormat.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: pcmEncoding
                         }
                         outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER ||
                             outputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> break
@@ -479,24 +574,24 @@ object AudioDecoder {
                                     sawFirstSample = true
                                 }
                                 codec.getOutputBuffer(outputIndex)?.let { output ->
-                                    val shortCount = scratch.load(output, bufferInfo)
-                                    val frames = shortCount / outputChannels
+                                    val sampleCount = scratch.loadFloats(output, bufferInfo, pcmEncoding)
+                                    val frames = sampleCount / outputChannels
                                     if (frames > 0) {
-                                        val shorts = scratch.shorts
+                                        val floats = scratch.floats
                                         val framesPerTargetBin = max(1, (outputRate * targetSampleSeconds).roundToInt())
                                         val stride = max(1, framesPerTargetBin / 12)
-                                        val invScale = 1f / (32768f * outputChannels)
+                                        val invCh = 1f / outputChannels
                                         var f = 0
                                         while (f < frames) {
                                             val sampleOffsetSec = decodedSeconds + f.toDouble() / outputRate
                                             val binIdx = (sampleOffsetSec / targetSampleSeconds).toInt()
                                             if (binIdx in peakBins.indices) {
                                                 val base = f * outputChannels
-                                                var chSum = 0
+                                                var chSum = 0f
                                                 for (c in 0 until outputChannels) {
-                                                    chSum += shorts[base + c]
+                                                    chSum += floats[base + c]
                                                 }
-                                                val a = abs(chSum * invScale)
+                                                val a = abs(chSum * invCh)
                                                 if (a > peakBins[binIdx]) peakBins[binIdx] = a
                                                 if (binIdx > maxWrittenBin) maxWrittenBin = binIdx
                                             }
@@ -509,6 +604,13 @@ object AudioDecoder {
                             codec.releaseOutputBuffer(outputIndex, false)
                         }
                     }
+                }
+
+                if (madeProgress) {
+                    idleSpins = 0
+                } else if (++idleSpins >= MAX_IDLE_SPINS) {
+                    Log.w(TAG, "Waveform peaks decoder stalled after $idleSpins idle iterations")
+                    break
                 }
             }
 
@@ -552,7 +654,7 @@ object AudioDecoder {
         startSeconds: Double,
         endSeconds: Double,
         abort: () -> Boolean,
-        onBuffer: (ByteBuffer, MediaCodec.BufferInfo, Int) -> Unit,
+        onBuffer: (ByteBuffer, MediaCodec.BufferInfo, Int, Int) -> Unit,
     ): Pair<Double, Double>? {
         if (endSeconds <= startSeconds) return null
         val extractor = MediaExtractor()
@@ -579,10 +681,12 @@ object AudioDecoder {
             val bufferInfo = MediaCodec.BufferInfo()
             var outputChannels = format.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: 1
             var outputRate = format.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: 0
+            var pcmEncoding = format.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: AudioFormat.ENCODING_PCM_16BIT
             var actualStartSeconds = -1.0
             var sawFirstSample = false
             var inputDone = false
             var outputDone = false
+            var idleSpins = 0
 
             while (!outputDone) {
                 if (abort()) return null
@@ -592,9 +696,13 @@ object AudioDecoder {
                 while (!inputDone && fed < 4) {
                     val inputIndex = codec.dequeueInputBuffer(0L)
                     if (inputIndex < 0) break
-                    madeProgress = true
                     fed++
-                    val inputBuffer = codec.getInputBuffer(inputIndex) ?: continue
+                    val inputBuffer = codec.getInputBuffer(inputIndex)
+                    if (inputBuffer == null) {
+                        codec.queueInputBuffer(inputIndex, 0, 0, 0, 0)
+                        break
+                    }
+                    madeProgress = true
                     val sampleSize = extractor.readSampleData(inputBuffer, 0)
                     val sampleTimeUs = extractor.sampleTime
                     if (sampleSize < 0 || (sampleTimeUs in 0..Long.MAX_VALUE && sampleTimeUs > endUs)) {
@@ -616,7 +724,8 @@ object AudioDecoder {
                             madeProgress = true
                             val newFormat = codec.outputFormat
                             outputRate = newFormat.intOrNull(MediaFormat.KEY_SAMPLE_RATE) ?: outputRate
-                            outputChannels = newFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: outputChannels
+                            outputChannels = max(1, newFormat.intOrNull(MediaFormat.KEY_CHANNEL_COUNT) ?: outputChannels)
+                            pcmEncoding = newFormat.intOrNull(MediaFormat.KEY_PCM_ENCODING) ?: pcmEncoding
                         }
                         outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER ||
                             outputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED -> break
@@ -631,13 +740,20 @@ object AudioDecoder {
                                     sawFirstSample = true
                                 }
                                 codec.getOutputBuffer(outputIndex)?.let { output ->
-                                    onBuffer(output, bufferInfo, outputChannels)
+                                    onBuffer(output, bufferInfo, outputChannels, pcmEncoding)
                                 }
                                 if (bufferInfo.presentationTimeUs > endUs) outputDone = true
                             }
                             codec.releaseOutputBuffer(outputIndex, false)
                         }
                     }
+                }
+
+                if (madeProgress) {
+                    idleSpins = 0
+                } else if (++idleSpins >= MAX_IDLE_SPINS) {
+                    Log.w(TAG, "Region decoder stalled after $idleSpins idle iterations")
+                    break
                 }
             }
 
@@ -653,24 +769,25 @@ object AudioDecoder {
         }
     }
 
-    /** Downmixes one 16-bit PCM output buffer to mono float in [-1, 1]. */
+    /** Downmixes one PCM output buffer to mono float in [-1, 1]. */
     private fun toMono(
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         channels: Int,
+        pcmEncoding: Int,
         scratch: PcmScratch,
     ): FloatArray {
         val safeChannels = max(1, channels)
-        val shortCount = scratch.load(buffer, info)
-        val frames = shortCount / safeChannels
+        val sampleCount = scratch.loadFloats(buffer, info, pcmEncoding)
+        val frames = sampleCount / safeChannels
         val mono = FloatArray(frames)
-        val shorts = scratch.shorts
-        val invScale = 1f / (32768f * safeChannels)
+        val floats = scratch.floats
+        val invChannels = 1f / safeChannels
         for (index in 0 until frames) {
             val base = index * safeChannels
-            var sum = 0
-            for (c in 0 until safeChannels) sum += shorts[base + c]
-            mono[index] = sum * invScale
+            var sum = 0f
+            for (c in 0 until safeChannels) sum += floats[base + c]
+            mono[index] = sum * invChannels
         }
         return mono
     }
@@ -679,20 +796,21 @@ object AudioDecoder {
         buffer: ByteBuffer,
         info: MediaCodec.BufferInfo,
         channels: Int,
+        pcmEncoding: Int,
         left: MutableList<FloatArray>,
         right: MutableList<FloatArray>,
         scratch: PcmScratch,
     ) {
         val safeChannels = max(1, channels)
-        val shortCount = scratch.load(buffer, info)
-        val frames = shortCount / safeChannels
+        val sampleCount = scratch.loadFloats(buffer, info, pcmEncoding)
+        val frames = sampleCount / safeChannels
         val leftChunk = FloatArray(frames)
         val rightChunk = FloatArray(frames)
-        val shorts = scratch.shorts
+        val floats = scratch.floats
         for (index in 0 until frames) {
             val base = index * safeChannels
-            leftChunk[index] = shorts[base] / 32768f
-            rightChunk[index] = (if (safeChannels > 1) shorts[base + 1] else shorts[base]) / 32768f
+            leftChunk[index] = floats[base]
+            rightChunk[index] = if (safeChannels > 1) floats[base + 1] else floats[base]
         }
         left += leftChunk
         right += rightChunk
@@ -702,5 +820,8 @@ object AudioDecoder {
     private fun MediaFormat.longOrNull(key: String): Long? = if (containsKey(key)) getLong(key) else null
 
     private const val IDLE_TIMEOUT_US = 2_000L
+    private const val MAX_IDLE_SPINS = 1_500
     private const val MAX_PEAK_BINS = 12_000
+    private const val ENCODING_PCM_24BIT_PACKED = 21
+    private const val ENCODING_PCM_32BIT = 22
 }

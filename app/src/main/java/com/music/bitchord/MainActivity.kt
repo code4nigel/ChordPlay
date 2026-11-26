@@ -329,6 +329,7 @@ import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalAppBackdropFrozen
 import com.music.bitchord.ui.components.LocalAppHazeState
 import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
+import com.music.bitchord.ui.components.LocalPageActive
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
@@ -428,6 +429,8 @@ import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -449,13 +452,55 @@ internal fun shouldSkipAfterDislike(
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
 
+@Composable
+private fun KeepScreenOnEffect(
+    window: android.view.Window,
+    interactionAtFlow: StateFlow<Long>,
+    onResetInteraction: () -> Unit,
+) {
+    val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
+    val keepScreenOnDuration by AppSettings.keepScreenOnDuration.collectAsStateWithLifecycle()
+    var isActivityResumed by remember { mutableStateOf(false) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
+                    isActivityResumed = true
+                    onResetInteraction()
+                }
+                androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> isActivityResumed = false
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(keepScreenOn, keepScreenOnDuration, isActivityResumed) {
+        if (!keepScreenOn || !isActivityResumed) {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            return@LaunchedEffect
+        }
+        interactionAtFlow.collectLatest { interactedAt ->
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            val timeoutMs = keepScreenOnDuration.durationMs
+            if (timeoutMs != null) {
+                val elapsed = (SystemClock.elapsedRealtime() - interactedAt).coerceAtLeast(0L)
+                val remaining = (timeoutMs - elapsed).coerceAtLeast(0L)
+                delay(remaining)
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
+}
+
 class MainActivity : AppCompatActivity() {
 
-    private var lastUserInteractionAt by mutableLongStateOf(SystemClock.elapsedRealtime())
+    private val lastUserInteractionAt = MutableStateFlow(SystemClock.elapsedRealtime())
 
     override fun onUserInteraction() {
         super.onUserInteraction()
-        lastUserInteractionAt = SystemClock.elapsedRealtime()
+        lastUserInteractionAt.value = SystemClock.elapsedRealtime()
     }
 
     fun triggerPictureInPicture(): Boolean {
@@ -527,38 +572,11 @@ class MainActivity : AppCompatActivity() {
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
             val displayDensityScale by AppSettings.displayDensityScale.collectAsStateWithLifecycle()
-            val keepScreenOn by AppSettings.keepScreenOn.collectAsStateWithLifecycle()
-            val keepScreenOnDuration by AppSettings.keepScreenOnDuration.collectAsStateWithLifecycle()
-            var isActivityResumed by remember { mutableStateOf(false) }
-            val activityLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-            androidx.compose.runtime.DisposableEffect(activityLifecycleOwner) {
-                val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-                    when (event) {
-                        androidx.lifecycle.Lifecycle.Event.ON_RESUME -> {
-                            isActivityResumed = true
-                            lastUserInteractionAt = SystemClock.elapsedRealtime()
-                        }
-                        androidx.lifecycle.Lifecycle.Event.ON_PAUSE -> isActivityResumed = false
-                        else -> Unit
-                    }
-                }
-                activityLifecycleOwner.lifecycle.addObserver(observer)
-                onDispose { activityLifecycleOwner.lifecycle.removeObserver(observer) }
-            }
-            LaunchedEffect(keepScreenOn, keepScreenOnDuration, lastUserInteractionAt, isActivityResumed) {
-                if (!keepScreenOn || !isActivityResumed) {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    return@LaunchedEffect
-                }
-                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                val timeoutMs = keepScreenOnDuration.durationMs
-                if (timeoutMs != null) {
-                    val elapsed = (SystemClock.elapsedRealtime() - lastUserInteractionAt).coerceAtLeast(0L)
-                    val remaining = (timeoutMs - elapsed).coerceAtLeast(0L)
-                    delay(remaining)
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
-            }
+            KeepScreenOnEffect(
+                window = window,
+                interactionAtFlow = lastUserInteractionAt,
+                onResetInteraction = { lastUserInteractionAt.value = SystemClock.elapsedRealtime() },
+            )
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
                 val currentDisplay = composeView.display ?: activityDisplay
@@ -2454,7 +2472,8 @@ private fun BitChordApp(
         if (granted && id != null) updatePlaylistDownloads(id)
     }
     val requestPlaylistDownloadUpdate: (String) -> Unit = { id ->
-        if (AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
+        if ((AppSettings.exportDownloads.value || (AppSettings.saveToCustomDownloadLocation.value && !DownloadStore.usesCustomSafTree())) &&
+            DownloadStore.needsLegacyPermission() &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) {
             pendingPlaylistUpdate = id
@@ -2610,7 +2629,8 @@ private fun BitChordApp(
         }
         if (from == null && !blocked) Downloads.keepDownloads(requested.map { it.videoId })
         if (songs.isNotEmpty() && !blocked) {
-            val needsStorage = AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
+            val needsStorage = (AppSettings.exportDownloads.value || (AppSettings.saveToCustomDownloadLocation.value && !DownloadStore.usesCustomSafTree())) &&
+                DownloadStore.needsLegacyPermission() &&
                 ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -4105,7 +4125,8 @@ private fun BitChordApp(
                             val speedDialBase by viewModel.speedDialBaseItems.collectAsStateWithLifecycle()
                             val mixesDialItems by viewModel.mixesDialItems.collectAsStateWithLifecycle()
                             val artistDialItems by viewModel.artistDialItems.collectAsStateWithLifecycle()
-                            HomeScreen(
+                            CompositionLocalProvider(LocalPageActive provides !pageHiddenByPlayer) {
+                                HomeScreen(
                                 state = homeState,
                                 listState = homeListState,
                                 currentSong = player.song,
@@ -4282,9 +4303,10 @@ private fun BitChordApp(
                                     replayLandingPage = ReplayStoryPage.INTRO
                                     showReplay = true
                                 },
-                                onFindMoodClick = viewModel::openMoodGenre,
-                                onFindMoodShowAll = { showGenres = true },
-                            )
+                                    onFindMoodClick = viewModel::openMoodGenre,
+                                    onFindMoodShowAll = { showGenres = true },
+                                )
+                            }
                         }
                         TAB_RADIO -> if (showAllLiveStations) {
                             LiveStationsScreen(

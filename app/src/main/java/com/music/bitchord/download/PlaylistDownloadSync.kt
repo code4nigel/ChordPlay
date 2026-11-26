@@ -58,7 +58,8 @@ internal class PlaylistDownloadSync(
         if (!foreground || AppSettings.meteredConnection.value == null || !AppSettings.downloadsAllowedNow) {
             return PlaylistDownloadUpdate.WAIT_FOR_NETWORK
         }
-        if (AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
+        if ((AppSettings.exportDownloads.value || (AppSettings.saveToCustomDownloadLocation.value && !DownloadStore.usesCustomSafTree())) &&
+            DownloadStore.needsLegacyPermission() &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         ) return PlaylistDownloadUpdate.STORAGE_PERMISSION
 

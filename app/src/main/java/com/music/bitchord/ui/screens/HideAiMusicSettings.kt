@@ -1,4 +1,5 @@
 /*
+ * Adapted from Dial (https://github.com/steeben/Dial) by steeben.
  * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
  *
  * This program is free software: you can redistribute it and/or modify
