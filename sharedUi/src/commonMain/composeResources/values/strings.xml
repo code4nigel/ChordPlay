@@ -401,4 +401,17 @@
     <string name="sort_title_ascending">Alphabetical (A to Z)</string>
     <string name="sort_title_descending">Alphabetical (Z to A)</string>
     <string name="studio_wait_for_waveforms">Wait for both waveforms to load before editing.</string>
+    <string name="taste_tune_subtitle">Shape your Wave &amp; Home mix</string>
+    <string name="taste_audio_choices">Audio Choices</string>
+    <string name="taste_no_song_hint">Start playing a song or tap Chord Wave first to tune recommendations.</string>
+    <string name="taste_detecting">Detecting…</string>
+    <string name="taste_song_label">Song</string>
+    <string name="taste_artist_label">Artist</string>
+    <string name="taste_genre_label">Genre</string>
+    <string name="taste_theme_label">Theme</string>
+    <string name="taste_language_label">Language</string>
+    <string name="taste_mark_ai">Mark AI</string>
+    <string name="taste_action_more">More</string>
+    <string name="taste_action_less">Less</string>
+    <string name="taste_action_never">Never</string>
 </resources>

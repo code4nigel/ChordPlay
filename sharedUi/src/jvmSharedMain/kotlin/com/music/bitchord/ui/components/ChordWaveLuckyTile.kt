@@ -19,9 +19,10 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -448,6 +449,7 @@ private fun Color.tunedAuroraGround(targetLum: Float, maxSat: Float): Color {
  * that shimmer continuously at rest, converge smoothly while a lucky radio pick
  * resolves, and bloom with the newly picked song's colors on lock.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChordWaveArtworkTile(
     palette: ArtworkPalette,
@@ -458,6 +460,7 @@ fun ChordWaveArtworkTile(
     modifier: Modifier = Modifier,
     artworkUrl: String? = null,
     isPlaying: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
     dim: () -> Float = { 0f },
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -465,6 +468,7 @@ fun ChordWaveArtworkTile(
     val subtitle = stringResource(Res.string.chord_wave_subtitle)
     val controller = rememberChordWaveController(reduceAnimation, isPlaying, artworkUrl, onRoll)
     val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation)
+    val haptics = rememberHaptics()
     val shape = SmoothCornerShape(14.dp)
 
     val rimBrush = Brush.linearGradient(
@@ -494,7 +498,17 @@ fun ChordWaveArtworkTile(
                 isCurrent = controller.phase != ChordWavePhase.IDLE,
             )
             .semantics { contentDescription = "$label, $subtitle" }
-            .clickable(role = Role.Button, onClickLabel = label) { controller.trigger() },
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = label,
+                onClick = { controller.trigger() },
+                onLongClick = onLongPress?.let { cb ->
+                    {
+                        haptics.play(Haptic.Select)
+                        cb()
+                    }
+                },
+            ),
     ) {
         ChordWaveCanvas(
             controller = controller,
@@ -550,6 +564,7 @@ fun ChordWaveArtworkTile(
 /**
  * Compact horizontal "Chord Wave" card for 2×4 Cards and 1×4 List modes.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChordWaveCompactCard(
     palette: ArtworkPalette,
@@ -560,11 +575,13 @@ fun ChordWaveCompactCard(
     artworkUrl: String? = null,
     isPlaying: Boolean = false,
     isCompact: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val label = stringResource(Res.string.chord_wave)
     val subtitle = stringResource(Res.string.chord_wave_subtitle)
     val controller = rememberChordWaveController(reduceAnimation, isPlaying, artworkUrl, onRoll)
     val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation)
+    val haptics = rememberHaptics()
 
     val tileHeight = if (isCompact) 56.dp else 64.dp
     val outerShape = SmoothCornerShape(if (isCompact) 18.dp else 22.dp)
@@ -604,7 +621,17 @@ fun ChordWaveCompactCard(
             )
             .border(0.75.dp, cardBorder, outerShape)
             .semantics { contentDescription = "$label, $subtitle" }
-            .clickable(role = Role.Button, onClickLabel = label) { controller.trigger() },
+            .combinedClickable(
+                role = Role.Button,
+                onClickLabel = label,
+                onClick = { controller.trigger() },
+                onLongClick = onLongPress?.let { cb ->
+                    {
+                        haptics.play(Haptic.Select)
+                        cb()
+                    }
+                },
+            ),
     ) {
         Row(
             modifier = Modifier

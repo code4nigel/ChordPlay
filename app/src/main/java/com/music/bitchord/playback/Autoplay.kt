@@ -8,6 +8,8 @@ import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.data.taste.TasteProfileRepository
 import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
 import kotlinx.coroutines.CancellationException
 
@@ -102,7 +104,14 @@ suspend fun loadAutoplayTracks(
     limit: Int = MAX_QUEUED_AUTOPLAY,
 ): Result<List<Song>> {
     val seed = youtubeSeedFor(seedSong) ?: return Result.success(emptyList())
-    val related = YtMusicRepository.radio(seed).getOrElse { return Result.failure(it) }
+    val rawRelated = YtMusicRepository.radio(seed).getOrElse { return Result.failure(it) }
+    val snapshot = TasteProfileRepository.snapshot.value
+    val filtered = TasteFilter.filterSongs(rawRelated, snapshot, keepVideoId = seedSong.videoId)
+    val related = if (snapshot.hasPreferences) {
+        filtered.sortedByDescending { TasteFilter.scoreSong(it, snapshot) }
+    } else {
+        filtered
+    }
     val extra = QueueBuilder.extend(existing, related, limit)
     if (extra.isEmpty()) return Result.success(emptyList())
 

@@ -133,6 +133,9 @@ import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.settings.SpeedDialSource
 import com.music.bitchord.data.settings.YourSpaceDialTab
 import com.music.bitchord.data.settings.speedDialStableId
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.data.taste.TasteProfileRepository
+import com.music.bitchord.data.taste.TasteSnapshot
 import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.LazyContent
 import com.music.bitchord.ui.components.MessageState
@@ -216,6 +219,7 @@ fun HomeScreen(
     isPlaying: Boolean = false,
     onLuckyDialClick: (() -> Unit)? = null,
     onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)? = null,
+    onLuckyDialLongPress: (() -> Unit)? = null,
     onPlayMixClick: ((ShelfItem) -> Unit)? = null,
     precomputedSpeedDialBase: List<ShelfItem>? = null,
     mixesDialItems: List<ShelfItem>? = null,
@@ -491,6 +495,7 @@ fun HomeScreen(
                         onPlayMixClick = onPlayMixClick,
                         onLuckyDialClick = onLuckyDialClick,
                         onLuckyDialRoll = onLuckyDialRoll,
+                        onLuckyDialLongPress = onLuckyDialLongPress,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
                         recentsViewType = recentsViewType,
@@ -556,6 +561,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialClick: (() -> Unit)?,
     onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)?,
+    onLuckyDialLongPress: (() -> Unit)?,
     currentSong: Song?,
     isPlaying: Boolean,
     recentsViewType: LibraryViewType,
@@ -605,6 +611,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsHomeEntries(
                             }
                         },
                         onLuckyDialRoll = onLuckyDialRoll,
+                        onLuckyDialLongPress = onLuckyDialLongPress,
                         onItemLongPress = onItemLongPress,
                         mixesItems = mixesDialItems,
                         artistItems = artistDialItems,
@@ -2265,6 +2272,7 @@ fun computeSpeedDialBaseItems(
     historySongs: List<Song> = emptyList(),
     spotifyMixes: List<ShelfItem> = emptyList(),
     hiddenIds: Set<String> = emptySet(),
+    tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
 ): List<ShelfItem> {
     if (shelves.isEmpty() && pinnedSpeedDial.isEmpty() && historySongs.isEmpty() && spotifyMixes.isEmpty()) {
         return emptyList()
@@ -2338,7 +2346,15 @@ fun computeSpeedDialBaseItems(
     }
 
     val visiblePins = pinnedSpeedDial.filterNot { it.speedDialStableId() in hiddenIds }
-    val visiblePool = pool.filterNot { it.speedDialStableId() in hiddenIds }
+    val visiblePool = pool
+        .filterNot { it.speedDialStableId() in hiddenIds || TasteFilter.isBlocked(it, tasteSnapshot) }
+        .let { filtered ->
+            if (tasteSnapshot.hasPreferences) {
+                filtered.sortedByDescending { TasteFilter.scoreItem(it, tasteSnapshot) }
+            } else {
+                filtered
+            }
+        }
 
     return (visiblePins + visiblePool)
         .distinctBy { it.speedDialStableId().ifBlank { it.videoId ?: it.browseId ?: it.title } }

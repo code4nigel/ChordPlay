@@ -180,6 +180,7 @@ import com.music.bitchord.ui.screens.settings.sections.AdvancedPerformanceSectio
 import com.music.bitchord.ui.screens.settings.sections.LanguageSection
 import com.music.bitchord.ui.screens.settings.sections.CoverSection
 import com.music.bitchord.ui.screens.settings.sections.AppearanceSection
+import com.music.bitchord.ui.screens.settings.sections.AudioChoicesSection
 import com.music.bitchord.ui.screens.settings.sections.AudioSection
 import com.music.bitchord.ui.screens.settings.sections.DownloadsSection
 import com.music.bitchord.ui.screens.settings.sections.IntegrationsSection
@@ -360,7 +361,19 @@ fun SettingsScreen(
             SettingsSection.AUDIO -> AudioSection(
                 onSources = onSources,
                 onEqualizer = onEqualizer,
+                onAudioChoices = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.AUDIO_CHOICES)
+                },
                 onBack = { updateSection(null) },
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
+            )
+            SettingsSection.AUDIO_CHOICES -> AudioChoicesSection(
+                onBack = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.AUDIO)
+                },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
             )
@@ -500,7 +513,8 @@ private fun SettingsHub(
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement customize melody replay hide show library square prefer music swipe"
                     SettingsSection.PLAYER -> "playback player animation speed expand minimize fast smooth artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
-                    SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence hide ai music artificial slop filter"
+                    SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence hide ai music artificial slop filter audio choices taste languages genres themes blocked"
+                    SettingsSection.AUDIO_CHOICES -> "audio choices taste languages genres themes blocked discovery personalization hide mute block reorder"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
                     SettingsSection.LOCAL_MUSIC -> "local music folder device audio filter recording wav"
                     SettingsSection.STORAGE -> "storage cache clear limit download offline backup restore export import"
@@ -1491,6 +1505,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
         ),
 
         // Audio
+        GlobalSettingItem(
+            title = stringResource(R.string.audio_choices),
+            subtitle = stringResource(R.string.audio_choices_subtitle),
+            section = SettingsSection.AUDIO_CHOICES,
+            icon = Icons.Rounded.Tune,
+            queryTarget = stringResource(R.string.audio_choices),
+            keywords = listOf("audio choices", "taste", "languages", "genres", "themes", "blocked", "personalize", "hide", "discovery"),
+        ),
         GlobalSettingItem(
             title = stringResource(R.string.on_wifi),
             subtitle = stringResource(R.string.audio_quality),

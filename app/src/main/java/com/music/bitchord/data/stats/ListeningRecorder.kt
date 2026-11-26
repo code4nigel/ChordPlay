@@ -3,6 +3,8 @@ package com.music.bitchord.data.stats
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.durationMillis
+import com.music.bitchord.data.taste.TagResolver
+import com.music.bitchord.data.taste.TasteProfileRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,6 +46,7 @@ import kotlin.math.min
 object ListeningRecorder {
 
     private var currentId: String? = null
+    private var currentSong: Song? = null
     private var lastSampleAt: Long = 0L
     private var playedThisTrack: Long = 0L
     private var playCounted = false
@@ -63,11 +66,14 @@ object ListeningRecorder {
             // A new track anchors the clock and contributes nothing yet — see
             // the class note on undercounting.
             currentId = song.videoId
+            currentSong = song
             lastSampleAt = now
             playedThisTrack = 0L
             playCounted = false
+            TagResolver.enqueueEnrichment(song)
             return
         }
+        currentSong = song
         val step = (now - lastSampleAt).coerceIn(0L, MAX_STEP_MS)
         lastSampleAt = now
         if (step <= 0L) return
@@ -82,7 +88,12 @@ object ListeningRecorder {
         val counts = !playCounted && playedThisTrack >= threshold
         if (counts) playCounted = true
 
-        ListeningStats.record(enriched(song), step, counts)
+        val enrichedSong = enriched(song)
+        ListeningStats.record(enrichedSong, step, counts)
+        if (counts) {
+            val resolved = TagResolver.resolveImmediate(enrichedSong)
+            TasteProfileRepository.recordPassiveListen(enrichedSong, resolved)
+        }
 
         if (++samplesSinceFlush >= FLUSH_EVERY) {
             samplesSinceFlush = 0
@@ -100,10 +111,27 @@ object ListeningRecorder {
     @Synchronized
     fun onStopped() {
         currentId = null
+        currentSong = null
         playedThisTrack = 0L
         playCounted = false
         samplesSinceFlush = 0
         ListeningStats.flush()
+    }
+
+    /**
+     * Closes out the outgoing track at a player transition, recording a passive
+     * quick skip (`1s..20s`) into the Taste Engine when the user manually skipped past it.
+     */
+    @Synchronized
+    fun onTrackTransition(previousEnded: Boolean, isSeekSkip: Boolean) {
+        val outgoing = currentSong
+        val playedMs = playedThisTrack
+        onStopped()
+        if (outgoing != null && !previousEnded && isSeekSkip && playedMs in 1_000L until 20_000L) {
+            val enrichedSong = enriched(outgoing)
+            val resolved = TagResolver.resolveImmediate(enrichedSong)
+            TasteProfileRepository.recordQuickSkip(enrichedSong, resolved)
+        }
     }
 
     // ── Filling in what the queue didn't carry ──────────────────────────────

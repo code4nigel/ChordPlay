@@ -47,6 +47,14 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.HomeShelfKey
 import com.music.bitchord.data.settings.SpeedDialSource
 import com.music.bitchord.data.mixes.MixesDialEngine
+import com.music.bitchord.data.taste.ChordWaveEngine
+import com.music.bitchord.data.taste.PersonalizedHomeEngine
+import com.music.bitchord.data.taste.TagResolver
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.data.taste.TasteProfileRepository
+import com.music.bitchord.data.taste.TasteSnapshot
+import com.music.bitchord.data.taste.TasteTag
+import com.music.bitchord.ui.components.TasteTuneAction
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
@@ -670,6 +678,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val hiddenIds: Set<String>,
         val historySongs: List<Song>,
         val spotifyMixes: List<ShelfItem>,
+        val tasteSnapshot: TasteSnapshot,
     )
 
     private val _spotifyMixesCache = MutableStateFlow<List<ShelfItem>>(emptyList())
@@ -685,12 +694,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             AppSettings.hiddenSpeedDialIds,
             _history,
             _spotifyMixesCache,
-        ) { source, hidden, historyState, spotifyMixes ->
+            TasteProfileRepository.snapshot,
+        ) { source, hidden, historyState, spotifyMixes, tasteSnapshot ->
             SpeedDialInputs(
                 source = source,
                 hiddenIds = hidden,
                 historySongs = (historyState as? UiState.Success)?.data.orEmpty(),
                 spotifyMixes = spotifyMixes,
+                tasteSnapshot = tasteSnapshot,
             )
         },
     ) { (shelves, style, pinned), inputs ->
@@ -705,6 +716,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 historySongs = inputs.historySongs,
                 spotifyMixes = inputs.spotifyMixes,
                 hiddenIds = inputs.hiddenIds,
+                tasteSnapshot = inputs.tasteSnapshot,
             )
         } else {
             emptyList()
@@ -717,11 +729,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _homeRaw,
         AppSettings.pinnedSpeedDialItems,
         AppSettings.hiddenSpeedDialIds,
-    ) { shelves, pinned, hidden ->
+        TasteProfileRepository.snapshot,
+    ) { shelves, pinned, hidden, tasteSnapshot ->
         MixesDialEngine.extractArtistDialItems(
             shelves = shelves,
             pinnedSpeedDial = pinned,
             hiddenIds = hidden,
+            tasteSnapshot = tasteSnapshot,
         )
     }
         .flowOn(Dispatchers.Default)
@@ -2189,6 +2203,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
+            TasteProfileRepository.snapshot.drop(1).collectLatest { snap ->
+                ChordWaveEngine.purgeBuffer(snap)
+                publishHome()
+                delay(400)
+                refreshMixesDial()
+                if (snap.hasPreferences) {
+                    val moodCats = (_explore.value as? UiState.Success)?.data
+                        ?.flatMap { it.items }.orEmpty()
+                    val preferred = runCatching {
+                        PersonalizedHomeEngine.fetchPreferredShelves(snap, moodCats)
+                    }.getOrDefault(emptyList())
+                    if (preferred.isNotEmpty()) {
+                        publishPreferredHomeShelves(preferred)
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
             // A leftover APK only means "Install Now" for the session that
             // downloaded it — see AppUpdateChecker.clearCache.
             AppUpdateChecker.clearCache(getApplication())
@@ -2495,7 +2527,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _selectedMoodGenre.value = item
         _moodGenreShelves.value = UiState.Loading
         viewModelScope.launch {
-            _moodGenreShelves.value = YtMusicRepository.moodGenreShelves(item.browseId, item.params).fold(
+            _moodGenreShelves.value = YtMusicRepository.moodGenreShelves(
+                item.browseId,
+                item.params,
+                categoryTitle = item.title,
+            ).fold(
                 onSuccess = { shelves ->
                     if (shelves.isEmpty()) UiState.Error(text(R.string.nothing_to_explore))
                     else UiState.Success(shelves)
@@ -2519,19 +2555,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
-        _homeRaw.value = emptyList()
-        _homeShelfTitles.value = emptyList()
-        _home.value = UiState.Loading
-        homeContinuation = null
+        val tasteSnap = TasteProfileRepository.snapshot.value
+        val cachedStartup = PersonalizedHomeEngine.cachedStartupShelves(tasteSnap)
+        _homeRaw.value = cachedStartup
+        _homeShelfTitles.value = if (cachedStartup.isEmpty()) emptyList() else orderHomeShelfIds(
+            rawShelfTitles = cachedStartup.map { it.title },
+            savedOrder = AppSettings.homeShelfOrder.value,
+            includeSpeedDial = false,
+            includeMelody = false,
+            includeReplay = false,
+            includeFindYourMood = false,
+        )
         homeSeenTitles.clear()
+        if (cachedStartup.isNotEmpty()) {
+            homeSeenTitles.addAll(cachedStartup.map { it.title.lowercase(Locale.ROOT) })
+            publishHome()
+        } else {
+            _home.value = UiState.Loading
+        }
+        homeContinuation = null
         mergedHomeLiveIds.clear()
         _homeLoadingMore.value = false
         _homeRecentlyPlayedLoading.value = _signedIn.value
-        // The core feed plus one browse per supplement. Recently played is left
-        // out: it has its own skeleton at the head of the page rather than the
-        // one at the tail.
-        _homePendingShelves.value = 1 + YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.size
+        val hasPreferredJob = tasteSnap.hasPreferences
+        // The core feed plus one browse per supplement (+ preferred buckets if configured).
+        // Recently played is left out: it has its own skeleton at the head of the page.
+        _homePendingShelves.value = 1 + YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.size + if (hasPreferredJob) 1 else 0
         viewModelScope.launch {
+            if (hasPreferredJob) {
+                launch {
+                    try {
+                        val moodCats = (_explore.value as? UiState.Success)?.data
+                            ?.flatMap { it.items }.orEmpty()
+                        val preferred = runCatching {
+                            PersonalizedHomeEngine.fetchPreferredShelves(tasteSnap, moodCats)
+                        }.getOrDefault(emptyList())
+                        if (isCurrentHomeLoad(identity, generation) && preferred.isNotEmpty()) {
+                            publishPreferredHomeShelves(preferred)
+                        }
+                    } finally {
+                        homeShelfRequestSettled(identity, generation)
+                    }
+                }
+            }
             launch {
                 try {
                     YtMusicRepository.home()
@@ -2635,10 +2701,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             includeFindYourMood = false,
         )
         _home.value = UiState.Success(
-            com.music.bitchord.data.aimusic.AiMusicFilter.shelves(
+            TasteFilter.filterShelves(
                 ordered.filterNot { it.title in hidden },
             ),
         )
+        ChordWaveEngine.warmUp(harvestLuckyCandidates())
+    }
+
+    private fun publishPreferredHomeShelves(shelves: List<HomeShelf>) {
+        if (shelves.isEmpty()) return
+        val existing = _homeRaw.value
+        val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
+        homeSeenTitles.addAll(replacing)
+        val remaining = existing.filterNot { it.title.lowercase(Locale.ROOT) in replacing }
+        val quickIdx = remaining.indexOfFirst {
+            HomeShelfKey.fromTitle(it.title) == HomeShelfKey.QUICK_PICKS ||
+                it.title.equals("Quick picks", ignoreCase = true) ||
+                it.title.equals("Listen again", ignoreCase = true)
+        }
+        val merged = if (quickIdx != -1) {
+            remaining.take(quickIdx + 1) + shelves + remaining.drop(quickIdx + 1)
+        } else {
+            shelves + remaining
+        }
+        _homeRaw.value = merged
+        publishHome()
     }
 
     private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
@@ -2685,6 +2772,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Refreshes the core feed without blanking the current Play page first. */
     private suspend fun refreshHome(identity: String?) = coroutineScope {
+        val tasteSnap = TasteProfileRepository.snapshot.value
+        val moodCats = (_explore.value as? UiState.Success)?.data
+            ?.flatMap { it.items }.orEmpty()
+        val preferredJob = async {
+            if (!tasteSnap.hasPreferences) {
+                emptyList()
+            } else {
+                runCatching {
+                    PersonalizedHomeEngine.fetchPreferredShelves(tasteSnap, moodCats)
+                }.getOrDefault(emptyList())
+            }
+        }
         val quickPicks = async { YtMusicRepository.homeQuickPicksShelf() }
         val remixes = async { YtMusicRepository.homeRemixesShelf().getOrNull() }
         val videos = async { YtMusicRepository.homeMusicVideosShelf().getOrNull() }
@@ -2697,6 +2796,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (identity != listenerKey()) return@onSuccess
             homeContinuation = feed.continuation
             homeSeenTitles.clear()
+            val preferredShelves = preferredJob.await()
             val topPicksItems = feed.shelves.flatMap { it.items }
                 .distinctBy { it.videoId ?: it.browseId ?: it.title }
                 .take(6)
@@ -2707,7 +2807,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     items = topPicksItems,
                 )
             } else null
-            val baseShelves = (listOfNotNull(synthesizedTopPicks) + feed.shelves + listOfNotNull(remixes.await(), videos.await()) + supplements.await())
+            val baseShelves = (preferredShelves + listOfNotNull(synthesizedTopPicks) + feed.shelves + listOfNotNull(remixes.await(), videos.await()) + supplements.await())
             val shelves = baseShelves.withoutRepeatsOf(emptyList())
                 .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
             if (shelves.isNotEmpty()) {
@@ -3389,6 +3489,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- Lucky Draw / Personalized Discovery Engine --------------------------
     private val recentLuckySeedIds = ArrayDeque<String>(24)
 
+    data class TasteNotice(
+        val id: Long,
+        val message: String,
+        val undoBackupJson: String? = null,
+        val checkCurrentPlayback: Boolean = false,
+    )
+
+    private val _tasteNotice = MutableStateFlow<TasteNotice?>(null)
+    val tasteNotice: StateFlow<TasteNotice?> = _tasteNotice.asStateFlow()
+
     val playRadioEvent = MutableSharedFlow<Pair<Song, QueueSource>>(extraBufferCapacity = 1)
     val luckyRadioToast = MutableSharedFlow<String>(extraBufferCapacity = 1)
     var playRadioHandler: ((Song, QueueSource) -> Unit)? = null
@@ -3425,17 +3535,55 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _spotifyMixesCache.value = spotifyMixes
             }
             val ytPool = (homeMixes + mixedForYou).distinctBy { it.browseId ?: it.title }
+            val tasteSnap = TasteProfileRepository.snapshot.value
             val dealt = MixesDialEngine.pickMixes(
                 youTube = ytPool,
                 spotify = spotifyMixes,
                 hiddenIds = AppSettings.hiddenSpeedDialIds.value,
                 sleepTime = MixesDialEngine.isSleepTime(),
+                tasteSnapshot = tasteSnap,
             )
             _mixesDialItems.value = dealt
 
             val freshArtItems = rawShelves.flatMap { it.items } + ytPool + spotifyMixes
             AppSettings.refreshPinnedSpeedDialArt(freshArtItems)
         }
+    }
+
+    private fun harvestLuckyCandidates(): List<Song> {
+        val candidates = mutableListOf<Song>()
+        val historyState = _history.value
+        if (historyState is UiState.Success) {
+            candidates.addAll(historyState.data)
+        }
+        val rawShelves = _homeRaw.value.ifEmpty { (_home.value as? UiState.Success)?.data.orEmpty() }
+        val snap = TasteProfileRepository.snapshot.value
+        for (shelf in rawShelves) {
+            for (item in TasteFilter.filterItems(shelf.items, snap)) {
+                val videoId = item.videoId
+                if (!videoId.isNullOrBlank()) {
+                    candidates.add(
+                        Song(
+                            videoId = videoId,
+                            title = item.title,
+                            artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                            artistId = item.artistIds.firstOrNull(),
+                            thumbnailUrl = item.thumbnailUrl,
+                        ),
+                    )
+                }
+            }
+        }
+        val librarySongsState = _librarySongs.value
+        if (librarySongsState is UiState.Success) {
+            candidates.addAll(librarySongsState.data)
+        }
+        val lib = (_library.value as? UiState.Success)?.data
+        if (lib != null) {
+            candidates.addAll(lib.likedSongs)
+            candidates.addAll(lib.librarySongs)
+        }
+        return TasteFilter.filterSongs(candidates.distinctBy { it.videoId }, snap)
     }
 
     fun playLuckyRadio(
@@ -3446,60 +3594,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         onHaptic?.invoke()
         viewModelScope.launch {
-            // Harvest candidate tracks attuned to the user's taste with 0ms launch latency:
-            val candidates = mutableListOf<Song>()
-
-            // 1. History songs (what the user actually plays)
-            val historyState = _history.value
-            if (historyState is UiState.Success) {
-                candidates.addAll(historyState.data)
-            }
-
-            // 2. Home feed shelves (Quick picks, Listen again, Similar to, Mixed for you, etc.)
-            val rawShelves = _homeRaw.value.ifEmpty { (_home.value as? UiState.Success)?.data.orEmpty() }
-            for (shelf in rawShelves) {
-                for (item in shelf.items) {
-                    if (com.music.bitchord.data.aimusic.AiMusicFilter.isAi(item)) continue
-                    val videoId = item.videoId
-                    if (!videoId.isNullOrBlank()) {
-                        candidates.add(
-                            Song(
-                                videoId = videoId,
-                                title = item.title,
-                                artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                                thumbnailUrl = item.thumbnailUrl,
-                            )
-                        )
+            val snap = TasteProfileRepository.snapshot.value
+            val candidateSong = ChordWaveEngine.rollNext(
+                snapshot = snap,
+                fallbackPoolProvider = {
+                    val localPool = harvestLuckyCandidates()
+                    if (localPool.isNotEmpty()) {
+                        localPool
+                    } else {
+                        val fallbackSongs = runCatching {
+                            YtMusicRepository.browseSongs("FEmusic_charts").getOrNull()?.songs
+                        }.getOrNull()?.takeIf { it.isNotEmpty() }
+                            ?: runCatching {
+                                YtMusicRepository.browseSongs("FEmusic_new_releases").getOrNull()?.songs
+                            }.getOrNull()
+                        TasteFilter.filterSongs(fallbackSongs.orEmpty(), snap)
                     }
-                }
-            }
-
-            // 3. Local/saved library songs
-            val librarySongsState = _librarySongs.value
-            if (librarySongsState is UiState.Success) {
-                candidates.addAll(librarySongsState.data)
-            }
-
-            // Deduplicate candidate tracks
-            val distinctCandidates = candidates.distinctBy { it.videoId }
-
-            // Filter out recently rolled seeds so each roll feels fresh and surprising
-            val freshCandidates = distinctCandidates.filter { it.videoId !in recentLuckySeedIds }
-            var candidateSong = (if (freshCandidates.isNotEmpty()) freshCandidates else distinctCandidates)
-                .shuffled()
-                .firstOrNull()
-
-            // Safe fallback if user has no home or history loaded yet (e.g. pristine first launch)
-            if (candidateSong == null) {
-                val fallbackSongs = runCatching {
-                    YtMusicRepository.browseSongs("FEmusic_charts").getOrNull()?.songs
-                }.getOrNull()?.takeIf { it.isNotEmpty() }
-                    ?: runCatching {
-                        YtMusicRepository.browseSongs("FEmusic_new_releases").getOrNull()?.songs
-                    }.getOrNull()
-
-                candidateSong = fallbackSongs?.shuffled()?.firstOrNull()
-            }
+                },
+            )
 
             if (candidateSong == null) {
                 onFailed?.invoke()
@@ -3509,6 +3621,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 while (recentLuckySeedIds.size > 24) {
                     recentLuckySeedIds.removeFirst()
                 }
+                ChordWaveEngine.setCurrentWaveSong(song)
                 onSongPicked?.invoke(song)
 
                 val source = QueueSource("Chord Wave", PlaybackSourceType.EXPLORE)
@@ -3517,6 +3630,124 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     ?: playRadioEvent.tryEmit(song to source)
             }
         }
+    }
+
+    fun tuneWaveSong(song: Song, action: TasteTuneAction) {
+        when (action) {
+            TasteTuneAction.MORE -> {
+                val resolved = TagResolver.resolveImmediate(song)
+                TasteProfileRepository.boostArtist(song.artist, song.artistId)
+                resolved.languages().take(1).forEach { TasteProfileRepository.boostTag(it) }
+                resolved.genres().take(1).forEach { TasteProfileRepository.boostTag(it) }
+                resolved.themes().take(1).forEach { TasteProfileRepository.boostTag(it) }
+                ChordWaveEngine.enqueueSimilarSeeds(song)
+                emitTasteNotice(text(R.string.taste_more_like, song.title))
+            }
+            TasteTuneAction.LESS -> {
+                val resolved = TagResolver.resolveImmediate(song)
+                TasteProfileRepository.recordQuickSkip(song, resolved)
+                TasteProfileRepository.reduceArtist(song.artist, song.artistId)
+                ChordWaveEngine.purgeBuffer { it.videoId == song.videoId }
+                emitTasteNotice(text(R.string.taste_less_like, song.title))
+            }
+            TasteTuneAction.NEVER -> blockSongNever(song)
+        }
+    }
+
+    fun tuneWaveArtist(artistName: String, artistId: String?, action: TasteTuneAction) {
+        if (artistName.isBlank()) return
+        when (action) {
+            TasteTuneAction.MORE -> {
+                TasteProfileRepository.boostArtist(artistName, artistId)
+                emitTasteNotice(text(R.string.taste_more_like, artistName))
+            }
+            TasteTuneAction.LESS -> {
+                TasteProfileRepository.reduceArtist(artistName, artistId)
+                ChordWaveEngine.purgeBuffer()
+                emitTasteNotice(text(R.string.taste_less_like, artistName))
+            }
+            TasteTuneAction.NEVER -> {
+                val backup = TasteProfileRepository.exportProfileJson()
+                TasteProfileRepository.blockArtist(artistName, artistId)
+                ChordWaveEngine.purgeBuffer()
+                emitTasteNotice(
+                    message = text(R.string.taste_blocked_never, artistName),
+                    undoBackupJson = backup,
+                    checkCurrentPlayback = true,
+                )
+            }
+        }
+    }
+
+    fun tuneWaveTag(tag: TasteTag, action: TasteTuneAction) {
+        when (action) {
+            TasteTuneAction.MORE -> {
+                TasteProfileRepository.boostTag(tag)
+                emitTasteNotice(text(R.string.taste_more_like, tag.displayName))
+            }
+            TasteTuneAction.LESS -> {
+                TasteProfileRepository.reduceTag(tag)
+                ChordWaveEngine.purgeBuffer()
+                emitTasteNotice(text(R.string.taste_less_like, tag.displayName))
+            }
+            TasteTuneAction.NEVER -> {
+                val backup = TasteProfileRepository.exportProfileJson()
+                TasteProfileRepository.blockTag(tag)
+                ChordWaveEngine.purgeBuffer()
+                emitTasteNotice(
+                    message = text(R.string.taste_blocked_never, tag.displayName),
+                    undoBackupJson = backup,
+                    checkCurrentPlayback = true,
+                )
+            }
+        }
+    }
+
+    fun blockSongNever(song: Song) {
+        val backup = TasteProfileRepository.exportProfileJson()
+        TasteProfileRepository.blockSong(song)
+        ChordWaveEngine.purgeBuffer { it.videoId == song.videoId }
+        emitTasteNotice(
+            message = text(R.string.taste_blocked_never, song.title),
+            undoBackupJson = backup,
+            checkCurrentPlayback = true,
+        )
+    }
+
+    fun markArtistAsAi(artistName: String, artistId: String?) {
+        if (artistName.isBlank()) return
+        val backup = TasteProfileRepository.exportProfileJson()
+        TasteProfileRepository.markArtistAsAi(artistName, artistId)
+        ChordWaveEngine.purgeBuffer()
+        emitTasteNotice(
+            message = text(R.string.taste_marked_ai_notice, artistName),
+            undoBackupJson = backup,
+            checkCurrentPlayback = true,
+        )
+    }
+
+    fun undoTasteNotice(undoBackupJson: String? = _tasteNotice.value?.undoBackupJson) {
+        if (undoBackupJson.isNullOrBlank()) return
+        TasteProfileRepository.importProfileJson(undoBackupJson)
+        ChordWaveEngine.purgeBuffer()
+        _tasteNotice.value = null
+    }
+
+    fun consumeTasteNotice() {
+        _tasteNotice.value = null
+    }
+
+    private fun emitTasteNotice(
+        message: String,
+        undoBackupJson: String? = null,
+        checkCurrentPlayback: Boolean = false,
+    ) {
+        _tasteNotice.value = TasteNotice(
+            id = System.nanoTime(),
+            message = message,
+            undoBackupJson = undoBackupJson,
+            checkCurrentPlayback = checkCurrentPlayback,
+        )
     }
 
     /**
@@ -4955,6 +5186,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun text(id: Int): String = getApplication<Application>().getString(id)
+    private fun text(id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 }
 
 private const val MELODY_MOOD_PLAYLISTS = 4

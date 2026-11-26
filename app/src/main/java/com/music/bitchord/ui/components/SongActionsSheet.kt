@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
@@ -205,6 +207,8 @@ fun SongActionsSheet(
      * as before — present when the id is there, absent when it never was.
      */
     resolvingLinks: Boolean = false,
+    onNeverPlay: (() -> Unit)? = null,
+    onMarkArtistAi: (() -> Unit)? = null,
     /**
      * Where the rows are drawn. [SongActionsPresentation.Sheet] is the tinted
      * bottom sheet with its own track header; [SongActionsPresentation.Menu]
@@ -381,6 +385,23 @@ fun SongActionsSheet(
                 )
             }
             GroupSeparator(palette)
+        }
+
+        onNeverPlay?.let {
+            ActionRow(
+                icon = Icons.Rounded.Block,
+                label = stringResource(R.string.never_play_song),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
+        onMarkArtistAi?.let {
+            ActionRow(
+                icon = Icons.Rounded.SmartToy,
+                label = stringResource(R.string.mark_artist_ai),
+                accent = palette.accent,
+                onClick = it,
+            )
         }
 
         DownloadRow(song, palette, isOffline, onDownload)

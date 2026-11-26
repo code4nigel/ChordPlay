@@ -46,6 +46,7 @@ enum class SettingsSection(
     PLAYER(R.string.playback, Icons.Rounded.SmartDisplay),
     LYRICS(R.string.synced_lyrics, Icons.AutoMirrored.Rounded.Notes),
     AUDIO(R.string.audio_quality, Icons.Rounded.GraphicEq),
+    AUDIO_CHOICES(R.string.audio_choices, Icons.Rounded.LibraryMusic),
     DOWNLOADS(R.string.downloads, Icons.Rounded.Download),
     LOCAL_MUSIC(R.string.local_music, Icons.Rounded.LibraryMusic),
     STORAGE(R.string.storage, Icons.Rounded.Storage),
@@ -60,6 +61,7 @@ enum class SettingsSection(
 
     fun parentSection(): SettingsSection? = when (this) {
         COVER, MINIPLAYER, PLAYER_STYLE -> APPEARANCE
+        AUDIO_CHOICES -> AUDIO
         DRIVE_DEVICES -> DRIVE_BACKUP
         DRIVE_BACKUP -> YOUR_DATA
         else -> null

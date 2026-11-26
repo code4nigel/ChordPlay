@@ -3135,7 +3135,10 @@ class PlaybackService : MediaLibraryService() {
         // id doesn't change: repeat-one plays the same song again, and without
         // this the second play through is a continuation of the first and is
         // never counted.
-        ListeningRecorder.onStopped()
+        ListeningRecorder.onTrackTransition(
+            previousEnded = previousEnded,
+            isSeekSkip = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK,
+        )
         val newSong = mediaItem?.toSong()
         val currentIsLive = newSong?.isLive == true ||
             exoPlayer.isCurrentMediaItemLive ||

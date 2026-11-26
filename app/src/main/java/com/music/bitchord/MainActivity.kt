@@ -297,6 +297,9 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.ui.utils.containSheetGestures
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
+import com.music.bitchord.data.taste.ChordWaveEngine
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.ui.components.ChordWaveTuneSheet
 import com.music.bitchord.ui.components.SongActionsMenu
 import com.music.bitchord.ui.components.SongActionsPresentation
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -865,6 +868,7 @@ private fun BitChordApp(
     var showHistory by remember { mutableStateOf(false) }
     var showMelody by rememberSaveable { mutableStateOf(false) }
     var showYourSpaceCustomize by rememberSaveable { mutableStateOf(false) }
+    var showChordWaveTuneSheet by rememberSaveable { mutableStateOf(false) }
     var showGenres by rememberSaveable { mutableStateOf(false) }
     var showAllLiveStations by rememberSaveable { mutableStateOf(false) }
     var showMelodySave by remember { mutableStateOf(false) }
@@ -1900,6 +1904,42 @@ private fun BitChordApp(
         }
     }
     viewModel.playRadioHandler = playRadio
+
+    val waveCurrentSong by ChordWaveEngine.currentWaveSong.collectAsStateWithLifecycle()
+    val tasteNotice by viewModel.tasteNotice.collectAsStateWithLifecycle()
+    val undoLabel = stringResource(R.string.undo)
+    LaunchedEffect(tasteNotice?.id) {
+        val notice = tasteNotice ?: return@LaunchedEffect
+        queueNoticeId += 1
+        val shownId = queueNoticeId
+        queueNotice = QueueActionNotice(
+            id = shownId,
+            message = notice.message,
+            actionLabel = if (notice.undoBackupJson != null) undoLabel else null,
+            onAction = if (notice.undoBackupJson != null) {
+                {
+                    viewModel.undoTasteNotice(notice.undoBackupJson)
+                    if (queueNotice?.id == shownId) queueNotice = null
+                }
+            } else {
+                null
+            },
+        )
+        if (notice.checkCurrentPlayback) {
+            val activeSong = player.song
+            if (activeSong != null && TasteFilter.isBlocked(activeSong)) {
+                val activeSource = activeSong.playbackSource.orEmpty()
+                if (activeSource.equals("Chord Wave", ignoreCase = true) ||
+                    ChordWaveEngine.currentWaveSong.value?.videoId == activeSong.videoId
+                ) {
+                    viewModel.playLuckyRadio(onPlayRadio = playRadio)
+                } else {
+                    controller?.seekToNextMediaItem()
+                }
+            }
+        }
+        viewModel.consumeTasteNotice()
+    }
 
     /**
      * Starts the explicit station offered by every song overflow menu.
@@ -4265,6 +4305,7 @@ private fun BitChordApp(
                                         onFailed = onLanded,
                                     )
                                 },
+                                onLuckyDialLongPress = { showChordWaveTuneSheet = true },
                                 precomputedSpeedDialBase = speedDialBase,
                                 mixesDialItems = mixesDialItems,
                                 artistDialItems = artistDialItems,
@@ -5451,6 +5492,7 @@ private fun BitChordApp(
                     (playlistOwnership[it.browseId] == true || it.browseId.startsWith("local:playlist:")) &&
                     viewModel.canRemovePlaylistTrack(it.browseId)
             }
+            val hideAiEnabled by AppSettings.hideAiMusic.collectAsStateWithLifecycle()
             SongActionsMenu(
                 song = song,
                 signedIn = signedIn,
@@ -5458,6 +5500,18 @@ private fun BitChordApp(
                 onPlayNext = { playNext(song); songActions = null },
                 onAddToQueue = { addToQueue(song); songActions = null },
                 onStartRadio = { startRadio(song); songActions = null },
+                onNeverPlay = {
+                    songActions = null
+                    viewModel.blockSongNever(song)
+                },
+                onMarkArtistAi = if (hideAiEnabled) {
+                    {
+                        songActions = null
+                        viewModel.markArtistAsAi(song.artist, song.artistId)
+                    }
+                } else {
+                    null
+                },
                 // Stays open: the row it replaces itself with is the
                 // progress, and closing the sheet would hide the only
                 // answer to "did that work?".
@@ -5835,6 +5889,21 @@ private fun BitChordApp(
         YourSpaceCustomizeSheet(
             visible = showYourSpaceCustomize,
             onDismiss = { showYourSpaceCustomize = false },
+            hazeState = hazeState,
+        )
+
+        ChordWaveTuneSheet(
+            visible = showChordWaveTuneSheet,
+            song = waveCurrentSong ?: player.song,
+            onDismiss = { showChordWaveTuneSheet = false },
+            onSongAction = viewModel::tuneWaveSong,
+            onArtistAction = viewModel::tuneWaveArtist,
+            onTagAction = viewModel::tuneWaveTag,
+            onMarkArtistAi = viewModel::markArtistAsAi,
+            onOpenAudioChoices = {
+                currentSettingsSection = SettingsSection.AUDIO_CHOICES
+                showSettings = true
+            },
             hazeState = hazeState,
         )
 

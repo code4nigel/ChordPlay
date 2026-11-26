@@ -73,6 +73,7 @@ object Backup {
                 PrefValue.of(value)?.let { key to it }
             }.toMap(),
             listening = buckets,
+            tasteProfile = com.music.bitchord.data.taste.TasteProfileRepository.exportProfileJson(),
         )
     }
 
@@ -86,6 +87,9 @@ object Backup {
         }
         ListeningStats.importAll(file.listening)
         AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
+        file.tasteProfile?.takeIf { it.isNotBlank() }?.let {
+            com.music.bitchord.data.taste.TasteProfileRepository.importProfileJson(it)
+        }
         // Shares AppSettings' preference file, so it has already been
         // overwritten by the line above — it just doesn't know yet.
         SearchHistory.reload()
@@ -153,6 +157,7 @@ object Backup {
         val exportedAt: String = "",
         val settings: Map<String, PrefValue> = emptyMap(),
         val listening: List<StoredBucket> = emptyList(),
+        val tasteProfile: String? = null,
     )
 
     /** One preference, with the type it has to be restored as. */

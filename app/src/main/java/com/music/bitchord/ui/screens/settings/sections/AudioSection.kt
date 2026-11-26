@@ -52,6 +52,8 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.sources.DeviceCodecs
+import com.music.bitchord.data.taste.TasteCategory
+import com.music.bitchord.data.taste.TasteProfileRepository
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.smart.AutomixModelManager
 import com.music.bitchord.ui.screens.*
@@ -65,6 +67,7 @@ import kotlin.math.roundToInt
 fun AudioSection(
     onSources: () -> Unit,
     onEqualizer: () -> Unit,
+    onAudioChoices: () -> Unit = {},
     onBack: () -> Unit,
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
@@ -142,6 +145,13 @@ fun AudioSection(
             stringResource(R.string.prefer_music_only_subtitle),
             "video", "music video", "catalogue",
         )
+        val tasteSnapshot by TasteProfileRepository.snapshot.collectAsStateWithLifecycle()
+        val showAudioChoices = matchesSearch(
+            searchQuery,
+            stringResource(R.string.audio_choices),
+            stringResource(R.string.audio_choices_subtitle),
+            "audio choices", "taste", "languages", "genres", "themes", "blocked", "personalize", "hide",
+        )
         val showHideAiMusic = matchesSearch(
             searchQuery,
             stringResource(R.string.hide_ai_music),
@@ -200,7 +210,7 @@ fun AudioSection(
         )
 
         val anyAudioMatch = showSources || showWifi || showCellular || showDolby ||
-            showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf ||
+            showPreferMusicOnly || showAudioChoices || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf ||
             showSkipSilence || showSpatialAudio || showEqualizer || showOutputPrecision || showLoudness
 
         if (searchQuery.isNotBlank() && !anyAudioMatch) {
@@ -268,9 +278,39 @@ fun AudioSection(
                 }
 
                 // Playback Processing & Blending (Seamlessly integrated in the same block)
-                if (showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                if (showPreferMusicOnly || showAudioChoices || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
                     if (showSources || showWifi || showCellular || showDolby) {
                         SettingsSectionDivider(title = stringResource(R.string.playback))
+                    }
+
+                    if (showAudioChoices) {
+                        val preferredLabels = (
+                            tasteSnapshot.topPreferredOrWeighted(TasteCategory.LANGUAGE, limit = 2) +
+                                tasteSnapshot.topPreferredOrWeighted(TasteCategory.GENRE, limit = 2)
+                            ).map { it.displayName }.distinct().take(3)
+                        val blockedCount = tasteSnapshot.blockedSongs.size +
+                            tasteSnapshot.blockedArtistKeys.size +
+                            tasteSnapshot.blockedNodes(TasteCategory.LANGUAGE).size +
+                            tasteSnapshot.blockedNodes(TasteCategory.GENRE).size +
+                            tasteSnapshot.blockedNodes(TasteCategory.THEME).size
+                        val summary = buildString {
+                            if (preferredLabels.isNotEmpty()) {
+                                append(preferredLabels.joinToString(", "))
+                            } else {
+                                append(stringResource(R.string.audio_choices_subtitle))
+                            }
+                            if (blockedCount > 0) {
+                                append(" · ")
+                                append(stringResource(R.string.audio_choices_blocked_count, blockedCount))
+                            }
+                        }
+                        SettingsRow(
+                            icon = Icons.Rounded.Tune,
+                            title = stringResource(R.string.audio_choices),
+                            subtitle = summary,
+                            onClick = onAudioChoices,
+                        )
+                        if (showPreferMusicOnly || showHideAiMusic) RowDivider()
                     }
 
                     if (showPreferMusicOnly) {
@@ -295,7 +335,7 @@ fun AudioSection(
                     }
 
                     if (showCrossfade) {
-                        if (showPreferMusicOnly || showHideAiMusic) RowDivider()
+                        if (showAudioChoices || showPreferMusicOnly || showHideAiMusic) RowDivider()
 
                         val crossfadeTitle = stringResource(R.string.crossfade)
                         SliderRow(
@@ -423,7 +463,7 @@ fun AudioSection(
 
                 // Hardware Output & Normalization (Seamlessly integrated in the same block)
                 if (showOutputPrecision || showLoudness) {
-                    if (showSources || showWifi || showCellular || showDolby || showPreferMusicOnly || showHideAiMusic || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
+                    if (showSources || showWifi || showCellular || showDolby || showPreferMusicOnly || showHideAiMusic || showAudioChoices || showCrossfade || showAutomix || showAutomixPerf || showSkipSilence || showSpatialAudio || showEqualizer) {
                         SettingsSectionDivider(title = stringResource(R.string.output_precision))
                     }
 

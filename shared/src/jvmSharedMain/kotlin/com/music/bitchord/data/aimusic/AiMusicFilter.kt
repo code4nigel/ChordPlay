@@ -14,6 +14,8 @@ import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.taste.TagHeuristics
+import com.music.bitchord.data.taste.TasteConstants
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +52,9 @@ object AiMusicFilter {
     @Volatile
     private var spotifyArtists: Set<String> = emptySet()
 
+    @Volatile
+    private var userMarkedArtists: Set<String> = emptySet()
+
     /** Puts the lists in use: YouTube Music channel ids (`UC…`) and Spotify artist ids. */
     fun setLists(youtube: Set<String>, spotify: Set<String>) {
         if (youtube == youtubeChannels && spotify == spotifyArtists) return
@@ -58,15 +63,37 @@ object AiMusicFilter {
         _changes.update { it + 1 }
     }
 
+    /** Updates the locally flagged AI artist channel IDs / normalized names. */
+    fun setUserMarkedArtists(artists: Set<String>) {
+        val normalized = artists.mapNotNullTo(HashSet()) { raw ->
+            TasteConstants.normalizeArtistKey(raw).takeIf { it.isNotEmpty() }
+        }
+        if (normalized == userMarkedArtists) return
+        userMarkedArtists = normalized
+        _changes.update { it + 1 }
+    }
+
     /** How many YouTube Music channels and Spotify artists the lists in use hold. */
     val listSizes: Pair<Int, Int> get() = youtubeChannels.size to spotifyArtists.size
 
-    /** On, and with a list to test against. */
-    val active: Boolean get() = enabled && (youtubeChannels.isNotEmpty() || spotifyArtists.isNotEmpty())
+    /** How many artists the listener manually flagged as AI locally. */
+    val userMarkedCount: Int get() = userMarkedArtists.size
 
-    /** Whether [channelId] is the YouTube Music channel of a listed AI act. */
-    fun isAiChannel(channelId: String?): Boolean =
-        active && channelId != null && channelId in youtubeChannels
+    /** On, and with at least one list (community or user-flagged) to test against. */
+    val active: Boolean
+        get() = enabled && (youtubeChannels.isNotEmpty() || spotifyArtists.isNotEmpty() || userMarkedArtists.isNotEmpty())
+
+    /** Whether [channelId] is the YouTube Music channel of a listed or user-flagged AI act. */
+    fun isAiChannel(channelId: String?): Boolean {
+        if (!active || channelId.isNullOrBlank()) return false
+        if (channelId in youtubeChannels) return true
+        return TasteConstants.normalizeArtistKey(channelId) in userMarkedArtists
+    }
+
+    private fun isUserMarkedArtistName(name: String?): Boolean {
+        if (!active || name.isNullOrBlank() || userMarkedArtists.isEmpty()) return false
+        return TasteConstants.normalizeArtistKey(name) in userMarkedArtists
+    }
 
     /** Whether [artistId] (bare, or a `spotify:artist:` uri) is a listed AI act on Spotify. */
     fun isAiSpotifyArtist(artistId: String?): Boolean =
@@ -76,16 +103,29 @@ object AiMusicFilter {
     fun anyAiSpotifyArtist(artistIds: List<String>): Boolean =
         active && artistIds.any(::isAiSpotifyArtist)
 
-    /** Whether one of this song's credited artists is a listed AI act. A device file never is. */
+    /** Whether one of this song's credited artists is a listed/flagged AI act or explicit AI slop. A device file never is. */
     fun isAi(song: Song): Boolean {
-        if (!active || song.localUri != null) return false
-        return isAiChannel(song.artistId) || song.artists.any { isAiChannel(it.browseId) }
+        if (!enabled || song.localUri != null) return false
+        if (active) {
+            if (isAiChannel(song.artistId) || song.artists.any { isAiChannel(it.browseId) || isUserMarkedArtistName(it.name) }) {
+                return true
+            }
+            if (isUserMarkedArtistName(song.artist)) return true
+        }
+        return TagHeuristics.isLikelyAiMetadata(song.title, song.artist)
     }
 
-    /** Whether this card is a listed AI act's page, or a song or release credited to one. */
+    /** Whether this card is a listed/flagged AI act's page, or a song or release credited to one. */
     fun isAi(item: ShelfItem): Boolean {
-        if (!active) return false
-        return isAiChannel(item.browseId) || item.artistIds.any(::isAiChannel)
+        if (!enabled) return false
+        if (active) {
+            if (isAiChannel(item.browseId) || item.artistIds.any(::isAiChannel)) return true
+            val artistPart = com.music.bitchord.data.innertube.InnertubeParser.artistFromSubtitle(item.subtitle)
+            if (isUserMarkedArtistName(artistPart) || (item.videoId == null && isUserMarkedArtistName(item.title))) {
+                return true
+            }
+        }
+        return TagHeuristics.isLikelyAiMetadata(item.title, "", item.subtitle)
     }
 
     /**

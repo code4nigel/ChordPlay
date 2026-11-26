@@ -23,16 +23,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.aimusic.AiMusicFilter
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.taste.TasteProfileRepository
 import com.music.bitchord.ui.components.IosSwitch
 
 /**
  * Settings, Audio: the "Hide AI music" switch (ported from Dial Miscellaneous).
- * Off by default; while enabled, lists the community blocklists beneath it.
+ * Off by default; while enabled, lists the community blocklists and locally marked artists beneath it.
  */
 @Composable
 internal fun HideAiMusicRow(title: String) {
     val hideAiMusic by AppSettings.hideAiMusic.collectAsStateWithLifecycle()
+    val snapshot by TasteProfileRepository.snapshot.collectAsStateWithLifecycle()
+    val userMarkedCount = snapshot.userMarkedAiArtists.size
+    val setEnabled: (Boolean) -> Unit = { enabled ->
+        AppSettings.setHideAiMusic(enabled)
+        TasteProfileRepository.setHideAiMusic(enabled)
+    }
     Column {
         SettingsRow(
             icon = Icons.Rounded.SmartToy,
@@ -41,14 +49,20 @@ internal fun HideAiMusicRow(title: String) {
             trailing = {
                 IosSwitch(
                     checked = hideAiMusic,
-                    onCheckedChange = AppSettings::setHideAiMusic,
+                    onCheckedChange = setEnabled,
                 )
             },
-            onClick = { AppSettings.setHideAiMusic(!hideAiMusic) },
+            onClick = { setEnabled(!hideAiMusic) },
         )
         if (hideAiMusic) {
+            val baseText = stringResource(R.string.hide_ai_music_sources)
+            val detail = if (userMarkedCount > 0) {
+                "$baseText • " + stringResource(R.string.hide_ai_music_user_marked, userMarkedCount)
+            } else {
+                baseText
+            }
             Text(
-                text = stringResource(R.string.hide_ai_music_sources),
+                text = detail,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),

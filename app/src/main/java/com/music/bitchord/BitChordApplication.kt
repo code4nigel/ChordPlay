@@ -42,6 +42,8 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.AndroidStreamHooks
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.melody.MelodyStore
+import com.music.bitchord.data.taste.TagResolver
+import com.music.bitchord.data.taste.TasteProfileRepository
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
@@ -188,6 +190,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // After AppSettings, whose switch decides whether half of it runs.
         ArtistFacts.init(this)
         MelodyStore.init(this)
+        TasteProfileRepository.init(filesDir)
+        TasteProfileRepository.setHideAiMusic(AppSettings.hideAiMusic.value)
+        TagResolver.localArtistTagsProvider = { artist -> ArtistFacts.genresFor(artist) }
         // One cache directory can only be opened once per process, and
         // PlaybackService shares this one — so it's opened here, not there.
         AudioCache.init(this)

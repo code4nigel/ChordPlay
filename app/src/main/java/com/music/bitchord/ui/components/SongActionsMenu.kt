@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
@@ -158,6 +160,8 @@ fun SongActionsMenu(
     onLyricsOffset: (() -> Unit)? = null,
     onAutomixOverview: (() -> Unit)? = null,
     resolvingLinks: Boolean = false,
+    onNeverPlay: (() -> Unit)? = null,
+    onMarkArtistAi: (() -> Unit)? = null,
 ) {
     var showingSongInfo by remember(song.videoId) { mutableStateOf(false) }
     var pickingSleepTimer by remember { mutableStateOf(false) }
@@ -402,6 +406,26 @@ fun SongActionsMenu(
             accent = palette.accent,
             onClick = onAddToQueue,
         )
+
+        if (onNeverPlay != null || onMarkArtistAi != null) {
+            if (startsGroup()) IosMenuSeparator()
+            onNeverPlay?.let {
+                ActionRow(
+                    icon = Icons.Rounded.Block,
+                    label = stringResource(R.string.never_play_song),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            onMarkArtistAi?.let {
+                ActionRow(
+                    icon = Icons.Rounded.SmartToy,
+                    label = stringResource(R.string.mark_artist_ai),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+        }
 
         // Group 5: Navigation with subtitle descriptions
         if (startsGroup()) IosMenuSeparator()

@@ -15,6 +15,8 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.aimusic.AiMusicFilter
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
+import com.music.bitchord.data.taste.TagResolver
+import com.music.bitchord.data.taste.TasteFilter
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.isExactArtistMatch
@@ -78,7 +80,7 @@ object YtMusicRepository {
      */
     suspend fun home(): Result<HomeFeed> = call("home") {
         val home = Innertube.browse("FEmusic_home")
-        HomeFeed(AiMusicFilter.shelves(InnertubeParser.parseHome(home)), InnertubeParser.continuationToken(home))
+        HomeFeed(TasteFilter.filterShelves(InnertubeParser.parseHome(home)), InnertubeParser.continuationToken(home))
     }
 
     /** Recently played is rendered independently, at the top of the Play page. */
@@ -86,7 +88,7 @@ object YtMusicRepository {
 
     /** Extra Play shelves are independently fetchable so each can appear as soon as it arrives. */
     suspend fun homeSupplement(browseId: String): Result<List<HomeShelf>> = call("home:$browseId") {
-        AiMusicFilter.shelves(shelvesOf(browseId))
+        TasteFilter.filterShelves(shelvesOf(browseId))
     }
 
     val HOME_SUPPLEMENT_BROWSE_IDS = listOf(
@@ -103,7 +105,7 @@ object YtMusicRepository {
     suspend fun moreHome(token: String): Result<HomeFeed> = call("home:more") {
         val response = Innertube.browseContinuation(token)
         HomeFeed(
-            shelves = AiMusicFilter.shelves(InnertubeParser.parseHomeContinuation(response)),
+            shelves = TasteFilter.filterShelves(InnertubeParser.parseHomeContinuation(response)),
             continuation = InnertubeParser.continuationToken(response),
         )
     }
@@ -244,7 +246,7 @@ object YtMusicRepository {
     }
 
     suspend fun homeQuickPicksShelf(): Result<HomeShelf?> = call("home:quickPicks") {
-        val songs = AiMusicFilter.songs(quickPicks().getOrNull().orEmpty()).take(20)
+        val songs = TasteFilter.filterSongs(quickPicks().getOrNull().orEmpty()).take(20)
         if (songs.isEmpty()) null
         else HomeShelf(
             title = "Quick picks",
@@ -264,7 +266,7 @@ object YtMusicRepository {
 
     suspend fun homeRemixesShelf(): Result<HomeShelf?> = call("home:remixes") {
         val response = Innertube.search("trending remixes club mix", SearchFilter.SONGS.params)
-        val tracks = AiMusicFilter.songs(
+        val tracks = TasteFilter.filterSongs(
             InnertubeParser.parseSearchPage(response).rows.mapNotNull {
                 (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
             },
@@ -288,7 +290,7 @@ object YtMusicRepository {
 
     suspend fun homeMusicVideosShelf(): Result<HomeShelf?> = call("home:videos") {
         val response = Innertube.search("official music videos hits", SearchFilter.VIDEOS.params)
-        val tracks = AiMusicFilter.songs(
+        val tracks = TasteFilter.filterSongs(
             InnertubeParser.parseSearchPage(response, includeVideos = true).rows.mapNotNull {
                 (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song
             },
@@ -427,13 +429,26 @@ object YtMusicRepository {
      * supplies its tile artwork, so caching it avoids a second request when a
      * user taps a category whose cover has already appeared.
      */
-    suspend fun moodGenreShelves(browseId: String, params: String?): Result<List<HomeShelf>> {
+    suspend fun moodGenreShelves(
+        browseId: String,
+        params: String?,
+        categoryTitle: String? = null,
+    ): Result<List<HomeShelf>> {
         val key = "$browseId:${params.orEmpty()}"
-        moodGenreShelfCache[key]?.let { return Result.success(AiMusicFilter.shelves(it)) }
+        moodGenreShelfCache[key]?.let { cached ->
+            if (!categoryTitle.isNullOrBlank()) {
+                cached.forEach { TagResolver.recordCategoryTitle(it.items, categoryTitle) }
+            }
+            return Result.success(TasteFilter.filterShelves(cached))
+        }
         return call("mood-genre:$browseId") {
-            InnertubeParser.parseHome(Innertube.browse(browseId, params))
+            val parsed = InnertubeParser.parseHome(Innertube.browse(browseId, params))
+            if (!categoryTitle.isNullOrBlank()) {
+                parsed.forEach { TagResolver.recordCategoryTitle(it.items, categoryTitle) }
+            }
+            parsed
         }.also { result -> result.getOrNull()?.let { moodGenreShelfCache.putIfAbsent(key, it) } }
-            .map(AiMusicFilter::shelves)
+            .map { TasteFilter.filterShelves(it) }
     }
 
     /** A category card borrows the first real cover from the playlists it opens. */
@@ -844,7 +859,7 @@ object YtMusicRepository {
      * seed track itself comes back first, so callers filter what they have.
      */
     suspend fun radio(videoId: String): Result<List<Song>> = call("radio:$videoId") {
-        AiMusicFilter.songs(InnertubeParser.parseWatchQueue(Innertube.next(videoId)), keepVideoId = videoId)
+        TasteFilter.filterSongs(InnertubeParser.parseWatchQueue(Innertube.next(videoId)), keepVideoId = videoId)
     }
 
     /**
@@ -992,11 +1007,10 @@ object YtMusicRepository {
      * and user playlists stay intact.
      */
     private fun SongPage.withoutAiMusic(browseId: String?): SongPage {
-        if (!AiMusicFilter.active) return this
         val isEndlessMix = browseId != null && (browseId.startsWith("RD") || browseId.startsWith("VLRD"))
         return copy(
-            songs = if (isEndlessMix) AiMusicFilter.songs(songs) else songs,
-            suggested = AiMusicFilter.songs(suggested),
+            songs = if (isEndlessMix) TasteFilter.filterSongs(songs) else AiMusicFilter.songs(songs),
+            suggested = TasteFilter.filterSongs(suggested),
         )
     }
 
@@ -1441,7 +1455,7 @@ object YtMusicRepository {
 
     /** Personalised "Mixed for you" playlists (Supermix, My Mix 1..7, mood mixes). */
     suspend fun mixedForYou(language: String? = null): Result<List<ShelfItem>> = call("explore:mixedForYou") {
-        AiMusicFilter.items(
+        TasteFilter.filterItems(
             InnertubeParser.parseTwoRowItemsDeep(Innertube.browse("FEmusic_mixed_for_you", language = language)),
         )
     }
@@ -1451,7 +1465,7 @@ object YtMusicRepository {
      * consistent even when YouTube localises the visible mix names.
      */
     suspend fun mixedForYouKeyed(): Result<List<KeyedMix>> = call("explore:mixedForYouKeyed") {
-        val localized = AiMusicFilter.items(
+        val localized = TasteFilter.filterItems(
             InnertubeParser.parseTwoRowItemsDeep(
                 Innertube.browse("FEmusic_mixed_for_you"),
             ),

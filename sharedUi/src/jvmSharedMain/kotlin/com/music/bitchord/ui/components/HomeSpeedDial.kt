@@ -266,6 +266,7 @@ fun HomeSpeedDial(
     savedPage: Int = 0,
     onPageChange: (Int) -> Unit = {},
     onLuckyDialRoll: ((onLanded: () -> Unit) -> Unit)? = null,
+    onLuckyDialLongPress: (() -> Unit)? = null,
     onReorderPinned: ((List<ShelfItem>) -> Unit)? = null,
 ) {
     val showMixes by AppUi.host.speedDialShowMixes.collectAsStateWithLifecycle()
@@ -343,6 +344,7 @@ fun HomeSpeedDial(
             onItemClick = onItemClick,
             onItemLongPress = onItemLongPress,
             onLuckyDialRoll = rollHandler,
+            onLuckyDialLongPress = onLuckyDialLongPress,
             modifier = modifier,
         )
         return
@@ -371,6 +373,7 @@ fun HomeSpeedDial(
         onItemLongPress = onItemLongPress,
         onPlayMixClick = onPlayMixClick,
         onLuckyDialRoll = rollHandler,
+        onLuckyDialLongPress = onLuckyDialLongPress,
         onReorderPinned = onReorderPinned,
         modifier = modifier,
     )
@@ -435,6 +438,7 @@ private fun HomeSpeedDialUnifiedPager(
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    onLuckyDialLongPress: (() -> Unit)?,
     onReorderPinned: ((List<ShelfItem>) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -777,6 +781,7 @@ private fun HomeSpeedDialUnifiedPager(
                                                 onRoll = onLuckyDialRoll,
                                                 artworkUrl = currentSong?.thumbnailUrl,
                                                 isPlaying = isPlaying,
+                                                onLongPress = onLuckyDialLongPress,
                                                 dim = { if (isReordering) WIGGLE_DIM * wiggleLevel else 0f },
                                                 modifier = Modifier
                                                     .offset { IntOffset(origin.x.roundToInt(), origin.y.roundToInt()) }
@@ -885,6 +890,7 @@ private fun HomeSpeedDialUnifiedPager(
                                     onItemLongPress = onItemLongPress,
                                     onPlayMixClick = onPlayMixClick,
                                     onLuckyDialRoll = onLuckyDialRoll,
+                                    onLuckyDialLongPress = onLuckyDialLongPress,
                                 )
                             }
 
@@ -1124,6 +1130,7 @@ private fun CardsPageContent(
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onPlayMixClick: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    onLuckyDialLongPress: (() -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1177,6 +1184,7 @@ private fun CardsPageContent(
                             artworkUrl = currentSong?.thumbnailUrl,
                             isPlaying = isPlaying,
                             isCompact = false,
+                            onLongPress = onLuckyDialLongPress,
                             modifier = Modifier.weight(1f),
                         )
                     } else {
@@ -1188,6 +1196,7 @@ private fun CardsPageContent(
                             artworkUrl = currentSong?.thumbnailUrl,
                             isPlaying = isPlaying,
                             isCompact = false,
+                            onLongPress = onLuckyDialLongPress,
                             modifier = Modifier.weight(1f),
                         )
                         Spacer(modifier = Modifier.weight(1f))
@@ -1216,6 +1225,7 @@ private fun HomeSpeedDialListPager(
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
+    onLuckyDialLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     if (tabs.size == 1) {
@@ -1230,6 +1240,7 @@ private fun HomeSpeedDialListPager(
             reduceAnimation = reduceAnimation,
             onItemClick = onItemClick,
             onLuckyDialRoll = onLuckyDialRoll,
+            onLuckyDialLongPress = onLuckyDialLongPress,
             onItemLongPress = onItemLongPress,
             modifier = modifier,
         )
@@ -1313,6 +1324,7 @@ private fun HomeSpeedDialListPager(
                         reduceAnimation = reduceAnimation,
                         onItemClick = onItemClick,
                         onLuckyDialRoll = onLuckyDialRoll,
+                        onLuckyDialLongPress = onLuckyDialLongPress,
                         onItemLongPress = onItemLongPress,
                     )
                     YourSpaceDialTab.MIXES -> when {
@@ -1860,6 +1872,7 @@ private fun HomeSpeedDialList(
     onItemClick: (ShelfItem) -> Unit,
     onLuckyDialRoll: (onLanded: () -> Unit) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    onLuckyDialLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -1902,6 +1915,7 @@ private fun HomeSpeedDialList(
                             artworkUrl = currentSong?.thumbnailUrl,
                             isPlaying = isPlaying,
                             isCompact = true,
+                            onLongPress = onLuckyDialLongPress,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -1923,6 +1937,7 @@ private fun HomeSpeedDialList(
                             artworkUrl = currentSong?.thumbnailUrl,
                             isPlaying = isPlaying,
                             isCompact = false,
+                            onLongPress = onLuckyDialLongPress,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

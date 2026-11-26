@@ -15,6 +15,10 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.taste.TasteConstants
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.data.taste.TasteProfileRepository
+import com.music.bitchord.data.taste.TasteSnapshot
 import com.music.bitchord.playback.QueueBuilder
 import com.music.bitchord.playback.QueueTimeline.asQueueEntry
 import kotlin.math.min
@@ -68,6 +72,7 @@ object MelodyEngine {
         tuner: MelodyTuner,
         moodHints: List<String>,
         genreOf: (String) -> List<String> = { emptyList() },
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
     ): Double {
         var s = 1.0
         if (candidate.videoId in favIds) s += 4.0
@@ -85,6 +90,12 @@ object MelodyEngine {
             val hay = "${candidate.title} ${candidate.artist}".lowercase()
             if (moodHints.any { hay.contains(it) }) s += 0.5
         }
+        if (tasteSnapshot.hasPreferences) {
+            val tasteScore = TasteFilter.scoreSong(candidate, tasteSnapshot)
+            if (tasteScore > 0f) {
+                s += (tasteScore - TasteConstants.DEFAULT_NEUTRAL_WEIGHT) * 0.05
+            }
+        }
         return s
     }
 
@@ -95,10 +106,12 @@ object MelodyEngine {
         skipCounts: Map<String, Int>,
         tuner: MelodyTuner,
         genreOf: (String) -> List<String> = { emptyList() },
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
     ): Boolean {
         if (candidate.videoId in bannedIds) return true
         if (likeStatuses[candidate.videoId] == LikeStatus.DISLIKE) return true
         if ((skipCounts[candidate.videoId] ?: 0) >= SKIP_EXCLUDE_AFTER) return true
+        if (TasteFilter.isBlocked(candidate, tasteSnapshot)) return true
         if (tuner.excludedGenres.isNotEmpty()) {
             val genres = genreOf(candidate.artist).map { it.lowercase() }
             if (genres.any { it in tuner.excludedGenres }) return true
@@ -117,6 +130,7 @@ object MelodyEngine {
         genreOf: (String) -> List<String> = { emptyList() },
         limit: Int = INITIAL_TRACKS,
         random: Random = Random.Default,
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
     ): List<Song> {
         val historyRank = history.mapIndexed { i, s -> s.videoId to i }.toMap()
         val hints = mood.genreHints()
@@ -132,8 +146,8 @@ object MelodyEngine {
             else -> distinct
         }
         return gated
-            .filterNot { isExcluded(it, emptySet(), emptyMap(), skipCounts, tuner, genreOf) }
-            .map { it to score(it, favIds, historyRank, skipCounts, tuner, hints, genreOf) }
+            .filterNot { isExcluded(it, emptySet(), emptyMap(), skipCounts, tuner, genreOf, tasteSnapshot) }
+            .map { it to score(it, favIds, historyRank, skipCounts, tuner, hints, genreOf, tasteSnapshot) }
             .sortedByDescending { it.second }
             .map { it.first }
             .let { spreadArtists(it, random) }
@@ -153,6 +167,7 @@ object MelodyEngine {
         config: MelodyConfig = MelodyConfig(),
         limit: Int = INITIAL_TRACKS,
         genreOf: (String) -> List<String> = { emptyList() },
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
         relatedTracks: (suspend (Song) -> List<Song>)? = null,
     ): List<Song> {
         val favIds = seeds.favorites.map { it.videoId }.toSet()
@@ -160,7 +175,7 @@ object MelodyEngine {
             .map { it.videoId }
             .toSet()
         val excluded: (Song) -> Boolean = {
-            isExcluded(it, bannedIds, likeStatuses, skipCounts, config.tuner, genreOf)
+            isExcluded(it, bannedIds, likeStatuses, skipCounts, config.tuner, genreOf, tasteSnapshot)
         }
         val pool = (
             seeds.moodPool +
@@ -184,6 +199,7 @@ object MelodyEngine {
             mood = config.mood,
             genreOf = genreOf,
             limit = min(limit, 14),
+            tasteSnapshot = tasteSnapshot,
         )
         if (ordered.isEmpty()) {
             val fallback = (seeds.quickPicks + seeds.starterTracks + seeds.localTracks)
@@ -215,13 +231,13 @@ object MelodyEngine {
                     .getOrNull().orEmpty()
             }
             val related = expandedTracks
-                .filterNot { isExcluded(it, bannedIds, likeStatuses, skipCounts, config.tuner, genreOf) }
+                .filterNot { isExcluded(it, bannedIds, likeStatuses, skipCounts, config.tuner, genreOf, tasteSnapshot) }
                 .filterNot { it.videoId in historyIds }
                 .filterNot { config.tuner.discovery >= 0.85f && it.videoId in favIds }
             val extra = QueueBuilder.extend(expanded, related, min(8, limit - expanded.size))
             val historyRank = seeds.history.mapIndexed { i, s -> s.videoId to i }.toMap()
             val ranked = extra.sortedByDescending {
-                score(it, favIds, historyRank, skipCounts, config.tuner, config.mood.genreHints(), genreOf)
+                score(it, favIds, historyRank, skipCounts, config.tuner, config.mood.genreHints(), genreOf, tasteSnapshot)
             }
             expanded += ranked.filterNot { c -> expanded.any { QueueBuilder.isSameRecording(it, c) } }
         }

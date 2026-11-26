@@ -37,6 +37,7 @@ object HideAiMusic {
     @Synchronized
     fun apply(enabled: Boolean) {
         AiMusicFilter.enabled = enabled
+        com.music.bitchord.data.taste.TasteProfileRepository.setHideAiMusic(enabled)
         job?.cancel()
         job = null
         if (!enabled) {

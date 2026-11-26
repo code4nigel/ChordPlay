@@ -17,6 +17,9 @@ import com.music.bitchord.data.settings.speedDialStableId
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
 import com.music.bitchord.data.spotify.SpotifyLibrary
 import com.music.bitchord.data.spotify.SpotifyPlaylist
+import com.music.bitchord.data.taste.TasteFilter
+import com.music.bitchord.data.taste.TasteProfileRepository
+import com.music.bitchord.data.taste.TasteSnapshot
 import java.time.LocalTime
 import kotlin.random.Random
 
@@ -99,15 +102,27 @@ object MixesDialEngine {
         sleepTime: Boolean = isSleepTime(),
         limit: Int = DEFAULT_LIMIT,
         random: Random? = null,
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
     ): List<ShelfItem> {
         val allowed: (ShelfItem) -> Boolean = { item ->
             val id = item.speedDialStableId()
-            id.isNotBlank() && id !in hiddenIds && (sleepTime || !isSleepMix(item))
+            id.isNotBlank() &&
+                id !in hiddenIds &&
+                (sleepTime || !isSleepMix(item)) &&
+                !TasteFilter.isBlocked(item, tasteSnapshot)
         }
-        val ytClean = youTube.filter(allowed).distinctBy { it.speedDialStableId() }
-            .let { if (random != null) it.shuffled(random) else it }
-        val spClean = spotify.filter(allowed).distinctBy { it.speedDialStableId() }
-            .let { if (random != null) it.shuffled(random) else it }
+        val ytFiltered = youTube.filter(allowed).distinctBy { it.speedDialStableId() }
+        val spFiltered = spotify.filter(allowed).distinctBy { it.speedDialStableId() }
+        val ytClean = when {
+            random != null -> ytFiltered.shuffled(random)
+            tasteSnapshot.hasPreferences -> ytFiltered.sortedByDescending { TasteFilter.scoreItem(it, tasteSnapshot) }
+            else -> ytFiltered
+        }
+        val spClean = when {
+            random != null -> spFiltered.shuffled(random)
+            tasteSnapshot.hasPreferences -> spFiltered.sortedByDescending { TasteFilter.scoreItem(it, tasteSnapshot) }
+            else -> spFiltered
+        }
 
         val result = ArrayList<ShelfItem>(limit)
         val seenIds = HashSet<String>()
@@ -146,13 +161,27 @@ object MixesDialEngine {
         pinnedSpeedDial: List<ShelfItem>,
         hiddenIds: Set<String> = emptySet(),
         limit: Int = DEFAULT_LIMIT,
+        tasteSnapshot: TasteSnapshot = TasteProfileRepository.snapshot.value,
     ): List<ShelfItem> {
         val pinnedArtists = pinnedSpeedDial.filter {
-            it.isArtistDialCandidate() && it.speedDialStableId() !in hiddenIds
+            it.isArtistDialCandidate() &&
+                it.speedDialStableId() !in hiddenIds &&
+                !TasteFilter.isBlocked(it, tasteSnapshot)
         }
         val shelfArtists = shelves.asSequence()
             .flatMap { it.items.asSequence() }
-            .filter { it.isArtistDialCandidate() && it.speedDialStableId() !in hiddenIds }
+            .filter {
+                it.isArtistDialCandidate() &&
+                    it.speedDialStableId() !in hiddenIds &&
+                    !TasteFilter.isBlocked(it, tasteSnapshot)
+            }
+            .let { seq ->
+                if (tasteSnapshot.hasPreferences) {
+                    seq.sortedByDescending { TasteFilter.scoreItem(it, tasteSnapshot) }
+                } else {
+                    seq
+                }
+            }
 
         return (pinnedArtists.asSequence() + shelfArtists)
             .distinctBy { it.speedDialStableId() }
