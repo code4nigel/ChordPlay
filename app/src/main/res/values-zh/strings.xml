@@ -1816,4 +1816,9 @@
     <string name="your_space_mixes_empty">播放几首歌曲即可生成你的合集</string>
     <string name="your_space_artists_empty">置顶或播放艺人即可在此查看</string>
     <string name="your_space_drag_hint">长按已置顶磁贴即可拖动排序</string>
+    <string name="settings_miniplayer">迷你播放器</string>
+    <string name="miniplayer_animation">时间轴动画</string>
+    <string name="miniplayer_style_og_circle">OG 圆环</string>
+    <string name="miniplayer_style_aurora_wave">极光波浪</string>
+    <string name="miniplayer_animation_subtitle">极光波浪会在胶囊上绘制随封面配色的丝绸潮汐；OG 圆环则沿边框描绘进度。</string>
 </resources>

@@ -1820,4 +1820,9 @@
     <string name="your_space_mixes_empty">เล่นเพลงสักสองสามเพลงเพื่อสร้างมิกซ์ของคุณ</string>
     <string name="your_space_artists_empty">ปักหมุดหรือเล่นเพลงของศิลปินเพื่อดูที่นี่</string>
     <string name="your_space_drag_hint">แตะค้างที่ไทล์ที่ปักหมุดเพื่อจัดเรียงใหม่</string>
+    <string name="settings_miniplayer">มินิเพลเยอร์</string>
+    <string name="miniplayer_animation">แอนิเมชันไทม์ไลน์</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave วาดคลื่นไหมสีปกเพลงบนแถบ ส่วน OG Circle จะลากเส้นรอบขอบ</string>
 </resources>

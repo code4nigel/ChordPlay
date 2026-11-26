@@ -1776,4 +1776,9 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="your_space_mixes_empty">Riproduci alcuni brani per creare i tuoi mix</string>
     <string name="your_space_artists_empty">Fissa o riproduci artisti per vederli qui</string>
     <string name="your_space_drag_hint">Tieni premuto un riquadro fissato per riordinare</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Animazione timeline</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave disegna una marea di seta nei colori della copertina; OG Circle segue il bordo.</string>
 </resources>

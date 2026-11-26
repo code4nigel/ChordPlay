@@ -1814,4 +1814,9 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="your_space_mixes_empty">Putar beberapa lagu untuk membuat mix Anda</string>
     <string name="your_space_artists_empty">Sematkan atau putar artis untuk melihatnya di sini</string>
     <string name="your_space_drag_hint">Tahan ubin yang disematkan untuk mengurutkan</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Animasi linimasa</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave melukis gelombang sutra berwarna sampul; OG Circle menelusuri progres di sepanjang tepi.</string>
 </resources>

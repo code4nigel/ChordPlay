@@ -1869,4 +1869,9 @@
     <string name="your_space_mixes_empty">Включите несколько треков, чтобы собрать миксы</string>
     <string name="your_space_artists_empty">Закрепите или слушайте исполнителей, чтобы видеть их здесь</string>
     <string name="your_space_drag_hint">Удерживайте закреплённую плитку для сортировки</string>
+    <string name="settings_miniplayer">Мини-плеер</string>
+    <string name="miniplayer_animation">Анимация прогресса</string>
+    <string name="miniplayer_style_og_circle">OG Круг</string>
+    <string name="miniplayer_style_aurora_wave">Волна Авроры</string>
+    <string name="miniplayer_animation_subtitle">Волна Авроры рисует живую шелковую волну в цветах обложки; OG Круг ведёт линию по контуру.</string>
 </resources>

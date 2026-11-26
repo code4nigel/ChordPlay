@@ -127,7 +127,7 @@ private val AuroraSwatchCache = LinkedHashMap<String, List<Color>>(32, 0.75f, tr
 private const val MAX_SWATCH_CACHE = 32
 
 @Immutable
-private data class ChordWaveAuroraPalette(
+data class ChordWaveAuroraPalette(
     val baseDeep: Color,
     val baseMid: Color,
     val primary: Color,
@@ -289,7 +289,7 @@ private class ChordWaveController(
 }
 
 @Composable
-private fun rememberChordWaveAuroraPalette(
+fun rememberChordWaveAuroraPalette(
     artworkUrl: String?,
     fallbackPalette: ArtworkPalette,
     isDark: Boolean,
@@ -980,7 +980,7 @@ private data class SilkWaveSpec(
     val coreWidthDp: Float,
 )
 
-private fun DrawScope.drawNebulaCloud(
+fun DrawScope.drawNebulaCloud(
     color: Color,
     center: Offset,
     radius: Float,

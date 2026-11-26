@@ -1794,4 +1794,9 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="your_space_mixes_empty">Mikslerini oluşturmak için birkaç parça çal</string>
     <string name="your_space_artists_empty">Burada görmek için sanatçıları sabitle veya dinle</string>
     <string name="your_space_drag_hint">Sıralamak için sabitlenmiş bir karoyu basılı tut</string>
+    <string name="settings_miniplayer">Mini Oynatıcı</string>
+    <string name="miniplayer_animation">Zaman çizgisi animasyonu</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave kapak renkleriyle ipek bir dalga çizer; OG Circle ilerlemeyi kenar boyunca izler.</string>
 </resources>

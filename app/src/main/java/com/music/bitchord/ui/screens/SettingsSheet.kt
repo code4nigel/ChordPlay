@@ -164,6 +164,7 @@ import com.music.bitchord.ui.screens.settings.sections.AudioSection
 import com.music.bitchord.ui.screens.settings.sections.DownloadsSection
 import com.music.bitchord.ui.screens.settings.sections.IntegrationsSection
 import com.music.bitchord.ui.screens.settings.sections.LyricsSection
+import com.music.bitchord.ui.screens.settings.sections.MiniPlayerSection
 import com.music.bitchord.ui.screens.settings.sections.PlayerSection
 import com.music.bitchord.ui.screens.settings.sections.ShelvesSection
 import com.music.bitchord.ui.screens.settings.sections.LocalMusicSection
@@ -273,12 +274,24 @@ fun SettingsScreen(
                     pendingSectionSearchQuery = null
                     updateSection(SettingsSection.COVER)
                 },
+                onOpenMiniPlayer = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.MINIPLAYER)
+                },
                 contentPadding = contentPadding,
                 initialSearchQuery = query,
             )
             SettingsSection.COVER -> CoverSection(
                 windowWidth = windowWidth,
                 onSpotifyCanvasAuth = onSpotifyCanvasAuth,
+                onBack = {
+                    pendingSectionSearchQuery = null
+                    updateSection(SettingsSection.APPEARANCE)
+                },
+                contentPadding = contentPadding,
+                initialSearchQuery = query,
+            )
+            SettingsSection.MINIPLAYER -> MiniPlayerSection(
                 onBack = {
                     pendingSectionSearchQuery = null
                     updateSection(SettingsSection.APPEARANCE)
@@ -423,8 +436,9 @@ private fun SettingsHub(
             val q = searchQuery.trim().lowercase()
             SettingsSection.entries.filter { section ->
                 val keywords = when (section) {
-                    SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe"
+                    SettingsSection.APPEARANCE -> "appearance theme dark light oled black blur liquid glass animation refresh rate high performance display language swipe miniplayer timeline"
                     SettingsSection.COVER -> "cover artwork animation fade 3d canvas spotify fullscreen"
+                    SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave pill progress"
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement reorder customize melody replay hide show library square prefer music"
                     SettingsSection.PLAYER -> "playback player artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
@@ -1220,6 +1234,14 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             icon = Icons.Rounded.Animation,
             queryTarget = stringResource(R.string.cover_animation),
             keywords = listOf("cover", "artwork", "fade", "3d"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.miniplayer_animation),
+            subtitle = stringResource(R.string.settings_miniplayer),
+            section = SettingsSection.MINIPLAYER,
+            icon = Icons.Rounded.Animation,
+            queryTarget = stringResource(R.string.miniplayer_animation),
+            keywords = listOf("miniplayer", "timeline", "og circle", "aurora wave", "pill", "progress"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.full_screen_cover_art),

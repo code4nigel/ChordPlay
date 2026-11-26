@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import com.music.bitchord.data.settings.CustomPalette
+import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -128,6 +129,7 @@ fun AppearanceSection(
     onBack: () -> Unit,
     onAppLanguage: () -> Unit,
     onOpenCover: () -> Unit,
+    onOpenMiniPlayer: () -> Unit,
     contentPadding: PaddingValues,
     initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
@@ -152,6 +154,7 @@ fun AppearanceSection(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val miniPlayerTimelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockStyle by AppSettings.dockStyle.collectAsStateWithLifecycle()
@@ -282,7 +285,20 @@ fun AppearanceSection(
 
         val coverTitle = stringResource(R.string.settings_cover)
         val showCover = matchesSearch(searchQuery, coverTitle, "artwork", "animation", "canvas", "full screen")
-        val anyBelowCover = showColorPalette ||
+        val miniPlayerTitle = stringResource(R.string.settings_miniplayer)
+        val showMiniPlayer = matchesSearch(
+            searchQuery,
+            miniPlayerTitle,
+            stringResource(R.string.miniplayer_animation),
+            stringResource(R.string.miniplayer_style_og_circle),
+            stringResource(R.string.miniplayer_style_aurora_wave),
+            "miniplayer", "timeline", "circle", "wave", "aurora",
+        )
+        val anyBelowCover = showMiniPlayer || showColorPalette ||
+            showTheme || showTypography || showDisplayScale || showLiquidGlass ||
+            showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
+            showLivePreviewsSetting || showHighPerformance || showLanguage
+        val anyBelowMiniPlayer = showColorPalette ||
             showTheme || showTypography || showDisplayScale || showLiquidGlass ||
             showReduceDynamicBlur || showReduceAnimation || showPlayerAnimationSpeed ||
             showLivePreviewsSetting || showHighPerformance || showLanguage
@@ -307,6 +323,23 @@ fun AppearanceSection(
                         trailing = { Chevron() },
                     )
                     if (anyBelowCover) {
+                        RowDivider()
+                    }
+                }
+                if (showMiniPlayer) {
+                    SettingsRow(
+                        icon = com.music.bitchord.ui.screens.settings.SettingsSection.MINIPLAYER.icon,
+                        title = miniPlayerTitle,
+                        subtitle = stringResource(
+                            when (miniPlayerTimelineStyle) {
+                                MiniPlayerTimelineStyle.OG_CIRCLE -> R.string.miniplayer_style_og_circle
+                                MiniPlayerTimelineStyle.AURORA_WAVE -> R.string.miniplayer_style_aurora_wave
+                            },
+                        ),
+                        onClick = onOpenMiniPlayer,
+                        trailing = { Chevron() },
+                    )
+                    if (anyBelowMiniPlayer) {
                         RowDivider()
                     }
                 }

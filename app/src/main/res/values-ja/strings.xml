@@ -1815,4 +1815,9 @@
     <string name="your_space_mixes_empty">数曲再生するとミックスが作成されます</string>
     <string name="your_space_artists_empty">アーティストを固定または再生するとここに表示されます</string>
     <string name="your_space_drag_hint">固定されたタイルを長押しして並べ替え</string>
+    <string name="settings_miniplayer">ミニプレーヤー</string>
+    <string name="miniplayer_animation">タイムラインアニメーション</string>
+    <string name="miniplayer_style_og_circle">OG サークル</string>
+    <string name="miniplayer_style_aurora_wave">オーロラウェーブ</string>
+    <string name="miniplayer_animation_subtitle">オーロラウェーブはアートワーク色の絹の波を描き、OG サークルは枠線に沿って進行を表示します。</string>
 </resources>

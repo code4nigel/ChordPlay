@@ -1881,4 +1881,9 @@
     <string name="your_space_mixes_empty">अपने मिक्स बनाने के लिए कुछ गाने चलाएं</string>
     <string name="your_space_artists_empty">यहां देखने के लिए कलाकारों को पिन करें या सुनें</string>
     <string name="your_space_drag_hint">क्रम बदलने के लिए पिन की गई टाइल को दबाए रखें</string>
+    <string name="settings_miniplayer">मिनी प्लेयर</string>
+    <string name="miniplayer_animation">टाइमलाइन एनीमेशन</string>
+    <string name="miniplayer_style_og_circle">OG सर्कल</string>
+    <string name="miniplayer_style_aurora_wave">ऑरोरा वेव</string>
+    <string name="miniplayer_animation_subtitle">ऑरोरा वेव एल्बम रंगों की सिल्क लहर पिल पर चलाता है; OG सर्कल बॉर्डर के चारों ओर प्रगति दिखाता है।</string>
 </resources>

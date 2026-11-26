@@ -1853,4 +1853,9 @@
     <string name="your_space_mixes_empty">Reproduce algunas canciones para crear tus mezclas</string>
     <string name="your_space_artists_empty">Fija o reproduce artistas para verlos aquí</string>
     <string name="your_space_drag_hint">Mantén pulsada una tarjeta fijada para reordenar</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Animación de línea de tiempo</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave pinta una onda sedosa con los colores de la carátula; OG Circle recorre el borde.</string>
 </resources>

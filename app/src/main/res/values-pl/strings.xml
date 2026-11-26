@@ -1920,4 +1920,9 @@
     <string name="your_space_mixes_empty">Odtwórz kilka utworów, aby utworzyć miksy</string>
     <string name="your_space_artists_empty">Przypnij lub odtwarzaj wykonawców, aby zobaczyć ich tutaj</string>
     <string name="your_space_drag_hint">Przytrzymaj przypięty kafelek, aby zmienić kolejność</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Animacja osi czasu</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave maluje jedwabistą falę w kolorach okładki; OG Circle obrysowuje postęp wzdłuż krawędzi.</string>
 </resources>

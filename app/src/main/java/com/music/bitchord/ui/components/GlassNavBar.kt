@@ -52,14 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathMeasure
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -74,6 +69,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBar
 import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarDefaults
@@ -81,6 +77,7 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConne
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.launch
 import kotlin.math.roundToLong
 
@@ -334,6 +331,8 @@ private fun GlassNowPlaying(
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val timelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
 
     var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
     var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
@@ -341,9 +340,21 @@ private fun GlassNowPlaying(
     val currentPlaybackPosition by rememberUpdatedState(playbackPosition)
     val currentOnSeek by rememberUpdatedState(onSeek)
 
-    val pathMeasure = remember { PathMeasure() }
-    val fullBorderPath = remember { Path() }
-    val progressSegmentPath = remember { Path() }
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val artworkPalette = rememberArtworkPalette(song.thumbnailUrl, artPx = ROW_ART_PX, dark = isDark)
+    val auroraPalette = rememberChordWaveAuroraPalette(
+        artworkUrl = song.thumbnailUrl,
+        fallbackPalette = artworkPalette,
+        isDark = isDark,
+        reduceAnimation = reduceAnimation,
+    )
+    val auroraPhase = rememberMiniPlayerAuroraPhase(
+        enabled = timelineStyle == MiniPlayerTimelineStyle.AURORA_WAVE && durationMs > 0L,
+        isPlaying = isPlaying,
+        isScrubbing = scrubFraction != null,
+        reduceAnimation = reduceAnimation,
+    )
+    val timelinePaths = remember { MiniPlayerTimelinePaths() }
 
     val pressSource = remember { MutableInteractionSource() }
     val isPressed by pressSource.collectIsPressedAsState()
@@ -434,46 +445,35 @@ private fun GlassNowPlaying(
             }
             .then(modifier)
             .drawWithContent {
-                drawContent()
-                if (durationMs > 0L) {
-                    val activeScrub = scrubFraction
-                    val currentMs = playbackPosition?.positionMs ?: 0L
-                    val progress = activeScrub ?: (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-                    if (progress > 0.0005f) {
-                        val strokeInset = 1.dp.toPx()
-                        val h = size.height - 2 * strokeInset
-                        val r = h / 2f
-                        fullBorderPath.reset()
-                        fullBorderPath.addRoundRect(
-                            RoundRect(
-                                left = strokeInset,
-                                top = strokeInset,
-                                right = size.width - strokeInset,
-                                bottom = size.height - strokeInset,
-                                cornerRadius = CornerRadius(r, r),
-                            ),
-                        )
-                        pathMeasure.setPath(fullBorderPath, forceClosed = true)
-                        val totalLen = pathMeasure.length
-                        val segmentLen = progress * totalLen
-                        val scrubbing = activeScrub != null
-
-                        progressSegmentPath.reset()
-                        if (segmentLen > 0f) {
-                            pathMeasure.getSegment(0f, segmentLen, progressSegmentPath, startWithMoveTo = true)
-                            drawPath(
-                                path = progressSegmentPath,
-                                color = contentColor.copy(alpha = if (scrubbing) 0.50f else 0.35f),
-                                style = Stroke(width = (if (scrubbing) 4.5.dp else 3.5.dp).toPx(), cap = StrokeCap.Round),
-                            )
-                            drawPath(
-                                path = progressSegmentPath,
-                                color = contentColor.copy(alpha = if (scrubbing) 1f else 0.85f),
-                                style = Stroke(width = (if (scrubbing) 2.0.dp else 1.5.dp).toPx(), cap = StrokeCap.Round),
-                            )
-                        }
-                    }
+                val activeScrub = scrubFraction
+                val currentMs = playbackPosition?.positionMs ?: 0L
+                val progress = if (durationMs > 0L) {
+                    activeScrub ?: (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
                 }
+                val scrubbing = activeScrub != null
+                drawMiniPlayerTimelineUnderlay(
+                    style = timelineStyle,
+                    progress = progress,
+                    scrubbing = scrubbing,
+                    flowPhase = auroraPhase.flowPhase,
+                    driftPhase = auroraPhase.driftPhase,
+                    aurora = auroraPalette,
+                    isDark = isDark,
+                    paths = timelinePaths,
+                )
+                drawContent()
+                drawMiniPlayerTimelineOverlay(
+                    style = timelineStyle,
+                    progress = progress,
+                    scrubbing = scrubbing,
+                    flowPhase = auroraPhase.flowPhase,
+                    aurora = auroraPalette,
+                    ogGlowColor = contentColor,
+                    isInline = true,
+                    paths = timelinePaths,
+                )
             }
             .clickable(
                 interactionSource = pressSource,

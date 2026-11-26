@@ -1837,4 +1837,9 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="your_space_mixes_empty">Spiele ein paar Titel, um deine Mixes zu erstellen</string>
     <string name="your_space_artists_empty">Hefte Künstler an oder spiele sie ab, um sie hier zu sehen</string>
     <string name="your_space_drag_hint">Angeheftete Kachel gedrückt halten zum Sortieren</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Zeitachsen-Animation</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave legt eine lebendige Seidenwelle in Artwork-Farben über die Leiste; OG Circle zeichnet den Fortschritt am Rand entlang.</string>
 </resources>

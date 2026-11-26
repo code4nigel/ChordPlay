@@ -1841,4 +1841,9 @@
     <string name="your_space_mixes_empty">נגן מספר שירים כדי לבנות את המיקסים שלך</string>
     <string name="your_space_artists_empty">הצמד או נגן אמנים כדי לראות אותם כאן</string>
     <string name="your_space_drag_hint">החזק אריח מוצמד כדי לשנות סדר</string>
+    <string name="settings_miniplayer">מיני-נגן</string>
+    <string name="miniplayer_animation">אנימציית ציר זמן</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave צובע גל משי בצבעי העטיפה לאורך הכמוסה; OG Circle עוקב סביב המסגרת.</string>
 </resources>

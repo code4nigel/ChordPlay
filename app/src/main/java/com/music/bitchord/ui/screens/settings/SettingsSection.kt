@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.music.bitchord.R
 
@@ -38,6 +39,7 @@ enum class SettingsSection(
 ) {
     APPEARANCE(R.string.appearance, Icons.Rounded.Brush),
     COVER(R.string.settings_cover, Icons.Rounded.Image),
+    MINIPLAYER(R.string.settings_miniplayer, Icons.Rounded.Waves),
     SHELVES(R.string.your_preferences, Icons.Rounded.ViewAgenda),
     PLAYER(R.string.playback, Icons.Rounded.SmartDisplay),
     LYRICS(R.string.synced_lyrics, Icons.AutoMirrored.Rounded.Notes),
@@ -54,7 +56,7 @@ enum class SettingsSection(
     ABOUT(R.string.miscellaneous, Icons.AutoMirrored.Rounded.HelpOutline);
 
     fun parentSection(): SettingsSection? = when (this) {
-        COVER -> APPEARANCE
+        COVER, MINIPLAYER -> APPEARANCE
         DRIVE_DEVICES -> DRIVE_BACKUP
         DRIVE_BACKUP -> YOUR_DATA
         else -> null

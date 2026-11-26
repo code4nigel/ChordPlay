@@ -1753,4 +1753,9 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="your_space_mixes_empty">Phát vài bài hát để tạo các bản phối của bạn</string>
     <string name="your_space_artists_empty">Ghim hoặc phát nghệ sĩ để xem tại đây</string>
     <string name="your_space_drag_hint">Giữ một ô đã ghim để sắp xếp lại</string>
+    <string name="settings_miniplayer">Trình phát thu gọn</string>
+    <string name="miniplayer_animation">Hiệu ứng thanh tiến trình</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave vẽ dải sóng lụa theo màu bìa; OG Circle chạy dọc theo viền.</string>
 </resources>

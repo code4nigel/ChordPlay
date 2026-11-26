@@ -13,6 +13,7 @@ package com.music.bitchord.data.settings
 
 import com.music.bitchord.data.settings.CanvasProvider
 import com.music.bitchord.data.settings.CoverAnimationMode
+import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
 import com.music.bitchord.data.webdav.update
 import com.music.bitchord.data.LocalMediaRepository
 import android.content.Context
@@ -609,6 +610,7 @@ object AppSettings {
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
     val coverAnimation = MutableStateFlow(CoverAnimationMode.DIRECTIONAL_SWEEP)
+    val miniPlayerTimelineStyle = MutableStateFlow(MiniPlayerTimelineStyle.AURORA_WAVE)
     val animatedCanvas = MutableStateFlow(true)
 
     /**
@@ -1133,6 +1135,13 @@ object AppSettings {
             }
             else -> runCatching { CoverAnimationMode.valueOf(rawCoverAnim) }
                 .getOrDefault(CoverAnimationMode.DIRECTIONAL_SWEEP)
+        }
+        val rawMiniPlayerTimeline = prefs.getString(KEY_MINIPLAYER_TIMELINE_STYLE, null)
+        miniPlayerTimelineStyle.value = if (rawMiniPlayerTimeline == null) {
+            MiniPlayerTimelineStyle.AURORA_WAVE
+        } else {
+            runCatching { MiniPlayerTimelineStyle.valueOf(rawMiniPlayerTimeline) }
+                .getOrDefault(MiniPlayerTimelineStyle.AURORA_WAVE)
         }
         if (prefs.contains("cover_follows_automix")) {
             prefs.edit().remove("cover_follows_automix").apply()
@@ -2066,6 +2075,11 @@ object AppSettings {
     fun setCoverAnimation(value: CoverAnimationMode) {
         coverAnimation.value = value
         prefs.edit().putString(KEY_COVER_ANIMATION, value.name).apply()
+    }
+
+    fun setMiniPlayerTimelineStyle(value: MiniPlayerTimelineStyle) {
+        miniPlayerTimelineStyle.value = value
+        prefs.edit().putString(KEY_MINIPLAYER_TIMELINE_STYLE, value.name).apply()
     }
 
     fun setAnimatedCanvas(value: Boolean) {
@@ -3145,6 +3159,7 @@ object AppSettings {
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_COVER_ANIMATION = "cover_animation"
+    private const val KEY_MINIPLAYER_TIMELINE_STYLE = "miniplayer_timeline_style"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

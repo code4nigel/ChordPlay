@@ -1816,4 +1816,9 @@
     <string name="your_space_mixes_empty">播放幾首歌曲即可建立你的合輯</string>
     <string name="your_space_artists_empty">釘選或播放藝人即可在此檢視</string>
     <string name="your_space_drag_hint">長按已釘選圖磚即可拖曳排序</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">時間軸動畫</string>
+    <string name="miniplayer_style_og_circle">OG 圓環</string>
+    <string name="miniplayer_style_aurora_wave">極光波浪</string>
+    <string name="miniplayer_animation_subtitle">極光波浪會在膠囊上繪製隨專輯配色的絲綢潮汐；OG 圓環則沿邊框描繪進度。</string>
 </resources>

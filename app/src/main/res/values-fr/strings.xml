@@ -1838,4 +1838,9 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="your_space_mixes_empty">Écoutez quelques titres pour créer vos mix</string>
     <string name="your_space_artists_empty">Épinglez ou écoutez des artistes pour les voir ici</string>
     <string name="your_space_drag_hint">Maintenez une tuile épinglée pour réorganiser</string>
+    <string name="settings_miniplayer">MiniPlayer</string>
+    <string name="miniplayer_animation">Animation de la barre de lecture</string>
+    <string name="miniplayer_style_og_circle">OG Circle</string>
+    <string name="miniplayer_style_aurora_wave">Aurora Wave</string>
+    <string name="miniplayer_animation_subtitle">Aurora Wave déploie une vague de soie aux couleurs de la pochette ; OG Circle trace la progression sur le contour.</string>
 </resources>
