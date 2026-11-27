@@ -69,6 +69,8 @@ internal fun PlayerPanel(
         onDispose { dock?.releasePanel() }
     }
 
+    val interactive = motion?.closing != true
+
     Box(
         modifier
             .fillMaxSize()
@@ -91,13 +93,19 @@ internal fun PlayerPanel(
                 .graphicsLayer {
                     translationY = dock?.offset()?.roundToInt()?.toFloat() ?: 0f
                 }
-                // The panel is the touch target wherever it stands, so a tap
-                // on a part of the player that has no control of its own
-                // never falls through to the page underneath.
-                .pointerInput(Unit) {
-                    awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
-                }
-                .then(if (motion != null) Modifier.playerPullDown(motion) else Modifier),
+                // Let taps fall straight through to Plane 1's MiniPlayer while closing
+                // so tapping the mini player re-opens immediately instead of stalling
+                // or hitting a navigation tab.
+                .then(
+                    if (interactive) {
+                        Modifier.pointerInput(Unit) {
+                            awaitEachGesture { awaitFirstDown(requireUnconsumed = false) }
+                        }
+                    } else {
+                        Modifier
+                    },
+                )
+                .then(if (motion != null && interactive) Modifier.playerPullDown(motion) else Modifier),
         ) {
             content()
         }

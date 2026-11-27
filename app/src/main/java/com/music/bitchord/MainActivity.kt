@@ -12,10 +12,6 @@
 package com.music.bitchord
 
 import android.Manifest
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
@@ -28,7 +24,6 @@ import android.os.SystemClock
 import android.util.Rational
 import android.view.View
 import android.view.WindowManager
-import android.view.animation.PathInterpolator
 import com.music.bitchord.ui.player.AndroidPlayerHost
 import com.music.bitchord.ui.player.PlayerPlatform
 import android.widget.Toast
@@ -543,84 +538,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
+        installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setOnExitAnimationListener { provider ->
-            if (AppSettings.reduceAnimation.value) {
-                provider.remove()
-                return@setOnExitAnimationListener
-            }
-            runCatching {
-                val splashView = provider.view
-                val iconView = runCatching { provider.iconView }.getOrNull()
-                val easing = PathInterpolator(0.16f, 1.0f, 0.24f, 1.0f)
-                if (iconView == null || iconView.width == 0) {
-                    ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f).apply {
-                        duration = 240L
-                        interpolator = easing
-                        addListener(object : AnimatorListenerAdapter() {
-                            override fun onAnimationEnd(animation: Animator) {
-                                provider.remove()
-                            }
-                        })
-                        start()
-                    }
-                    return@setOnExitAnimationListener
-                }
-                val density = resources.displayMetrics.density
-                val statusBarTopPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    (splashView.rootWindowInsets ?: window.decorView.rootWindowInsets)
-                        ?.getInsets(android.view.WindowInsets.Type.statusBars())
-                        ?.top ?: 0
-                } else {
-                    @Suppress("DEPRECATION")
-                    (splashView.rootWindowInsets ?: window.decorView.rootWindowInsets)
-                        ?.systemWindowInsetTop ?: 0
-                }.takeIf { it > 0 } ?: run {
-                    val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
-                    if (resId > 0) resources.getDimensionPixelSize(resId) else (24f * density).toInt()
-                }
-                val targetSizePx = 44f * density
-                val targetCenterX = 16f * density + targetSizePx / 2f
-                val targetCenterY = statusBarTopPx + 4f * density + targetSizePx / 2f
-                val startCenterX = iconView.x + iconView.width / 2f
-                val startCenterY = iconView.y + iconView.height / 2f
-                val deltaX = targetCenterX - startCenterX
-                val deltaY = targetCenterY - startCenterY
-                val targetScale = (targetSizePx / iconView.width.toFloat()).coerceIn(0.25f, 1.0f)
-
-                val tx = ObjectAnimator.ofFloat(iconView, View.TRANSLATION_X, 0f, deltaX).apply {
-                    duration = 520L
-                    interpolator = easing
-                }
-                val ty = ObjectAnimator.ofFloat(iconView, View.TRANSLATION_Y, 0f, deltaY).apply {
-                    duration = 520L
-                    interpolator = easing
-                }
-                val sx = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, targetScale).apply {
-                    duration = 520L
-                    interpolator = easing
-                }
-                val sy = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, targetScale).apply {
-                    duration = 520L
-                    interpolator = easing
-                }
-                val bgFade = ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f).apply {
-                    startDelay = 120L
-                    duration = 380L
-                    interpolator = easing
-                }
-                AnimatorSet().apply {
-                    playTogether(tx, ty, sx, sy, bgFade)
-                    addListener(object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) {
-                            provider.remove()
-                        }
-                    })
-                    start()
-                }
-            }.onFailure { provider.remove() }
-        }
         AndroidPlayerHost.setInPipMode(isInPictureInPictureMode)
         AndroidPlayerHost.pipSupportedProvider = {
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
@@ -725,6 +644,7 @@ class MainActivity : AppCompatActivity() {
                     mutableStateOf(OnboardingState.shouldShow(this@MainActivity))
                 }
                 var onboardingReveal by remember { mutableFloatStateOf(0f) }
+                var launchAnimDone by rememberSaveable { mutableStateOf(false) }
                 LaunchedEffect(onboardingReplay) {
                     if (onboardingReplay) {
                         OnboardingState.replayHandled()
@@ -758,6 +678,10 @@ class MainActivity : AppCompatActivity() {
                         SetupWizard(
                             onFinished = { showOnboarding = false },
                             onReveal = { onboardingReveal = it },
+                        )
+                    } else if (!launchAnimDone) {
+                        com.music.bitchord.ui.components.ChordPlayLaunchOverlay(
+                            onFinished = { launchAnimDone = true },
                         )
                     }
                 }

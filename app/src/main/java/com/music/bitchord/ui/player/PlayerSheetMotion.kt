@@ -34,20 +34,20 @@ import kotlin.math.roundToInt
 
 /**
  * Miniplayer <-> Player motion curves:
- * - Taps & non-fling settles use [DreamyEaseOutEasing] over 540ms open / 480ms close (at 1.0x)
- *   for an instant takeoff and a buttery, dream-like ease-out glide.
+ * - Taps & non-fling settles use [DreamyEaseOutEasing] over 400ms open / 340ms close (at 1.0x)
+ *   for an instant takeoff and a responsive, fluid ease-out glide.
  * - Active finger flings hand off into a velocity-preserving critically-damped spring so
  *   momentum matches the finger cleanly without bounce or last-pixel snap.
  * Scaled by [PlayerSheetMotion.animationSpeed] (default 1.0x).
  */
-private const val SLIDE_OPEN_DURATION_MS = 770f
-private const val SLIDE_CLOSE_DURATION_MS = 685f
-private const val FLING_OPEN_STIFFNESS = 145f
-private const val FLING_CLOSE_STIFFNESS = 170f
+private const val SLIDE_OPEN_DURATION_MS = 400f
+private const val SLIDE_CLOSE_DURATION_MS = 340f
+private const val FLING_OPEN_STIFFNESS = 380f
+private const val FLING_CLOSE_STIFFNESS = 440f
 private const val FLING_MIN_VELOCITY_PX = 120f
 
 /** Close enough to stop, in sub-pixels — avoids any visible tail snap. */
-private const val SLIDE_SETTLED_PX = 0.25f
+private const val SLIDE_SETTLED_PX = 0.5f
 
 /** How long a panel waits to be laid out before an open starts regardless. */
 private const val LAYOUT_WAIT_MS = 120L
@@ -120,7 +120,8 @@ class PlayerSheetMotion(
      * pressed twice, say — restarted the slide from a standstill where it
      * stood, a visible stall halfway home.
      */
-    private var closing = false
+    var closing by mutableStateOf(false)
+        private set
 
     private fun travel(): Float =
         dock.travel().takeIf { it > 0f } ?: (windowInfo?.containerSize?.height ?: 0).toFloat()
@@ -332,7 +333,7 @@ class PlayerSheetMotion(
             val baseDurationMs = if (to > from) SLIDE_CLOSE_DURATION_MS else SLIDE_OPEN_DURATION_MS
             val durationMs = ((baseDurationMs * fraction) / speed)
                 .roundToInt()
-                .coerceIn(180, 1650)
+                .coerceIn(140, 850)
             animate(
                 initialValue = from,
                 targetValue = to,

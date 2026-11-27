@@ -367,9 +367,9 @@ fun Modifier.skipDrawWhenPlayerCovers(dock: PlayerDock?): Modifier {
 
 /**
  * Signature buttery ease-out curve for miniplayer and player transitions:
- * immediate quick takeoff followed by a long, dream-like deceleration glide.
+ * immediate quick takeoff followed by a clean, fluid deceleration glide.
  */
-val DreamyEaseOutEasing = CubicBezierEasing(0.16f, 1.0f, 0.24f, 1.0f)
+val DreamyEaseOutEasing = CubicBezierEasing(0.20f, 1.0f, 0.32f, 1.0f)
 
 /** Smooth C1 Hermite curve used to blend crossfades without linear corners. */
 fun smoothStep01(t: Float): Float {
