@@ -43,10 +43,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -54,7 +57,8 @@ jobs:
       - name: Install Android SDK platforms & CMake
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager 'platforms;android-36' 'platforms;android-37.0' 'cmake;3.22.1'
+          sdkmanager 'platforms;android-36' 'platforms;android-37.0' 'cmake;3.22.1' || \
+            sdkmanager 'platforms;android-36' 'platforms;android-37' 'cmake;3.22.1'
 
       - name: Resolve Gradle task and output paths
         id: target
