@@ -111,7 +111,7 @@ internal fun BoxScope.PortraitBackdrop(
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val animatedPanelProgress by animateFloatAsState(
         targetValue = if (panelOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = (460f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(120, 1100), easing = DreamyEaseOutEasing),
+        animationSpec = tween(durationMillis = (655f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(160, 1500), easing = DreamyEaseOutEasing),
         label = "fullArtworkBackdropCrossfade",
     )
     val panelProgress: () -> Float = collapseP?.let { fn ->

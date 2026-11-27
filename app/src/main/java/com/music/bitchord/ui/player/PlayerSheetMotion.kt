@@ -40,10 +40,10 @@ import kotlin.math.roundToInt
  *   momentum matches the finger cleanly without bounce or last-pixel snap.
  * Scaled by [PlayerSheetMotion.animationSpeed] (default 1.0x).
  */
-private const val SLIDE_OPEN_DURATION_MS = 540f
-private const val SLIDE_CLOSE_DURATION_MS = 480f
-private const val FLING_OPEN_STIFFNESS = 290f
-private const val FLING_CLOSE_STIFFNESS = 340f
+private const val SLIDE_OPEN_DURATION_MS = 770f
+private const val SLIDE_CLOSE_DURATION_MS = 685f
+private const val FLING_OPEN_STIFFNESS = 145f
+private const val FLING_CLOSE_STIFFNESS = 170f
 private const val FLING_MIN_VELOCITY_PX = 120f
 
 /** Close enough to stop, in sub-pixels — avoids any visible tail snap. */
@@ -332,7 +332,7 @@ class PlayerSheetMotion(
             val baseDurationMs = if (to > from) SLIDE_CLOSE_DURATION_MS else SLIDE_OPEN_DURATION_MS
             val durationMs = ((baseDurationMs * fraction) / speed)
                 .roundToInt()
-                .coerceIn(140, 1200)
+                .coerceIn(180, 1650)
             animate(
                 initialValue = from,
                 targetValue = to,

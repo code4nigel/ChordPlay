@@ -196,7 +196,7 @@ internal fun LandscapePlayerLayout(
                     PlayerPane.Queue -> if (compact) 8.dp else 14.dp
                     PlayerPane.Main -> if (compact) 40.dp else 48.dp
                 },
-                animationSpec = tween((340f / animSpeed).roundToInt().coerceIn(90, 800), easing = DreamyEaseOutEasing),
+                animationSpec = tween((485f / animSpeed).roundToInt().coerceIn(120, 1100), easing = DreamyEaseOutEasing),
                 label = "deckTopPadding",
             )
 
@@ -272,13 +272,13 @@ internal fun LandscapePlayerLayout(
                         transitionSpec = {
                             fadeIn(
                                 tween(
-                                    (LANDSCAPE_PANE_FADE_IN_MS / animSpeed).roundToInt().coerceIn(70, 600),
-                                    delayMillis = (LANDSCAPE_PANE_FADE_IN_DELAY_MS / animSpeed).roundToInt().coerceIn(0, 200),
+                                    ((LANDSCAPE_PANE_FADE_IN_MS * 1.43f) / animSpeed).roundToInt().coerceIn(90, 800),
+                                    delayMillis = ((LANDSCAPE_PANE_FADE_IN_DELAY_MS * 1.43f) / animSpeed).roundToInt().coerceIn(0, 260),
                                     easing = DreamyEaseOutEasing,
                                 ),
                             ) togetherWith fadeOut(
                                 tween(
-                                    (LANDSCAPE_PANE_FADE_OUT_MS / animSpeed).roundToInt().coerceIn(50, 380),
+                                    ((LANDSCAPE_PANE_FADE_OUT_MS * 1.43f) / animSpeed).roundToInt().coerceIn(70, 540),
                                     easing = DreamyEaseOutEasing,
                                 ),
                             )

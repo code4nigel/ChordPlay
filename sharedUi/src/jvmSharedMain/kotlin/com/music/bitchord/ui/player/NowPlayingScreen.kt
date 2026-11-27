@@ -137,7 +137,7 @@ internal const val SEEK_SETTLE_TIMEOUT_MS = 4_000L
 private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
-private const val QUEUE_TRAVEL_MS = 460
+private const val QUEUE_TRAVEL_MS = 655
 private val DISMISS_STRIP_HEIGHT = 32.dp
 private val ART_BOX_TOP_PAD = 8.dp
 private const val HERO_FADE_FRACTION = 0.42f
@@ -462,7 +462,7 @@ fun NowPlayingScreen(
             animationSpec = tween(
                 durationMillis = ((QUEUE_TRAVEL_MS * abs(target - from)) / animSpeed)
                     .roundToInt()
-                    .coerceIn(120, 1100),
+                    .coerceIn(160, 1500),
                 easing = DreamyEaseOutEasing,
             ),
         ) { value, _ -> panels.queueSlide.floatValue = value }
@@ -512,7 +512,7 @@ fun NowPlayingScreen(
 
     val animatedCollapse = animateFloatAsState(
         targetValue = if (panels.lyricsOpen || panels.queueOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = (460f / animSpeed).roundToInt().coerceIn(120, 1100), easing = DreamyEaseOutEasing),
+        animationSpec = tween(durationMillis = (655f / animSpeed).roundToInt().coerceIn(160, 1500), easing = DreamyEaseOutEasing),
         label = "sleeveCollapse",
     )
     val collapse = remember(panels, animatedCollapse) { PlayerCollapse(panels, animatedCollapse) }
@@ -525,7 +525,7 @@ fun NowPlayingScreen(
         snapshotFlow { collapse.done }.collectLatest { settled ->
             panelFade.animateTo(
                 if (settled) 1f else 0f,
-                tween(durationMillis = (240f / animSpeed).roundToInt().coerceIn(60, 560), easing = DreamyEaseOutEasing),
+                tween(durationMillis = (340f / animSpeed).roundToInt().coerceIn(80, 780), easing = DreamyEaseOutEasing),
             )
         }
     }

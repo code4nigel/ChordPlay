@@ -238,7 +238,6 @@ class PlayerDock {
         windowOrigin = origin
         originW = size.width
         originH = size.height
-        panelShown = true
     }
 
     /** The pill comes back. Called as the panel goes, not after it has. */
