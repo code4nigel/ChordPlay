@@ -335,6 +335,7 @@ private fun GlassNowPlaying(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
+    val maxSwipeNudgePx = with(LocalDensity.current) { 14.dp.toPx() }
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
@@ -416,15 +417,16 @@ private fun GlassNowPlaying(
                 onBlocked = onBlockedControl,
                 enableSwipeToSkip = true,
                 onHorizontalDrag = { offset ->
-                    scope.launch { horizontalDragOffset.snapTo(offset) }
+                    val dampened = dampenMiniPlayerSwipe(offset, maxSwipeNudgePx)
+                    scope.launch { horizontalDragOffset.snapTo(dampened) }
                 },
                 onHorizontalDragEnd = {
                     scope.launch {
                         horizontalDragOffset.animateTo(
                             targetValue = 0f,
                             animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
+                                dampingRatio = 0.85f,
+                                stiffness = Spring.StiffnessMedium,
                             ),
                         )
                     }
@@ -603,7 +605,7 @@ private fun GlassNowPlaying(
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
-                            translationX = horizontalDragOffset.value * 0.35f
+                            translationX = horizontalDragOffset.value * 0.65f
                         }
                         .playerDockText(dock, titlePx)
                         .clipToBounds(),

@@ -583,6 +583,7 @@ fun MiniPlayer(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
+    val maxSwipeNudgePx = with(LocalDensity.current) { 14.dp.toPx() }
     var skipDirection by remember { mutableIntStateOf(1) }
     val trackSlideDurationMs = (
         320f / miniplayerAnimationSpeed.coerceIn(
@@ -650,15 +651,16 @@ fun MiniPlayer(
                 onBlocked = onBlockedControl,
                 enableSwipeToSkip = true,
                 onHorizontalDrag = { offset ->
-                    scope.launch { horizontalDragOffset.snapTo(offset) }
+                    val dampened = dampenMiniPlayerSwipe(offset, maxSwipeNudgePx)
+                    scope.launch { horizontalDragOffset.snapTo(dampened) }
                 },
                 onHorizontalDragEnd = {
                     scope.launch {
                         horizontalDragOffset.animateTo(
                             targetValue = 0f,
                             animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMediumLow,
+                                dampingRatio = 0.85f,
+                                stiffness = Spring.StiffnessMedium,
                             ),
                         )
                     }
@@ -793,7 +795,7 @@ fun MiniPlayer(
                 modifier = Modifier
                     .weight(1f)
                     .graphicsLayer {
-                        translationX = horizontalDragOffset.value * 0.35f
+                        translationX = horizontalDragOffset.value * 0.65f
                     }
                     .playerDockText(dock, titlePx)
                     .clipToBounds(),
@@ -885,6 +887,15 @@ fun MiniPlayer(
             }
         }
     }
+}
+
+/**
+ * Asymptotic rubber-band curve for horizontal swipe feedback so the artwork and
+ * title subtly follow the finger without escaping their resting slot.
+ */
+internal fun dampenMiniPlayerSwipe(rawOffsetPx: Float, maxTravelPx: Float): Float {
+    if (maxTravelPx <= 0f) return 0f
+    return maxTravelPx * rawOffsetPx / (abs(rawOffsetPx) + maxTravelPx * 2f)
 }
 
 /**
