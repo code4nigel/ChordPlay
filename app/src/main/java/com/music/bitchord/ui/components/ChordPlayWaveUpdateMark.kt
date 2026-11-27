@@ -65,13 +65,15 @@ fun ChordPlayWaveUpdateMark(
     secondaryTint: Color = MaterialTheme.colorScheme.secondary,
 ) {
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val stopInfinite = reduceAnimation || disableInfiniteLoops
     val activeMix by animateFloatAsState(
         targetValue = if (checking) 1f else 0f,
         animationSpec = spring(stiffness = 280f),
         label = "chordplayWaveActiveMix",
     )
 
-    val phase = if (checking && !reduceAnimation) {
+    val phase = if (checking && !stopInfinite) {
         val transition = rememberInfiniteTransition(label = "chordplayUpdateWave")
         transition.animateFloat(
             initialValue = 0f,
@@ -86,7 +88,7 @@ fun ChordPlayWaveUpdateMark(
         0f
     }
 
-    val pulse = if (checking && !reduceAnimation) {
+    val pulse = if (checking && !stopInfinite) {
         val transition = rememberInfiniteTransition(label = "chordplayUpdatePulse")
         transition.animateFloat(
             initialValue = 0f,
@@ -113,7 +115,7 @@ fun ChordPlayWaveUpdateMark(
             val coreRadius = h * 0.36f
 
             // Concentric radar / sonic rings while checking
-            if (activeMix > 0.01f && !reduceAnimation) {
+            if (activeMix > 0.01f && !stopInfinite) {
                 for (i in 0 until 2) {
                     val t = (pulse + i * 0.5f) % 1f
                     val radius = coreRadius + (h * 0.42f * t)
@@ -131,7 +133,7 @@ fun ChordPlayWaveUpdateMark(
             val steps = 48
             val primaryPath = Path()
             val secondaryPath = Path()
-            val baseAmp = if (activeMix > 0.01f && !reduceAnimation) {
+            val baseAmp = if (activeMix > 0.01f && !stopInfinite) {
                 h * (0.08f + 0.16f * activeMix)
             } else {
                 h * 0.08f
@@ -169,7 +171,7 @@ fun ChordPlayWaveUpdateMark(
             )
         }
 
-        val iconScale = if (checking && !reduceAnimation) {
+        val iconScale = if (checking && !stopInfinite) {
             1f + 0.06f * sin(phase * 2f)
         } else {
             1f

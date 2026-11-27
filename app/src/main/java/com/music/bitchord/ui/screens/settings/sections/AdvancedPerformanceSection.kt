@@ -10,14 +10,12 @@
  */
 package com.music.bitchord.ui.screens.settings.sections
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -25,18 +23,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,15 +42,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.data.settings.KeepScreenOnDuration
+import com.music.bitchord.data.settings.PerformanceProfile
+import com.music.bitchord.data.settings.PerformanceTier
+import com.music.bitchord.ui.components.AlertAction
+import com.music.bitchord.ui.components.AlertRule
+import com.music.bitchord.ui.components.GlassAlert
 import com.music.bitchord.ui.components.IosSwitch
 import com.music.bitchord.ui.performance.displayDensityLabel
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
@@ -70,10 +73,11 @@ import com.music.bitchord.ui.screens.SettingsSectionDivider
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.localizedLabel
 import com.music.bitchord.ui.screens.matchesSearch
+import com.music.bitchord.ui.screens.settings.localizedLabel
 
 /**
- * Dedicated sub-page for high refresh rate display settings, dynamic blur controls,
- * animation reduction, Automix CPU performance, and Nerd Stats diagnostics.
+ * Dedicated sub-page for Performance Profile selection, refresh-rate policy,
+ * blur/motion overrides, optional Automix/Canvas linking, and diagnostics.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,11 +87,8 @@ fun AdvancedPerformanceSection(
     initialSearchQuery: String = "",
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
+    val performancePolicy by AppSettings.performancePolicy.collectAsStateWithLifecycle()
     val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val showLivePreviews by AppSettings.showSettingsLivePreviews.collectAsStateWithLifecycle()
@@ -104,22 +105,15 @@ fun AdvancedPerformanceSection(
         currentDisplay.resolvePerformanceRefreshRate(performanceRefreshRate)
     }
 
-    LaunchedEffect(selectedPerformanceRefreshRate, performanceRefreshRate) {
-        if (selectedPerformanceRefreshRate != performanceRefreshRate) {
+    LaunchedEffect(supportedRefreshRates, selectedPerformanceRefreshRate, performanceRefreshRate) {
+        if (supportedRefreshRates.size > 1 && selectedPerformanceRefreshRate != performanceRefreshRate) {
             AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
         }
     }
 
-    var showPerformanceWarning by remember { mutableStateOf(false) }
-    var showPerformanceConfirmation by remember { mutableStateOf(false) }
+    var showHighPerformanceConfirm by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
-
-    val batterySettingsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) {
-        showPerformanceConfirmation = true
-    }
 
     val scrollState = rememberScrollState()
 
@@ -137,12 +131,22 @@ fun AdvancedPerformanceSection(
             scrollState = scrollState,
         )
 
-        val showHighPerformance = matchesSearch(
+        val showPerformanceProfile = matchesSearch(
             searchQuery,
-            stringResource(R.string.high_performance_mode),
-            stringResource(R.string.high_performance_subtitle),
+            stringResource(R.string.performance_profile),
+            stringResource(R.string.performance_profile_auto),
+            stringResource(R.string.performance_profile_balanced),
+            stringResource(R.string.performance_profile_saver),
+            stringResource(R.string.performance_profile_high),
+            stringResource(R.string.performance_profile_tier_saver),
             stringResource(R.string.refresh_rate),
-            "refresh", "rate", "hz", "120hz", "90hz", "144hz", "fps", "performance", "battery",
+            "refresh", "rate", "hz", "120hz", "90hz", "144hz", "vrr", "fps", "performance", "profile", "battery", "solid", "light motion",
+        )
+        val showLinkAutomixCanvas = matchesSearch(
+            searchQuery,
+            stringResource(R.string.link_automix_canvas),
+            stringResource(R.string.link_automix_canvas_subtitle),
+            "link", "automix", "canvas", "live blur", "profile",
         )
         val showReduceBlur = matchesSearch(
             searchQuery,
@@ -205,8 +209,8 @@ fun AdvancedPerformanceSection(
             "log", "logging", "debug", "bug", "report", "crash", "share", "save", "experimental",
         )
 
-        val hasDisplayPerf = showHighPerformance || showReduceBlur || showReduceAnimation ||
-            showLivePreviewsSetting || showKeepScreenOn || showDisplayDensity
+        val hasDisplayPerf = showPerformanceProfile || showLinkAutomixCanvas || showReduceBlur ||
+            showReduceAnimation || showLivePreviewsSetting || showKeepScreenOn || showDisplayDensity
         val hasAutomix = showAutomixPerf || showStopOnClose
         val hasDiagnostics = showNerdStats || showEnableLogging
         val anyAdvancedMatch = hasDisplayPerf || hasAutomix || hasDiagnostics
@@ -220,54 +224,85 @@ fun AdvancedPerformanceSection(
                 footer = stringResource(R.string.show_nerd_stats_subtitle),
             ) {
                 var perfPreceding = false
-                if (showHighPerformance) {
-                    val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
+                if (showPerformanceProfile) {
+                    val profiles = PerformanceProfile.entries
+                    val profileLabels = profiles.map { it.localizedLabel() }
+                    val tierDescription = when (performancePolicy.resolvedTier) {
+                        PerformanceTier.SAVER -> stringResource(R.string.performance_profile_saver_desc)
+                        PerformanceTier.BALANCED -> stringResource(R.string.performance_profile_balanced_desc)
+                        PerformanceTier.HIGH -> stringResource(
+                            R.string.performance_profile_high_desc,
+                            selectedPerformanceRefreshRate,
+                        )
+                    }
+                    val profileSubtitle = if (performancePolicy.selectedProfile == PerformanceProfile.AUTO) {
+                        "${stringResource(R.string.performance_profile_auto_prefix, performancePolicy.resolvedTier.localizedLabel())} — $tierDescription"
+                    } else {
+                        tierDescription
+                    }
                     SettingsRow(
                         icon = Icons.Rounded.Speed,
-                        title = highPerformanceModeTitle,
-                        subtitle = if (highPerformanceMode) {
-                            stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate ?: 60)
+                        title = stringResource(R.string.performance_profile),
+                        subtitle = profileSubtitle,
+                        badge = if (performancePolicy.isCustomized) {
+                            stringResource(R.string.performance_profile_customized)
                         } else {
-                            stringResource(R.string.high_performance_subtitle)
+                            null
                         },
-                        trailing = {
-                            IosSwitch(
-                                checked = highPerformanceMode,
-                                onCheckedChange = { targetState ->
-                                    if (targetState) {
-                                        showPerformanceWarning = true
-                                    } else {
-                                        AppSettings.setHighPerformanceMode(false)
-                                    }
-                                },
-                            )
+                    )
+                    SegmentedControl(
+                        options = profileLabels,
+                        selectedIndex = profiles.indexOf(performancePolicy.selectedProfile).coerceAtLeast(0),
+                        onSelect = { index ->
+                            val chosen = profiles[index]
+                            if (chosen == PerformanceProfile.HIGH &&
+                                performancePolicy.selectedProfile != PerformanceProfile.HIGH
+                            ) {
+                                showHighPerformanceConfirm = true
+                            } else {
+                                AppSettings.setPerformanceProfile(chosen)
+                            }
                         },
-                        onClick = {
-                            if (!highPerformanceMode) showPerformanceWarning = true
-                            else AppSettings.setHighPerformanceMode(false)
-                        },
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                     )
                     perfPreceding = true
 
-                    if (highPerformanceMode && supportedRefreshRates.isNotEmpty()) {
+                    if (supportedRefreshRates.size > 1 && performancePolicy.resolvedTier != PerformanceTier.SAVER) {
                         RowDivider()
-                        val refreshRateTitle = stringResource(R.string.refresh_rate)
-                        val labels = supportedRefreshRates.map { rate ->
-                            if (rate == null) stringResource(R.string.system)
-                            else "${rate.toInt()} Hz"
+                        val refreshRateSubtitle = if (performancePolicy.resolvedTier == PerformanceTier.HIGH) {
+                            stringResource(R.string.refresh_rate_pinned_subtitle, selectedPerformanceRefreshRate)
+                        } else {
+                            stringResource(R.string.refresh_rate_adaptive_subtitle, selectedPerformanceRefreshRate)
                         }
-                        val selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate).coerceAtLeast(0)
                         SettingsRow(
                             icon = Icons.Rounded.Speed,
-                            title = refreshRateTitle,
+                            title = stringResource(R.string.refresh_rate),
+                            subtitle = refreshRateSubtitle,
                         )
                         SegmentedControl(
-                            options = labels,
-                            selectedIndex = selectedIndex,
+                            options = supportedRefreshRates.map { "$it Hz" },
+                            selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate).coerceAtLeast(0),
                             onSelect = { AppSettings.setPerformanceRefreshRate(supportedRefreshRates[it]) },
                             modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                         )
                     }
+                }
+
+                if (showLinkAutomixCanvas) {
+                    if (perfPreceding) RowDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Link,
+                        title = stringResource(R.string.link_automix_canvas),
+                        subtitle = stringResource(R.string.link_automix_canvas_subtitle),
+                        trailing = {
+                            IosSwitch(
+                                checked = performancePolicy.linkAutomixAndCanvas,
+                                onCheckedChange = AppSettings::setLinkAutomixAndCanvas,
+                            )
+                        },
+                        onClick = { AppSettings.setLinkAutomixAndCanvas(!performancePolicy.linkAutomixAndCanvas) },
+                    )
+                    perfPreceding = true
                 }
 
                 if (showReduceBlur) {
@@ -279,11 +314,11 @@ fun AdvancedPerformanceSection(
                         subtitle = stringResource(R.string.reduce_dynamic_blur_subtitle),
                         trailing = {
                             IosSwitch(
-                                checked = reduceDynamicBlur,
+                                checked = performancePolicy.reduceDynamicBlur,
                                 onCheckedChange = AppSettings::setReduceDynamicBlur,
                             )
                         },
-                        onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
+                        onClick = { AppSettings.setReduceDynamicBlur(!performancePolicy.reduceDynamicBlur) },
                     )
                     perfPreceding = true
                 }
@@ -297,11 +332,11 @@ fun AdvancedPerformanceSection(
                         subtitle = stringResource(R.string.reduce_animation_subtitle),
                         trailing = {
                             IosSwitch(
-                                checked = reduceAnimation,
+                                checked = performancePolicy.reduceAnimation,
                                 onCheckedChange = AppSettings::setReduceAnimation,
                             )
                         },
-                        onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+                        onClick = { AppSettings.setReduceAnimation(!performancePolicy.reduceAnimation) },
                     )
                     perfPreceding = true
                 }
@@ -452,55 +487,39 @@ fun AdvancedPerformanceSection(
         }
     }
 
-    if (showPerformanceWarning) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceWarning = false },
-            title = { Text(stringResource(R.string.high_performance_before_enabling)) },
-            text = { Text(stringResource(R.string.high_performance_battery_warning)) },
-            confirmButton = {
-                TextButton(
+    if (showHighPerformanceConfirm) {
+        GlassAlert(
+            title = stringResource(R.string.performance_profile_high_confirm_title),
+            onDismiss = { showHighPerformanceConfirm = false },
+            footerActions = {
+                AlertAction(
+                    label = stringResource(R.string.enable),
+                    emphasised = true,
                     onClick = {
-                        showPerformanceWarning = false
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                        val settingsIntent = intent.takeIf {
-                            it.resolveActivity(context.packageManager) != null
-                        } ?: Intent(Settings.ACTION_SETTINGS)
-                        batterySettingsLauncher.launch(settingsIntent)
+                        showHighPerformanceConfirm = false
+                        AppSettings.setPerformanceProfile(PerformanceProfile.HIGH)
                     },
-                ) {
-                    Text(stringResource(R.string.open_battery_settings))
-                }
+                )
+                AlertRule()
+                AlertAction(
+                    label = stringResource(R.string.cancel),
+                    emphasised = false,
+                    onClick = { showHighPerformanceConfirm = false },
+                )
             },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceWarning = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-
-    if (showPerformanceConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showPerformanceConfirmation = false },
-            title = { Text(stringResource(R.string.enable_high_performance_title)) },
-            text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPerformanceConfirmation = false
-                        AppSettings.setHighPerformanceMode(true)
-                    },
-                ) {
-                    Text(stringResource(R.string.enable))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPerformanceConfirmation = false }) {
-                    Text(stringResource(R.string.not_yet))
-                }
-            },
-        )
+        ) {
+            val ink = LocalContentColor.current
+            Text(
+                text = stringResource(
+                    R.string.performance_profile_high_confirm_body,
+                    selectedPerformanceRefreshRate,
+                ),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 19.sp),
+                color = ink.copy(alpha = 0.85f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+        }
     }
 }

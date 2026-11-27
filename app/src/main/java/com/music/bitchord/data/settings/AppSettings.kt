@@ -291,6 +291,7 @@ enum class SongSort {
 object AppSettings {
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var appContext: Context
 
     /** Tracks whether the one-time Diwali celebration popup has been dismissed. */
     val diwaliPopupShown = MutableStateFlow(false)
@@ -552,20 +553,44 @@ object AppSettings {
     /** Put the playing track's codec, bitrate and sample rate on the player. */
     val showNerdStats = MutableStateFlow(false)
 
-    /** Freezes the main player's mesh gradient instead of letting it drift/crossfade. */
+    /** Selected performance profile (`AUTO` resolves dynamically from device hardware). */
+    val performanceProfile = MutableStateFlow(PerformanceProfile.AUTO)
+
+    /** Hardware tier resolved when [performanceProfile] is [PerformanceProfile.AUTO]. */
+    val autoDeviceTier = MutableStateFlow(PerformanceTier.BALANCED)
+
+    /** Combined effective policy observed by UI, refresh-rate, and optional audio/canvas gates. */
+    val performancePolicy = MutableStateFlow(EffectivePerformancePolicy())
+
+    /** Freezes continuous/infinite decorative animations while leaving light UI transitions enabled. */
+    val disableInfiniteLoops = MutableStateFlow(false)
+
+    /** Idle frame interval in ms for continuous decorative canvases (`0L` = full rate, `33L` = ~30fps, `Long.MAX_VALUE` = static). */
+    val idleAnimationFrameMs = MutableStateFlow(EffectivePerformancePolicy.DEFAULT_BALANCED_IDLE_FRAME_MS)
+
+    /** Optional link that adjusts Automix CPU mode, Canvas video, and Live Blur with [performanceProfile]. */
+    val linkAutomixAndCanvas = MutableStateFlow(false)
+
+    private var reduceBlurOverride: Boolean? = null
+    private var reduceAnimationOverride: Boolean? = null
+
+    /** Full reduced-motion mode (snaps sheets/tabs/dock and stops continuous animations). */
     val reduceAnimation = MutableStateFlow(false)
 
-    /** Requests a sustained high-refresh UI. Off keeps Android's automatic policy. */
-    val highPerformanceMode = MutableStateFlow(true)
+    /** Derived true only when the active policy resolves to [PerformanceTier.HIGH]. */
+    val highPerformanceMode = MutableStateFlow(false)
 
-    /** Preferred UI refresh rate while [highPerformanceMode] is enabled. */
+    /** Preferred UI refresh rate ceiling (or pinned rate in [PerformanceTier.HIGH]). */
     val performanceRefreshRate = MutableStateFlow(DEFAULT_PERFORMANCE_REFRESH_RATE)
 
     /** UI display density scale factor (0.50f = 50% to 1.25f = 125%). 1.0f is native. */
     val displayDensityScale = MutableStateFlow(DEFAULT_DISPLAY_DENSITY_SCALE)
 
-    /** Multiplier for miniplayer expand/minimize animation speed (0.5x to 2.0x). */
+    /** Multiplier for player-to-queue and player-to-lyrics animation speed (0.5x to 2.0x). */
     val playerAnimationSpeed = MutableStateFlow(DEFAULT_PLAYER_ANIMATION_SPEED)
+
+    /** Multiplier for miniplayer-to-player expand and minimize animation speed (0.5x to 2.0x). */
+    val miniplayerAnimationSpeed = MutableStateFlow(DEFAULT_MINIPLAYER_ANIMATION_SPEED)
 
     /** Order and visibility of the bottom navigation bar's pill tabs (Search stays pinned at the end). */
     val navTabs = MutableStateFlow(NavPage.defaultOrder.map { OrderedToggle(it, true) })
@@ -1054,12 +1079,13 @@ object AppSettings {
      * one here was a measurable slice of cold start.
      */
     fun init(context: Context, authStore: AuthStore) {
-        prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        appContext = context.applicationContext
+        prefs = appContext.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         this.authStore = authStore
-        com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
+        com.music.bitchord.data.spotify.LocalPlaylistStore.init(appContext)
         readAll()
-        com.music.bitchord.data.aimusic.HideAiMusic.init(context, hideAiMusic.value)
-        watchConnection(context)
+        com.music.bitchord.data.aimusic.HideAiMusic.init(appContext, hideAiMusic.value)
+        watchConnection(appContext)
     }
 
     /**
@@ -1138,8 +1164,6 @@ object AppSettings {
         shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
         repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
-        reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
-        highPerformanceMode.value = prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, true)
         performanceRefreshRate.value = normalizePerformanceRefreshRate(
             prefs.getInt(KEY_PERFORMANCE_REFRESH_RATE, DEFAULT_PERFORMANCE_REFRESH_RATE),
         )
@@ -1147,6 +1171,8 @@ object AppSettings {
             .coerceIn(MIN_DISPLAY_DENSITY_SCALE, MAX_DISPLAY_DENSITY_SCALE)
         playerAnimationSpeed.value = prefs.getFloat(KEY_PLAYER_ANIMATION_SPEED, DEFAULT_PLAYER_ANIMATION_SPEED)
             .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
+        miniplayerAnimationSpeed.value = prefs.getFloat(KEY_MINIPLAYER_ANIMATION_SPEED, DEFAULT_MINIPLAYER_ANIMATION_SPEED)
+            .coerceIn(MIN_MINIPLAYER_ANIMATION_SPEED, MAX_MINIPLAYER_ANIMATION_SPEED)
         navTabs.value = readOrdered(
             prefs.getString(KEY_NAV_TABS, null),
             NavPage.pillPages,
@@ -1165,7 +1191,6 @@ object AppSettings {
         videoFullBleed.value = prefs.getBoolean(KEY_VIDEO_FULL_BLEED, true)
         videoFill.value = prefs.getBoolean(KEY_VIDEO_FILL, false)
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
-        reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         dockStyle.value = prefs.getString(KEY_DOCK_STYLE, null)?.let {
             runCatching { DockStyle.valueOf(it) }.getOrNull()
@@ -1182,10 +1207,6 @@ object AppSettings {
         }
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         contentCountry.value = prefs.getString(KEY_CONTENT_COUNTRY, "").orEmpty()
-        if (highPerformanceMode.value) {
-            reduceAnimation.value = false
-            reduceDynamicBlur.value = false
-        }
         val rawCoverAnim = prefs.getString(KEY_COVER_ANIMATION, null)
         coverAnimation.value = when (rawCoverAnim) {
             null -> CoverAnimationMode.DIRECTIONAL_SWEEP
@@ -1239,6 +1260,7 @@ object AppSettings {
         tapArtworkToToggleFullScreen.value = prefs.getBoolean(KEY_TAP_TOGGLE_FULL_BLEED_ARTWORK, true)
         legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
         liveBlur.value = prefs.getBoolean(KEY_LIVE_BLUR, false)
+        readPerformanceState()
 
         playerInterfaceStyle.value = runCatching {
             PlayerInterfaceStyle.valueOf(prefs.getString(KEY_PLAYER_INTERFACE_STYLE, null) ?: PlayerInterfaceStyle.WAVEPLAY.name)
@@ -1707,7 +1729,12 @@ object AppSettings {
 
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
         automixPerformanceMode.value = value
-        prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name).apply()
+        prefs.edit().apply {
+            putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name)
+            if (linkAutomixAndCanvas.value) {
+                putString(KEY_PRE_LINK_AUTOMIX_MODE, value.name)
+            }
+        }.apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -1960,12 +1987,212 @@ object AppSettings {
         prefs.edit().putString("video_quality", quality.name).apply()
     }
 
+    private fun readPerformanceState() {
+        val autoTier = if (::appContext.isInitialized) {
+            com.music.bitchord.ui.performance.DevicePerformanceClassifier.classify(appContext)
+        } else {
+            PerformanceTier.BALANCED
+        }
+        autoDeviceTier.value = autoTier
+
+        if (!prefs.contains(KEY_PERFORMANCE_PROFILE)) {
+            val legacyReduceBlur = prefs.getBoolean(KEY_REDUCE_BLUR, false)
+            val legacyReduceAnim = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
+            val legacyHighExplicit = prefs.contains(KEY_HIGH_PERFORMANCE_MODE) &&
+                prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
+
+            val migratedProfile = when {
+                legacyReduceBlur && legacyReduceAnim -> PerformanceProfile.SAVER
+                legacyHighExplicit && !legacyReduceBlur && !legacyReduceAnim -> PerformanceProfile.HIGH
+                else -> PerformanceProfile.AUTO
+            }
+            val basePolicy = resolveEffectivePerformancePolicy(migratedProfile, autoTier)
+            val blurOverride = if (legacyReduceBlur != basePolicy.reduceDynamicBlur) legacyReduceBlur else null
+            val animOverride = if (legacyReduceAnim != basePolicy.reduceAnimation) legacyReduceAnim else null
+
+            performanceProfile.value = migratedProfile
+            reduceBlurOverride = blurOverride
+            reduceAnimationOverride = animOverride
+            prefs.edit().apply {
+                putString(KEY_PERFORMANCE_PROFILE, migratedProfile.name)
+                if (blurOverride != null) putBoolean(KEY_REDUCE_BLUR_OVERRIDE, blurOverride) else remove(KEY_REDUCE_BLUR_OVERRIDE)
+                if (animOverride != null) putBoolean(KEY_REDUCE_ANIMATION_OVERRIDE, animOverride) else remove(KEY_REDUCE_ANIMATION_OVERRIDE)
+            }.apply()
+        } else {
+            performanceProfile.value = runCatching {
+                PerformanceProfile.valueOf(
+                    prefs.getString(KEY_PERFORMANCE_PROFILE, null) ?: PerformanceProfile.AUTO.name,
+                )
+            }.getOrDefault(PerformanceProfile.AUTO)
+            reduceBlurOverride = if (prefs.contains(KEY_REDUCE_BLUR_OVERRIDE)) {
+                prefs.getBoolean(KEY_REDUCE_BLUR_OVERRIDE, false)
+            } else {
+                null
+            }
+            reduceAnimationOverride = if (prefs.contains(KEY_REDUCE_ANIMATION_OVERRIDE)) {
+                prefs.getBoolean(KEY_REDUCE_ANIMATION_OVERRIDE, false)
+            } else {
+                null
+            }
+        }
+
+        linkAutomixAndCanvas.value = prefs.getBoolean(KEY_LINK_AUTOMIX_CANVAS, false)
+        applyPerformancePolicy(syncLinked = false)
+    }
+
+    private fun applyPerformancePolicy(syncLinked: Boolean) {
+        val policy = resolveEffectivePerformancePolicy(
+            selectedProfile = performanceProfile.value,
+            autoDeviceTier = autoDeviceTier.value,
+            reduceBlurOverride = reduceBlurOverride,
+            reduceAnimationOverride = reduceAnimationOverride,
+            linkAutomixAndCanvas = linkAutomixAndCanvas.value,
+        )
+        performancePolicy.value = policy
+        highPerformanceMode.value = policy.highPerformanceMode
+        reduceDynamicBlur.value = policy.reduceDynamicBlur
+        reduceAnimation.value = policy.reduceAnimation
+        disableInfiniteLoops.value = policy.disableInfiniteLoops
+        idleAnimationFrameMs.value = policy.idleAnimationFrameMs
+
+        if (this::prefs.isInitialized) {
+            prefs.edit()
+                .putBoolean(KEY_HIGH_PERFORMANCE_MODE, policy.highPerformanceMode)
+                .putBoolean(KEY_REDUCE_BLUR, policy.reduceDynamicBlur)
+                .putBoolean(KEY_REDUCE_ANIMATION, policy.reduceAnimation)
+                .apply()
+        }
+        if (syncLinked && policy.linkAutomixAndCanvas) {
+            syncLinkedAutomixAndCanvas(policy.resolvedTier)
+        }
+    }
+
+    private fun snapshotStandaloneAutomixAndCanvas() {
+        if (!this::prefs.isInitialized) return
+        prefs.edit()
+            .putString(KEY_PRE_LINK_AUTOMIX_MODE, automixPerformanceMode.value.name)
+            .putBoolean(KEY_PRE_LINK_ANIMATED_CANVAS, animatedCanvas.value)
+            .putBoolean(KEY_PRE_LINK_LIVE_BLUR, liveBlur.value)
+            .apply()
+    }
+
+    private fun restoreStandaloneAutomixAndCanvas() {
+        if (!this::prefs.isInitialized) return
+        val prevAutomix = prefs.getString(KEY_PRE_LINK_AUTOMIX_MODE, null)?.let {
+            runCatching { AutomixPerformanceMode.valueOf(it) }.getOrNull()
+        }
+        if (prevAutomix != null) {
+            automixPerformanceMode.value = prevAutomix
+            prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, prevAutomix.name).apply()
+        }
+        if (prefs.contains(KEY_PRE_LINK_ANIMATED_CANVAS)) {
+            val prevCanvas = prefs.getBoolean(KEY_PRE_LINK_ANIMATED_CANVAS, true)
+            animatedCanvas.value = prevCanvas
+            prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, prevCanvas).apply()
+        }
+        if (prefs.contains(KEY_PRE_LINK_LIVE_BLUR)) {
+            val prevLiveBlur = prefs.getBoolean(KEY_PRE_LINK_LIVE_BLUR, false)
+            liveBlur.value = prevLiveBlur
+            prefs.edit().putBoolean(KEY_LIVE_BLUR, prevLiveBlur).apply()
+        }
+    }
+
+    private fun syncLinkedAutomixAndCanvas(tier: PerformanceTier) {
+        if (!this::prefs.isInitialized) return
+        when (tier) {
+            PerformanceTier.SAVER -> {
+                automixPerformanceMode.value = AutomixPerformanceMode.EFFICIENT
+                animatedCanvas.value = false
+                liveBlur.value = false
+                prefs.edit()
+                    .putString(KEY_AUTOMIX_PERFORMANCE_MODE, AutomixPerformanceMode.EFFICIENT.name)
+                    .putBoolean(KEY_ANIMATED_CANVAS, false)
+                    .putBoolean(KEY_LIVE_BLUR, false)
+                    .apply()
+            }
+            PerformanceTier.BALANCED -> {
+                val restoredCanvas = if (prefs.contains(KEY_PRE_LINK_ANIMATED_CANVAS)) {
+                    prefs.getBoolean(KEY_PRE_LINK_ANIMATED_CANVAS, true)
+                } else {
+                    animatedCanvas.value
+                }
+                val restoredLiveBlur = if (prefs.contains(KEY_PRE_LINK_LIVE_BLUR)) {
+                    prefs.getBoolean(KEY_PRE_LINK_LIVE_BLUR, false)
+                } else {
+                    liveBlur.value
+                }
+                automixPerformanceMode.value = AutomixPerformanceMode.BALANCED
+                animatedCanvas.value = restoredCanvas
+                liveBlur.value = restoredLiveBlur
+                prefs.edit()
+                    .putString(KEY_AUTOMIX_PERFORMANCE_MODE, AutomixPerformanceMode.BALANCED.name)
+                    .putBoolean(KEY_ANIMATED_CANVAS, restoredCanvas)
+                    .putBoolean(KEY_LIVE_BLUR, restoredLiveBlur)
+                    .apply()
+            }
+            PerformanceTier.HIGH -> {
+                val restoredCanvas = if (prefs.contains(KEY_PRE_LINK_ANIMATED_CANVAS)) {
+                    prefs.getBoolean(KEY_PRE_LINK_ANIMATED_CANVAS, true)
+                } else {
+                    animatedCanvas.value
+                }
+                val restoredLiveBlur = if (prefs.contains(KEY_PRE_LINK_LIVE_BLUR)) {
+                    prefs.getBoolean(KEY_PRE_LINK_LIVE_BLUR, false)
+                } else {
+                    liveBlur.value
+                }
+                automixPerformanceMode.value = AutomixPerformanceMode.PERFORMANCE
+                animatedCanvas.value = restoredCanvas
+                liveBlur.value = restoredLiveBlur
+                prefs.edit()
+                    .putString(KEY_AUTOMIX_PERFORMANCE_MODE, AutomixPerformanceMode.PERFORMANCE.name)
+                    .putBoolean(KEY_ANIMATED_CANVAS, restoredCanvas)
+                    .putBoolean(KEY_LIVE_BLUR, restoredLiveBlur)
+                    .apply()
+            }
+        }
+    }
+
+    fun setPerformanceProfile(profile: PerformanceProfile) {
+        performanceProfile.value = profile
+        reduceBlurOverride = null
+        reduceAnimationOverride = null
+        if (this::prefs.isInitialized) {
+            prefs.edit()
+                .putString(KEY_PERFORMANCE_PROFILE, profile.name)
+                .remove(KEY_REDUCE_BLUR_OVERRIDE)
+                .remove(KEY_REDUCE_ANIMATION_OVERRIDE)
+                .apply()
+        }
+        applyPerformancePolicy(syncLinked = true)
+    }
+
+    fun setLinkAutomixAndCanvas(enabled: Boolean) {
+        if (linkAutomixAndCanvas.value == enabled) return
+        linkAutomixAndCanvas.value = enabled
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_LINK_AUTOMIX_CANVAS, enabled).apply()
+        }
+        if (enabled) {
+            snapshotStandaloneAutomixAndCanvas()
+            applyPerformancePolicy(syncLinked = true)
+        } else {
+            restoreStandaloneAutomixAndCanvas()
+            applyPerformancePolicy(syncLinked = false)
+        }
+    }
+
     fun setReduceAnimation(value: Boolean) {
-        reduceAnimation.value = value
-        if (value) highPerformanceMode.value = false
-        val editor = prefs.edit().putBoolean(KEY_REDUCE_ANIMATION, value)
-        if (value) editor.putBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
-        editor.apply()
+        val base = resolveEffectivePerformancePolicy(performanceProfile.value, autoDeviceTier.value)
+        reduceAnimationOverride = if (value == base.reduceAnimation) null else value
+        if (this::prefs.isInitialized) {
+            prefs.edit().apply {
+                val override = reduceAnimationOverride
+                if (override != null) putBoolean(KEY_REDUCE_ANIMATION_OVERRIDE, override)
+                else remove(KEY_REDUCE_ANIMATION_OVERRIDE)
+            }.apply()
+        }
+        applyPerformancePolicy(syncLinked = false)
     }
 
     fun setStopOnTaskRemoved(value: Boolean) {
@@ -2029,11 +2256,16 @@ object AppSettings {
     }
 
     fun setReduceDynamicBlur(value: Boolean) {
-        reduceDynamicBlur.value = value
-        if (value) highPerformanceMode.value = false
-        val editor = prefs.edit().putBoolean(KEY_REDUCE_BLUR, value)
-        if (value) editor.putBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
-        editor.apply()
+        val base = resolveEffectivePerformancePolicy(performanceProfile.value, autoDeviceTier.value)
+        reduceBlurOverride = if (value == base.reduceDynamicBlur) null else value
+        if (this::prefs.isInitialized) {
+            prefs.edit().apply {
+                val override = reduceBlurOverride
+                if (override != null) putBoolean(KEY_REDUCE_BLUR_OVERRIDE, override)
+                else remove(KEY_REDUCE_BLUR_OVERRIDE)
+            }.apply()
+        }
+        applyPerformancePolicy(syncLinked = false)
     }
 
     fun setDockStyle(value: DockStyle) {
@@ -2081,17 +2313,7 @@ object AppSettings {
     }
 
     fun setHighPerformanceMode(value: Boolean) {
-        highPerformanceMode.value = value
-        if (value) {
-            reduceAnimation.value = false
-            reduceDynamicBlur.value = false
-        }
-        val editor = prefs.edit().putBoolean(KEY_HIGH_PERFORMANCE_MODE, value)
-        if (value) {
-            editor.putBoolean(KEY_REDUCE_ANIMATION, false)
-            editor.putBoolean(KEY_REDUCE_BLUR, false)
-        }
-        editor.apply()
+        setPerformanceProfile(if (value) PerformanceProfile.HIGH else PerformanceProfile.BALANCED)
     }
 
     fun setPerformanceRefreshRate(value: Int) {
@@ -2111,7 +2333,18 @@ object AppSettings {
         val clamped = ((kotlin.math.round(value * 10f)) / 10f)
             .coerceIn(MIN_PLAYER_ANIMATION_SPEED, MAX_PLAYER_ANIMATION_SPEED)
         playerAnimationSpeed.value = clamped
-        prefs.edit().putFloat(KEY_PLAYER_ANIMATION_SPEED, clamped).apply()
+        if (this::prefs.isInitialized) {
+            prefs.edit().putFloat(KEY_PLAYER_ANIMATION_SPEED, clamped).apply()
+        }
+    }
+
+    fun setMiniplayerAnimationSpeed(value: Float) {
+        val clamped = ((kotlin.math.round(value * 10f)) / 10f)
+            .coerceIn(MIN_MINIPLAYER_ANIMATION_SPEED, MAX_MINIPLAYER_ANIMATION_SPEED)
+        miniplayerAnimationSpeed.value = clamped
+        if (this::prefs.isInitialized) {
+            prefs.edit().putFloat(KEY_MINIPLAYER_ANIMATION_SPEED, clamped).apply()
+        }
     }
 
     fun setLyricsBlur(value: Boolean) {
@@ -2272,7 +2505,10 @@ object AppSettings {
 
     fun setAnimatedCanvas(value: Boolean) {
         animatedCanvas.value = value
-        prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
+        prefs.edit().apply {
+            putBoolean(KEY_ANIMATED_CANVAS, value)
+            if (linkAutomixAndCanvas.value) putBoolean(KEY_PRE_LINK_ANIMATED_CANVAS, value)
+        }.apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2325,7 +2561,10 @@ object AppSettings {
 
     fun setLiveBlur(value: Boolean) {
         liveBlur.value = value
-        prefs.edit().putBoolean(KEY_LIVE_BLUR, value).apply()
+        prefs.edit().apply {
+            putBoolean(KEY_LIVE_BLUR, value)
+            if (linkAutomixAndCanvas.value) putBoolean(KEY_PRE_LINK_LIVE_BLUR, value)
+        }.apply()
     }
 
 
@@ -3325,16 +3564,27 @@ object AppSettings {
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
+    private const val KEY_PERFORMANCE_PROFILE = "performance_profile"
+    private const val KEY_REDUCE_BLUR_OVERRIDE = "reduce_dynamic_blur_override"
+    private const val KEY_REDUCE_ANIMATION_OVERRIDE = "reduce_animation_override"
+    private const val KEY_LINK_AUTOMIX_CANVAS = "link_automix_and_canvas"
+    private const val KEY_PRE_LINK_AUTOMIX_MODE = "pre_link_automix_mode"
+    private const val KEY_PRE_LINK_ANIMATED_CANVAS = "pre_link_animated_canvas"
+    private const val KEY_PRE_LINK_LIVE_BLUR = "pre_link_live_blur"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"
     private const val KEY_DISPLAY_DENSITY_SCALE = "display_density_scale"
     const val DEFAULT_DISPLAY_DENSITY_SCALE = 1.0f
     const val MIN_DISPLAY_DENSITY_SCALE = 0.50f
     const val MAX_DISPLAY_DENSITY_SCALE = 1.25f
     private const val KEY_PLAYER_ANIMATION_SPEED = "player_animation_speed"
+    private const val KEY_MINIPLAYER_ANIMATION_SPEED = "miniplayer_animation_speed"
     private const val KEY_NAV_TABS = "nav_tabs"
     const val DEFAULT_PLAYER_ANIMATION_SPEED = 1.0f
     const val MIN_PLAYER_ANIMATION_SPEED = 0.5f
     const val MAX_PLAYER_ANIMATION_SPEED = 2.0f
+    const val DEFAULT_MINIPLAYER_ANIMATION_SPEED = 1.0f
+    const val MIN_MINIPLAYER_ANIMATION_SPEED = 0.5f
+    const val MAX_MINIPLAYER_ANIMATION_SPEED = 2.0f
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_SONG_STATUS = "hide_song_status"

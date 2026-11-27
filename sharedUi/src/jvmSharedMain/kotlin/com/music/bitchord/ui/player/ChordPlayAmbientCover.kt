@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.rememberIsForeground
 import kotlin.math.PI
@@ -54,9 +55,12 @@ fun ChordPlayAmbientAura(
     reduceAnimation: Boolean = false,
 ) {
     val isForeground = rememberIsForeground()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    if (reduceDynamicBlur) return
     val targetScale: Float
     val targetAlpha: Float
-    if (isPlaying && isForeground && !reduceAnimation) {
+    if (isPlaying && isForeground && !reduceAnimation && !disableInfiniteLoops) {
         val infiniteTransition = rememberInfiniteTransition(label = "ChordPlayAuraPulse")
 
         // Breathing pulse scale: 1.05f to 1.12f when playing

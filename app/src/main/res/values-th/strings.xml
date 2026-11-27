@@ -1468,8 +1468,8 @@
     <string name="chordplay_pass_tier">สิทธิ์การเข้าถึง</string>
     <string name="chordplay_pass_tier_listener">ผู้ฟัง</string>
     <string name="chordplay_pass_unnamed">ผู้ฟัง ChordPlay</string>
-    <string name="community_hub">ศูนย์กลางชุมชน ChordPlay</string>
-    <string name="community_hub_subtitle">ติดตามผู้พัฒนา ดูคลัง Reddit และ GitHub</string>
+    <string name="community_hub">ข้อความจาก ChordPlay</string>
+    <string name="community_hub_subtitle">ข้อความจากนักพัฒนาและลิงก์ชุมชน</string>
     <string name="delete_preset">ลบพรีเซ็ต</string>
     <string name="delete_preset_confirmation">คุณแน่ใจหรือไม่ว่าต้องการลบ "%1$s"?</string>
     <string name="delete_preset_title">ลบพรีเซ็ตหรือไม่?</string>
@@ -1622,7 +1622,7 @@
     <string name="onboarding_welcome_back_restore">ยินดีต้อนรับกลับ %1$s · แตะเพื่อกู้คืน</string>
     <string name="onboarding_github_tag">ติดดาวและร่วมพัฒนา</string>
     <string name="player_animation_speed">ความเร็วแอนิเมชันเครื่องเล่น</string>
-    <string name="player_animation_speed_subtitle">ปรับความเร็วในการขยายและย่อมินิเพลเยอร์</string>
+    <string name="player_animation_speed_subtitle">ปรับความเร็วแอนิเมชันการสลับระหว่างเครื่องเล่น คิว และเนื้อเพลง</string>
     <string name="sync_identity_card">ซิงค์การ์ดตัวตน</string>
     <string name="sync_identity_card_subtitle">บันทึกโปรไฟล์ การตั้งค่า และสถิติไว้ที่ Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">ซิงค์ตัวตนไปยัง %1$s แล้ว</string>
@@ -1889,4 +1889,27 @@
     <string name="hide_ai_music">ซ่อนเพลง AI</string>
     <string name="hide_ai_music_subtitle" formatted="false">นำเพลงของศิลปิน AI ที่รู้จักออกจากการค้นหา หน้าแรก มิกซ์ และวิทยุ ตัวกรองนี้ไม่ได้มีประสิทธิภาพ 100%</string>
     <string name="hide_ai_music_sources">รายการ: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist ChordPlay อัปเดตรายการวันละครั้ง</string>
+    <string name="performance_profile">โปรไฟล์ประสิทธิภาพ</string>
+    <string name="performance_profile_auto">อัตโนมัติ</string>
+    <string name="performance_profile_balanced">สมดุล</string>
+    <string name="performance_profile_saver">ประหยัด</string>
+    <string name="performance_profile_high">สูง</string>
+    <string name="performance_profile_tier_saver">สีทึบ + การเคลื่อนไหวเบา</string>
+    <string name="performance_profile_customized">ปรับแต่งเอง</string>
+    <string name="performance_profile_auto_prefix">อัตโนมัติ · %1$s</string>
+    <string name="performance_profile_saver_desc">ใช้พื้นทึบ จำกัดหน้าจอที่ 60 Hz และหยุดเอฟเฟกต์วนซ้ำ</string>
+    <string name="performance_profile_balanced_desc">คงกระจกฝ้าและ Adaptive VRR พร้อมชะลอภาพเคลื่อนไหวขณะนิ่ง</string>
+    <string name="performance_profile_high_desc">ล็อก %1$d Hz พร้อมเบลอเต็มรูปแบบและภาพเคลื่อนไหว 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">สูงสุด %1$d Hz ด้วย Adaptive VRR</string>
+    <string name="refresh_rate_pinned_subtitle">ล็อกไว้ที่ %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">เปิดใช้ประสิทธิภาพสูงหรือไม่?</string>
+    <string name="performance_profile_high_confirm_body">ล็อกอัตรารีเฟรชไว้ที่ %1$d Hz พร้อมเบลอเต็มที่และลูป 120 fps ใช้แบตเตอรี่มากขึ้นและอาจทำให้อุปกรณ์อุ่นขึ้น</string>
+    <string name="link_automix_canvas">เชื่อม Automix และ Canvas กับโปรไฟล์</string>
+    <string name="link_automix_canvas_subtitle">ให้โปรไฟล์ปรับโหมด CPU ของ Automix ปกเคลื่อนไหว และเบลอแบบเรียลไทม์</string>
+    <string name="miniplayer_animation_speed">ความเร็วแอนิเมชันมินิเพลเยอร์</string>
+    <string name="miniplayer_animation_speed_subtitle">ปรับความเร็วในการขยายและย่อมินิเพลเยอร์</string>
+    <string name="extra_section">เพิ่มเติม</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">ที่เก็บ GitHub</string>
+    <string name="dev_profile_tile_title">ผู้พัฒนา</string>
 </resources>

@@ -1485,8 +1485,8 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="chordplay_pass_tier">ZUGANG</string>
     <string name="chordplay_pass_tier_listener">HÖRER</string>
     <string name="chordplay_pass_unnamed">ChordPlay-Hörer</string>
-    <string name="community_hub">ChordPlay Community-Hub</string>
-    <string name="community_hub_subtitle">Folge dem Entwickler, besuche Reddit &amp; GitHub</string>
+    <string name="community_hub">ChordPlay-Nachricht</string>
+    <string name="community_hub_subtitle">Nachricht des Entwicklers &amp; Community-Links</string>
     <string name="delete_preset">Vorlage löschen</string>
     <string name="delete_preset_confirmation">Möchtest du „%1$s“ wirklich löschen?</string>
     <string name="delete_preset_title">Vorlage löschen?</string>
@@ -1639,7 +1639,7 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="onboarding_welcome_back_restore">Willkommen zurück, %1$s · Tippen zum Wiederherstellen</string>
     <string name="onboarding_github_tag">Stern geben &amp; beitragen</string>
     <string name="player_animation_speed">Animationsgeschwindigkeit des Players</string>
-    <string name="player_animation_speed_subtitle">Passe an, wie schnell der Mini-Player maximiert und minimiert wird</string>
+    <string name="player_animation_speed_subtitle">Passe an, wie schnell Übergänge zu Warteschlange und Songtexten animiert werden</string>
     <string name="sync_identity_card">Identitätskarte synchronisieren</string>
     <string name="sync_identity_card_subtitle">Profil, Einstellungen &amp; Statistiken in Downloads/Music/ChordPlay/you speichern</string>
     <string name="sync_identity_saved">Identität gespeichert unter %1$s</string>
@@ -1906,4 +1906,27 @@ Durch das Aktivieren stimmst du diesen Bedingungen zu.</string>
     <string name="hide_ai_music">KI-Musik ausblenden</string>
     <string name="hide_ai_music_subtitle" formatted="false">Entfernt Songs bekannter KI-Künstler aus Suche, Startseite, Mixes und Radio. Dieser Filter ist nicht zu 100 % wirksam.</string>
     <string name="hide_ai_music_sources">Listen: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay lädt die Listen einmal am Tag neu.</string>
+    <string name="performance_profile">Leistungsprofil</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Ausgewogen</string>
+    <string name="performance_profile_saver">Sparmodus</string>
+    <string name="performance_profile_high">Hoch</string>
+    <string name="performance_profile_tier_saver">Flächig &amp; leichte Motion</string>
+    <string name="performance_profile_customized">Angepasst</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Nutzt deckende Flächen, begrenzt auf 60 Hz und friert Endlosschleifen ein</string>
+    <string name="performance_profile_balanced_desc">Behält Milchglas und adaptives VRR bei und drosselt ruhige Effekte</string>
+    <string name="performance_profile_high_desc">Fixiert %1$d Hz Bildwiederholrate mit voller Unschärfe und 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Bis zu %1$d Hz mit adaptivem VRR</string>
+    <string name="refresh_rate_pinned_subtitle">Fixiert auf %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Hohe Leistung aktivieren?</string>
+    <string name="performance_profile_high_confirm_body">Sperrt die Bildwiederholrate auf %1$d Hz mit voller Unschärfe und 120-fps-Canvas. Verbraucht mehr Akku und kann das Gerät erwärmen.</string>
+    <string name="link_automix_canvas">Automix &amp; Canvas mit Profil verknüpfen</string>
+    <string name="link_automix_canvas_subtitle">Das Leistungsprofil passt Automix-CPU-Modus, animierte Cover und Live-Blur an</string>
+    <string name="miniplayer_animation_speed">Mini-Player-Animationsgeschwindigkeit</string>
+    <string name="miniplayer_animation_speed_subtitle">Passe an, wie schnell der Mini-Player maximiert und minimiert wird</string>
+    <string name="extra_section">Extras</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">GitHub-Repo</string>
+    <string name="dev_profile_tile_title">Entwickler</string>
 </resources>

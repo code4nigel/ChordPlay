@@ -466,12 +466,6 @@ private fun SettingsHub(
         ?: Locale.getDefault().toLanguageTag()
     val languageLabel = stringResource(languageDisplayNameRes(selectedLanguage))
 
-    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
-    val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
-    val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
-    val spotifyToken by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
-    val party by ListenTogether.state.collectAsStateWithLifecycle()
-
     val matchingSections = remember(searchQuery) {
         if (searchQuery.isBlank()) {
             listOf(
@@ -498,7 +492,7 @@ private fun SettingsHub(
                     SettingsSection.MINIPLAYER -> "miniplayer timeline animation og circle aurora wave silk pill progress"
                     SettingsSection.PLAYER_STYLE -> "player style wave progress scrubber og wave aurora silk audio graph"
                     SettingsSection.SHELVES -> "preferences your preferences content shelves home your space speed dial quick picks top picks remixes videos arrangement customize melody replay hide show library square prefer music swipe"
-                    SettingsSection.PLAYER -> "playback player animation speed expand minimize fast smooth artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
+                    SettingsSection.PLAYER -> "playback player queue lyrics miniplayer animation speed expand minimize fast smooth artwork sleeve full bleed canvas spotify mesh gradient volume bar song status seek nerd stats"
                     SettingsSection.LYRICS -> "lyrics typography font style scale size alignment center left sync syllable source translation"
                     SettingsSection.AUDIO -> "audio quality streaming wifi cellular crossfade smart fade automix dolby atmos spatial equalizer usb dac loudness normalization silence hide ai music artificial slop filter"
                     SettingsSection.DOWNLOADS -> "downloads save custom location offline lyrics folder quality wifi"
@@ -508,7 +502,7 @@ private fun SettingsHub(
                     SettingsSection.DRIVE_BACKUP -> "google drive backup cloud sync identity restore devices"
                     SettingsSection.DRIVE_DEVICES -> "google drive devices restore device"
                     SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced experimental performance 120hz refresh rate display smoothness reduce blur reduce animations live previews preview keep screen on awake timeout sleep indefinitely automix cpu nerd stats diagnostics enable logging log crash bug report"
-                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile releases updates welcome setup onboarding pass"
+                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile shivanshu yadav extra chordplay message bitchord upstream welcome setup onboarding pass"
                     SettingsSection.LANGUAGE -> "language location country region app language locale translate english"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
                     SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay welcome setup onboarding"
@@ -518,7 +512,7 @@ private fun SettingsHub(
         }
     }
 
-    val allSettings = rememberGlobalSettings()
+    val allSettings = if (searchQuery.isBlank()) emptyList() else rememberGlobalSettings()
     val matchingSettings = remember(searchQuery, allSettings) {
         if (searchQuery.isBlank()) {
             emptyList()
@@ -660,51 +654,8 @@ private fun SettingsHub(
                     modifier = Modifier.padding(start = 68.dp),
                 )
 
-                // 2. Play Together
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onListenTogether)
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Groups,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.play_together),
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = if (party != null) stringResource(R.string.play_together_active_desc) else stringResource(R.string.play_together_inactive_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
+                // 2. Play Together (scoped collector prevents party ticks from recomposing SettingsHub)
+                PlayTogetherQuickRow(onListenTogether = onListenTogether)
 
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
@@ -712,113 +663,8 @@ private fun SettingsHub(
                     modifier = Modifier.padding(start = 68.dp),
                 )
 
-                // 3. Spotify Login / Connect
-                val spotifyConnected = !spotifyToken.isNullOrBlank()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onOpenSpotify)
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1DB954).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.spotify_logo),
-                            contentDescription = null,
-                            tint = Color(0xFF1DB954),
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "Spotify",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = if (spotifyConnected) stringResource(R.string.spotify_connected_desc) else stringResource(R.string.spotify_connect_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                    if (spotifyConnected) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF1DB954).copy(alpha = 0.18f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp),
-                        ) {
-                            Text(
-                                text = "Active",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1DB954),
-                            )
-                        }
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(14.dp),
-                        )
-                    }
-                }
-
-                // Quick Animated Artwork Toggle when Spotify is connected
-                AnimatedVisibility(
-                    visible = spotifyConnected,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                            thickness = 0.5.dp,
-                            modifier = Modifier.padding(start = 68.dp),
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { AppSettings.setAnimatedCanvas(!animatedCanvas) }
-                                .padding(start = 68.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.animated_cover_art),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = stringResource(R.string.animated_cover_art_subtitle),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            IosSwitch(
-                                checked = animatedCanvas,
-                                onCheckedChange = AppSettings::setAnimatedCanvas,
-                            )
-                        }
-                    }
-                }
+                // 3. Spotify Login / Connect & Quick Animated Artwork Toggle
+                SpotifyQuickCardSection(onOpenSpotify = onOpenSpotify)
 
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
@@ -827,93 +673,7 @@ private fun SettingsHub(
                 )
 
                 // 4. Liquid Glass & Intensity Slider
-                val glassSupported = isGlassSupported()
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.WaterDrop,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.liquid_glass),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                            )
-                            Text(
-                                text = if (glassSupported) stringResource(R.string.glass_refraction_desc) else stringResource(R.string.liquid_glass_unavailable),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                            )
-                        }
-                        IosSwitch(
-                            checked = liquidGlass,
-                            onCheckedChange = AppSettings::setLiquidGlass,
-                            enabled = glassSupported,
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = liquidGlass && glassSupported,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically(),
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 10.dp, start = 52.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.glass_intensity),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = "${(liquidGlassIntensity * 100).toInt()}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                            Slider(
-                                value = liquidGlassIntensity,
-                                onValueChange = AppSettings::setLiquidGlassIntensity,
-                                valueRange = 0.1f..1f,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = MaterialTheme.colorScheme.primary,
-                                    activeTrackColor = MaterialTheme.colorScheme.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                                ),
-                            )
-                        }
-                    }
-                }
+                LiquidGlassQuickSection()
             }
 
             Spacer(Modifier.height(20.dp))
@@ -1026,6 +786,264 @@ private fun SettingsHub(
 
                     Spacer(Modifier.height(24.dp))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayTogetherQuickRow(
+    onListenTogether: () -> Unit,
+) {
+    val party by ListenTogether.state.collectAsStateWithLifecycle()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onListenTogether)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Groups,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.play_together),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = if (party != null) stringResource(R.string.play_together_active_desc) else stringResource(R.string.play_together_inactive_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(14.dp),
+        )
+    }
+}
+
+@Composable
+private fun SpotifyQuickCardSection(
+    onOpenSpotify: () -> Unit,
+) {
+    val spotifyToken by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val spotifyConnected = !spotifyToken.isNullOrBlank()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenSpotify)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1DB954).copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(Res.drawable.spotify_logo),
+                contentDescription = null,
+                tint = Color(0xFF1DB954),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = "Spotify",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            Text(
+                text = if (spotifyConnected) stringResource(R.string.spotify_connected_desc) else stringResource(R.string.spotify_connect_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        if (spotifyConnected) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF1DB954).copy(alpha = 0.18f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = "Active",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1DB954),
+                )
+            }
+        } else {
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(14.dp),
+            )
+        }
+    }
+
+    // Quick Animated Artwork Toggle when Spotify is connected
+    AnimatedVisibility(
+        visible = spotifyConnected,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp,
+                modifier = Modifier.padding(start = 68.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { AppSettings.setAnimatedCanvas(!animatedCanvas) }
+                    .padding(start = 68.dp, end = 16.dp, top = 9.dp, bottom = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.animated_cover_art),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(R.string.animated_cover_art_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                IosSwitch(
+                    checked = animatedCanvas,
+                    onCheckedChange = AppSettings::setAnimatedCanvas,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiquidGlassQuickSection() {
+    val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
+    val liquidGlassIntensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
+    val glassSupported = isGlassSupported()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.WaterDrop,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.liquid_glass),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                Text(
+                    text = if (glassSupported) stringResource(R.string.glass_refraction_desc) else stringResource(R.string.liquid_glass_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            IosSwitch(
+                checked = liquidGlass,
+                onCheckedChange = AppSettings::setLiquidGlass,
+                enabled = glassSupported,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = liquidGlass && glassSupported,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, start = 52.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.glass_intensity),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "${(liquidGlassIntensity * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Slider(
+                    value = liquidGlassIntensity,
+                    onValueChange = AppSettings::setLiquidGlassIntensity,
+                    valueRange = 0.1f..1f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
+                    ),
+                )
             }
         }
     }
@@ -1206,7 +1224,15 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.PLAYER,
             icon = Icons.Rounded.Speed,
             queryTarget = stringResource(R.string.player_animation_speed),
-            keywords = listOf("animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth"),
+            keywords = listOf("animation", "speed", "player", "queue", "lyrics", "fast", "smooth"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.miniplayer_animation_speed),
+            subtitle = stringResource(R.string.miniplayer_animation_speed_subtitle),
+            section = SettingsSection.PLAYER,
+            icon = Icons.Rounded.Speed,
+            queryTarget = stringResource(R.string.miniplayer_animation_speed),
+            keywords = listOf("animation", "speed", "miniplayer", "mini player", "expand", "minimize", "fast", "smooth"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.app_language),
@@ -1233,12 +1259,20 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("swipe", "gesture", "right", "left"),
         ),
         GlobalSettingItem(
-            title = stringResource(R.string.high_performance_mode),
-            subtitle = stringResource(R.string.high_performance_subtitle),
+            title = stringResource(R.string.performance_profile),
+            subtitle = stringResource(R.string.performance_profile_balanced_desc),
             section = SettingsSection.ADVANCED_PERFORMANCE,
             icon = Icons.Rounded.Speed,
-            queryTarget = stringResource(R.string.high_performance_mode),
-            keywords = listOf("120hz", "90hz", "144hz", "refresh rate", "hz", "fps", "smooth"),
+            queryTarget = stringResource(R.string.performance_profile),
+            keywords = listOf("performance", "profile", "auto", "balanced", "saver", "solid", "light motion", "high", "120hz", "90hz", "144hz", "refresh rate", "vrr", "hz", "fps", "battery", "smooth"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.link_automix_canvas),
+            subtitle = stringResource(R.string.link_automix_canvas_subtitle),
+            section = SettingsSection.ADVANCED_PERFORMANCE,
+            icon = Icons.Rounded.Link,
+            queryTarget = stringResource(R.string.link_automix_canvas),
+            keywords = listOf("link", "automix", "canvas", "live blur", "performance", "profile", "battery"),
         ),
 
         // Your Preferences (Shelves & Content Preferences)
@@ -1738,14 +1772,22 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("identity", "wave", "profile", "you", "downloads", "chordplay"),
         ),
 
-        // Support
+        // Support & Extra
         GlobalSettingItem(
             title = stringResource(R.string.check_for_updates),
-            subtitle = stringResource(R.string.support_community),
-            section = SettingsSection.SUPPORT,
+            subtitle = stringResource(R.string.miscellaneous),
+            section = SettingsSection.ABOUT,
             icon = Icons.Rounded.Update,
             queryTarget = stringResource(R.string.check_for_updates),
             keywords = listOf("update", "version", "check", "download"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.community_hub),
+            subtitle = stringResource(R.string.community_hub_subtitle),
+            section = SettingsSection.SUPPORT,
+            icon = Icons.Rounded.Favorite,
+            queryTarget = stringResource(R.string.community_hub),
+            keywords = listOf("chordplay message", "message", "community", "extra", "support"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.reddit_community),
@@ -1753,7 +1795,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SUPPORT,
             icon = Icons.Rounded.Favorite,
             queryTarget = stringResource(R.string.reddit_community),
-            keywords = listOf("reddit", "community", "social"),
+            keywords = listOf("reddit", "community", "social", "r/chordplay"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.github_repository),
@@ -1761,12 +1803,12 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SUPPORT,
             icon = Icons.Rounded.OpenInNew,
             queryTarget = stringResource(R.string.github_repository),
-            keywords = listOf("github", "source", "issues", "bugs", "repo"),
+            keywords = listOf("github", "source", "issues", "bugs", "repo", "chordplay"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.latest_releases),
             subtitle = stringResource(R.string.latest_releases_subtitle),
-            section = SettingsSection.SUPPORT,
+            section = SettingsSection.ABOUT,
             icon = Icons.Rounded.Info,
             queryTarget = stringResource(R.string.latest_releases),
             keywords = listOf("releases", "apk", "changelog"),
@@ -1777,7 +1819,7 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SUPPORT,
             icon = Icons.Rounded.Person,
             queryTarget = stringResource(R.string.developer_profile),
-            keywords = listOf("developer", "profile", "author", "nigel"),
+            keywords = listOf("developer", "profile", "author", "shivanshu yadav", "shivanshu", "nigel", "code4nigel"),
         ),
         GlobalSettingItem(
             title = stringResource(R.string.replay_welcome_setup),
@@ -1785,7 +1827,15 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             section = SettingsSection.SUPPORT,
             icon = Icons.Rounded.AutoAwesome,
             queryTarget = stringResource(R.string.replay_welcome_setup),
-            keywords = listOf("welcome", "setup", "onboarding", "chordplay pass", "wizard"),
+            keywords = listOf("welcome", "setup", "onboarding", "chordplay pass", "wizard", "extra"),
+        ),
+        GlobalSettingItem(
+            title = stringResource(R.string.bitchord_upstream_repo),
+            subtitle = stringResource(R.string.bitchord_upstream_subtitle),
+            section = SettingsSection.SUPPORT,
+            icon = Icons.Rounded.OpenInNew,
+            queryTarget = stringResource(R.string.bitchord_upstream_repo),
+            keywords = listOf("bitchord", "upstream", "repo", "credit", "extra"),
         ),
 
         // Integrations
@@ -2033,16 +2083,11 @@ private fun SettingsColophon(
                 )
 
                 Text(
-                    text = "Based on BitChord by Kushagra Singh",
+                    text = "Based on BitChord",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
-                        }
-                    },
                 )
             }
         }

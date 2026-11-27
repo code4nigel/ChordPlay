@@ -137,7 +137,7 @@ internal const val SEEK_SETTLE_TIMEOUT_MS = 4_000L
 private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
-private const val QUEUE_TRAVEL_MS = 420
+private const val QUEUE_TRAVEL_MS = 460
 private val DISMISS_STRIP_HEIGHT = 32.dp
 private val ART_BOX_TOP_PAD = 8.dp
 private const val HERO_FADE_FRACTION = 0.42f
@@ -329,9 +329,11 @@ fun NowPlayingScreen(
 
     val legacyMesh by PlayerSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liveBlur by PlayerSettings.liveBlur.collectAsStateWithLifecycle()
     val liveRefreshMs = when {
-        reduceAnimation -> LIVE_REFRESH_REDUCED_MS
+        reduceAnimation || disableInfiniteLoops -> LIVE_REFRESH_REDUCED_MS
         liveBlur -> LIVE_REFRESH_LIVE_MS
         else -> LIVE_REFRESH_MS
     }
@@ -460,8 +462,8 @@ fun NowPlayingScreen(
             animationSpec = tween(
                 durationMillis = ((QUEUE_TRAVEL_MS * abs(target - from)) / animSpeed)
                     .roundToInt()
-                    .coerceIn(100, 900),
-                easing = FastOutSlowInEasing,
+                    .coerceIn(120, 1100),
+                easing = DreamyEaseOutEasing,
             ),
         ) { value, _ -> panels.queueSlide.floatValue = value }
     }
@@ -488,8 +490,8 @@ fun NowPlayingScreen(
     val artScale by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.86f,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessLow,
+            dampingRatio = 0.88f,
+            stiffness = Spring.StiffnessMediumLow,
         ),
         label = "artScale",
     )
@@ -510,7 +512,7 @@ fun NowPlayingScreen(
 
     val animatedCollapse = animateFloatAsState(
         targetValue = if (panels.lyricsOpen || panels.queueOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = (420f / animSpeed).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = (460f / animSpeed).roundToInt().coerceIn(120, 1100), easing = DreamyEaseOutEasing),
         label = "sleeveCollapse",
     )
     val collapse = remember(panels, animatedCollapse) { PlayerCollapse(panels, animatedCollapse) }
@@ -523,7 +525,7 @@ fun NowPlayingScreen(
         snapshotFlow { collapse.done }.collectLatest { settled ->
             panelFade.animateTo(
                 if (settled) 1f else 0f,
-                tween(durationMillis = (200f / animSpeed).roundToInt().coerceIn(50, 450), easing = FastOutSlowInEasing),
+                tween(durationMillis = (240f / animSpeed).roundToInt().coerceIn(60, 560), easing = DreamyEaseOutEasing),
             )
         }
     }
@@ -536,7 +538,7 @@ fun NowPlayingScreen(
         song = song,
         currentArt = art,
         artPx = artPx,
-        enabled = !reduceAnimation && !videoMode && !effectiveIsLive,
+        enabled = !reduceAnimation && !disableInfiniteLoops && !videoMode && !effectiveIsLive,
         upcoming = queue.getOrNull(queueIndex + 1).takeIf { hasNext },
         paletteColors = synesthesiaPalette.colors,
     )
@@ -598,12 +600,12 @@ fun NowPlayingScreen(
         targetValue = if (
             heroMode && (heroSettled || art.loaded || clipState.rendered.value || videoRendered)
         ) 1f else 0f,
-        animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 440, easing = DreamyEaseOutEasing),
         label = "heroCanvas",
     )
     val spotifyChromeAlpha by animateFloatAsState(
         targetValue = if (!spotifyCanvasPresentation || clipState.spotifyControlsOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 220, easing = DreamyEaseOutEasing),
         label = "spotifyCanvasChrome",
     )
 
@@ -617,7 +619,7 @@ fun NowPlayingScreen(
         } else {
             Color.White.copy(alpha = 0.85f)
         },
-        animationSpec = tween(durationMillis = (360f / animSpeed).roundToInt().coerceIn(90, 800), easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 360, easing = DreamyEaseOutEasing),
         label = "topBarGlyphTint",
     )
     StatusBarIcons(dark = darkTopBarIcons)
@@ -805,7 +807,7 @@ fun NowPlayingScreen(
     LaunchedEffect(dockMoving) {
         if (dockMoving) likeBurstState.clear()
     }
-    val dockFade: () -> Float = { ((dockT() - DOCK_FADE_LEAD) / (1f - DOCK_FADE_LEAD)).coerceIn(0f, 1f) }
+    val dockFade: () -> Float = { smoothStep01((dockT() - DOCK_FADE_LEAD) / (1f - DOCK_FADE_LEAD)) }
     val sleeveLayer = rememberGraphicsLayer()
 
     val dockHost = modifier.playerDockHost(
@@ -967,7 +969,7 @@ fun NowPlayingScreen(
                         .fillMaxWidth()
                         .height(measures.heroHeight)
                         .align(Alignment.TopStart)
-                        .hazeSource(playerHaze)
+                        .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -1049,7 +1051,7 @@ fun NowPlayingScreen(
                                 if (clipFullscreen || clipPortrait) Modifier.fillMaxSize()
                                 else Modifier.fillMaxWidth().height(measures.heroHeight),
                             )
-                            .hazeSource(playerHaze),
+                            .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze)),
                     )
                 }
             }
@@ -1065,7 +1067,7 @@ fun NowPlayingScreen(
             }
             val topGradientAlpha by animateFloatAsState(
                 targetValue = targetTopGradientAlpha,
-                animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+                animationSpec = tween(durationMillis = 360, easing = DreamyEaseOutEasing),
                 label = "topGradientAlpha",
             )
             val topScrimBrush = remember(topGradientAlpha) {

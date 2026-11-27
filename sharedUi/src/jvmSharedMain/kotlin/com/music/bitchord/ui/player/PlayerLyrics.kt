@@ -104,6 +104,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -1682,6 +1683,32 @@ private fun Modifier.lyricParticles(
  */
 @Composable
 private fun LyricsSkeleton(modifier: Modifier = Modifier) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val staticColor = Color.White.copy(alpha = 0.12f)
+    if (reduceAnimation || disableInfiniteLoops) {
+        Column(
+            modifier = modifier.padding(top = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(SKELETON_BLOCK_GAP),
+        ) {
+            SKELETON_BLOCKS.forEach { rows ->
+                Column(verticalArrangement = Arrangement.spacedBy(SKELETON_LEADING)) {
+                    rows.forEach { fraction ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth(fraction)
+                                .height(SKELETON_BAR)
+                                .clip(RoundedCornerShape(4.dp))
+                                .drawWithCache {
+                                    onDrawBehind { drawRect(staticColor) }
+                                },
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
     val sweep = rememberInfiniteTransition(label = "lyricsSkeleton").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -1710,24 +1737,32 @@ private fun LyricsSkeleton(modifier: Modifier = Modifier) {
                                 .fillMaxWidth(fraction)
                                 .height(SKELETON_BAR)
                                 .clip(RoundedCornerShape(4.dp))
-                                // Read in the draw block, not the body: a
-                                // pageful of these would otherwise recompose on
-                                // every frame, and all any of them needs per
-                                // frame is a fresh gradient.
+                                // Build one highlight shader per size change instead of
+                                // allocating a LinearGradient every frame per skeleton bar.
                                 .drawWithCache {
                                     val full = column.toPx()
                                     val band = full * 0.45f
-                                    val startX = -band + sweep.value * (full + band * 2)
-                                    val brush = Brush.horizontalGradient(
+                                    val baseFill = Color.White.copy(alpha = 0.10f)
+                                    val highlightBrush = Brush.horizontalGradient(
                                         colors = listOf(
-                                            Color.White.copy(alpha = 0.10f),
-                                            Color.White.copy(alpha = 0.26f),
-                                            Color.White.copy(alpha = 0.10f),
+                                            Color.Transparent,
+                                            Color.White.copy(alpha = 0.18f),
+                                            Color.Transparent,
                                         ),
-                                        startX = startX,
-                                        endX = startX + band,
+                                        startX = 0f,
+                                        endX = band,
                                     )
-                                    onDrawBehind { drawRect(brush) }
+                                    onDrawBehind {
+                                        drawRect(baseFill)
+                                        val startX = -band + sweep.value * (full + band * 2)
+                                        translate(left = startX) {
+                                            drawRect(
+                                                brush = highlightBrush,
+                                                topLeft = Offset.Zero,
+                                                size = Size(band, size.height),
+                                            )
+                                        }
+                                    }
                                 },
                         )
                     }

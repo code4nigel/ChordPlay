@@ -232,6 +232,8 @@ interface PlayerSettingsSource {
     val canvasProviderOrder: StateFlow<List<CanvasProvider>> get() = defaultCanvasProviderOrder
     val spotifySpdcToken: StateFlow<String> get() = emptySpotifySpdcToken
     val reduceAnimation: StateFlow<Boolean>
+    val disableInfiniteLoops: StateFlow<Boolean> get() = reduceAnimation
+    val idleAnimationFrameMs: StateFlow<Long> get() = ZERO_IDLE_FRAME_MS
     val playerAnimationSpeed: StateFlow<Float> get() = DEFAULT_PLAYER_ANIMATION_SPEED
     val reduceDynamicBlur: StateFlow<Boolean>
     val showNerdStats: StateFlow<Boolean>
@@ -283,6 +285,7 @@ interface PlayerSettingsSource {
 }
 
 private val DEFAULT_PLAYER_ANIMATION_SPEED = MutableStateFlow(1.0f)
+private val ZERO_IDLE_FRAME_MS = MutableStateFlow(0L)
 private val DEFAULT_PLAYER_WAVE_STYLE = MutableStateFlow(PlayerWaveStyle.AURORA_SILK)
 private val DEFAULT_PLAYER_ELASTIC_CONFIG = MutableStateFlow(com.music.bitchord.data.settings.PlayerElasticConfig())
 private val EMPTY_TRACK_WAVEFORM = MutableStateFlow<TrackAudioWaveform?>(null)

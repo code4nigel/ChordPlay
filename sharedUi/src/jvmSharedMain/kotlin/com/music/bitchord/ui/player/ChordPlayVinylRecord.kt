@@ -22,17 +22,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.isActive
 
@@ -46,10 +48,12 @@ fun ChordPlayVinylRecord(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val currentRotation = remember { Animatable(0f) }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
+    LaunchedEffect(isPlaying, reduceAnimation, disableInfiniteLoops) {
+        if (isPlaying && !reduceAnimation && !disableInfiniteLoops) {
             while (isActive) {
                 currentRotation.animateTo(
                     targetValue = currentRotation.value + 360f,
@@ -122,7 +126,7 @@ fun ChordPlayVinylRecord(
         Box(
             modifier = Modifier
                 .fillMaxSize(0.38f)
-                .rotate(currentRotation.value)
+                .graphicsLayer { rotationZ = currentRotation.value }
                 .clip(CircleShape)
                 .border(1.dp, Color(0x33FFFFFF), CircleShape),
             contentAlignment = Alignment.Center,

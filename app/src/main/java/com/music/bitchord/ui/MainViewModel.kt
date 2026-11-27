@@ -2115,14 +2115,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startTypeaheadMediaPipeline()
         startLibrarySearchPipeline()
         loadHome()
+        val isSaverProfile = com.music.bitchord.data.settings.AppSettings.performancePolicy.value.resolvedTier ==
+            com.music.bitchord.data.settings.PerformanceTier.SAVER
         // Defer secondary off-screen tabs slightly so startup composition and first frame render
-        // with 120Hz smoothness without CPU/network contention
+        // smoothly without CPU/network contention; stagger each feed so slow devices don't spike.
         viewModelScope.launch {
-            delay(500)
+            delay(if (isSaverProfile) 900L else 500L)
             loadExplore()
             if (_signedIn.value) {
+                delay(if (isSaverProfile) 450L else 200L)
                 loadLibrary()
+                delay(if (isSaverProfile) 450L else 200L)
                 loadAccount()
+                delay(if (isSaverProfile) 450L else 200L)
                 loadPlaylists()
             }
         }

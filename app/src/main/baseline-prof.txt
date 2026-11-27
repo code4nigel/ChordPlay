@@ -1,64 +1,34 @@
-# Baseline profile: ahead-of-time compilation for the code a cold start, a
-# first scroll and a first play run through. Without it that code starts every
-# install interpreted and is JIT-compiled piece by piece, which is the
-# first-launch, first-scroll and first-player-open jank a release build had.
-#
-# Wildcards rather than a recorded profile: recording one needs a
-# macrobenchmark run on an API 33+ or rooted device. Every rule below is a
-# superset of what a recorded journey would list for its package.
-#
-# AGP merges the profiles libraries ship inside their AARs with this file, so
-# the libraries that already ship one are left to it rather than restated here:
-# Compose runtime, foundation, ui and material3; Coil's core and compose-core;
-# Haze; Navigation; Lifecycle; Activity.
-#
-# The app's rules match classes from every module in the APK, so the shared
-# modules (:shared, :sharedUi) are covered by the same package rules as :app.
-#
-# H = hot, S = run during startup, P = run after startup. L…; = a class to
-# load and initialise into the boot image ahead of first use.
+# Startup & core application initialization
+HSPLcom/music/bitchord/BitChordApplication;->onCreate()V
+HSPLcom/music/bitchord/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/music/bitchord/data/settings/AppSettings;->init(Landroid/content/Context;Lcom/music/bitchord/auth/AuthStore;)V
+HSPLcom/music/bitchord/data/settings/AppSettings;->applyPerformancePolicy()V
+HSPLcom/music/bitchord/data/settings/PerformanceProfileKt;->resolveEffectivePerformancePolicy**(**)**Lcom/music/bitchord/data/settings/EffectivePerformancePolicy;
+HSPLcom/music/bitchord/ui/performance/DevicePerformanceClassifier;->**(**)**Lcom/music/bitchord/data/settings/PerformanceTier;
+HSPLcom/music/bitchord/ui/MainViewModel;-><init>(**)**V
 
-# ---- ChordPlay itself: app, shared data/playback layer, shared UI ------------
-# Includes the vendored backdrop engine (ui/components/backdrop) and the player.
-HSPLcom/music/bitchord/**->**(**)**
-Lcom/music/bitchord/**;
+# Main Compose UI, Home & Settings hubs
+HSPLcom/music/bitchord/MainActivityKt;->**(**)**
+HSPLcom/music/bitchord/ui/components/MiniPlayerKt;->**(**)**
+HSPLcom/music/bitchord/ui/components/HomeSpeedDialKt;->**(**)**
+HSPLcom/music/bitchord/ui/screens/HomeScreenKt;->**(**)**
+HSPLcom/music/bitchord/ui/screens/SettingsSheetKt;->**(**)**
+HSPLcom/music/bitchord/ui/screens/settings/sections/AdvancedPerformanceSectionKt;->**(**)**
+HSPLcom/music/bitchord/ui/components/SkeletonsKt;->**(**)**
 
-# The Discord rich-presence client (vendored Kizzy), in :shared.
-HSPLcom/my/kizzy/**->**(**)**
-Lcom/my/kizzy/**;
+# Player & transport deck
+HSPLcom/music/bitchord/ui/player/NowPlayingScreenKt;->**(**)**
+HSPLcom/music/bitchord/ui/player/NowPlayingBackdropKt;->**(**)**
+HSPLcom/music/bitchord/ui/player/NowPlayingArtworkKt;->**(**)**
+HSPLcom/music/bitchord/ui/player/ChordPlayTransportDeckKt;->**(**)**
+HSPLcom/music/bitchord/ui/player/PlayerControlsKt;->**(**)**
+HSPLcom/music/bitchord/ui/player/PlayerLyricsKt;->**(**)**
 
-# ---- Media3 -----------------------------------------------------------------
-# Media3 ships no baseline profile of its own, yet PlaybackService builds an
-# ExoPlayer and a MediaSession at process start and the first play runs the
-# whole extractor/renderer path, including the vendored FFmpeg decoder.
-HSPLandroidx/media3/common/**->**(**)**
-HSPLandroidx/media3/exoplayer/**->**(**)**
-HSPLandroidx/media3/session/**->**(**)**
-HSPLandroidx/media3/datasource/**->**(**)**
-HSPLandroidx/media3/extractor/**->**(**)**
-HSPLandroidx/media3/container/**->**(**)**
-HSPLandroidx/media3/decoder/**->**(**)**
-HSPLandroidx/media3/database/**->**(**)**
-Landroidx/media3/common/**;
-Landroidx/media3/exoplayer/**;
-Landroidx/media3/session/**;
-
-# ---- Images: the Coil pieces without a profile of their own -------------------
-HSPLcoil3/compose/**->**(**)**
-HSPLcoil3/network/**->**(**)**
-
-# ---- Haze materials (haze itself ships a profile) -----------------------------
-HSPLdev/chrisbanes/haze/materials/**->**(**)**
-
-# ---- Kotlin libraries: plain jars, so no profile reaches the build from them ---
-# Every flow collected at startup, every StateFlow the first composition reads.
-HSPLkotlinx/coroutines/**->**(**)**
-Lkotlinx/coroutines/**;
-# The first home load decodes every InnerTube response through these.
-HSPLkotlinx/serialization/**->**(**)**
-
-# ---- Networking: every request in the app goes through OkHttp (Ktor's engine
-# and Media3's data source both sit on it), and the first ones are made at start.
-HSPLokhttp3/**->**(**)**
-HSPLokio/**->**(**)**
-HSPLio/ktor/client/**->**(**)**
+# Audio playback & DSP passthrough path
+HSPLcom/music/bitchord/playback/PlaybackService;->**(**)**
+HSPLcom/music/bitchord/playback/audio/PrecisionAudioSink;->handleBuffer**(**)**
+HSPLcom/music/bitchord/playback/audio/DspChain;->**(**)**
+HSPLcom/music/bitchord/playback/EqualizerProcessor;->**(**)**
+HSPLcom/music/bitchord/playback/LoudnessProcessor;->**(**)**
+HSPLcom/music/bitchord/playback/SpatialAudioProcessor;->**(**)**
+HSPLcom/music/bitchord/playback/TransitionFilterProcessor;->**(**)**

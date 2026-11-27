@@ -138,6 +138,7 @@ fun AppearanceSection(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var paletteToDelete by remember { mutableStateOf<CustomPalette?>(null) }
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val miniPlayerTimelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val playerWaveStyle by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -319,7 +320,7 @@ fun AppearanceSection(
                 PaletteCarousel(
                     selectedPalette = if (activeCustomPaletteId != null) null else colorPalette,
                     onSelectPalette = { AppSettings.setColorPalette(it) },
-                    reduceAnimation = reduceAnimation,
+                    reduceAnimation = reduceAnimation || disableInfiniteLoops,
                     modifier = Modifier.padding(bottom = 14.dp),
                 )
 

@@ -216,8 +216,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         // The app's own caches let go when the system asks; see MemoryPressure.
         com.music.bitchord.util.MemoryPressure.install(this)
-        val activityManager = getSystemService(ACTIVITY_SERVICE) as? android.app.ActivityManager
-        if (activityManager?.isLowRamDevice != true) {
+        if (!AppSettings.performancePolicy.value.reduceDynamicBlur) {
             com.music.bitchord.ui.components.backdrop.GlassShaderWarmup.warmUp()
         }
     }

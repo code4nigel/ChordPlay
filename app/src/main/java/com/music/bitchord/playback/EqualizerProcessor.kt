@@ -101,6 +101,9 @@ class EqualizerProcessor : BaseAudioProcessor() {
     val isEnabled: Boolean
         get() = target !== Tuning.OFF
 
+    val isIdle: Boolean
+        get() = target.let { isFlat(it) && isSettled(it) }
+
     /**
      * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
      */

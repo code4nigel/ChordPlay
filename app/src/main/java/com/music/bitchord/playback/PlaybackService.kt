@@ -5929,6 +5929,10 @@ class PlaybackService : MediaLibraryService() {
                 // cannot publish "not exact" over the playing track's verdict.
                 isAudible = { transition === activeFilter },
                 onAudibleBlock = ::publishAudiblePcmLevel,
+                needAudibleBlock = {
+                    AppSettings.playerWaveStyle.value == com.music.bitchord.data.settings.PlayerWaveStyle.AUDIO_GRAPH &&
+                        !AppSettings.disableInfiniteLoops.value
+                },
             )
         }
     }

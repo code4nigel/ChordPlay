@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.jump_to_live
 import com.music.bitchord.sharedui.resources.live_badge
@@ -81,7 +82,9 @@ fun LiveSoundwaveBars(
     barCount: Int = 3,
     animated: Boolean = true,
 ) {
-    val heights = if (animated) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val heights = if (animated && !reduceAnimation && !disableInfiniteLoops) {
         val transition = rememberInfiniteTransition(label = "soundwave")
         val h1 by transition.animateFloat(
             initialValue = 0.28f,

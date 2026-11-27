@@ -1,0 +1,125 @@
+name: Android Build (Cloud APK)
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Build variant to assemble"
+        required: true
+        default: "prodRelease"
+        type: choice
+        options:
+          - prodRelease
+          - prodBenchmark
+          - devRelease
+          - devBenchmark
+          - devDebug
+      retention_days:
+        description: "Days to keep downloadable APK artifacts"
+        required: true
+        default: "7"
+        type: choice
+        options:
+          - "3"
+          - "7"
+          - "14"
+          - "30"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}-${{ inputs.variant }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ inputs.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Android SDK platforms & CMake
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager 'platforms;android-36' 'platforms;android-37.0' 'cmake;3.22.1'
+
+      - name: Resolve Gradle task and output paths
+        id: target
+        env:
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          case "$VARIANT" in
+            prodRelease)
+              echo "task=:app:assembleProdRelease" >> "$GITHUB_OUTPUT"
+              echo "apk_dir=app/build/outputs/apk/prod/release" >> "$GITHUB_OUTPUT"
+              ;;
+            prodBenchmark)
+              echo "task=:app:assembleProdBenchmark" >> "$GITHUB_OUTPUT"
+              echo "apk_dir=app/build/outputs/apk/prod/benchmark" >> "$GITHUB_OUTPUT"
+              ;;
+            devRelease)
+              echo "task=:app:assembleDevRelease" >> "$GITHUB_OUTPUT"
+              echo "apk_dir=app/build/outputs/apk/dev/release" >> "$GITHUB_OUTPUT"
+              ;;
+            devBenchmark)
+              echo "task=:app:assembleDevBenchmark" >> "$GITHUB_OUTPUT"
+              echo "apk_dir=app/build/outputs/apk/dev/benchmark" >> "$GITHUB_OUTPUT"
+              ;;
+            devDebug)
+              echo "task=:app:assembleDevDebug" >> "$GITHUB_OUTPUT"
+              echo "apk_dir=app/build/outputs/apk/dev/debug" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported variant: $VARIANT" >&2
+              exit 1
+              ;;
+          esac
+
+          safe_branch="${GITHUB_REF_NAME//\//-}"
+          echo "artifact_name=chordplay-${VARIANT}-${safe_branch}-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK (${{ inputs.variant }})
+        env:
+          TASK: ${{ steps.target.outputs.task }}
+        run: |
+          chmod +x gradlew
+          ./gradlew "$TASK" \
+            --parallel \
+            --build-cache \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx6144m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC -Dfile.encoding=UTF-8" \
+            -Dkotlin.daemon.jvm.options="-Xmx3072m"
+
+      - name: List built APKs
+        env:
+          APK_DIR: ${{ steps.target.outputs.apk_dir }}
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          echo "### Built APKs ($VARIANT)" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh "$APK_DIR"/*.apk
+          {
+            echo '```'
+            ls -lh "$APK_DIR"/*.apk
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.target.outputs.artifact_name }}
+          path: ${{ steps.target.outputs.apk_dir }}/*.apk
+          if-no-files-found: error
+          retention-days: ${{ fromJSON(inputs.retention_days) }}

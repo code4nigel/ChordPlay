@@ -1401,8 +1401,8 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="chordplay_pass_tier">QUYỀN TRUY CẬP</string>
     <string name="chordplay_pass_tier_listener">NGƯỜI NGHE</string>
     <string name="chordplay_pass_unnamed">Người nghe ChordPlay</string>
-    <string name="community_hub">Trung tâm cộng đồng ChordPlay</string>
-    <string name="community_hub_subtitle">Theo dõi nhà phát triển, xem kho lưu trữ Reddit &amp; GitHub</string>
+    <string name="community_hub">Thông điệp ChordPlay</string>
+    <string name="community_hub_subtitle">Lời nhắn từ nhà phát triển &amp; liên kết cộng đồng</string>
     <string name="delete_preset">Xóa cài đặt trước</string>
     <string name="delete_preset_confirmation">Bạn có chắc chắn muốn xóa "%1$s" không?</string>
     <string name="delete_preset_title">Xóa cài đặt trước?</string>
@@ -1555,7 +1555,7 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="onboarding_welcome_back_restore">Chào mừng trở lại, %1$s · Chạm để khôi phục</string>
     <string name="onboarding_github_tag">Gắn sao &amp; Đóng góp</string>
     <string name="player_animation_speed">Tốc độ hoạt ảnh trình phát</string>
-    <string name="player_animation_speed_subtitle">Điều chỉnh tốc độ mở rộng và thu gọn trình phát thu nhỏ</string>
+    <string name="player_animation_speed_subtitle">Điều chỉnh tốc độ chuyển cảnh giữa trình phát với hàng đợi và lời bài hát</string>
     <string name="sync_identity_card">Đồng bộ Thẻ Danh tính</string>
     <string name="sync_identity_card_subtitle">Lưu hồ sơ, cài đặt và thống kê vào Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Đã đồng bộ danh tính tới %1$s</string>
@@ -1822,4 +1822,27 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="hide_ai_music">Ẩn nhạc AI</string>
     <string name="hide_ai_music_subtitle" formatted="false">Xóa bài hát của các nghệ sĩ AI đã biết khỏi tìm kiếm, Trang chủ, mix và radio. Bộ lọc này không hiệu quả 100%.</string>
     <string name="hide_ai_music_sources">Danh sách: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay cập nhật danh sách mỗi ngày một lần.</string>
+    <string name="performance_profile">Hồ sơ hiệu năng</string>
+    <string name="performance_profile_auto">Tự động</string>
+    <string name="performance_profile_balanced">Cân bằng</string>
+    <string name="performance_profile_saver">Tiết kiệm</string>
+    <string name="performance_profile_high">Cao</string>
+    <string name="performance_profile_tier_saver">Màu đặc + Chuyển động nhẹ</string>
+    <string name="performance_profile_customized">Đã tùy chỉnh</string>
+    <string name="performance_profile_auto_prefix">Tự động · %1$s</string>
+    <string name="performance_profile_saver_desc">Dùng nền màu đặc, giới hạn 60 Hz và đóng băng hiệu ứng lặp</string>
+    <string name="performance_profile_balanced_desc">Giữ kính mờ và VRR thích ứng đồng thời giảm nhịp khi rảnh</string>
+    <string name="performance_profile_high_desc">Khóa %1$d Hz với làm mờ đầy đủ và chuyển động 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Tối đa %1$d Hz với Adaptive VRR</string>
+    <string name="refresh_rate_pinned_subtitle">Khóa ở %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Bật hiệu năng cao?</string>
+    <string name="performance_profile_high_confirm_body">Khóa tần số quét ở %1$d Hz với làm mờ đầy đủ và vòng lặp 120 fps. Hao pin hơn và có thể làm ấm thiết bị.</string>
+    <string name="link_automix_canvas">Liên kết Automix &amp; Canvas với hồ sơ</string>
+    <string name="link_automix_canvas_subtitle">Cho phép hồ sơ hiệu năng chỉnh chế độ CPU Automix, ảnh bìa động và làm mờ trực tiếp</string>
+    <string name="miniplayer_animation_speed">Tốc độ hoạt ảnh trình phát thu nhỏ</string>
+    <string name="miniplayer_animation_speed_subtitle">Điều chỉnh tốc độ mở rộng và thu gọn trình phát thu nhỏ</string>
+    <string name="extra_section">Bổ sung</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">Kho GitHub</string>
+    <string name="dev_profile_tile_title">Nhà phát triển</string>
 </resources>

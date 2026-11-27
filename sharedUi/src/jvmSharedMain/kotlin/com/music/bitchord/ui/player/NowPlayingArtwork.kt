@@ -191,6 +191,7 @@ internal fun BoxScope.PortraitSleeve(
     heroFadeFraction: Float,
     onToggleFullBleedArtwork: (() -> Unit)? = null,
 ) {
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val p = collapse.p
 
     fun cardRect(): Rect = with(density) {
@@ -233,7 +234,7 @@ internal fun BoxScope.PortraitSleeve(
         val mini = dock.miniArtOnScreen() ?: return null
         val anchor = dockFrame.anchor ?: return null
         val offset = dock.offset() ?: return null
-        dockFrame.offset = offset.toInt().toFloat()
+        dockFrame.offset = offset.roundToInt().toFloat()
         return mini.translate(
             -(anchor.x + boxLeftPx),
             -(anchor.y + dockFrame.offset - bannerTopPx),
@@ -327,7 +328,7 @@ internal fun BoxScope.PortraitSleeve(
                 scaleY = scale
                 translationX = swipeSettle * (1f - p()) * (1f - share) * t
             }
-            .hazeSource(playerHaze)
+            .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze))
             .graphicsLayer {
                 alpha = when {
                     videoMode && !docking() -> (p() * 2f - 1f).coerceIn(0f, 1f)

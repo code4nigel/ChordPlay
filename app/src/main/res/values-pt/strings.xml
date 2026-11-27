@@ -1489,8 +1489,8 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="chordplay_pass_tier">ACESSO</string>
     <string name="chordplay_pass_tier_listener">OUVINTE</string>
     <string name="chordplay_pass_unnamed">Ouvinte ChordPlay</string>
-    <string name="community_hub">Hub da comunidade ChordPlay</string>
-    <string name="community_hub_subtitle">Siga o desenvolvedor, acesse Reddit e GitHub</string>
+    <string name="community_hub">Mensagem do ChordPlay</string>
+    <string name="community_hub_subtitle">Recado do desenvolvedor e links da comunidade</string>
     <string name="delete_preset">Excluir predefinição</string>
     <string name="delete_preset_confirmation">Tem certeza de que deseja excluir «%1$s»?</string>
     <string name="delete_preset_title">Excluir predefinição?</string>
@@ -1643,7 +1643,7 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="onboarding_welcome_back_restore">Bem-vindo de volta, %1$s · Toque para restaurar</string>
     <string name="onboarding_github_tag">Favoritar e Contribuir</string>
     <string name="player_animation_speed">Velocidade da animação do player</string>
-    <string name="player_animation_speed_subtitle">Ajuste a rapidez com que o miniplayer expande e minimiza</string>
+    <string name="player_animation_speed_subtitle">Ajuste a velocidade das transições do player para a fila e letras</string>
     <string name="sync_identity_card">Sincronizar Cartão de Identidade</string>
     <string name="sync_identity_card_subtitle">Salve perfil, configurações e estatísticas em Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Identidade sincronizada em %1$s</string>
@@ -1910,4 +1910,27 @@ Ao ativar esta opção, você concorda com estes termos.</string>
     <string name="hide_ai_music">Ocultar música de IA</string>
     <string name="hide_ai_music_subtitle" formatted="false">Remove músicas de artistas de IA conhecidos da pesquisa, do Início, dos mixes e do rádio. Este filtro não é 100% eficaz.</string>
     <string name="hide_ai_music_sources">Listas: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. O ChordPlay atualiza as listas uma vez por dia.</string>
+    <string name="performance_profile">Perfil de desempenho</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Equilibrado</string>
+    <string name="performance_profile_saver">Econômico</string>
+    <string name="performance_profile_high">Alto</string>
+    <string name="performance_profile_tier_saver">Sólido + Movimento leve</string>
+    <string name="performance_profile_customized">Personalizado</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Usa preenchimentos sólidos, limita a tela a 60 Hz e pausa animações contínuas</string>
+    <string name="performance_profile_balanced_desc">Mantém vidro fosco e VRR adaptativo enquanto reduz o ritmo ocioso</string>
+    <string name="performance_profile_high_desc">Fixa a taxa em %1$d Hz com desfoque completo e movimento a 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Até %1$d Hz com VRR adaptativo</string>
+    <string name="refresh_rate_pinned_subtitle">Fixado em %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Ativar desempenho alto?</string>
+    <string name="performance_profile_high_confirm_body">Trava a taxa de atualização em %1$d Hz com desfoque total e loops a 120 fps. Consome mais bateria e pode aquecer o aparelho.</string>
+    <string name="link_automix_canvas">Vincular Automix e Canvas ao perfil</string>
+    <string name="link_automix_canvas_subtitle">Permite que o perfil ajuste o modo CPU do Automix, capa animada e desfoque ao vivo</string>
+    <string name="miniplayer_animation_speed">Velocidade de animação do miniplayer</string>
+    <string name="miniplayer_animation_speed_subtitle">Ajuste a rapidez com que o miniplayer expande e minimiza</string>
+    <string name="extra_section">Extra</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">Repo GitHub</string>
+    <string name="dev_profile_tile_title">Perfil Dev</string>
 </resources>

@@ -1568,8 +1568,8 @@
     <string name="chordplay_pass_tier">DOSTĘP</string>
     <string name="chordplay_pass_tier_listener">SŁUCHACZ</string>
     <string name="chordplay_pass_unnamed">Słuchacz ChordPlay</string>
-    <string name="community_hub">Centrum społeczności ChordPlay</string>
-    <string name="community_hub_subtitle">Obserwuj twórcę, odwiedź Reddit i GitHub</string>
+    <string name="community_hub">Wiadomość ChordPlay</string>
+    <string name="community_hub_subtitle">Wiadomość od twórcy i linki społeczności</string>
     <string name="delete_preset">Usuń zestaw</string>
     <string name="delete_preset_confirmation">Czy na pewno chcesz usunąć «%1$s»?</string>
     <string name="delete_preset_title">Usunąć zestaw?</string>
@@ -1722,7 +1722,7 @@
     <string name="onboarding_welcome_back_restore">Witaj ponownie, %1$s · Dotknij, aby przywrócić</string>
     <string name="onboarding_github_tag">Oznacz gwiazdką i wspieraj</string>
     <string name="player_animation_speed">Szybkość animacji odtwarzacza</string>
-    <string name="player_animation_speed_subtitle">Dostosuj szybkość rozwijania i minimalizowania miniodtwarzacza</string>
+    <string name="player_animation_speed_subtitle">Dostosuj szybkość przejść odtwarzacza do kolejki i tekstów</string>
     <string name="sync_identity_card">Synchronizuj kartę tożsamości</string>
     <string name="sync_identity_card_subtitle">Zapisz profil, ustawienia i statystyki w Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Tożsamość zapisana w %1$s</string>
@@ -1989,4 +1989,27 @@
     <string name="hide_ai_music">Ukryj muzykę AI</string>
     <string name="hide_ai_music_subtitle" formatted="false">Usuwa utwory znanych artystów AI z wyszukiwania, strony głównej, miksów i radia. Ten filtr nie jest w 100% skuteczny.</string>
     <string name="hide_ai_music_sources">Listy: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay aktualizuje listy raz dziennie.</string>
+    <string name="performance_profile">Profil wydajności</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Zrównoważony</string>
+    <string name="performance_profile_saver">Oszczędny</string>
+    <string name="performance_profile_high">Wysoki</string>
+    <string name="performance_profile_tier_saver">Jednolity + lekki ruch</string>
+    <string name="performance_profile_customized">Własny</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Stosuje jednolite wypełnienia, ogranicza ekran do 60 Hz i zatrzymuje pętle</string>
+    <string name="performance_profile_balanced_desc">Zachowuje matowe szkło i adaptacyjny VRR, spowalniając spokojne animacje</string>
+    <string name="performance_profile_high_desc">Blokuje %1$d Hz z pełnym rozmyciem i ruchem 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Do %1$d Hz z adaptacyjnym VRR</string>
+    <string name="refresh_rate_pinned_subtitle">Zablokowano na %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Włączyć wysoką wydajność?</string>
+    <string name="performance_profile_high_confirm_body">Blokuje odświeżanie na %1$d Hz z pełnym rozmyciem i pętlami 120 fps. Zużywa więcej baterii i może nagrzewać urządzenie.</string>
+    <string name="link_automix_canvas">Połącz Automix i Canvas z profilem</string>
+    <string name="link_automix_canvas_subtitle">Pozwala profilowi zmieniać tryb CPU Automix, animowane okładki i rozmycie na żywo</string>
+    <string name="miniplayer_animation_speed">Szybkość animacji miniodtwarzacza</string>
+    <string name="miniplayer_animation_speed_subtitle">Dostosuj szybkość rozwijania i minimalizowania miniodtwarzacza</string>
+    <string name="extra_section">Dodatkowe</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">Repo GitHub</string>
+    <string name="dev_profile_tile_title">Profil dev</string>
 </resources>

@@ -558,6 +558,8 @@ fun MiniPlayer(
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val idleAnimationFrameMs by AppSettings.idleAnimationFrameMs.collectAsStateWithLifecycle()
     val timelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val view = LocalView.current
@@ -584,13 +586,14 @@ fun MiniPlayer(
         artworkUrl = song.thumbnailUrl,
         fallbackPalette = artworkPalette,
         isDark = isDark,
-        reduceAnimation = reduceAnimation,
+        reduceAnimation = reduceAnimation || disableInfiniteLoops,
     )
     val auroraPhase = rememberMiniPlayerAuroraPhase(
         enabled = timelineStyle != MiniPlayerTimelineStyle.OG_CIRCLE && effectiveDurationMs > 0L && dock?.panelShown != true,
         isPlaying = isPlaying,
         isScrubbing = scrubFraction != null,
-        reduceAnimation = reduceAnimation,
+        reduceAnimation = reduceAnimation || disableInfiniteLoops,
+        idleFrameMs = idleAnimationFrameMs,
     )
     val timelinePaths = remember { MiniPlayerTimelinePaths() }
 

@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,18 +46,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ChevronRight
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.ui.components.ChordPlayWaveUpdateMark
 import com.music.bitchord.ui.components.CommunitySupportDialog
 import com.music.bitchord.ui.components.GitHubIconBadge
 import com.music.bitchord.ui.components.GLASS_EDGE_WIDTH
-import com.music.bitchord.ui.components.MIN_CHECK_SPIN_MS
 import com.music.bitchord.ui.components.RedditIconBadge
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.onboarding.OnboardingState
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,7 +61,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +79,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
-import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.ui.screens.GROUP_INSET
 import com.music.bitchord.ui.screens.RowDivider
 import com.music.bitchord.ui.screens.SettingsGroup
@@ -91,13 +86,13 @@ import com.music.bitchord.ui.screens.SettingsRow
 import com.music.bitchord.ui.screens.SettingsSearchEmpty
 import com.music.bitchord.ui.screens.SettingsSubPageHeader
 import com.music.bitchord.ui.screens.matchesSearch
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Dedicated sub-page for ChordPlay support, developer identity card,
- * community channels, updates, and BitChord upstream attribution.
+ * community links, and Extra options (ChordPlay Message, Welcome Setup,
+ * and BitChord upstream attribution).
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun SupportSection(
     onBack: () -> Unit,
@@ -107,14 +102,10 @@ fun SupportSection(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val updateScope = rememberCoroutineScope()
-    var checkingUpdate by remember { mutableStateOf(false) }
-    var lastCheckResult by remember { mutableStateOf<AppUpdateChecker.CheckResult?>(null) }
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
     var showCommunityDialog by remember { mutableStateOf(false) }
-    val updateInfo by AppUpdateChecker.available.collectAsStateWithLifecycle()
-    val downloadState by AppUpdateChecker.download.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val glassCard = isGlassSupported() && !reduceDynamicBlur
 
@@ -140,252 +131,155 @@ fun SupportSection(
             scrollState = scrollState,
         )
 
-        val showUpdateCheck = matchesSearch(
+        val showMessage = matchesSearch(
             searchQuery,
-            stringResource(R.string.check_for_updates),
-            "Check for Updates", "Install Update", "Version $version", "ChordPlay",
-            "update", "version", "download",
+            stringResource(R.string.community_hub),
+            stringResource(R.string.community_hub_subtitle),
+            stringResource(R.string.extra_section),
+            "message", "chordplay", "hub", "community",
         )
         val showReddit = matchesSearch(
             searchQuery,
             stringResource(R.string.reddit_community),
             stringResource(R.string.reddit_community_subtitle),
-            "reddit", "community", "social",
+            "reddit", "r/chordplay", "community", "social",
         )
         val showGithub = matchesSearch(
             searchQuery,
             stringResource(R.string.github_repository),
+            stringResource(R.string.chordplay_repo_tile_title),
+            stringResource(R.string.chordplay_repo_tile_subtitle),
             "github.com/code4nigel/ChordPlay",
-            "source", "github", "issues", "bugs", "repo",
+            "source", "github", "issues", "bugs", "repo", "repository", "chordplay",
         )
         val showDevProfile = matchesSearch(
             searchQuery,
             stringResource(R.string.developer_profile),
+            stringResource(R.string.dev_profile_tile_title),
+            "Shivanshu Yadav",
             "github.com/code4nigel",
-            "developer", "profile", "author", "nigel", "shivanshu",
-        )
-        val showReleases = matchesSearch(
-            searchQuery,
-            stringResource(R.string.latest_releases),
-            stringResource(R.string.latest_releases_subtitle),
-            "releases", "changelog", "download",
-        )
-        val showUpstreamRepo = matchesSearch(
-            searchQuery,
-            stringResource(R.string.bitchord_upstream_repo),
-            stringResource(R.string.bitchord_upstream_subtitle),
-            "upstream", "bitchord", "kushagra",
+            "shows dedication", "luck really", "exams",
+            "developer", "profile", "author", "shivanshu", "nigel", "code4nigel",
         )
         val showReplaySetup = matchesSearch(
             searchQuery,
             stringResource(R.string.replay_welcome_setup),
             stringResource(R.string.replay_welcome_setup_subtitle),
+            stringResource(R.string.extra_section),
             "welcome", "setup", "onboarding", "pass", "wizard", "replay",
         )
+        val showUpstreamRepo = matchesSearch(
+            searchQuery,
+            stringResource(R.string.bitchord_upstream_repo),
+            stringResource(R.string.bitchord_upstream_subtitle),
+            stringResource(R.string.extra_section),
+            "upstream", "bitchord",
+        )
 
-        val anyChordPlaySupportMatch = showUpdateCheck || showReddit || showGithub || showReleases || showReplaySetup
-        val anySupportMatch = showDevProfile || anyChordPlaySupportMatch || showUpstreamRepo
+        val showHeroCard = searchQuery.isBlank() || showDevProfile || showReddit || showGithub
+        val anyExtraMatch = showMessage || showReplaySetup || showUpstreamRepo
+        val anySupportMatch = showHeroCard || anyExtraMatch
 
-        // Top Main Hero Card: NigelWeb • Shivanshu styled via /chordplay-ui
-        if (searchQuery.isBlank() || showDevProfile) {
-            NigelWebHeroCard(
+        // Joined Hero Card: Shivanshu Yadav + Quote + 3 compact square tiles (Reddit, ChordPlay Repo, Dev Profile)
+        if (showHeroCard) {
+            DeveloperHeroCard(
                 version = version,
-                reducedMotion = reduceAnimation,
+                reducedMotion = reduceAnimation || disableInfiniteLoops,
                 useGlass = glassCard,
+                showRedditTile = searchQuery.isBlank() || showReddit,
+                showRepoTile = searchQuery.isBlank() || showGithub,
+                showDevTile = searchQuery.isBlank() || showDevProfile,
                 onClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel")))
                     }
                 },
                 onQuoteTap = {
-                    Toast.makeText(context, "Absolute madman building ChordPlay! 🚀", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Shows dedication, but he needs luck really! 🚀", Toast.LENGTH_SHORT).show()
+                },
+                onRedditClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")))
+                    }
+                },
+                onRepoClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")))
+                    }
+                },
+                onDevProfileClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel")))
+                    }
                 },
             )
         }
 
         if (searchQuery.isNotBlank() && !anySupportMatch) {
             SettingsSearchEmpty(query = searchQuery)
-        } else {
-            // One Unified Box for all ChordPlay Support, Community & Updates
-            if (anyChordPlaySupportMatch) {
-                SettingsGroup(
-                    header = stringResource(R.string.links_and_community),
-                    footer = stringResource(R.string.support_community_footer),
-                ) {
-                    var hasPreceding = false
+        } else if (anyExtraMatch) {
+            // Extra section: ChordPlay Message, Replay Welcome Setup, and BitChord Upstream
+            SettingsGroup(
+                header = stringResource(R.string.extra_section),
+                footer = null,
+            ) {
+                var hasPreceding = false
 
-                    if (showUpdateCheck) {
-                        val updateSubtitle = when {
-                            checkingUpdate -> stringResource(R.string.checking_updates)
-                            downloadState is AppUpdateChecker.DownloadState.Downloading -> {
-                                val pct = ((downloadState as AppUpdateChecker.DownloadState.Downloading).fraction * 100).toInt()
-                                stringResource(R.string.downloading_update_progress, pct)
-                            }
-                            downloadState is AppUpdateChecker.DownloadState.Ready -> stringResource(R.string.install_update)
-                            updateInfo != null -> stringResource(R.string.update_ready, updateInfo?.version.orEmpty())
-                            lastCheckResult == AppUpdateChecker.CheckResult.UP_TO_DATE ->
-                                stringResource(R.string.up_to_date, version)
-                            lastCheckResult == AppUpdateChecker.CheckResult.NO_RELEASES ->
-                                stringResource(R.string.no_releases_yet)
-                            lastCheckResult == AppUpdateChecker.CheckResult.FAILED ->
-                                stringResource(R.string.update_check_failed)
-                            else -> "v$version • ChordPlay"
-                        }
-                        SettingsRow(
-                            leading = {
-                                ChordPlayWaveUpdateMark(
-                                    checking = checkingUpdate,
-                                    size = 34.dp,
-                                    waveWidth = 44.dp,
-                                )
-                            },
-                            title = stringResource(R.string.check_for_updates),
-                            subtitle = updateSubtitle,
-                            trailing = {
-                                if (downloadState is AppUpdateChecker.DownloadState.Ready || updateInfo != null) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.SystemUpdate,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ChevronRight,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            },
-                            onClick = {
-                                when (val state = downloadState) {
-                                    is AppUpdateChecker.DownloadState.Downloading -> {}
-                                    is AppUpdateChecker.DownloadState.Ready -> AppUpdateChecker.installApk(context, state.file)
-                                    else -> {
-                                        if (updateInfo != null) {
-                                            onShowUpdate()
-                                        } else if (!checkingUpdate) {
-                                            checkingUpdate = true
-                                            updateScope.launch {
-                                                val started = System.currentTimeMillis()
-                                                val result = AppUpdateChecker.check()
-                                                val remaining = MIN_CHECK_SPIN_MS - (System.currentTimeMillis() - started)
-                                                if (remaining > 0) delay(remaining)
-                                                checkingUpdate = false
-                                                lastCheckResult = result
-                                                if (result == AppUpdateChecker.CheckResult.UPDATE) {
-                                                    onShowUpdate()
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                        )
-                        hasPreceding = true
-                    }
-
-                    if (showReddit || showGithub) {
-                        if (hasPreceding) RowDivider()
-                        // Community Hub row + compact side-by-side Reddit & GitHub square cards
-                        SettingsRow(
-                            iconPainter = painterResource(R.drawable.ic_chordplay_squircle),
-                            title = stringResource(R.string.community_hub),
-                            subtitle = stringResource(R.string.community_hub_subtitle),
-                            trailing = {
-                                Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            },
-                            onClick = { showCommunityDialog = true },
-                        )
-                        RowDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            if (showReddit) {
-                                CommunitySquareTile(
-                                    title = "Reddit",
-                                    handle = "r/ChordPlay",
-                                    accent = Color(0xFFFF4500),
-                                    useGlass = glassCard,
-                                    onClick = {
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.reddit.com/r/ChordPlay/")))
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    RedditIconBadge(size = 42.dp)
-                                }
-                            }
-                            if (showGithub) {
-                                CommunitySquareTile(
-                                    title = "GitHub",
-                                    handle = "code4nigel",
-                                    accent = MaterialTheme.colorScheme.primary,
-                                    useGlass = glassCard,
-                                    onClick = {
-                                        runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay")))
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    GitHubIconBadge(size = 42.dp)
-                                }
-                            }
-                        }
-                        hasPreceding = true
-                    }
-
-                    if (showReleases) {
-                        if (hasPreceding) RowDivider()
-                        SettingsRow(
-                            icon = Icons.Rounded.Info,
-                            title = stringResource(R.string.latest_releases),
-                            subtitle = stringResource(R.string.latest_releases_subtitle),
-                            trailing = {
-                                Icon(
-                                    imageVector = Icons.Rounded.OpenInNew,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            },
-                            onClick = {
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/code4nigel/ChordPlay/releases")))
-                                }
-                            },
-                        )
-                        hasPreceding = true
-                    }
-
-                    if (showReplaySetup) {
-                        if (hasPreceding) RowDivider()
-                        SettingsRow(
-                            icon = Icons.Rounded.AutoAwesome,
-                            title = stringResource(R.string.replay_welcome_setup),
-                            subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
-                            onClick = { OnboardingState.requestReplay() },
-                        )
-                    }
+                if (showMessage) {
+                    SettingsRow(
+                        leading = {
+                            Image(
+                                painter = painterResource(R.drawable.ic_chordplay_squircle),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                            )
+                        },
+                        title = stringResource(R.string.community_hub),
+                        subtitle = stringResource(R.string.community_hub_subtitle),
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        },
+                        onClick = { showCommunityDialog = true },
+                    )
+                    hasPreceding = true
                 }
-            }
 
-            // Separate Section: BitChord Upstream Attribution
-            if (showUpstreamRepo) {
-                SettingsGroup(
-                    header = stringResource(R.string.bitchord_upstream_repo),
-                ) {
+                if (showReplaySetup) {
+                    if (hasPreceding) RowDivider()
+                    SettingsRow(
+                        leading = {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                                    .border(0.75.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        },
+                        title = stringResource(R.string.replay_welcome_setup),
+                        subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
+                        onClick = { OnboardingState.requestReplay() },
+                    )
+                    hasPreceding = true
+                }
+
+                if (showUpstreamRepo) {
+                    if (hasPreceding) RowDivider()
                     SettingsRow(
                         leading = { GitHubIconBadge(size = 34.dp) },
                         title = stringResource(R.string.bitchord_upstream_repo),
@@ -422,12 +316,18 @@ fun SupportSection(
 }
 
 @Composable
-private fun NigelWebHeroCard(
+private fun DeveloperHeroCard(
     version: String,
     reducedMotion: Boolean,
     useGlass: Boolean,
+    showRedditTile: Boolean,
+    showRepoTile: Boolean,
+    showDevTile: Boolean,
     onClick: () -> Unit,
     onQuoteTap: () -> Unit,
+    onRedditClick: () -> Unit,
+    onRepoClick: () -> Unit,
+    onDevProfileClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val cardShape = RoundedCornerShape(22.dp)
@@ -458,8 +358,7 @@ private fun NigelWebHeroCard(
                         .border(GLASS_EDGE_WIDTH, Color.White.copy(alpha = 0.10f), cardShape)
                 },
             )
-            .clickable(onClick = onClick)
-            .padding(20.dp),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -475,6 +374,7 @@ private fun NigelWebHeroCard(
                         ),
                     ),
                 )
+                .clickable(onClick = onClick)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         ) {
             Row(
@@ -486,28 +386,14 @@ private fun NigelWebHeroCard(
                 Spacer(Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "NigelWeb",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(primary.copy(alpha = 0.16f))
-                                .padding(horizontal = 8.dp, vertical = 2.dp),
-                        ) {
-                            Text(
-                                text = "Shivanshu",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = primary,
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Shivanshu Yadav",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
 
                     Spacer(Modifier.height(3.dp))
 
@@ -558,11 +444,64 @@ private fun NigelWebHeroCard(
                 .padding(horizontal = 12.dp, vertical = 9.dp),
         ) {
             Text(
-                text = "💡 Legend has it Nigel spent his time building ChordPlay instead of prepping for exams... Absolute madman! 💀",
+                text = "💡 Legend has it Shivanshu spent his time building ChordPlay instead of prepping for exams... shows dedication, but he needs luck really!",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 lineHeight = 16.sp,
             )
+        }
+
+        val visibleTiles = (if (showRedditTile) 1 else 0) +
+            (if (showRepoTile) 1 else 0) +
+            (if (showDevTile) 1 else 0)
+        if (visibleTiles > 0) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val tileModifier = if (visibleTiles == 3) {
+                    Modifier.weight(1f)
+                } else {
+                    Modifier.widthIn(max = 112.dp).weight(1f, fill = false)
+                }
+                if (showRedditTile) {
+                    CommunitySquareTile(
+                        title = "Reddit",
+                        handle = "r/ChordPlay",
+                        accent = Color(0xFFFF4500),
+                        useGlass = useGlass,
+                        onClick = onRedditClick,
+                        modifier = tileModifier,
+                    ) {
+                        RedditIconBadge(size = 32.dp)
+                    }
+                }
+                if (showRepoTile) {
+                    CommunitySquareTile(
+                        title = stringResource(R.string.chordplay_repo_tile_title),
+                        handle = stringResource(R.string.chordplay_repo_tile_subtitle),
+                        accent = primary,
+                        useGlass = useGlass,
+                        onClick = onRepoClick,
+                        modifier = tileModifier,
+                    ) {
+                        GitHubIconBadge(size = 32.dp)
+                    }
+                }
+                if (showDevTile) {
+                    CommunitySquareTile(
+                        title = stringResource(R.string.dev_profile_tile_title),
+                        handle = "code4nigel",
+                        accent = secondary,
+                        useGlass = useGlass,
+                        onClick = onDevProfileClick,
+                        modifier = tileModifier,
+                    ) {
+                        GitHubIconBadge(size = 32.dp)
+                    }
+                }
+            }
         }
     }
 }
@@ -577,10 +516,10 @@ private fun CommunitySquareTile(
     modifier: Modifier = Modifier,
     badge: @Composable () -> Unit,
 ) {
-    val tileShape = RoundedCornerShape(16.dp)
+    val tileShape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
-            .aspectRatio(1.08f)
+            .aspectRatio(1f)
             .clip(tileShape)
             .then(
                 if (useGlass) {
@@ -595,24 +534,25 @@ private fun CommunitySquareTile(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         badge()
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(1.dp))
         Text(
             text = handle,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -27,6 +27,9 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     @Volatile
     var enabled: Boolean = false
 
+    val isIdle: Boolean
+        get() = !enabled
+
     /** How much wider the stereo image gets. 1.0 = untouched. */
     private val widthGain = 2.5f
 

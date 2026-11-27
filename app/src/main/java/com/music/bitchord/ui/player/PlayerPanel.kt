@@ -86,12 +86,7 @@ import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.roundToInt
 
 /** Up to this much of the open fraction the mini row is still on the panel. */
-private const val MINI_ROW_UNTIL = 0.24f
-
-private fun smoothStep01(t: Float): Float {
-    val c = t.coerceIn(0f, 1f)
-    return c * c * (3f - 2f * c)
-}
+private const val MINI_ROW_UNTIL = 0.28f
 
 /**
  * The same two, in a light theme. The pill there is pale and the player is
@@ -101,7 +96,7 @@ private fun smoothStep01(t: Float): Float {
  */
 private const val MINI_ROW_UNTIL_LIGHT = 0.1f
 private const val PANEL_FILL_UNTIL_LIGHT = 0.1f
-private const val PANEL_FILL_UNTIL_DARK = 0.2f
+private const val PANEL_FILL_UNTIL_DARK = 0.28f
 
 /** The rounding the panel's top corners keep on the way up, as a sheet's do. */
 private const val PANEL_SHEET_CORNER_DP = 22f

@@ -1489,8 +1489,8 @@
     <string name="chordplay_pass_tier">גישה</string>
     <string name="chordplay_pass_tier_listener">מאזין</string>
     <string name="chordplay_pass_unnamed">מאזין ChordPlay</string>
-    <string name="community_hub">מרכז קהילת ChordPlay</string>
-    <string name="community_hub_subtitle">עקוב אחר המפתח, צפה במאגרי Reddit ו-GitHub</string>
+    <string name="community_hub">הודעת ChordPlay</string>
+    <string name="community_hub_subtitle">הודעה מהמפתח וקישורי קהילה</string>
     <string name="delete_preset">מחק הגדרה קבועה</string>
     <string name="delete_preset_confirmation">האם אתה בטוח שברצונך למחוק את \"%1$s\"?</string>
     <string name="delete_preset_title">למחוק הגדרה קבועה מראש?</string>
@@ -1643,7 +1643,7 @@
     <string name="onboarding_welcome_back_restore">ברוך שובך, %1$s · הקש לשחזור</string>
     <string name="onboarding_github_tag">כוכב ותרומה</string>
     <string name="player_animation_speed">מהירות הנפשת הנגן</string>
-    <string name="player_animation_speed_subtitle">התאם את מהירות ההגדלה והמזעור של המיני-נגן</string>
+    <string name="player_animation_speed_subtitle">התאם את מהירות המעבר מהנגן לתור ולמילות השירים</string>
     <string name="sync_identity_card">סנכרון כרטיס זהות</string>
     <string name="sync_identity_card_subtitle">שמור פרופיל, הגדרות וסטטיסטיקות ב-Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">הזהות סונכרנה אל %1$s</string>
@@ -1910,4 +1910,27 @@
     <string name="hide_ai_music">הסתרת מוזיקת AI</string>
     <string name="hide_ai_music_subtitle" formatted="false">מסיר שירים של אמני AI ידועים מהחיפוש, מדף הבית, מהמיקסים ומהרדיו. המסנן הזה לא יעיל ב-100%.</string>
     <string name="hide_ai_music_sources">רשימות: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay מעדכן את הרשימות פעם ביום.</string>
+    <string name="performance_profile">פרופיל ביצועים</string>
+    <string name="performance_profile_auto">אוטומטי</string>
+    <string name="performance_profile_balanced">מאוזן</string>
+    <string name="performance_profile_saver">חיסכון</string>
+    <string name="performance_profile_high">גבוה</string>
+    <string name="performance_profile_tier_saver">רקע אחיד + תנועה קלה</string>
+    <string name="performance_profile_customized">מותאם אישית</string>
+    <string name="performance_profile_auto_prefix">אוטומטי · %1$s</string>
+    <string name="performance_profile_saver_desc">משתמש במילוי אחיד, מגביל ל-60 הרץ ומקפיא אפקטים מחזוריים</string>
+    <string name="performance_profile_balanced_desc">שומר על זכוכית חלבית ו-VRR אדפטיבי תוך האטת תצוגה במנוחה</string>
+    <string name="performance_profile_high_desc">מקבע קצב רענון של %1$d הרץ עם טשטוש מלא ותנועה של 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">עד %1$d הרץ עם VRR אדפטיבי</string>
+    <string name="refresh_rate_pinned_subtitle">מקובע על %1$d הרץ</string>
+    <string name="performance_profile_high_confirm_title">להפעיל ביצועים גבוהים?</string>
+    <string name="performance_profile_high_confirm_body">נועל את קצב הרענון ל-%1$d הרץ עם טשטוש מלא ולולאות קנבס ב-120 fps. צורך יותר סוללה ועלול לחמם את המכשיר.</string>
+    <string name="link_automix_canvas">קשר את Automix ו-Canvas לפרופיל</string>
+    <string name="link_automix_canvas_subtitle">אפשר לפרופיל הביצועים להתאים מצב CPU של Automix, עטיפה מונפשת וטשטוש חי</string>
+    <string name="miniplayer_animation_speed">מהירות הנפשת מיני-נגן</string>
+    <string name="miniplayer_animation_speed_subtitle">התאם את מהירות ההגדלה והמזעור של המיני-נגן</string>
+    <string name="extra_section">נוסף</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">מאגר GitHub</string>
+    <string name="dev_profile_tile_title">פרופיל מפתח</string>
 </resources>

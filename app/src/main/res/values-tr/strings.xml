@@ -1442,8 +1442,8 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="chordplay_pass_tier">ERİŞİM</string>
     <string name="chordplay_pass_tier_listener">DİNLEYİCİ</string>
     <string name="chordplay_pass_unnamed">ChordPlay Dinleyicisi</string>
-    <string name="community_hub">ChordPlay Topluluk Merkezi</string>
-    <string name="community_hub_subtitle">Geliştiriciyi takip edin, Reddit ve GitHub\'ı ziyaret edin</string>
+    <string name="community_hub">ChordPlay Mesajı</string>
+    <string name="community_hub_subtitle">Geliştiriciden not ve topluluk bağlantıları</string>
     <string name="delete_preset">Ön ayarı sil</string>
     <string name="delete_preset_confirmation">«%1$s» ön ayarını silmek istediğinizden emin misiniz?</string>
     <string name="delete_preset_title">Ön ayar silinsin mi?</string>
@@ -1596,7 +1596,7 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="onboarding_welcome_back_restore">Tekrar hoş geldiniz, %1$s · Geri yüklemek için dokunun</string>
     <string name="onboarding_github_tag">Yıldızla ve Katkıda Bulun</string>
     <string name="player_animation_speed">Oynatıcı animasyon hızı</string>
-    <string name="player_animation_speed_subtitle">Mini oynatıcının büyüme ve küçülme hızını ayarlayın</string>
+    <string name="player_animation_speed_subtitle">Oynatıcıdan sıraya ve şarkı sözlerine geçiş hızını ayarlayın</string>
     <string name="sync_identity_card">Kimlik Kartını Eşitle</string>
     <string name="sync_identity_card_subtitle">Profil, ayarlar ve istatistikleri Downloads/Music/ChordPlay/you konumuna kaydedin</string>
     <string name="sync_identity_saved">Kimlik şuraya kaydedildi: %1$s</string>
@@ -1863,4 +1863,27 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="hide_ai_music">Yapay zekâ müziğini gizle</string>
     <string name="hide_ai_music_subtitle" formatted="false">Bilinen yapay zekâ sanatçılarının şarkılarını arama, Ana Sayfa, mix ve radyodan kaldırır. Bu filtre yüzde 100 etkili değildir.</string>
     <string name="hide_ai_music_sources">Listeler: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay listeleri günde bir kez günceller.</string>
+    <string name="performance_profile">Performans profili</string>
+    <string name="performance_profile_auto">Oto</string>
+    <string name="performance_profile_balanced">Dengeli</string>
+    <string name="performance_profile_saver">Tasarruf</string>
+    <string name="performance_profile_high">Yüksek</string>
+    <string name="performance_profile_tier_saver">Düz + Hafif Hareket</string>
+    <string name="performance_profile_customized">Özelleştirildi</string>
+    <string name="performance_profile_auto_prefix">Oto · %1$s</string>
+    <string name="performance_profile_saver_desc">Düz dolgular kullanır, ekranı 60 Hz ile sınırlar ve döngüleri durdurur</string>
+    <string name="performance_profile_balanced_desc">Buzlu camı ve uyarlanabilir VRR\'yi korurken boştaki hareketleri yavaşlatır</string>
+    <string name="performance_profile_high_desc">Tam bulanıklık ve 120 fps hareketle %1$d Hz yenileme hızını sabitler</string>
+    <string name="refresh_rate_adaptive_subtitle">Uyarlanabilir VRR ile %1$d Hz\'e kadar</string>
+    <string name="refresh_rate_pinned_subtitle">%1$d Hz\'de sabitlendi</string>
+    <string name="performance_profile_high_confirm_title">Yüksek performans açılsın mı?</string>
+    <string name="performance_profile_high_confirm_body">Tam bulanıklık ve 120 fps döngülerle yenileme hızını %1$d Hz\'e kilitler. Daha fazla pil tüketir ve cihazı ısıtabilir.</string>
+    <string name="link_automix_canvas">Automix ve Canvas\'ı profile bağla</string>
+    <string name="link_automix_canvas_subtitle">Performans profilinin Automix CPU modunu, hareketli kapağı ve canlı bulanıklığı ayarlamasına izin ver</string>
+    <string name="miniplayer_animation_speed">Mini oynatıcı animasyon hızı</string>
+    <string name="miniplayer_animation_speed_subtitle">Mini oynatıcının büyüme ve küçülme hızını ayarlayın</string>
+    <string name="extra_section">Ekstra</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">GitHub Deposu</string>
+    <string name="dev_profile_tile_title">Geliştirici</string>
 </resources>

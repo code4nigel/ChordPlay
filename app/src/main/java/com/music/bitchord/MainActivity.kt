@@ -34,6 +34,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -537,6 +538,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         AndroidPlayerHost.setInPipMode(isInPictureInPictureMode)
         AndroidPlayerHost.pipSupportedProvider = {
@@ -556,7 +558,7 @@ class MainActivity : AppCompatActivity() {
         }
         window.applyPerformanceRefreshRate(
             display = activityDisplay,
-            enabled = AppSettings.highPerformanceMode.value,
+            policy = AppSettings.performancePolicy.value.refreshRatePolicy,
             preferredRate = AppSettings.performanceRefreshRate.value,
         )
         // Before the composition, so a cold launch from a widget's artwork has
@@ -567,7 +569,7 @@ class MainActivity : AppCompatActivity() {
         MusicLink.consume(intent)
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
-            val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
+            val performancePolicy by AppSettings.performancePolicy.collectAsStateWithLifecycle()
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
@@ -578,11 +580,11 @@ class MainActivity : AppCompatActivity() {
                 onResetInteraction = { lastUserInteractionAt.value = SystemClock.elapsedRealtime() },
             )
             val composeView = LocalView.current
-            LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
+            LaunchedEffect(performancePolicy.refreshRatePolicy, performanceRefreshRate, composeView) {
                 val currentDisplay = composeView.display ?: activityDisplay
                 window.applyPerformanceRefreshRate(
                     display = currentDisplay,
-                    enabled = highPerformance,
+                    policy = performancePolicy.refreshRatePolicy,
                     preferredRate = performanceRefreshRate,
                     targetView = composeView,
                 )
@@ -817,9 +819,9 @@ private fun BitChordApp(
     // takes part in the docking asks for [activeDock] / this, never for the
     // dock or the motion directly.
     val reducePlayerMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
     val activeDock = playerDock.takeIf { !reducePlayerMotion }
-    playerSheetMotion.animationSpeed = playerAnimationSpeed
+    playerSheetMotion.animationSpeed = miniplayerAnimationSpeed
     playerSheetMotion.flingVelocity = with(LocalDensity.current) { PLAYER_PULL_FLING_VELOCITY.toPx() }
     // How the app takes the player down, whatever for: a back press, or a page
     // opened from inside it. Set straight to false, the sheet left in one frame
@@ -3236,7 +3238,7 @@ private fun BitChordApp(
 
     val appBlurImage = rememberFullArtworkBlurImage(
         imageUrl = effectiveArtworkUrl,
-        prepare = effectiveArtworkUrl != null,
+        prepare = !reduceDynamicBlur && effectiveArtworkUrl != null,
     )
 
     val windowBackground = MaterialTheme.colorScheme.background
@@ -3290,7 +3292,7 @@ private fun BitChordApp(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background),
         ) {
-        if (appBlurImage != null) {
+        if (!reduceDynamicBlur && appBlurImage != null) {
             FullArtworkBlurBackdrop(
                 image = appBlurImage,
                 modifier = Modifier.fillMaxSize(),
@@ -3406,8 +3408,10 @@ private fun BitChordApp(
                 pageKeyboard?.hide()
             }
         }
-        val pageHiddenByPlayer by remember(pageCoveredByPlayer, playerDock) {
-            derivedStateOf { pageCoveredByPlayer && playerDock.attached && playerDock.openFraction() >= 1f }
+        val pageHiddenByPlayer by remember(pageCoveredByPlayer, playerDock, reducePlayerMotion) {
+            derivedStateOf {
+                pageCoveredByPlayer && (reducePlayerMotion || (playerDock.attached && playerDock.openFraction() >= 1f))
+            }
         }
         Row(Modifier.fillMaxSize()) {
             Box(
@@ -3519,7 +3523,7 @@ private fun BitChordApp(
                         }
                     },
                     modifier = Modifier
-                        .hazeSource(hazeState)
+                        .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(hazeState))
                         .then(
                             if (glassSamplesBackdrop) {
                                 Modifier.layerBackdrop(effectiveAppBackdrop)

@@ -1464,8 +1464,8 @@
     <string name="chordplay_pass_tier">存取權限</string>
     <string name="chordplay_pass_tier_listener">聽眾</string>
     <string name="chordplay_pass_unnamed">ChordPlay 聽眾</string>
-    <string name="community_hub">ChordPlay 社群中心</string>
-    <string name="community_hub_subtitle">關注開發者，查看 Reddit 與 GitHub 代碼庫</string>
+    <string name="community_hub">ChordPlay 訊息</string>
+    <string name="community_hub_subtitle">來自開發者的訊息與社群連結</string>
     <string name="delete_preset">刪除預設</string>
     <string name="delete_preset_confirmation">確定要刪除「%1$s」嗎？</string>
     <string name="delete_preset_title">刪除預設？</string>
@@ -1618,7 +1618,7 @@
     <string name="onboarding_welcome_back_restore">歡迎回來，%1$s · 點擊還原</string>
     <string name="onboarding_github_tag">加星並參與貢獻</string>
     <string name="player_animation_speed">播放器動畫速度</string>
-    <string name="player_animation_speed_subtitle">調整迷你播放器展開與收起的速度</string>
+    <string name="player_animation_speed_subtitle">調整播放器切換至播放佇列與歌詞的動畫速度</string>
     <string name="sync_identity_card">同步身份卡片</string>
     <string name="sync_identity_card_subtitle">將個人資料、設定及統計儲存至 Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">身份已同步至 %1$s</string>
@@ -1885,4 +1885,27 @@
     <string name="hide_ai_music">隱藏 AI 音樂</string>
     <string name="hide_ai_music_subtitle" formatted="false">從搜尋、首頁、合輯和電台中移除已知 AI 藝人的歌曲。此篩選器並非 100% 有效。</string>
     <string name="hide_ai_music_sources">清單：Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist。ChordPlay 每天更新一次清單。</string>
+    <string name="performance_profile">效能設定檔</string>
+    <string name="performance_profile_auto">自動</string>
+    <string name="performance_profile_balanced">均衡</string>
+    <string name="performance_profile_saver">省電</string>
+    <string name="performance_profile_high">高效能</string>
+    <string name="performance_profile_tier_saver">純色與輕量動態</string>
+    <string name="performance_profile_customized">已自訂</string>
+    <string name="performance_profile_auto_prefix">自動 · %1$s</string>
+    <string name="performance_profile_saver_desc">改用純色填滿、限制螢幕於 60 Hz 並凍結循環視覺效果</string>
+    <string name="performance_profile_balanced_desc">保留毛玻璃與自適應 VRR，同時放緩閒置動態畫面</string>
+    <string name="performance_profile_high_desc">鎖定 %1$d Hz 重新整理率，啟用完整模糊與 120 fps 動態</string>
+    <string name="refresh_rate_adaptive_subtitle">配合自適應 VRR 最高可達 %1$d Hz</string>
+    <string name="refresh_rate_pinned_subtitle">已鎖定於 %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">要啟用高效能嗎？</string>
+    <string name="performance_profile_high_confirm_body">將重新整理率鎖定於 %1$d Hz，並啟用完整模糊與 120 fps 動態畫布。這會消耗更多電量並可能令裝置發熱。</string>
+    <string name="link_automix_canvas">將 Automix 與 Canvas 連動至此設定檔</string>
+    <string name="link_automix_canvas_subtitle">讓效能設定檔自動調整 Automix CPU 模式、動態封面與即時模糊</string>
+    <string name="miniplayer_animation_speed">迷你播放器動畫速度</string>
+    <string name="miniplayer_animation_speed_subtitle">調整迷你播放器展開與收起的速度</string>
+    <string name="extra_section">其他</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">GitHub 儲存庫</string>
+    <string name="dev_profile_tile_title">開發者個人資料</string>
 </resources>

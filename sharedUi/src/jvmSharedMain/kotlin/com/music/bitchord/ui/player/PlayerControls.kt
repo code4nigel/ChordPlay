@@ -238,8 +238,9 @@ internal fun PlayerScrubber(
     // canvas needs.
     val mixBlend = PlayerSettings.smartMixBlend.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     // One clock for the bar and the "Mixing" label, so they breathe on the same beat.
-    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation)
+    val mixPulse = rememberMixPulse({ mixBlend.value }, enabled = !reduceAnimation && !disableInfiniteLoops)
     Column(Modifier.fillMaxWidth()) {
         ThinSlider(
             value = shown,
@@ -2346,6 +2347,20 @@ private fun ShimmerText(
     ),
     baseAlpha: Float = 0.55f,
 ) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val baseColor = Color.White.copy(alpha = baseAlpha)
+    if (reduceAnimation || disableInfiniteLoops) {
+        Text(
+            text = text,
+            style = style,
+            color = baseColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = modifier,
+        )
+        return
+    }
     val transition = rememberInfiniteTransition(label = "lossless-shimmer")
     val progress = transition.animateFloat(
         initialValue = 0f,
@@ -2356,7 +2371,6 @@ private fun ShimmerText(
         ),
         label = "lossless-shimmer-progress",
     )
-    val baseColor = Color.White.copy(alpha = baseAlpha)
     // The glyphs are laid out and drawn once, in plain white, and the moving
     // band is painted over them in the draw phase with SrcIn — which keeps the
     // glyphs' coverage and takes the gradient's colour, the same pixels a

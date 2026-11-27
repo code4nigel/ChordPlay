@@ -17,6 +17,8 @@ import com.music.bitchord.data.settings.AppDesignStyle
 import com.music.bitchord.data.settings.AppFontChoice
 import com.music.bitchord.data.settings.DockStyle
 import com.music.bitchord.data.settings.HomeShelfKey
+import com.music.bitchord.data.settings.PerformanceProfile
+import com.music.bitchord.data.settings.PerformanceTier
 import com.music.bitchord.data.settings.PlayerInterfaceStyle
 import com.music.bitchord.data.settings.PlayerLayoutMode
 import com.music.bitchord.data.settings.SongSwipeAction
@@ -157,6 +159,21 @@ fun LyricsHighlightPosition.localizedLabel(): String = when (this) {
     LyricsHighlightPosition.TOP -> stringResource(R.string.lyrics_highlight_top)
     LyricsHighlightPosition.UPPER_CENTER -> stringResource(R.string.lyrics_highlight_top_mid)
     LyricsHighlightPosition.CENTER -> stringResource(R.string.lyrics_highlight_center)
+}
+
+@Composable
+fun PerformanceProfile.localizedLabel(): String = when (this) {
+    PerformanceProfile.AUTO -> stringResource(R.string.performance_profile_auto)
+    PerformanceProfile.BALANCED -> stringResource(R.string.performance_profile_balanced)
+    PerformanceProfile.SAVER -> stringResource(R.string.performance_profile_saver)
+    PerformanceProfile.HIGH -> stringResource(R.string.performance_profile_high)
+}
+
+@Composable
+fun PerformanceTier.localizedLabel(): String = when (this) {
+    PerformanceTier.HIGH -> stringResource(R.string.performance_profile_high)
+    PerformanceTier.BALANCED -> stringResource(R.string.performance_profile_balanced)
+    PerformanceTier.SAVER -> stringResource(R.string.performance_profile_tier_saver)
 }
 
 

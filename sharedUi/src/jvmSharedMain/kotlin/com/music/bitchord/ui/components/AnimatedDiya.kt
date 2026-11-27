@@ -21,6 +21,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.ui.AppUi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -43,40 +45,53 @@ fun AnimatedDiya(
     size: Dp = 22.dp,
     isLit: Boolean = true,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "DiyaFlameTransition")
+    val reduceAnimation by AppUi.host.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppUi.host.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val animate = isLit && !reduceAnimation && !disableInfiniteLoops
 
-    // Flame height breathing
-    val flameScaleY by infiniteTransition.animateFloat(
-        initialValue = 0.90f,
-        targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 650, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "FlameScaleY",
-    )
+    val flameScaleY: Float
+    val flameSwayDeg: Float
+    val flameGlowAlpha: Float
+    if (animate) {
+        val infiniteTransition = rememberInfiniteTransition(label = "DiyaFlameTransition")
 
-    // Subtle horizontal flame sway
-    val flameSwayDeg by infiniteTransition.animateFloat(
-        initialValue = -3.5f,
-        targetValue = 3.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 850, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "FlameSwayDeg",
-    )
+        // Flame height breathing
+        flameScaleY = infiniteTransition.animateFloat(
+            initialValue = 0.90f,
+            targetValue = 1.15f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "FlameScaleY",
+        ).value
 
-    // Flame core radiance pulse
-    val flameGlowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.65f,
-        targetValue = 0.95f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "FlameGlowAlpha",
-    )
+        // Subtle horizontal flame sway
+        flameSwayDeg = infiniteTransition.animateFloat(
+            initialValue = -3.5f,
+            targetValue = 3.5f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 850, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "FlameSwayDeg",
+        ).value
+
+        // Flame core radiance pulse
+        flameGlowAlpha = infiniteTransition.animateFloat(
+            initialValue = 0.65f,
+            targetValue = 0.95f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "FlameGlowAlpha",
+        ).value
+    } else {
+        flameScaleY = 1.0f
+        flameSwayDeg = 0f
+        flameGlowAlpha = 0.80f
+    }
 
     Canvas(modifier = modifier.size(size)) {
         val w = this.size.width

@@ -11,6 +11,7 @@
  */
 package com.music.bitchord.ui.player
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -363,6 +364,18 @@ fun Modifier.skipDrawWhenPlayerCovers(dock: PlayerDock?): Modifier {
         derivedStateOf { dock != null && dock.attached && dock.openFraction() >= 1f }
     }
     return drawWithContent { if (!covered.value) drawContent() }
+}
+
+/**
+ * Signature buttery ease-out curve for miniplayer and player transitions:
+ * immediate quick takeoff followed by a long, dream-like deceleration glide.
+ */
+val DreamyEaseOutEasing = CubicBezierEasing(0.16f, 1.0f, 0.24f, 1.0f)
+
+/** Smooth C1 Hermite curve used to blend crossfades without linear corners. */
+fun smoothStep01(t: Float): Float {
+    val c = t.coerceIn(0f, 1f)
+    return c * c * (3f - 2f * c)
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */

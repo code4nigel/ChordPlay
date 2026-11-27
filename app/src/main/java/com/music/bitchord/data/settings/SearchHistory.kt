@@ -2,9 +2,13 @@ package com.music.bitchord.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -39,9 +43,11 @@ object SearchHistory {
     private val _addonRecent = MutableStateFlow<List<String>>(emptyList())
     val addonRecent: StateFlow<List<String>> = _addonRecent.asStateFlow()
 
+    private val initScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
-        reload()
+        initScope.launch { reload() }
     }
 
     /**

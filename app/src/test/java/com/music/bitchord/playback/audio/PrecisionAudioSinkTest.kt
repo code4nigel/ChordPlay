@@ -1313,4 +1313,69 @@ class PrecisionAudioSinkTest {
         assertEquals(PcmEncoding.PCM_16BIT, sink.targetOutputEncoding)
         assertEquals(C.ENCODING_PCM_16BIT, fakeDelegate.configuredConfig?.format?.pcmEncoding)
     }
+
+    @Test
+    fun `idle passthrough forwards identical ByteBuffer once loudness settles`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = DspChain(
+            spatial = SpatialAudioProcessor(),
+            equalizer = EqualizerProcessor(),
+            transition = TransitionFilterProcessor(),
+        )
+        val sink = createSink(fakeDelegate, enableFloatOutput = false, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_16BIT)).build())
+
+        fun pcmBuffer(): ByteBuffer = ByteBuffer.allocateDirect(64 * 4).order(ByteOrder.LITTLE_ENDIAN).apply {
+            repeat(64 * 2) { putShort(1234.toShort()) }
+            flip()
+        }
+
+        // First block snaps initial loudness state (non-idle on first block).
+        val firstInput = pcmBuffer()
+        assertTrue(sink.handleBuffer(firstInput, 0L, 1))
+        assertTrue(chain.isIdle)
+
+        // Second block has matching PCM16 encoding, idle DSP, and no audible visualizer -> zero-copy passthrough.
+        val secondInput = pcmBuffer()
+        assertTrue(sink.handleBuffer(secondInput, 20_000L, 1))
+        assertSame(secondInput, fakeDelegate.lastHandledBuffer)
+    }
+
+    @Test
+    fun `audible block callback runs only while needAudibleBlock returns true`() {
+        val fakeDelegate = FakeAudioSink()
+        var needAudible = true
+        var callbacks = 0
+        val chain = DspChain(
+            spatial = SpatialAudioProcessor(),
+            equalizer = EqualizerProcessor(),
+            transition = TransitionFilterProcessor(),
+        )
+        val sink = PrecisionAudioSink(
+            delegate = fakeDelegate,
+            dspChain = chain,
+            enableFloatOutput = false,
+            onAudibleBlock = { _, _, _ -> callbacks++ },
+            needAudibleBlock = { needAudible },
+        )
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_16BIT)).build())
+
+        fun pcmBuffer(): ByteBuffer = ByteBuffer.allocateDirect(64 * 4).order(ByteOrder.LITTLE_ENDIAN).apply {
+            repeat(64 * 2) { putShort(2000.toShort()) }
+            flip()
+        }
+
+        assertTrue(sink.handleBuffer(pcmBuffer(), 0L, 1))
+        assertEquals(1, callbacks)
+
+        assertTrue(sink.handleBuffer(pcmBuffer(), 10_000L, 1))
+        assertEquals(2, callbacks)
+
+        // When AUDIO_GRAPH visualizer is not active (needAudible = false), sink switches to direct passthrough.
+        needAudible = false
+        val passthroughInput = pcmBuffer()
+        assertTrue(sink.handleBuffer(passthroughInput, 20_000L, 1))
+        assertEquals(2, callbacks)
+        assertSame(passthroughInput, fakeDelegate.lastHandledBuffer)
+    }
 }

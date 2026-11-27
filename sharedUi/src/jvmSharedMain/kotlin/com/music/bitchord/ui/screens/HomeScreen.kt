@@ -249,6 +249,7 @@ fun HomeScreen(
     val homeReplayVisible by AppUi.host.homeReplayVisible.collectAsStateWithLifecycle()
     val hideHomeVideos by AppUi.host.hideHomeVideos.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
     var selectedMood by remember { mutableStateOf(HomeMood.ALL) }
     var localDialPage by remember { mutableIntStateOf(savedSpeedDialPage ?: HomeDialSessionMemory.page) }
     var localDialTab by remember { mutableStateOf(savedSpeedDialTab ?: HomeDialSessionMemory.tab) }
@@ -499,7 +500,7 @@ fun HomeScreen(
                                 if (recentsViewType == LibraryViewType.LIST) LibraryViewType.GRID else LibraryViewType.LIST
                             )
                         },
-                        enableTilt = !reduceAnimation,
+                        enableTilt = !reduceAnimation && !disableInfiniteLoops,
                         onFindMoodClick = onFindMoodClick,
                         onFindMoodShowAll = onFindMoodShowAll,
                     )

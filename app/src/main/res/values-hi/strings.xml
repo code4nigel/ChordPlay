@@ -1529,8 +1529,8 @@
     <string name="chordplay_pass_tier">एक्सेस</string>
     <string name="chordplay_pass_tier_listener">श्रोता</string>
     <string name="chordplay_pass_unnamed">ChordPlay श्रोता</string>
-    <string name="community_hub">ChordPlay कम्युनिटी हब</string>
-    <string name="community_hub_subtitle">डेवलपर को फॉलो करें, Reddit और GitHub रिपॉजिटरी देखें</string>
+    <string name="community_hub">ChordPlay संदेश</string>
+    <string name="community_hub_subtitle">डेवलपर का संदेश और कम्युनिटी लिंक</string>
     <string name="delete_preset">प्रीसेट हटाएं</string>
     <string name="delete_preset_confirmation">क्या आप वाकई "%1$s" को हटाना चाहते हैं?</string>
     <string name="delete_preset_title">प्रीसेट हटाएं?</string>
@@ -1683,7 +1683,7 @@
     <string name="onboarding_welcome_back_restore">वापसी पर स्वागत है, %1$s · रीस्टोर करने के लिए टैप करें</string>
     <string name="onboarding_github_tag">स्टार करें और योगदान दें</string>
     <string name="player_animation_speed">प्लेयर एनिमेशन गति</string>
-    <string name="player_animation_speed_subtitle">मिनी प्लेयर के खुलने और छोटा होने की गति समायोजित करें</string>
+    <string name="player_animation_speed_subtitle">प्लेयर से कतार और लिरिक्स के बीच एनिमेशन की गति समायोजित करें</string>
     <string name="sync_identity_card">पहचान कार्ड सिंक करें</string>
     <string name="sync_identity_card_subtitle">अपनी प्रोफ़ाइल, सेटिंग्स और आँकड़े Downloads/Music/ChordPlay/you में सहेजें</string>
     <string name="sync_identity_saved">पहचान %1$s में सहेजी गई</string>
@@ -1950,4 +1950,27 @@
     <string name="hide_ai_music">AI संगीत छिपाएँ</string>
     <string name="hide_ai_music_subtitle" formatted="false">जाने-माने AI कलाकारों के गाने खोज, होम, मिक्स और रेडियो से हटाता है। यह फ़िल्टर 100% प्रभावी नहीं है।</string>
     <string name="hide_ai_music_sources">सूचियाँ: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay दिन में एक बार सूचियाँ अपडेट करता है।</string>
+    <string name="performance_profile">प्रदर्शन प्रोफ़ाइल</string>
+    <string name="performance_profile_auto">ऑटो</string>
+    <string name="performance_profile_balanced">संतुलित</string>
+    <string name="performance_profile_saver">सेवर</string>
+    <string name="performance_profile_high">उच्च</string>
+    <string name="performance_profile_tier_saver">सॉलिड + हल्की गति</string>
+    <string name="performance_profile_customized">कस्टमाइज़्ड</string>
+    <string name="performance_profile_auto_prefix">ऑटो · %1$s</string>
+    <string name="performance_profile_saver_desc">सॉलिड रंग उपयोग करता है, डिस्प्ले को 60 Hz पर रखता है और लूपिंग विज़ुअल रोकता है</string>
+    <string name="performance_profile_balanced_desc">फ़्रॉस्टेड ग्लास और अडैप्टिव VRR रखता है और निष्क्रिय गति को धीमा करता है</string>
+    <string name="performance_profile_high_desc">पूरे ब्लर और 120 fps मोशन के साथ %1$d Hz रिफ़्रेश रेट लॉक करता है</string>
+    <string name="refresh_rate_adaptive_subtitle">अडैप्टिव VRR के साथ %1$d Hz तक</string>
+    <string name="refresh_rate_pinned_subtitle">%1$d Hz पर लॉक</string>
+    <string name="performance_profile_high_confirm_title">उच्च प्रदर्शन चालू करें?</string>
+    <string name="performance_profile_high_confirm_body">पूरे ब्लर और 120 fps कैनवास लूप के साथ डिस्प्ले रिफ़्रेश रेट को %1$d Hz पर लॉक करता है। इससे अधिक बैटरी खर्च होती है और डिवाइस गर्म हो सकता है।</string>
+    <string name="link_automix_canvas">Automix और Canvas को प्रोफ़ाइल से जोड़ें</string>
+    <string name="link_automix_canvas_subtitle">प्रदर्शन प्रोफ़ाइल को Automix CPU मोड, एनिमेटेड कवर और लाइव ब्लर बदलने दें</string>
+    <string name="miniplayer_animation_speed">मिनीप्लेयर एनिमेशन गति</string>
+    <string name="miniplayer_animation_speed_subtitle">मिनी प्लेयर के खुलने और छोटा होने की गति समायोजित करें</string>
+    <string name="extra_section">अतिरिक्त</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">GitHub रेपो</string>
+    <string name="dev_profile_tile_title">डेव प्रोफ़ाइल</string>
 </resources>

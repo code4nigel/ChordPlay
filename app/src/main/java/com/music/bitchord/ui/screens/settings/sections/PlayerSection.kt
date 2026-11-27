@@ -66,6 +66,7 @@ fun PlayerSection(
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
@@ -108,7 +109,13 @@ fun PlayerSection(
             searchQuery,
             stringResource(R.string.player_animation_speed),
             stringResource(R.string.player_animation_speed_subtitle),
-            "animation", "speed", "miniplayer", "expand", "minimize", "player", "fast", "smooth", "motion",
+            "animation", "speed", "player", "queue", "lyrics", "fast", "smooth", "motion",
+        )
+        val showMiniplayerAnimationSpeed = matchesSearch(
+            searchQuery,
+            stringResource(R.string.miniplayer_animation_speed),
+            stringResource(R.string.miniplayer_animation_speed_subtitle),
+            "animation", "speed", "miniplayer", "mini player", "expand", "minimize", "fast", "smooth", "motion",
         )
         val showLegacyMeshGradient = matchesSearch(
             searchQuery,
@@ -161,7 +168,7 @@ fun PlayerSection(
         )
 
         val anyPlayerMatch = showPlayerLayout || showBreathingAura || showPlayerAnimationSpeed ||
-            showLegacyMeshGradient ||
+            showMiniplayerAnimationSpeed || showLegacyMeshGradient ||
             showHideSongStatus || showHideLyricsPreview || showPlayNextOnSwipe || showStopMusicOnClose ||
             showLandscapeFontScale || showSmartAlignment || showNerdStats
 
@@ -204,30 +211,45 @@ fun PlayerSection(
                     )
                 }
 
-                if (showPlayerAnimationSpeed) {
+                if (showPlayerAnimationSpeed || showMiniplayerAnimationSpeed) {
                     AnimatedVisibility(
                         visible = !reduceAnimation,
                         enter = fadeIn() + expandVertically(),
                         exit = fadeOut() + shrinkVertically(),
                     ) {
                         Column {
-                            if (showPlayerLayout || showBreathingAura) RowDivider()
-                            SliderRow(
-                                icon = Icons.Rounded.Speed,
-                                title = stringResource(R.string.player_animation_speed),
-                                subtitle = stringResource(R.string.player_animation_speed_subtitle),
-                                value = playerAnimationSpeedLabel(playerAnimationSpeed),
-                                sliderValue = playerAnimationSpeed,
-                                onSliderValue = AppSettings::setPlayerAnimationSpeed,
-                                valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
-                                steps = 14,
-                            )
+                            if (showPlayerAnimationSpeed) {
+                                if (showPlayerLayout || showBreathingAura) RowDivider()
+                                SliderRow(
+                                    icon = Icons.Rounded.Speed,
+                                    title = stringResource(R.string.player_animation_speed),
+                                    subtitle = stringResource(R.string.player_animation_speed_subtitle),
+                                    value = playerAnimationSpeedLabel(playerAnimationSpeed),
+                                    sliderValue = playerAnimationSpeed,
+                                    onSliderValue = AppSettings::setPlayerAnimationSpeed,
+                                    valueRange = AppSettings.MIN_PLAYER_ANIMATION_SPEED..AppSettings.MAX_PLAYER_ANIMATION_SPEED,
+                                    steps = 14,
+                                )
+                            }
+                            if (showMiniplayerAnimationSpeed) {
+                                if (showPlayerLayout || showBreathingAura || showPlayerAnimationSpeed) RowDivider()
+                                SliderRow(
+                                    icon = Icons.Rounded.Speed,
+                                    title = stringResource(R.string.miniplayer_animation_speed),
+                                    subtitle = stringResource(R.string.miniplayer_animation_speed_subtitle),
+                                    value = playerAnimationSpeedLabel(miniplayerAnimationSpeed),
+                                    sliderValue = miniplayerAnimationSpeed,
+                                    onSliderValue = AppSettings::setMiniplayerAnimationSpeed,
+                                    valueRange = AppSettings.MIN_MINIPLAYER_ANIMATION_SPEED..AppSettings.MAX_MINIPLAYER_ANIMATION_SPEED,
+                                    steps = 14,
+                                )
+                            }
                         }
                     }
                 }
 
                 // Artwork & Video Visuals Section Divider
-                val hasTopVisuals = showPlayerLayout || showBreathingAura || (showPlayerAnimationSpeed && !reduceAnimation)
+                val hasTopVisuals = showPlayerLayout || showBreathingAura || ((showPlayerAnimationSpeed || showMiniplayerAnimationSpeed) && !reduceAnimation)
                 val hasArtworkVisuals = showLegacyMeshGradient
                 if (hasArtworkVisuals) {
                     if (hasTopVisuals) {

@@ -101,6 +101,7 @@ internal fun ChordPlayIdentityCard(
     modifier: Modifier = Modifier,
 ) {
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val sig = remember(name) { WaveIdentitySignature.fromName(name) }
     val hasCustomName = name.isNotBlank()
 
@@ -139,7 +140,7 @@ internal fun ChordPlayIdentityCard(
         label = "identityFreq2",
     )
 
-    val phase = if (reduceAnimation) {
+    val phase = if (reduceAnimation || disableInfiniteLoops) {
         0f
     } else {
         val infinite = rememberInfiniteTransition(label = "identityWaveMotion")

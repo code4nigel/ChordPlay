@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
+import kotlin.math.roundToInt
 
 /** The least the faded player is drawn at while docking — see the player's fade. */
 internal const val DOCK_FADE_FLOOR = 1f / 255f
@@ -77,7 +78,7 @@ internal fun Modifier.playerDockHost(
                 }
                 val offset = dock.offset() ?: return@onGloballyPositioned
                 dockFrame.anchorFor = coordinates.size
-                dockFrame.anchor = coordinates.positionOnScreen() - Offset(0f, offset.toInt().toFloat())
+                dockFrame.anchor = coordinates.positionOnScreen() - Offset(0f, offset.roundToInt().toFloat())
                 if (!dock.attached) dock.attached = true
             }
         } else {

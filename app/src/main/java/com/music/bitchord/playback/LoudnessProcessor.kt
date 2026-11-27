@@ -101,6 +101,15 @@ class LoudnessProcessor {
         snap = true
     }
 
+    /** True when no gain scaling, blend trim, or peak limiting state needs sample processing. */
+    val isIdle: Boolean
+        get() = !snap &&
+            targetGain() == 1f &&
+            trimTarget >= 1f &&
+            abs(currentGain - 1f) < SETTLED &&
+            currentTrim >= 1f - SETTLED &&
+            reduction >= 1f - SETTLED
+
     fun configure(sampleRate: Int, channelCount: Int) {
         this.sampleRate = sampleRate
         this.channelCount = channelCount

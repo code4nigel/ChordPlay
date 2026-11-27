@@ -1424,8 +1424,8 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="chordplay_pass_tier">ACCESSO</string>
     <string name="chordplay_pass_tier_listener">ASCOLTATORE</string>
     <string name="chordplay_pass_unnamed">Ascoltatore ChordPlay</string>
-    <string name="community_hub">Hub community ChordPlay</string>
-    <string name="community_hub_subtitle">Segui lo sviluppatore, visita Reddit e GitHub</string>
+    <string name="community_hub">Messaggio ChordPlay</string>
+    <string name="community_hub_subtitle">Nota dello sviluppatore e link della community</string>
     <string name="delete_preset">Elimina preimpostazione</string>
     <string name="delete_preset_confirmation">Vuoi davvero eliminare «%1$s»?</string>
     <string name="delete_preset_title">Eliminare la preimpostazione?</string>
@@ -1578,7 +1578,7 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="onboarding_welcome_back_restore">Bentornato, %1$s · Tocca per ripristinare</string>
     <string name="onboarding_github_tag">Aggiungi stella e contribuisci</string>
     <string name="player_animation_speed">Velocità animazione lettore</string>
-    <string name="player_animation_speed_subtitle">Regola la rapidità di espansione e riduzione del mini-lettore</string>
+    <string name="player_animation_speed_subtitle">Regola la velocità delle transizioni tra lettore, coda e testi</string>
     <string name="sync_identity_card">Sincronizza scheda identità</string>
     <string name="sync_identity_card_subtitle">Salva profilo, impostazioni e statistiche in Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Identità sincronizzata in %1$s</string>
@@ -1845,4 +1845,27 @@ Abilitando questa opzione accetti questi termini.</string>
     <string name="hide_ai_music">Nascondi musica IA</string>
     <string name="hide_ai_music_subtitle" formatted="false">Rimuove i brani di artisti IA noti da ricerca, Home, mix e radio. Questo filtro non è efficace al 100%.</string>
     <string name="hide_ai_music_sources">Elenchi: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay aggiorna gli elenchi una volta al giorno.</string>
+    <string name="performance_profile">Profilo prestazioni</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Bilanciato</string>
+    <string name="performance_profile_saver">Risparmio</string>
+    <string name="performance_profile_high">Alto</string>
+    <string name="performance_profile_tier_saver">Tinta unita + Moto leggero</string>
+    <string name="performance_profile_customized">Personalizzato</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Usa colori pieni, limita lo schermo a 60 Hz e blocca i cicli continui</string>
+    <string name="performance_profile_balanced_desc">Mantiene vetro satinato e VRR adattivo riducendo il ritmo a riposo</string>
+    <string name="performance_profile_high_desc">Fissa %1$d Hz con sfocatura completa e animazioni a 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Fino a %1$d Hz con VRR adattivo</string>
+    <string name="refresh_rate_pinned_subtitle">Fissata a %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Attivare prestazioni elevate?</string>
+    <string name="performance_profile_high_confirm_body">Blocca il refresh rate a %1$d Hz con sfocatura completa e loop a 120 fps. Consuma più batteria e può scaldare il dispositivo.</string>
+    <string name="link_automix_canvas">Collega Automix e Canvas al profilo</string>
+    <string name="link_automix_canvas_subtitle">Lascia che il profilo regoli CPU Automix, copertine animate e sfocatura live</string>
+    <string name="miniplayer_animation_speed">Velocità animazione mini-lettore</string>
+    <string name="miniplayer_animation_speed_subtitle">Regola la rapidità di espansione e riduzione del mini-lettore</string>
+    <string name="extra_section">Extra</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">Repo GitHub</string>
+    <string name="dev_profile_tile_title">Profilo Dev</string>
 </resources>
