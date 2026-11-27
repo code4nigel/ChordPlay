@@ -290,7 +290,7 @@ class PlayerDock {
     }
 
     /** The sheet's offset this frame, or null with no sheet laid out. */
-    internal fun offset(): Float? = sheetOffset?.invoke()?.takeUnless { it.isNaN() }
+    fun offset(): Float? = sheetOffset?.invoke()?.takeUnless { it.isNaN() }
 
     /**
      * 1 with the player fully open, 0 down on the mini player. 0 too while
