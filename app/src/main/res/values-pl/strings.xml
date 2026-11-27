@@ -1048,7 +1048,7 @@
     <string name="use_this_profile">Użyj tego profilu</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">Przesunięcie tekstu</string>
 
 
 
@@ -1090,7 +1090,7 @@
 
     <string name="settings_search_hint">Szukaj w ustawieniach</string>
 
-    <string name="settings_search_empty">No settings match “%1$s”</string>
+    <string name="settings_search_empty">Brak ustawień pasujących do „%1$s”</string>
 
     <string name="prefer_music_only">Preferuj wersję muzyczną</string>
 
@@ -1729,7 +1729,7 @@
     <string name="sync_identity_failed">Nie udało się zapisać tożsamości: %1$s</string>
     <string name="adaptive_dock_blur">Intensywność rozmycia doku</string>
     <string name="adaptive_dock_blur_subtitle">Moc rozmycia tła dla adaptacyjnego doku</string>
-    <string name="content_preferences_header">Content Preferences</string>
+    <string name="content_preferences_header">Preferencje treści</string>
     <string name="drive_account_header">Konto Google</string>
     <string name="drive_auto_sync_footer">Ten telefon wysyła swoją historię słuchania i pobiera historię innych Twoich urządzeń w tle, gdy bateria nie jest słaba. Ręczna synchronizacja liczy się do harmonogramu.</string>
     <string name="drive_auto_sync_header">Automatyczna synchronizacja</string>
@@ -1795,8 +1795,8 @@
     <string name="drive_this_phone">Ten telefon</string>
     <string name="drive_this_phone_header">Ten telefon</string>
     <string name="drive_this_phone_subtitle">Urządzenie, jako które ten telefon tworzy kopię</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_home_videos">Ukryj wideo na stronie głównej</string>
+    <string name="hide_home_videos_subtitle">Ukrywa sekcje i karty teledysków na stronie głównej</string>
     <string name="hide_lyrics_on_player">Hide lyrics on player</string>
     <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="replay_year_albums">Albums you lived in</string>
@@ -1860,10 +1860,10 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
     <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="your_preferences">Your Preferences</string>
-    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="square_video_thumbnails">Kwadratowe miniatury wideo</string>
+    <string name="square_video_thumbnails_subtitle">Wyświetlaj okładki teledysków jako kwadraty zamiast formatu panoramicznego</string>
+    <string name="your_preferences">Twoje preferencje</string>
+    <string name="your_preferences_subtitle">Preferencje zawartości strony głównej i układ sekcji</string>
     <string name="playback_recovery_stopped">Odtwarzanie zatrzymano, ponieważ nie można było odtworzyć tego utworu.</string>
     <string name="playback_recovery_skipped">Nie można było odtworzyć tego utworu. Przechodzenie do następnego.</string>
     <string name="queue_playlist_title">Zapisz kolejkę</string>

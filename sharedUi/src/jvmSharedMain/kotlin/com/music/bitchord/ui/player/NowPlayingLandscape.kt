@@ -394,8 +394,10 @@ internal fun LandscapeAndVideoNowPlaying(
                                     dockFrame.portalLeft = pose.left
                                     dockFrame.portalTop = pose.top
                                     dockFrame.portalScale = pose.scale
+                                    dockFrame.portalReady = true
                                     sleeveLayer.record { this@drawWithContent.drawContent() }
                                 } else {
+                                    dockFrame.portalReady = false
                                     if (docking()) {
                                         dockFrame.portalScale = 0f
                                     }

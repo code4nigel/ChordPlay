@@ -983,7 +983,7 @@
     <string name="playlist_action">Lista de reproducción</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">Desfase de letra</string>
 
 
 
@@ -1025,11 +1025,11 @@
 
     <string name="settings_search_hint">Buscar en ajustes</string>
 
-    <string name="settings_search_empty">No settings match “%1$s”</string>
+    <string name="settings_search_empty">No hay ajustes que coincidan con «%1$s»</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only">Preferir versión solo audio</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
+    <string name="prefer_music_only_subtitle">En los videos musicales, muestra los detalles del video mientras se busca y carga la versión de audio del catálogo</string>
     <string name="smart_version_alignment">Alineación de audio inteligente</string>
     <string name="smart_version_alignment_subtitle">Analiza las formas de onda para encontrar el momento exacto de reproducción correspondiente</string>
 
@@ -1662,7 +1662,7 @@
     <string name="sync_identity_failed">No se pudo guardar la identidad: %1$s</string>
     <string name="adaptive_dock_blur">Intensidad de desenfoque del dock</string>
     <string name="adaptive_dock_blur_subtitle">Fuerza del efecto esmerilado para el dock adaptable</string>
-    <string name="content_preferences_header">Content Preferences</string>
+    <string name="content_preferences_header">Preferencias de contenido</string>
     <string name="drive_account_header">Cuenta de Google</string>
     <string name="drive_auto_sync_footer">Este teléfono sube su historial de escucha y descarga el de tus otros dispositivos en segundo plano si la batería no está baja. Una sincronización manual cuenta para la programación.</string>
     <string name="drive_auto_sync_header">Sincronización automática</string>
@@ -1728,8 +1728,8 @@
     <string name="drive_this_phone">Este teléfono</string>
     <string name="drive_this_phone_header">Este teléfono</string>
     <string name="drive_this_phone_subtitle">El dispositivo con el que este teléfono hace copia</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_home_videos">Ocultar videos de Inicio</string>
+    <string name="hide_home_videos_subtitle">Oculta secciones y tarjetas de videos musicales en Inicio</string>
     <string name="hide_lyrics_on_player">Hide lyrics on player</string>
     <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="replay_year_albums">Albums you lived in</string>
@@ -1793,10 +1793,10 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
     <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="your_preferences">Your Preferences</string>
-    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="square_video_thumbnails">Miniaturas de video cuadradas</string>
+    <string name="square_video_thumbnails_subtitle">Muestra las carátulas de videos musicales en formato cuadrado en lugar de panorámico</string>
+    <string name="your_preferences">Tus preferencias</string>
+    <string name="your_preferences_subtitle">Preferencias de contenido de Inicio y disposición de secciones</string>
     <string name="playback_recovery_stopped">La reproducción se detuvo porque no se pudo reproducir esta canción.</string>
     <string name="playback_recovery_skipped">No se pudo reproducir esta canción. Se pasa a la siguiente.</string>
     <string name="queue_playlist_title">Guardar cola</string>

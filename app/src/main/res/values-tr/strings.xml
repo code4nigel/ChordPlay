@@ -1603,7 +1603,7 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="sync_identity_failed">Kimlik kaydedilemedi: %1$s</string>
     <string name="adaptive_dock_blur">Dock bulanıklık yoğunluğu</string>
     <string name="adaptive_dock_blur_subtitle">Uyarlanabilir dock için arka plan buzlu cam gücü</string>
-    <string name="content_preferences_header">Content Preferences</string>
+    <string name="content_preferences_header">İçerik tercihleri</string>
     <string name="drive_account_header">Google hesabı</string>
     <string name="drive_auto_sync_footer">Bu telefon, pil düşük değilken arka planda kendi dinleme geçmişini yükler ve diğer cihazlarınızınkini indirir. Elle başlatılan bir eşitleme de zamanlamaya sayılır.</string>
     <string name="drive_auto_sync_header">Otomatik eşitleme</string>
@@ -1669,8 +1669,8 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="drive_this_phone">Bu telefon</string>
     <string name="drive_this_phone_header">Bu telefon</string>
     <string name="drive_this_phone_subtitle">Bu telefonun yedeklendiği cihaz</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_home_videos">Videoları Ana Sayfadan gizle</string>
+    <string name="hide_home_videos_subtitle">Ana Sayfadaki müzik videosu raflarını ve kartlarını gizler</string>
     <string name="hide_lyrics_on_player">Hide lyrics on player</string>
     <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="replay_year_albums">Albums you lived in</string>
@@ -1734,10 +1734,10 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
     <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="your_preferences">Your Preferences</string>
-    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="square_video_thumbnails">Kare video küçük resimleri</string>
+    <string name="square_video_thumbnails_subtitle">Müzik videosu kapaklarını geniş ekran yerine kare olarak göster</string>
+    <string name="your_preferences">Tercihleriniz</string>
+    <string name="your_preferences_subtitle">Ana sayfa içerik tercihleri ve raf düzeni</string>
     <string name="playback_recovery_stopped">Bu parça çalınamadığı için oynatma durduruldu.</string>
     <string name="playback_recovery_skipped">Bu parça çalınamadı. Sonraki parçaya geçiliyor.</string>
     <string name="queue_playlist_title">Sırayı kaydet</string>

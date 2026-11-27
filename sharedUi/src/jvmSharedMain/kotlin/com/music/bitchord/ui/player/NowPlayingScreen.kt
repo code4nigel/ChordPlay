@@ -787,6 +787,7 @@ fun NowPlayingScreen(
         dockFrame.portalLeft = 0f
         dockFrame.portalTop = 0f
         dockFrame.portalScale = 1f
+        dockFrame.portalReady = false
         measures.heroHeight = 0.dp
         measures.cardBottom = 0.dp
         measures.playerBounds = IntSize.Zero

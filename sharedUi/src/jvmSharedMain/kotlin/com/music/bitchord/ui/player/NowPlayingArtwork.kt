@@ -308,12 +308,15 @@ internal fun BoxScope.PortraitSleeve(
                     dockFrame.portalLeft = (boxLeftPx + x).toFloat()
                     dockFrame.portalScale = 1f
                     dockFrame.portalTop = (y - bannerTopPx).toFloat()
+                    dockFrame.portalReady = mini != null
                     placeable.place(x, y)
                 }
             }
             .drawWithContent {
                 if (docking()) {
-                    sleeveLayer.record { this@drawWithContent.drawContent() }
+                    if (dockFrame.portalReady) {
+                        sleeveLayer.record { this@drawWithContent.drawContent() }
+                    }
                 } else {
                     drawContent()
                 }

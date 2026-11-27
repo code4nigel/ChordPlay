@@ -1011,7 +1011,7 @@
     <string name="use_this_profile">इस प्रोफ़ाइल का उपयोग करें</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">लिरिक्स ऑफ़सेट</string>
 
 
 
@@ -1053,11 +1053,11 @@
 
     <string name="settings_search_hint">सेटिंग्स में खोजें</string>
 
-    <string name="settings_search_empty">No settings match “%1$s”</string>
+    <string name="settings_search_empty">“%1$s” से मेल खाने वाली कोई सेटिंग नहीं है</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only">केवल संगीत संस्करण को प्राथमिकता दें</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
+    <string name="prefer_music_only_subtitle">म्यूज़िक वीडियो के लिए, कैटलॉग का ऑडियो संस्करण खोजने और लोड होने तक वीडियो विवरण दिखाएं</string>
     <string name="smart_version_alignment">स्मार्ट ऑडियो अलाइनमेंट</string>
     <string name="smart_version_alignment_subtitle">ठीक मेल खाने वाला प्लेबैक पल ढूँढने के लिए ऑडियो वेवफ़ॉर्म का विश्लेषण करता है</string>
 
@@ -1690,7 +1690,7 @@
     <string name="sync_identity_failed">पहचान सहेजी नहीं जा सकी: %1$s</string>
     <string name="adaptive_dock_blur">डॉक ब्लर तीव्रता</string>
     <string name="adaptive_dock_blur_subtitle">एडैप्टिव डॉक के लिए बैकड्रॉप ब्लर की गहराई</string>
-    <string name="content_preferences_header">Content Preferences</string>
+    <string name="content_preferences_header">सामग्री प्राथमिकताएं</string>
     <string name="drive_account_header">Google खाता</string>
     <string name="drive_auto_sync_footer">बैटरी कम न होने पर यह फ़ोन बैकग्राउंड में अपनी सुनने की हिस्ट्री अपलोड करता है और आपके दूसरे डिवाइस की डाउनलोड करता है। हाथ से किया गया सिंक भी शेड्यूल में गिना जाता है।</string>
     <string name="drive_auto_sync_header">ऑटो सिंक</string>
@@ -1756,8 +1756,8 @@
     <string name="drive_this_phone">यह फ़ोन</string>
     <string name="drive_this_phone_header">यह फ़ोन</string>
     <string name="drive_this_phone_subtitle">वह डिवाइस जिसके रूप में यह फ़ोन बैकअप लेता है</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_home_videos">होम से वीडियो छिपाएं</string>
+    <string name="hide_home_videos_subtitle">होम पर म्यूज़िक वीडियो शेल्फ़ और कार्ड छिपाता है</string>
     <string name="hide_lyrics_on_player">Hide lyrics on player</string>
     <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="replay_year_albums">Albums you lived in</string>
@@ -1821,10 +1821,10 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
     <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="your_preferences">Your Preferences</string>
-    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="square_video_thumbnails">वर्गाकार वीडियो थंबनेल</string>
+    <string name="square_video_thumbnails_subtitle">वाइडस्क्रीन के बजाय म्यूज़िक वीडियो आर्टवर्क को वर्गाकार दिखाएं</string>
+    <string name="your_preferences">आपकी प्राथमिकताएं</string>
+    <string name="your_preferences_subtitle">होम सामग्री प्राथमिकताएं और शेल्फ़ लेआउट</string>
     <string name="playback_recovery_stopped">यह गाना नहीं चल सका, इसलिए प्लेबैक रुक गया।</string>
     <string name="playback_recovery_skipped">यह गाना नहीं चल सका। अगला गाना चलाया जा रहा है।</string>
     <string name="queue_playlist_title">क्यू सेव करें</string>

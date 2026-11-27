@@ -72,6 +72,7 @@ internal fun Modifier.playerDockHost(
                     dockFrame.portalLeft = 0f
                     dockFrame.portalTop = 0f
                     dockFrame.portalScale = 1f
+                    dockFrame.portalReady = false
                 }
                 if (dockFrame.anchor != null && !sizeChanged) {
                     return@onGloballyPositioned
@@ -90,7 +91,7 @@ internal fun Modifier.playerDockHost(
     // everything while it travels, as the one thing still moving.
     .drawWithContent {
         drawContent()
-        if (docking()) {
+        if (docking() && dockFrame.portalReady) {
             translate(dockFrame.portalLeft, dockFrame.portalTop) {
                 val portalScale = dockFrame.portalScale
                 scale(portalScale, portalScale, pivot = Offset.Zero) { drawLayer(sleeveLayer) }
@@ -125,6 +126,7 @@ internal class DockFrame {
     var portalLeft = 0f
     var portalTop = 0f
     var portalScale = 1f
+    var portalReady = false
     var host: LayoutCoordinates? = null
     var landscapeArt: LayoutCoordinates? = null
 }

@@ -16,6 +16,7 @@ import com.music.bitchord.ui.player.LiveBadge
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -889,7 +890,7 @@ fun MiniPlayer(
 /**
  * Directional horizontal slide for miniplayer artwork when skipping tracks.
  */
-internal fun miniPlayerArtTransitionSpec(
+internal fun AnimatedContentTransitionScope<*>.miniPlayerArtTransitionSpec(
     direction: Int,
     durationMs: Int,
     reduceAnimation: Boolean,
@@ -911,7 +912,7 @@ internal fun miniPlayerArtTransitionSpec(
 /**
  * Directional horizontal parallax slide + crossfade for miniplayer title/artist text.
  */
-internal fun miniPlayerTextTransitionSpec(
+internal fun AnimatedContentTransitionScope<*>.miniPlayerTextTransitionSpec(
     direction: Int,
     durationMs: Int,
     reduceAnimation: Boolean,
