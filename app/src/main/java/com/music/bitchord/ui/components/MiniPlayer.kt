@@ -15,10 +15,21 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.player.LiveBadge
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +40,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -86,6 +100,7 @@ import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.player.DreamyEaseOutEasing
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import dev.chrisbanes.haze.HazeState
@@ -95,6 +110,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 import kotlin.math.sqrt
 
@@ -560,11 +576,19 @@ fun MiniPlayer(
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val idleAnimationFrameMs by AppSettings.idleAnimationFrameMs.collectAsStateWithLifecycle()
+    val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
     val timelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
     val haptics = rememberHaptics()
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val horizontalDragOffset = remember { Animatable(0f) }
+    var skipDirection by remember { mutableIntStateOf(1) }
+    val trackSlideDurationMs = (
+        320f / miniplayerAnimationSpeed.coerceIn(
+            AppSettings.MIN_MINIPLAYER_ANIMATION_SPEED,
+            AppSettings.MAX_MINIPLAYER_ANIMATION_SPEED,
+        )
+    ).roundToInt().coerceIn(140, 600)
 
     val effectiveIsLive = isLive || song.isLive
     val effectiveDurationMs = if (effectiveIsLive) 0L else durationMs
@@ -610,11 +634,13 @@ fun MiniPlayer(
             .miniPlayerGestures(
                 pull = pull,
                 onNext = {
+                    skipDirection = 1
                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
                 onPrevious = {
+                    skipDirection = -1
                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
@@ -720,9 +746,7 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
+            Box(
                 modifier = Modifier
                     .size(40.dp)
                     .graphicsLayer {
@@ -732,54 +756,87 @@ fun MiniPlayer(
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+            ) {
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it.videoId },
+                    transitionSpec = {
+                        miniPlayerArtTransitionSpec(
+                            direction = skipDirection,
+                            durationMs = trackSlideDurationMs,
+                            reduceAnimation = reduceAnimation,
+                        )
+                    },
+                    label = "miniPlayerArtSlide",
+                ) { targetSong ->
+                    AsyncImage(
+                        model = rememberRemoteArtworkUrl(targetSong)?.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
             Spacer(Modifier.width(10.dp))
             val titleStyle = MaterialTheme.typography.titleMedium
             val titlePx = with(LocalDensity.current) { titleStyle.fontSize.toPx() }
-            Column(
+            AnimatedContent(
+                targetState = song,
+                contentKey = { it.videoId },
+                transitionSpec = {
+                    miniPlayerTextTransitionSpec(
+                        direction = skipDirection,
+                        durationMs = trackSlideDurationMs,
+                        reduceAnimation = reduceAnimation,
+                    )
+                },
                 modifier = Modifier
                     .weight(1f)
                     .graphicsLayer {
                         translationX = horizontalDragOffset.value * 0.35f
                     }
-                    .playerDockText(dock, titlePx),
-            ) {
-                ExplicitSongTitle(
-                    song = song,
-                    style = titleStyle,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                val activeScrub = scrubFraction
-                if (activeScrub != null && effectiveDurationMs > 0L) {
-                    val previewMs = (activeScrub * effectiveDurationMs).roundToLong().coerceIn(0L, effectiveDurationMs)
-                    Text(
-                        text = "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(effectiveDurationMs)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = glowColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                    .playerDockText(dock, titlePx)
+                    .clipToBounds(),
+                label = "miniPlayerTextSlide",
+            ) { targetSong ->
+                val targetIsLive = (targetSong.videoId == song.videoId && isLive) || targetSong.isLive
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    ExplicitSongTitle(
+                        song = targetSong,
+                        style = titleStyle,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
-                } else if (effectiveIsLive) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    val activeScrub = scrubFraction
+                    if (activeScrub != null && targetSong.videoId == song.videoId && effectiveDurationMs > 0L) {
+                        val previewMs = (activeScrub * effectiveDurationMs).roundToLong().coerceIn(0L, effectiveDurationMs)
                         Text(
-                            text = song.artist,
+                            text = "${formatMiniScrubTime(previewMs)} / ${formatMiniScrubTime(effectiveDurationMs)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = glowColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    } else if (targetIsLive) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = targetSong.artist,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            LiveBadge(compact = true)
+                        }
+                    } else {
+                        Text(
+                            text = targetSong.artist,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
                         )
-                        Spacer(Modifier.width(6.dp))
-                        LiveBadge(compact = true)
                     }
-                } else {
-                    Text(
-                        text = song.artist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
             if (isLoading) {
@@ -812,6 +869,7 @@ fun MiniPlayer(
             // controls, so the bar keeps its shape — see [controlsLocked].
             IconButton(
                 onClick = {
+                    skipDirection = 1
                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
@@ -826,6 +884,66 @@ fun MiniPlayer(
             }
         }
     }
+}
+
+/**
+ * Directional horizontal slide for miniplayer artwork when skipping tracks.
+ */
+internal fun miniPlayerArtTransitionSpec(
+    direction: Int,
+    durationMs: Int,
+    reduceAnimation: Boolean,
+): ContentTransform {
+    if (reduceAnimation) {
+        return EnterTransition.None togetherWith ExitTransition.None
+    }
+    return (
+        slideInHorizontally(
+            animationSpec = tween(durationMs, easing = DreamyEaseOutEasing),
+        ) { fullWidth -> direction * fullWidth }
+        togetherWith
+        slideOutHorizontally(
+            animationSpec = tween(durationMs, easing = DreamyEaseOutEasing),
+        ) { fullWidth -> -direction * fullWidth }
+    ) using SizeTransform(clip = true)
+}
+
+/**
+ * Directional horizontal parallax slide + crossfade for miniplayer title/artist text.
+ */
+internal fun miniPlayerTextTransitionSpec(
+    direction: Int,
+    durationMs: Int,
+    reduceAnimation: Boolean,
+): ContentTransform {
+    if (reduceAnimation) {
+        return EnterTransition.None togetherWith ExitTransition.None
+    }
+    val inDelayMs = (durationMs * 0.12f).roundToInt()
+    val inFadeMs = (durationMs * 0.75f).roundToInt()
+    val outFadeMs = (durationMs * 0.55f).roundToInt()
+    return (
+        slideInHorizontally(
+            animationSpec = tween(durationMs, easing = DreamyEaseOutEasing),
+        ) { fullWidth -> (direction * fullWidth * 0.45f).roundToInt() } +
+            fadeIn(
+                animationSpec = tween(
+                    durationMillis = inFadeMs,
+                    delayMillis = inDelayMs,
+                    easing = DreamyEaseOutEasing,
+                ),
+            )
+        togetherWith
+        slideOutHorizontally(
+            animationSpec = tween(durationMs, easing = DreamyEaseOutEasing),
+        ) { fullWidth -> (-direction * fullWidth * 0.45f).roundToInt() } +
+            fadeOut(
+                animationSpec = tween(
+                    durationMillis = outFadeMs,
+                    easing = DreamyEaseOutEasing,
+                ),
+            )
+    ) using SizeTransform(clip = true)
 }
 
 /**

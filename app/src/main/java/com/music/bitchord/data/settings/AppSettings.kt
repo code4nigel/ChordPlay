@@ -3579,10 +3579,10 @@ object AppSettings {
     private const val KEY_PLAYER_ANIMATION_SPEED = "player_animation_speed"
     private const val KEY_MINIPLAYER_ANIMATION_SPEED = "miniplayer_animation_speed"
     private const val KEY_NAV_TABS = "nav_tabs"
-    const val DEFAULT_PLAYER_ANIMATION_SPEED = 1.0f
+    const val DEFAULT_PLAYER_ANIMATION_SPEED = 0.8f
     const val MIN_PLAYER_ANIMATION_SPEED = 0.5f
     const val MAX_PLAYER_ANIMATION_SPEED = 2.0f
-    const val DEFAULT_MINIPLAYER_ANIMATION_SPEED = 1.0f
+    const val DEFAULT_MINIPLAYER_ANIMATION_SPEED = 0.7f
     const val MIN_MINIPLAYER_ANIMATION_SPEED = 0.5f
     const val MAX_MINIPLAYER_ANIMATION_SPEED = 2.0f
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"

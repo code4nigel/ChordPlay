@@ -10,6 +10,7 @@
 package com.music.bitchord.ui.components
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -79,6 +83,7 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
 /**
@@ -332,7 +337,15 @@ private fun GlassNowPlaying(
     val horizontalDragOffset = remember { Animatable(0f) }
     val designStyle by AppSettings.appDesignStyle.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
     val timelineStyle by AppSettings.miniPlayerTimelineStyle.collectAsStateWithLifecycle()
+    var skipDirection by remember { mutableIntStateOf(1) }
+    val trackSlideDurationMs = (
+        320f / miniplayerAnimationSpeed.coerceIn(
+            AppSettings.MIN_MINIPLAYER_ANIMATION_SPEED,
+            AppSettings.MAX_MINIPLAYER_ANIMATION_SPEED,
+        )
+    ).roundToInt().coerceIn(140, 600)
 
     var scrubFraction by remember(song.videoId) { mutableStateOf<Float?>(null) }
     var suppressExpandUntilNanos by remember { mutableLongStateOf(0L) }
@@ -388,11 +401,13 @@ private fun GlassNowPlaying(
             .miniPlayerGestures(
                 pull = pull,
                 onNext = {
+                    skipDirection = 1
                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
                 onPrevious = {
+                    skipDirection = -1
                     view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                     haptics.play(Haptic.SkipPrevious)
                     onPrevious()
@@ -493,9 +508,8 @@ private fun GlassNowPlaying(
                     vertical = if (isInline) 4.dp else 8.dp,
                 ),
         ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
+            val artCorner = if (isInline) 6.dp else 8.dp
+            Box(
                 modifier = Modifier
                     .size(artSize)
                     .graphicsLayer {
@@ -503,10 +517,29 @@ private fun GlassNowPlaying(
                     }
                     // Whichever of the two densities is on screen is the one
                     // the player flies to: only one is composed at rest.
-                    .playerDockArt(dock, if (isInline) 6.dp else 8.dp)
-                    .clip(RoundedCornerShape(if (isInline) 6.dp else 8.dp))
+                    .playerDockArt(dock, artCorner)
+                    .clip(RoundedCornerShape(artCorner))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+            ) {
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it.videoId },
+                    transitionSpec = {
+                        miniPlayerArtTransitionSpec(
+                            direction = skipDirection,
+                            durationMs = trackSlideDurationMs,
+                            reduceAnimation = reduceAnimation,
+                        )
+                    },
+                    label = "glassMiniPlayerArtSlide",
+                ) { targetSong ->
+                    AsyncImage(
+                        model = rememberRemoteArtworkUrl(targetSong)?.artworkAt(ROW_ART_PX),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
             Spacer(Modifier.width(if (isInline) 8.dp else 10.dp))
             val activeScrub = scrubFraction
             val scrubTimeText = if (activeScrub != null && durationMs > 0L) {
@@ -516,50 +549,81 @@ private fun GlassNowPlaying(
                 null
             }
             if (isInline) {
-                Text(
-                    text = scrubTimeText ?: song.title,
-                    // The same size the expanded row sets it in. Collapsing the
-                    // bar drops the artist line and the skip button, not the
-                    // title's weight in the row — a title that shrank as well
-                    // would read as a different component rather than the same
-                    // one folded up, and the shared element carrying it between
-                    // the two states has one less thing to interpolate.
-                    //
-                    // It costs nothing in height: the row is stretched to the
-                    // tab pill's 45dp either way, and titleMedium's line box
-                    // still clears the 32dp artwork beside it.
-                    style = MaterialTheme.typography.titleMedium,
-                    color = contentColor,
-                    // The inline row shares its width with the tab pill and the
-                    // Search circle, so most titles will not fit at this size.
-                    // Cut with an ellipsis rather than wrapped or scaled.
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it.videoId },
+                    transitionSpec = {
+                        miniPlayerTextTransitionSpec(
+                            direction = skipDirection,
+                            durationMs = trackSlideDurationMs,
+                            reduceAnimation = reduceAnimation,
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .clipToBounds(),
+                    label = "glassMiniPlayerInlineTextSlide",
+                ) { targetSong ->
+                    val targetScrubText = if (targetSong.videoId == song.videoId) scrubTimeText else null
+                    Text(
+                        text = targetScrubText ?: targetSong.title,
+                        // The same size the expanded row sets it in. Collapsing the
+                        // bar drops the artist line and the skip button, not the
+                        // title's weight in the row — a title that shrank as well
+                        // would read as a different component rather than the same
+                        // one folded up, and the shared element carrying it between
+                        // the two states has one less thing to interpolate.
+                        //
+                        // It costs nothing in height: the row is stretched to the
+                        // tab pill's 45dp either way, and titleMedium's line box
+                        // still clears the 32dp artwork beside it.
+                        style = MaterialTheme.typography.titleMedium,
+                        color = contentColor,
+                        // The inline row shares its width with the tab pill and the
+                        // Search circle, so most titles will not fit at this size.
+                        // Cut with an ellipsis rather than wrapped or scaled.
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             } else {
                 val titleStyle = MaterialTheme.typography.titleMedium
                 val titlePx = with(LocalDensity.current) { titleStyle.fontSize.toPx() }
-                Column(
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it.videoId },
+                    transitionSpec = {
+                        miniPlayerTextTransitionSpec(
+                            direction = skipDirection,
+                            durationMs = trackSlideDurationMs,
+                            reduceAnimation = reduceAnimation,
+                        )
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .graphicsLayer {
                             translationX = horizontalDragOffset.value * 0.35f
                         }
-                        .playerDockText(dock, titlePx),
-                ) {
-                    ExplicitSongTitle(
-                        song = song,
-                        style = titleStyle,
-                        color = contentColor,
-                    )
-                    Text(
-                        text = scrubTimeText ?: song.artist,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (scrubTimeText != null) contentColor else contentColor.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                        .playerDockText(dock, titlePx)
+                        .clipToBounds(),
+                    label = "glassMiniPlayerTextSlide",
+                ) { targetSong ->
+                    val targetScrubText = if (targetSong.videoId == song.videoId) scrubTimeText else null
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        ExplicitSongTitle(
+                            song = targetSong,
+                            style = titleStyle,
+                            color = contentColor,
+                        )
+                        Text(
+                            text = targetScrubText ?: targetSong.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (targetScrubText != null) contentColor else contentColor.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
             if (isLoading) {
@@ -594,6 +658,7 @@ private fun GlassNowPlaying(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
+                        skipDirection = 1
                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                         haptics.play(Haptic.SkipNext)
                         onNext()

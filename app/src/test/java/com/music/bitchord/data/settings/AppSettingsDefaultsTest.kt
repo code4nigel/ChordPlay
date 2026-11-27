@@ -16,6 +16,8 @@ class AppSettingsDefaultsTest {
         assertFalse("Expected keepScreenOn false by default", AppSettings.keepScreenOn.value)
         assertEquals(KeepScreenOnDuration.FIVE_MINUTES, AppSettings.keepScreenOnDuration.value)
         assertFalse("Expected hideAiMusic false by default", AppSettings.hideAiMusic.value)
+        assertEquals(0.8f, AppSettings.DEFAULT_PLAYER_ANIMATION_SPEED, 0.0001f)
+        assertEquals(0.7f, AppSettings.DEFAULT_MINIPLAYER_ANIMATION_SPEED, 0.0001f)
         assertEquals(AppSettings.DEFAULT_PLAYER_ANIMATION_SPEED, AppSettings.playerAnimationSpeed.value, 0.0001f)
         assertEquals(AppSettings.DEFAULT_MINIPLAYER_ANIMATION_SPEED, AppSettings.miniplayerAnimationSpeed.value, 0.0001f)
     }
