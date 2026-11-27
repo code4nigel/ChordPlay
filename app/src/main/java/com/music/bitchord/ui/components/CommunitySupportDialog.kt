@@ -286,7 +286,7 @@ private fun CommunityContentSections(
             OnbSectionLabel("DEVELOPER")
             CommunityLinkCard(
                 iconPainter = painterResource(R.drawable.ic_github),
-                title = "Shivanshu",
+                title = "Shivanshu Yadav",
                 subtitle = stringResource(R.string.developer_role_subtitle),
                 onClick = { openExternalUrl(context, "https://github.com/code4nigel") },
             )

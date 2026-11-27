@@ -45,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.MixBlend
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -407,6 +408,21 @@ private const val LOADING_MIN_MS = 600L
  */
 @Composable
 private fun MixSheen(height: Dp, color: Color) {
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    if (reduceAnimation || disableInfiniteLoops) {
+        Canvas(
+            Modifier
+                .fillMaxWidth()
+                .height(height),
+        ) {
+            drawRoundRect(
+                color = color.copy(alpha = color.alpha * 0.45f),
+                cornerRadius = CornerRadius(size.height / 2f, size.height / 2f),
+            )
+        }
+        return
+    }
     val transition = rememberInfiniteTransition(label = "mixSheen")
     val phase by transition.animateFloat(
         initialValue = -SHEEN_BAND_FRACTION,

@@ -36,6 +36,10 @@ class DspChain(
     val loudness: LoudnessProcessor = LoudnessProcessor(),
 ) : FloatAudioProcessor {
 
+    /** True when all four DSP stages would pass samples through unmodified. */
+    val isIdle: Boolean
+        get() = spatial.isIdle && equalizer.isIdle && transition.isIdle && loudness.isIdle
+
     private var currentSampleRate: Int = 0
     private var processCounter: Long = 0L
 

@@ -58,6 +58,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -278,6 +279,8 @@ internal fun LandscapeAndVideoNowPlaying(
     val versionAligning by PlayerSettings.versionAlignmentInProgress.collectAsStateWithLifecycle()
     val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val panelOpen = panels.lyricsOpen || panels.queueOpen
 
     fun landscapeDockPose(): LandscapeDockPose? {
@@ -287,7 +290,7 @@ internal fun LandscapeAndVideoNowPlaying(
         val anchor = dockFrame.anchor ?: return null
         val host = dockFrame.host?.takeIf { it.isAttached } ?: return null
         val sleeve = dockFrame.landscapeArt?.takeIf { it.isAttached } ?: return null
-        val offset = (dock.offset() ?: return null).toInt().toFloat()
+        val offset = (dock.offset() ?: return null).roundToInt().toFloat()
         val travel = dock.sheetTravel.takeIf { it > 0f } ?: return null
         if (sleeve.size.width <= 0) return null
         val open = Rect(
@@ -348,15 +351,16 @@ internal fun LandscapeAndVideoNowPlaying(
                         MeshGradientBackground(
                             palette = synesthesiaPalette,
                             trackKey = song.videoId,
+                            animated = !reduceAnimation && !disableInfiniteLoops,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .hazeSource(playerHaze),
+                                .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze)),
                         )
                         if (isWavePlay && !spotifyCanvasPresentation) {
                             SynesthesiaNocturneOverlay(
                                 palette = synesthesiaPalette,
                                 isPlaying = isPlaying,
-                                reduceAnimation = reduceAnimation,
+                                reduceAnimation = reduceAnimation || disableInfiniteLoops,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -390,8 +394,10 @@ internal fun LandscapeAndVideoNowPlaying(
                                     dockFrame.portalLeft = pose.left
                                     dockFrame.portalTop = pose.top
                                     dockFrame.portalScale = pose.scale
+                                    dockFrame.portalReady = true
                                     sleeveLayer.record { this@drawWithContent.drawContent() }
                                 } else {
+                                    dockFrame.portalReady = false
                                     if (docking()) {
                                         dockFrame.portalScale = 0f
                                     }

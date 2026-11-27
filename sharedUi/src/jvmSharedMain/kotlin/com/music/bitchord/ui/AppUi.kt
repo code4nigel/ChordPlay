@@ -157,6 +157,18 @@ interface AppUiHost {
     val squareVideoThumbnails: StateFlow<Boolean>
         get() = MutableStateFlow(false)
 
+    val reduceDynamicBlur: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
+    val reduceAnimation: StateFlow<Boolean>
+        get() = MutableStateFlow(false)
+
+    val disableInfiniteLoops: StateFlow<Boolean>
+        get() = reduceAnimation
+
+    val idleAnimationFrameMs: StateFlow<Long>
+        get() = MutableStateFlow(0L)
+
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>

@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.data.settings.MiniPlayerTimelineStyle
 import com.music.bitchord.ui.rememberIsForeground
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
@@ -67,6 +68,7 @@ internal fun rememberMiniPlayerAuroraPhase(
     isScrubbing: Boolean,
     reduceAnimation: Boolean,
     persistSessionClock: Boolean = true,
+    idleFrameMs: Long = 0L,
 ): MiniPlayerAuroraPhaseState {
     val state = remember {
         MiniPlayerAuroraPhaseState(
@@ -80,7 +82,7 @@ internal fun rememberMiniPlayerAuroraPhase(
 
     val isForeground = rememberIsForeground()
 
-    LaunchedEffect(enabled, isForeground, isPlaying, isScrubbing, reduceAnimation) {
+    LaunchedEffect(enabled, isForeground, isPlaying, isScrubbing, reduceAnimation, idleFrameMs) {
         if (!enabled || !isForeground) return@LaunchedEffect
         if (reduceAnimation) {
             state.scrubMix = if (isScrubbing) 1f else 0f
@@ -90,8 +92,12 @@ internal fun rememberMiniPlayerAuroraPhase(
 
         var lastMs = withFrameMillis { it }
         while (true) {
+            val frameIntervalMs = if (isScrubbing || state.scrubMix > 0.01f) 0L else idleFrameMs
+            if (frameIntervalMs > 0L) {
+                delay(frameIntervalMs)
+            }
             val now = withFrameMillis { it }
-            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.05f)
+            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.08f)
             lastMs = now
 
             val targetScrub = if (isScrubbing) 1f else 0f

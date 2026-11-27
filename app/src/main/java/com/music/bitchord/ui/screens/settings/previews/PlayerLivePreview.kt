@@ -85,11 +85,13 @@ fun PlayerLivePreview(
     val playerLayoutMode by AppSettings.playerLayoutMode.collectAsStateWithLifecycle()
     val playerWaveStyle by AppSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val enableBreathingAura by AppSettings.enableBreathingAura.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
     val showNerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val playerAnimationSpeed by AppSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
+    val miniplayerAnimationSpeed by AppSettings.miniplayerAnimationSpeed.collectAsStateWithLifecycle()
     val activeArtworkUrl by AppSettings.activeTrackArtworkUrl.collectAsStateWithLifecycle()
     val activeTitle by AppSettings.activeTrackTitle.collectAsStateWithLifecycle()
     val activeArtist by AppSettings.activeTrackArtist.collectAsStateWithLifecycle()
@@ -204,7 +206,7 @@ fun PlayerLivePreview(
                         color = animatedPrimary,
                     )
                     Text(
-                        text = "• ${playerLayoutMode.localizedLabel()} • $waveLabel • ${String.format("%.1fx", playerAnimationSpeed)}",
+                        text = "• ${playerLayoutMode.localizedLabel()} • $waveLabel • ${String.format("%.1fx", miniplayerAnimationSpeed)} / ${String.format("%.1fx", playerAnimationSpeed)}",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontFamily = fontFamily,
                             fontSize = 10.sp,
@@ -318,7 +320,7 @@ fun PlayerLivePreview(
                         }
                     } else {
                         Box(contentAlignment = Alignment.Center) {
-                            if (enableBreathingAura) {
+                            if (enableBreathingAura && !reduceDynamicBlur) {
                                 Box(
                                     modifier = Modifier
                                         .size(120.dp)

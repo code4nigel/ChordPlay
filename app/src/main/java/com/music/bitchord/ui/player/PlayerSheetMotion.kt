@@ -14,6 +14,7 @@ package com.music.bitchord.ui.player
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -29,18 +30,24 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
- * Snappy, critically-damped springs for expanding and minimizing the player sheet:
- * fast initial response with a clean, silky settle and minimal exponential tail.
- * Scaled quadratically by [PlayerSheetMotion.animationSpeed] (default 1.0x).
+ * Miniplayer <-> Player motion curves:
+ * - Taps & non-fling settles use [DreamyEaseOutEasing] over 400ms open / 340ms close (at 1.0x)
+ *   for an instant takeoff and a responsive, fluid ease-out glide.
+ * - Active finger flings hand off into a velocity-preserving critically-damped spring so
+ *   momentum matches the finger cleanly without bounce or last-pixel snap.
+ * Scaled by [PlayerSheetMotion.animationSpeed] (default 1.0x).
  */
-private const val SLIDE_OPEN_STIFFNESS = 480f
-private const val SLIDE_CLOSE_STIFFNESS = 560f
-private const val SLIDE_DAMPING = 0.96f
+private const val SLIDE_OPEN_DURATION_MS = 400f
+private const val SLIDE_CLOSE_DURATION_MS = 340f
+private const val FLING_OPEN_STIFFNESS = 380f
+private const val FLING_CLOSE_STIFFNESS = 440f
+private const val FLING_MIN_VELOCITY_PX = 120f
 
-/** Close enough to stop, in pixels — avoids spending frames on an invisible sub-pixel tail. */
-private const val SLIDE_SETTLED_PX = 1.5f
+/** Close enough to stop, in sub-pixels — avoids any visible tail snap. */
+private const val SLIDE_SETTLED_PX = 0.5f
 
 /** How long a panel waits to be laid out before an open starts regardless. */
 private const val LAYOUT_WAIT_MS = 120L
@@ -113,7 +120,8 @@ class PlayerSheetMotion(
      * pressed twice, say — restarted the slide from a standstill where it
      * stood, a visible stall halfway home.
      */
-    private var closing = false
+    var closing by mutableStateOf(false)
+        private set
 
     private fun travel(): Float =
         dock.travel().takeIf { it > 0f } ?: (windowInfo?.containerSize?.height ?: 0).toFloat()
@@ -296,27 +304,47 @@ class PlayerSheetMotion(
 
     private suspend fun slide(from: Float, to: Float, velocity: Float = 0f) {
         val travel = travel()
-        val speed = animationSpeed.coerceIn(0.5f, 2.0f)
-        val baseStiffness = if (to > from) SLIDE_CLOSE_STIFFNESS else SLIDE_OPEN_STIFFNESS
-        val effectiveStiffness = baseStiffness * speed * speed
-        animate(
-            initialValue = from,
-            targetValue = to,
-            initialVelocity = velocity,
-            animationSpec = spring(
-                dampingRatio = SLIDE_DAMPING,
-                stiffness = effectiveStiffness,
-                visibilityThreshold = SLIDE_SETTLED_PX,
-            ),
-        ) { value, _ ->
-            // Critically damped never bounces from rest, but thrown hard
-            // enough at its target it can pass it once: never past open or
-            // past the bar.
-            held = value.coerceIn(0f, travel)
-            // The spring's own heartbeat: stamped every frame, so the
-            // glass freeze lasts exactly as long as the animation runs —
-            // however long a hard flick makes it.
+        val distance = abs(to - from)
+        if (distance < SLIDE_SETTLED_PX) {
+            held = to.coerceIn(0f, travel)
             GlassMotion.sheet.moved()
+            return
+        }
+        val speed = animationSpeed.coerceIn(0.5f, 2.0f)
+        val movingWithVelocity = (to - from) * velocity > 0f && abs(velocity) >= FLING_MIN_VELOCITY_PX
+        if (movingWithVelocity) {
+            val baseStiffness = if (to > from) FLING_CLOSE_STIFFNESS else FLING_OPEN_STIFFNESS
+            val effectiveStiffness = baseStiffness * speed * speed
+            animate(
+                initialValue = from,
+                targetValue = to,
+                initialVelocity = velocity,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = effectiveStiffness,
+                    visibilityThreshold = SLIDE_SETTLED_PX,
+                ),
+            ) { value, _ ->
+                held = value.coerceIn(0f, travel)
+                GlassMotion.sheet.moved()
+            }
+        } else {
+            val fraction = (distance / travel.coerceAtLeast(1f)).coerceIn(0.15f, 1f)
+            val baseDurationMs = if (to > from) SLIDE_CLOSE_DURATION_MS else SLIDE_OPEN_DURATION_MS
+            val durationMs = ((baseDurationMs * fraction) / speed)
+                .roundToInt()
+                .coerceIn(140, 850)
+            animate(
+                initialValue = from,
+                targetValue = to,
+                animationSpec = tween(
+                    durationMillis = durationMs,
+                    easing = DreamyEaseOutEasing,
+                ),
+            ) { value, _ ->
+                held = value.coerceIn(0f, travel)
+                GlassMotion.sheet.moved()
+            }
         }
     }
 

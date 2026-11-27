@@ -78,6 +78,7 @@ class PrecisionAudioSink(
      */
     private val isAudible: () -> Boolean = { true },
     private val onAudibleBlock: ((samples: FloatArray, frameCount: Int, channelCount: Int) -> Unit)? = null,
+    private val needAudibleBlock: () -> Boolean = { onAudibleBlock != null },
 ) : ForwardingAudioSink(delegate) {
 
     private var deckVolume = 1f
@@ -318,7 +319,27 @@ class PrecisionAudioSink(
             }
         }
 
-        // 2. Output buffer is drained; process available input in blocks.
+        // 2. Output buffer is drained; bypass decode/encode when complete frames remain,
+        //    wire encodings match, all DSP stages are idle, and no audible visualizer needs raw samples.
+        if (inputBuffer.remaining() >= bytesPerFrame &&
+            inEncoding == outEncoding &&
+            dspChain.isIdle &&
+            !(onAudibleBlock != null && needAudibleBlock() && isAudible())
+        ) {
+            if (presentationTimeUs != C.TIME_UNSET && configuredSampleRate > 0) {
+                val availableFrames = (inputBuffer.remaining() / bytesPerFrame).toLong()
+                if (availableFrames > 0L) {
+                    processedEndUs = presentationTimeUs + Util.sampleCountToDurationUs(availableFrames, configuredSampleRate)
+                }
+            }
+            return delegate.handleBuffer(
+                inputBuffer,
+                presentationTimeUs,
+                encodedAccessUnitCount,
+            )
+        }
+
+        // 3. Process available input in blocks when DSP or PCM boundary conversion is needed.
         //    A decoder buffer larger than the block capacity is split, and each
         //    sub-block carries its own timestamp: handing the delegate the same
         //    presentation time for every piece makes its expected-position check

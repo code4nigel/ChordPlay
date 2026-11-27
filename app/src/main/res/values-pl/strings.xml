@@ -1048,7 +1048,7 @@
     <string name="use_this_profile">Użyj tego profilu</string>
 
 
-    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset">Przesunięcie tekstu</string>
 
 
 
@@ -1090,7 +1090,7 @@
 
     <string name="settings_search_hint">Szukaj w ustawieniach</string>
 
-    <string name="settings_search_empty">No settings match “%1$s”</string>
+    <string name="settings_search_empty">Brak ustawień pasujących do „%1$s”</string>
 
     <string name="prefer_music_only">Preferuj wersję muzyczną</string>
 
@@ -1568,8 +1568,8 @@
     <string name="chordplay_pass_tier">DOSTĘP</string>
     <string name="chordplay_pass_tier_listener">SŁUCHACZ</string>
     <string name="chordplay_pass_unnamed">Słuchacz ChordPlay</string>
-    <string name="community_hub">Centrum społeczności ChordPlay</string>
-    <string name="community_hub_subtitle">Obserwuj twórcę, odwiedź Reddit i GitHub</string>
+    <string name="community_hub">Wiadomość ChordPlay</string>
+    <string name="community_hub_subtitle">Wiadomość od twórcy i linki społeczności</string>
     <string name="delete_preset">Usuń zestaw</string>
     <string name="delete_preset_confirmation">Czy na pewno chcesz usunąć «%1$s»?</string>
     <string name="delete_preset_title">Usunąć zestaw?</string>
@@ -1722,14 +1722,14 @@
     <string name="onboarding_welcome_back_restore">Witaj ponownie, %1$s · Dotknij, aby przywrócić</string>
     <string name="onboarding_github_tag">Oznacz gwiazdką i wspieraj</string>
     <string name="player_animation_speed">Szybkość animacji odtwarzacza</string>
-    <string name="player_animation_speed_subtitle">Dostosuj szybkość rozwijania i minimalizowania miniodtwarzacza</string>
+    <string name="player_animation_speed_subtitle">Dostosuj szybkość przejść odtwarzacza do kolejki i tekstów</string>
     <string name="sync_identity_card">Synchronizuj kartę tożsamości</string>
     <string name="sync_identity_card_subtitle">Zapisz profil, ustawienia i statystyki w Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Tożsamość zapisana w %1$s</string>
     <string name="sync_identity_failed">Nie udało się zapisać tożsamości: %1$s</string>
     <string name="adaptive_dock_blur">Intensywność rozmycia doku</string>
     <string name="adaptive_dock_blur_subtitle">Moc rozmycia tła dla adaptacyjnego doku</string>
-    <string name="content_preferences_header">Content Preferences</string>
+    <string name="content_preferences_header">Preferencje treści</string>
     <string name="drive_account_header">Konto Google</string>
     <string name="drive_auto_sync_footer">Ten telefon wysyła swoją historię słuchania i pobiera historię innych Twoich urządzeń w tle, gdy bateria nie jest słaba. Ręczna synchronizacja liczy się do harmonogramu.</string>
     <string name="drive_auto_sync_header">Automatyczna synchronizacja</string>
@@ -1795,8 +1795,8 @@
     <string name="drive_this_phone">Ten telefon</string>
     <string name="drive_this_phone_header">Ten telefon</string>
     <string name="drive_this_phone_subtitle">Urządzenie, jako które ten telefon tworzy kopię</string>
-    <string name="hide_home_videos">Hide videos from Home</string>
-    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_home_videos">Ukryj wideo na stronie głównej</string>
+    <string name="hide_home_videos_subtitle">Ukrywa sekcje i karty teledysków na stronie głównej</string>
     <string name="hide_lyrics_on_player">Hide lyrics on player</string>
     <string name="hide_lyrics_on_player_subtitle">Hides the single-line lyrics preview on the main player screen</string>
     <string name="replay_year_albums">Albums you lived in</string>
@@ -1860,10 +1860,10 @@
     <string name="replay_year_unmute">Unmute the story</string>
     <string name="restore_identity_pass">Restore from Pass Card (PNG / JSON)</string>
     <string name="restore_identity_pass_subtitle">Pick a ChordPlay Pass image or identity file to restore settings &amp; stats</string>
-    <string name="square_video_thumbnails">Square video thumbnails</string>
-    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
-    <string name="your_preferences">Your Preferences</string>
-    <string name="your_preferences_subtitle">Home content preferences and shelf layout</string>
+    <string name="square_video_thumbnails">Kwadratowe miniatury wideo</string>
+    <string name="square_video_thumbnails_subtitle">Wyświetlaj okładki teledysków jako kwadraty zamiast formatu panoramicznego</string>
+    <string name="your_preferences">Twoje preferencje</string>
+    <string name="your_preferences_subtitle">Preferencje zawartości strony głównej i układ sekcji</string>
     <string name="playback_recovery_stopped">Odtwarzanie zatrzymano, ponieważ nie można było odtworzyć tego utworu.</string>
     <string name="playback_recovery_skipped">Nie można było odtworzyć tego utworu. Przechodzenie do następnego.</string>
     <string name="queue_playlist_title">Zapisz kolejkę</string>
@@ -1989,4 +1989,27 @@
     <string name="hide_ai_music">Ukryj muzykę AI</string>
     <string name="hide_ai_music_subtitle" formatted="false">Usuwa utwory znanych artystów AI z wyszukiwania, strony głównej, miksów i radia. Ten filtr nie jest w 100% skuteczny.</string>
     <string name="hide_ai_music_sources">Listy: Soul Over AI (CC BY 4.0), Spotify AI Blocker, aimusic-blocklist. ChordPlay aktualizuje listy raz dziennie.</string>
+    <string name="performance_profile">Profil wydajności</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Zrównoważony</string>
+    <string name="performance_profile_saver">Oszczędny</string>
+    <string name="performance_profile_high">Wysoki</string>
+    <string name="performance_profile_tier_saver">Jednolity + lekki ruch</string>
+    <string name="performance_profile_customized">Własny</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Stosuje jednolite wypełnienia, ogranicza ekran do 60 Hz i zatrzymuje pętle</string>
+    <string name="performance_profile_balanced_desc">Zachowuje matowe szkło i adaptacyjny VRR, spowalniając spokojne animacje</string>
+    <string name="performance_profile_high_desc">Blokuje %1$d Hz z pełnym rozmyciem i ruchem 120 fps</string>
+    <string name="refresh_rate_adaptive_subtitle">Do %1$d Hz z adaptacyjnym VRR</string>
+    <string name="refresh_rate_pinned_subtitle">Zablokowano na %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Włączyć wysoką wydajność?</string>
+    <string name="performance_profile_high_confirm_body">Blokuje odświeżanie na %1$d Hz z pełnym rozmyciem i pętlami 120 fps. Zużywa więcej baterii i może nagrzewać urządzenie.</string>
+    <string name="link_automix_canvas">Połącz Automix i Canvas z profilem</string>
+    <string name="link_automix_canvas_subtitle">Pozwala profilowi zmieniać tryb CPU Automix, animowane okładki i rozmycie na żywo</string>
+    <string name="miniplayer_animation_speed">Szybkość animacji miniodtwarzacza</string>
+    <string name="miniplayer_animation_speed_subtitle">Dostosuj szybkość rozwijania i minimalizowania miniodtwarzacza</string>
+    <string name="extra_section">Dodatkowe</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">Repo GitHub</string>
+    <string name="dev_profile_tile_title">Profil dev</string>
 </resources>

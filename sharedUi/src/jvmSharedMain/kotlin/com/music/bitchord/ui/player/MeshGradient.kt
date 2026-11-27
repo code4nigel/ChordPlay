@@ -105,6 +105,8 @@ fun MeshGradientBackground(
     animated: Boolean = true,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     val tuned = (palette.colors.ifEmpty { FallbackColors } + FallbackColors)
         .take(4)
@@ -121,9 +123,9 @@ fun MeshGradientBackground(
     // Read in the draw lambda, not here: an Animatable read during draw
     // invalidates only the drawing, leaving composition out of the loop.
     val phase = remember { Animatable(0f) }
-    LaunchedEffect(trackKey, reduceAnimation, continuous, animated) {
+    LaunchedEffect(trackKey, reduceAnimation, disableInfiniteLoops, continuous, animated) {
         when {
-            !animated || reduceAnimation -> phase.snapTo(0f)
+            !animated || reduceAnimation || (continuous && disableInfiniteLoops) -> phase.snapTo(0f)
             // A full turn at a time, restarted rather than looped with an
             // infinite spec: the blobs' speeds are irrational multiples of each
             // other, so the pattern never repeats, and a linear phase keeps the
@@ -164,7 +166,7 @@ fun MeshGradientBackground(
                 scaleY = 1.3f
             }
             .background(baseColor)
-            .blur(blurRadius),
+            .then(if (reduceDynamicBlur) Modifier else Modifier.blur(blurRadius)),
     ) {
         val anchors = listOf(
             Offset(0.20f, 0.25f),

@@ -69,6 +69,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -77,6 +78,7 @@ import com.music.bitchord.data.settings.SpeedDialTileStyle
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.chord_wave
 import com.music.bitchord.sharedui.resources.chord_wave_subtitle
+import com.music.bitchord.ui.player.PlayerPlatform
 import com.music.bitchord.ui.graphics.ColorUtils
 import com.music.bitchord.ui.graphics.forPixelAccess
 import com.music.bitchord.ui.graphics.paletteSwatches
@@ -158,19 +160,26 @@ private fun rememberChordWaveController(
 
     val isForeground = rememberIsForeground()
     val isPageActive = LocalPageActive.current
-    val animActive = !reduceAnimation && isForeground && isPageActive
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val idleFrameMs by PlayerPlatform.host.settings.idleAnimationFrameMs.collectAsStateWithLifecycle()
+    val rolling = controller.phase != ChordWavePhase.IDLE
+    val animActive = !reduceAnimation && isForeground && isPageActive && (!disableInfiniteLoops || rolling)
 
     // Continuous velocity integration: flowPhase += dt * speed guarantees
     // C1-smooth acceleration and deceleration without rewinds or loop seams.
-    LaunchedEffect(animActive) {
+    LaunchedEffect(animActive, rolling, idleFrameMs) {
         if (!animActive) return@LaunchedEffect
         var lastMs = withFrameMillis { it }
         while (true) {
+            val e = controller.energy.value.coerceIn(0f, 1.25f)
+            val frameIntervalMs = if (rolling || e > 0.02f) 0L else idleFrameMs
+            if (frameIntervalMs > 0L) {
+                delay(frameIntervalMs)
+            }
             val now = withFrameMillis { it }
-            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.05f)
+            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.08f)
             lastMs = now
 
-            val e = controller.energy.value.coerceIn(0f, 1.25f)
             val playDrive = if (controller.isPlaying) 1.0f else 0.56f
             controller.flowPhase += dt * (0.72f * playDrive + 3.15f * e)
             controller.driftPhase += dt * (0.34f * playDrive + 0.95f * e)
@@ -470,10 +479,11 @@ fun ChordWaveArtworkTile(
     dim: () -> Float = { 0f },
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val label = stringResource(Res.string.chord_wave)
     val subtitle = stringResource(Res.string.chord_wave_subtitle)
     val controller = rememberChordWaveController(reduceAnimation, isPlaying, artworkUrl, onRoll)
-    val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation)
+    val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation || disableInfiniteLoops)
     val shape = SmoothCornerShape(14.dp)
 
     val rimBrush = Brush.linearGradient(
@@ -491,7 +501,7 @@ fun ChordWaveArtworkTile(
                 scaleX = squish
                 scaleY = squish
             }
-            .press3D(enabled = !reduceAnimation)
+            .press3D(enabled = !reduceAnimation && !disableInfiniteLoops)
             .clip(shape)
             .background(aurora.baseDeep)
             .border(0.75.dp, rimBrush, shape)
@@ -570,10 +580,11 @@ fun ChordWaveCompactCard(
     isPlaying: Boolean = false,
     isCompact: Boolean = false,
 ) {
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val label = stringResource(Res.string.chord_wave)
     val subtitle = stringResource(Res.string.chord_wave_subtitle)
     val controller = rememberChordWaveController(reduceAnimation, isPlaying, artworkUrl, onRoll)
-    val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation)
+    val aurora = rememberChordWaveAuroraPalette(artworkUrl, palette, isDark, reduceAnimation || disableInfiniteLoops)
 
     val tileHeight = if (isCompact) 56.dp else 64.dp
     val outerShape = SmoothCornerShape(if (isCompact) 18.dp else 22.dp)
@@ -601,7 +612,7 @@ fun ChordWaveCompactCard(
                 scaleX = squish
                 scaleY = squish
             }
-            .press3D(enabled = !reduceAnimation)
+            .press3D(enabled = !reduceAnimation && !disableInfiniteLoops)
             .clip(outerShape)
             .background(
                 Brush.horizontalGradient(

@@ -84,7 +84,7 @@ internal const val SPOTIFY_DECK_TOP_FADE_FRACTION = 0.28f
 internal fun playerDeckSlideIn() = slideInVertically(
     animationSpec = tween(
         SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS,
-        easing = FastOutSlowInEasing,
+        easing = DreamyEaseOutEasing,
     ),
     initialOffsetY = { it },
 )
@@ -92,7 +92,7 @@ internal fun playerDeckSlideIn() = slideInVertically(
 internal fun playerDeckSlideOut() = slideOutVertically(
     animationSpec = tween(
         SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS,
-        easing = FastOutSlowInEasing,
+        easing = DreamyEaseOutEasing,
     ),
     targetOffsetY = { it },
 )
@@ -129,7 +129,7 @@ internal fun SlidingPlayerDeck(
                     1f,
                     tween(
                         SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS,
-                        easing = FastOutSlowInEasing,
+                        easing = DreamyEaseOutEasing,
                     ),
                 )
             }
@@ -138,7 +138,7 @@ internal fun SlidingPlayerDeck(
                 0f,
                 tween(
                     SPOTIFY_CANVAS_CONTROLS_ANIMATION_MS,
-                    easing = FastOutSlowInEasing,
+                    easing = DreamyEaseOutEasing,
                 ),
             )
             mounted = false

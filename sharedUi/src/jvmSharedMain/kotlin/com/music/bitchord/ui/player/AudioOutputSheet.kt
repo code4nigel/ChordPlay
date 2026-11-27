@@ -216,10 +216,10 @@ internal fun AudioOutputSheet(
                 onDismiss()
             } else {
                 scope.launch {
-                    val outDuration = (160f / speed).roundToInt().coerceIn(70, 260)
+                    val outDuration = (200f / speed).roundToInt().coerceIn(80, 340)
                     enterProgress.animateTo(
                         targetValue = 0f,
-                        animationSpec = tween(durationMillis = outDuration, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = outDuration, easing = DreamyEaseOutEasing),
                     )
                     onDismiss()
                 }

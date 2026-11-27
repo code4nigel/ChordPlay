@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.DreamyEaseOutEasing
 import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.launch
@@ -102,10 +103,10 @@ internal fun AudioPopupCard(
                 onDismiss()
             } else {
                 scope.launch {
-                    val outDuration = (155f / speed).roundToInt().coerceIn(70, 260)
+                    val outDuration = (195f / speed).roundToInt().coerceIn(80, 340)
                     enterProgress.animateTo(
                         targetValue = 0f,
-                        animationSpec = tween(durationMillis = outDuration, easing = FastOutSlowInEasing),
+                        animationSpec = tween(durationMillis = outDuration, easing = DreamyEaseOutEasing),
                     )
                     onDismiss()
                 }

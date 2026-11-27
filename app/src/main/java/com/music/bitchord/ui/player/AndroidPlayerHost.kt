@@ -93,6 +93,8 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val canvasProviderOrder get() = AppSettings.canvasProviderOrder
         override val spotifySpdcToken get() = AppSettings.spotifySpdcToken
         override val reduceAnimation get() = AppSettings.reduceAnimation
+        override val disableInfiniteLoops get() = AppSettings.disableInfiniteLoops
+        override val idleAnimationFrameMs get() = AppSettings.idleAnimationFrameMs
         override val playerAnimationSpeed get() = AppSettings.playerAnimationSpeed
         override val reduceDynamicBlur get() = AppSettings.reduceDynamicBlur
         override val showNerdStats get() = AppSettings.showNerdStats

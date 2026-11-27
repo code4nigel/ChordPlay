@@ -243,6 +243,7 @@ internal fun VideoLoadingBackdrop(modifier: Modifier = Modifier) {
 internal fun Modifier.videoDockGlassPill(
     hazeState: HazeState? = null,
 ): Modifier {
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val dockGradient = remember {
         Brush.horizontalGradient(
             0.0f to Color.White.copy(alpha = 0.12f),
@@ -271,7 +272,7 @@ internal fun Modifier.videoDockGlassPill(
     return this
         .clip(CircleShape)
         .then(
-            if (hazeState != null) {
+            if (!reduceDynamicBlur && hazeState != null) {
                 Modifier.optimizedHazeEffect(
                     state = hazeState,
                     style = HazeMaterials.ultraThin(),

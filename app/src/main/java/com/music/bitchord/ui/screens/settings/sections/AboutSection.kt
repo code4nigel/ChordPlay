@@ -510,18 +510,7 @@ fun AboutSection(
                     withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay/releases", linkStyles)) {
                         append("Releases")
                     }
-                    append("\nBased on BitChord by Kushagra Singh\n")
-                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord", linkStyles)) {
-                        append("GitHub")
-                    }
-                    append("   ")
-                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
-                        append("Developer")
-                    }
-                    append("   ")
-                    withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx/BitChord/releases", linkStyles)) {
-                        append("Releases")
-                    }
+                    append("\nBased on BitChord")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

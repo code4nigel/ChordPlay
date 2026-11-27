@@ -107,9 +107,11 @@ internal fun BoxScope.PortraitBackdrop(
 ) {
     val animSpeed by PlayerSettings.playerAnimationSpeed.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val animatedPanelProgress by animateFloatAsState(
         targetValue = if (panelOpen) 1f else 0f,
-        animationSpec = tween(durationMillis = (420f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(100, 900), easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = (460f / animSpeed.coerceIn(0.5f, 2.0f)).roundToInt().coerceIn(120, 960), easing = DreamyEaseOutEasing),
         label = "fullArtworkBackdropCrossfade",
     )
     val panelProgress: () -> Float = collapseP?.let { fn ->
@@ -131,7 +133,7 @@ internal fun BoxScope.PortraitBackdrop(
             imageUrl = imageUrl,
             liveFrames = meshLiveFrames,
             trackKey = trackKey,
-            modifier = Modifier.hazeSource(playerHaze),
+            modifier = if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze),
         )
     } else if (!tablet && !spotifyCanvasPresentation) {
         PlayerMeshBackdrop(
@@ -142,7 +144,7 @@ internal fun BoxScope.PortraitBackdrop(
             seam = seam,
             lift = lift,
             liftFrom = liftFrom,
-            modifier = Modifier.hazeSource(playerHaze),
+            modifier = if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze),
         )
     }
     if (blurDrawn || tablet) {
@@ -150,14 +152,14 @@ internal fun BoxScope.PortraitBackdrop(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = if (tablet) 1f else fullArtworkBackdropAlpha() }
-                .hazeSource(playerHaze),
+                .then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerHaze)),
         )
     }
     if (isWavePlay && nocturneDrawn && !spotifyCanvasPresentation) {
         SynesthesiaNocturneOverlay(
             palette = synesthesiaPalette,
             isPlaying = isPlaying,
-            reduceAnimation = reduceAnimation,
+            reduceAnimation = reduceAnimation || disableInfiniteLoops,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = nocturneAlpha() },

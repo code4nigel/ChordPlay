@@ -49,6 +49,7 @@ fun LyricsSidePanel(
 ) {
     val haptics = rememberHaptics()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val lyricsPlayhead = rememberLyricPlayhead(position)
     val seekToLyric: (Long) -> Unit = { lineTimeMs ->
         onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
@@ -71,7 +72,7 @@ fun LyricsSidePanel(
     var showLyricsStyleSheet by remember { mutableStateOf(false) }
 
     Box(modifier) {
-        Box(Modifier.fillMaxSize().hazeSource(haze)) {
+        Box(Modifier.fillMaxSize().then(if (reduceDynamicBlur) Modifier else Modifier.hazeSource(haze))) {
             LandscapeLyricsPane(
                 hasLyrics = lyricsTranslation.displayedLyrics.isNotEmpty(),
                 placeholder = if (lyricsUnavailable) {

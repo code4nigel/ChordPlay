@@ -392,6 +392,7 @@ internal fun DesignStyleStep(
     reduceBlur: Boolean,
     onReduceBlur: (Boolean) -> Unit,
     reduceAnimation: Boolean,
+    disableInfiniteLoops: Boolean = reduceAnimation,
     onReduceAnimation: (Boolean) -> Unit,
     intensity: Float,
     onIntensity: (Float) -> Unit,
@@ -399,6 +400,7 @@ internal fun DesignStyleStep(
     footer: @Composable ColumnScope.() -> Unit,
 ) {
     val glassAvailable = isGlassSupported()
+    val stopInfinite = reduceAnimation || disableInfiniteLoops
 
     var live by remember { mutableFloatStateOf(intensity) }
     val publish = rememberUpdatedState(onIntensity)
@@ -428,14 +430,14 @@ internal fun DesignStyleStep(
             amoledDarkMode = amoledDarkMode,
             liquidGlass = liquidGlass && glassAvailable,
             reduceBlur = reduceBlur,
-            reduceAnimation = reduceAnimation,
+            reduceAnimation = stopInfinite,
         )
         Spacer(Modifier.height(14.dp))
         OnbSectionLabel(stringResource(R.string.color_palette))
         PaletteSwatchStrip(
             selected = colorPalette,
             onSelect = onColorPalette,
-            reduceAnimation = reduceAnimation,
+            reduceAnimation = stopInfinite,
         )
         Spacer(Modifier.height(12.dp))
         OnbToggle(

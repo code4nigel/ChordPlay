@@ -120,6 +120,7 @@ fun SetupWizard(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val reduceBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val intensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
 
     var demo by remember { mutableStateOf<Song?>(null) }
@@ -322,6 +323,7 @@ fun SetupWizard(
                                 reduceBlur = reduceBlur,
                                 onReduceBlur = AppSettings::setReduceDynamicBlur,
                                 reduceAnimation = reduceAnimation,
+                                disableInfiniteLoops = disableInfiniteLoops,
                                 onReduceAnimation = AppSettings::setReduceAnimation,
                                 intensity = intensity,
                                 onIntensity = AppSettings::setLiquidGlassIntensity,

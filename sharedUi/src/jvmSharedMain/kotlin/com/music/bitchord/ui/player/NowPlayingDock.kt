@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
+import kotlin.math.roundToInt
 
 /** The least the faded player is drawn at while docking — see the player's fade. */
 internal const val DOCK_FADE_FLOOR = 1f / 255f
@@ -71,13 +72,14 @@ internal fun Modifier.playerDockHost(
                     dockFrame.portalLeft = 0f
                     dockFrame.portalTop = 0f
                     dockFrame.portalScale = 1f
+                    dockFrame.portalReady = false
                 }
                 if (dockFrame.anchor != null && !sizeChanged) {
                     return@onGloballyPositioned
                 }
                 val offset = dock.offset() ?: return@onGloballyPositioned
                 dockFrame.anchorFor = coordinates.size
-                dockFrame.anchor = coordinates.positionOnScreen() - Offset(0f, offset.toInt().toFloat())
+                dockFrame.anchor = coordinates.positionOnScreen() - Offset(0f, offset.roundToInt().toFloat())
                 if (!dock.attached) dock.attached = true
             }
         } else {
@@ -89,7 +91,7 @@ internal fun Modifier.playerDockHost(
     // everything while it travels, as the one thing still moving.
     .drawWithContent {
         drawContent()
-        if (docking()) {
+        if (docking() && dockFrame.portalReady) {
             translate(dockFrame.portalLeft, dockFrame.portalTop) {
                 val portalScale = dockFrame.portalScale
                 scale(portalScale, portalScale, pivot = Offset.Zero) { drawLayer(sleeveLayer) }
@@ -124,6 +126,7 @@ internal class DockFrame {
     var portalLeft = 0f
     var portalTop = 0f
     var portalScale = 1f
+    var portalReady = false
     var host: LayoutCoordinates? = null
     var landscapeArt: LayoutCoordinates? = null
 }

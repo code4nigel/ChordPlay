@@ -276,6 +276,7 @@ fun HomeSpeedDial(
     val labelOverrides by AppUi.host.speedDialLabelOverrides.collectAsStateWithLifecycle()
     val showPinBadge by AppUi.host.speedDialShowPinBadge.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
 
     val tabs = remember(showMixes, showArtists) {
         buildList {
@@ -364,6 +365,7 @@ fun HomeSpeedDial(
         showPinBadge = showPinBadge,
         showChordWave = showChordWave,
         reduceAnimation = reduceAnimation,
+        disableInfiniteLoops = disableInfiniteLoops,
         savedPage = savedPage,
         onPageChange = onPageChange,
         onTabChange = onTabChange,
@@ -428,6 +430,7 @@ private fun HomeSpeedDialUnifiedPager(
     showPinBadge: Boolean,
     showChordWave: Boolean,
     reduceAnimation: Boolean,
+    disableInfiniteLoops: Boolean = reduceAnimation,
     savedPage: Int,
     onPageChange: (Int) -> Unit,
     onTabChange: (YourSpaceDialTab) -> Unit,
@@ -515,7 +518,7 @@ private fun HomeSpeedDialUnifiedPager(
             }
     }
 
-    val swipeTilt = rememberSwipeTilt(pagerState, reduceAnimation)
+    val swipeTilt = rememberSwipeTilt(pagerState, reduceAnimation || disableInfiniteLoops)
 
     val latestPages by rememberUpdatedState(pages)
     val latestSpaceOrder by rememberUpdatedState(spaceOrder)
@@ -1542,6 +1545,7 @@ private fun ArtworkSpeedDialTile(
     onArtLoaded: (() -> Unit)? = null,
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val disableInfiniteLoops by PlayerPlatform.host.settings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val shape = SmoothCornerShape(14.dp)
     val type = item.detectType()
     val placeholderBg = mutedSpeedDialSurface(
@@ -1563,7 +1567,7 @@ private fun ArtworkSpeedDialTile(
 
     Box(
         modifier = modifier
-            .press3D(enabled = !reduceAnimation)
+            .press3D(enabled = !reduceAnimation && !disableInfiniteLoops)
             .clip(shape)
             .background(placeholderBg)
             .speedDialTileEdge(

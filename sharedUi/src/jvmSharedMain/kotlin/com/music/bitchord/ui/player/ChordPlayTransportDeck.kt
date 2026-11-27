@@ -63,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -165,6 +166,7 @@ private fun rememberAuroraScrubberClock(
     isPlaying: Boolean,
     isDragging: Boolean,
     reduceAnimation: Boolean,
+    idleFrameMs: Long = 0L,
 ): AuroraScrubberClockState {
     val state = remember {
         AuroraScrubberClockState(
@@ -173,7 +175,7 @@ private fun rememberAuroraScrubberClock(
         )
     }
 
-    LaunchedEffect(enabled, isPlaying, isDragging, reduceAnimation) {
+    LaunchedEffect(enabled, isPlaying, isDragging, reduceAnimation, idleFrameMs) {
         if (!enabled) return@LaunchedEffect
         if (reduceAnimation) {
             state.settleMix = if (isPlaying || isDragging) 1f else 0f
@@ -183,8 +185,12 @@ private fun rememberAuroraScrubberClock(
 
         var lastMs = withFrameMillis { it }
         while (true) {
+            val frameIntervalMs = if (isDragging || state.scrubMix > 0.01f) 0L else idleFrameMs
+            if (frameIntervalMs > 0L) {
+                delay(frameIntervalMs)
+            }
             val now = withFrameMillis { it }
-            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.05f)
+            val dt = ((now - lastMs) / 1000f).coerceIn(0f, 0.08f)
             lastMs = now
 
             val targetScrub = if (isDragging) 1f else 0f
@@ -281,6 +287,9 @@ fun SynesthesiaWaveformScrubber(
     var isDragging by remember { mutableStateOf(false) }
     var lastScrubSec by remember { mutableLongStateOf(-1L) }
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
+    val idleFrameMs by PlayerSettings.idleAnimationFrameMs.collectAsStateWithLifecycle()
+    val stopInfinite = reduceAnimation || disableInfiniteLoops
     val persistedWaveStyle by PlayerSettings.playerWaveStyle.collectAsStateWithLifecycle()
     val effectiveStyle = if (liveWaveMotion) PlayerWaveStyle.OG_WAVE else (styleOverride ?: persistedWaveStyle)
 
@@ -288,7 +297,7 @@ fun SynesthesiaWaveformScrubber(
     val activeAudioWave = audioWaveformOverride
         ?: liveTrackWaveform?.takeIf { it.trackId == trackKey }
     val livePcmLevel by PlayerSettings.liveAudioLevel.collectAsStateWithLifecycle()
-    val effectiveLiveLevel = if (isPlaying && !reduceAnimation) {
+    val effectiveLiveLevel = if (isPlaying && !stopInfinite) {
         (liveAudioLevelOverride ?: livePcmLevel).coerceIn(0f, 1f)
     } else {
         0f
@@ -315,7 +324,7 @@ fun SynesthesiaWaveformScrubber(
     )
 
     val isForeground = rememberIsForeground()
-    val livePhase = if (!liveWaveMotion && effectiveStyle == PlayerWaveStyle.OG_WAVE && isPlaying && isForeground && !reduceAnimation) {
+    val livePhase = if (!liveWaveMotion && effectiveStyle == PlayerWaveStyle.OG_WAVE && isPlaying && isForeground && !stopInfinite) {
         val infinite = rememberInfiniteTransition(label = "WaveBreath")
         val wavePhase by infinite.animateFloat(
             initialValue = 0f,
@@ -332,11 +341,14 @@ fun SynesthesiaWaveformScrubber(
     }
 
     var liveWavePhase by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(liveWaveMotion, isPlaying, reduceAnimation) {
-        if (!liveWaveMotion || !isPlaying || reduceAnimation) return@LaunchedEffect
+    LaunchedEffect(liveWaveMotion, isPlaying, stopInfinite, idleFrameMs) {
+        if (!liveWaveMotion || !isPlaying || stopInfinite) return@LaunchedEffect
         var lastNanos = withFrameNanos { it }
         val omega = (2.0 * PI / 2.6).toFloat()
         while (true) {
+            if (idleFrameMs > 0L) {
+                delay(idleFrameMs)
+            }
             val now = withFrameNanos { it }
             val dtSec = ((now - lastNanos).coerceIn(0L, 100_000_000L)) / 1_000_000_000f
             lastNanos = now
@@ -349,7 +361,8 @@ fun SynesthesiaWaveformScrubber(
         enabled = effectiveStyle != PlayerWaveStyle.OG_WAVE && !liveWaveMotion,
         isPlaying = isPlaying,
         isDragging = isDragging,
-        reduceAnimation = reduceAnimation,
+        reduceAnimation = stopInfinite,
+        idleFrameMs = idleFrameMs,
     )
 
     // Smoothed bar array for Audio Graph so real PCM bins glide in seamlessly as decode completes
@@ -1213,6 +1226,7 @@ fun ChordPlayTransportDeck(
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val persistedElastic by PlayerSettings.playerElasticConfig.collectAsStateWithLifecycle()
     val elastic = elasticOverride ?: persistedElastic
 
@@ -1407,12 +1421,12 @@ fun ChordPlayTransportDeck(
     )
 
     val isForeground = rememberIsForeground()
-    val orbActive = isPlaying && isForeground && !reduceAnimation
-    val orbPhase: Float
-    val breathScale: Float
+    val orbActive = isPlaying && isForeground && !reduceAnimation && !disableInfiniteLoops
+    val orbPhaseState: State<Float>
+    val breathScaleState: State<Float>
     if (orbActive) {
         val infinite = rememberInfiniteTransition(label = "OrbContours")
-        orbPhase = infinite.animateFloat(
+        orbPhaseState = infinite.animateFloat(
             initialValue = 0f,
             targetValue = (2f * PI).toFloat(),
             animationSpec = infiniteRepeatable(
@@ -1420,8 +1434,8 @@ fun ChordPlayTransportDeck(
                 repeatMode = RepeatMode.Restart,
             ),
             label = "OrbPhase",
-        ).value
-        breathScale = infinite.animateFloat(
+        )
+        breathScaleState = infinite.animateFloat(
             initialValue = 0.978f,
             targetValue = 1.032f,
             animationSpec = infiniteRepeatable(
@@ -1429,18 +1443,17 @@ fun ChordPlayTransportDeck(
                 repeatMode = RepeatMode.Reverse,
             ),
             label = "OrbBreath",
-        ).value
+        )
     } else {
-        orbPhase = 0f
-        breathScale = 1f
+        orbPhaseState = remember { mutableFloatStateOf(0f) }
+        breathScaleState = remember { mutableFloatStateOf(1f) }
     }
 
-    val ringsAlpha by animateFloatAsState(
+    val ringsAlphaState = animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
         animationSpec = tween(500),
         label = "OrbRingsAlpha",
     )
-    val liveBreathScale = breathScale
     val buttonDullAlpha by animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0.80f,
         animationSpec = tween(400),
@@ -1661,6 +1674,7 @@ fun ChordPlayTransportDeck(
             modifier = Modifier
                 .size(86.dp)
                 .graphicsLayer {
+                    val liveBreathScale = breathScaleState.value
                     translationX = playShiftDp.dp.toPx()
                     translationY = playShiftYDp.dp.toPx()
                     scaleX = playPulseScaleX * liveBreathScale
@@ -1712,6 +1726,7 @@ fun ChordPlayTransportDeck(
                     )
                 }
 
+                val ringsAlpha = ringsAlphaState.value
                 // Responsive magnetic halo shifted gently toward energized side buttons
                 if (ringsAlpha > 0.01f || abs(orbFocalBias) > 0.02f) {
                     val haloAlpha = maxOf(ringsAlpha, abs(orbFocalBias) * 0.55f)
@@ -1730,7 +1745,8 @@ fun ChordPlayTransportDeck(
                     )
                 }
 
-                if (ringsAlpha > 0.01f && !reduceAnimation) {
+                if (ringsAlpha > 0.01f && !reduceAnimation && !disableInfiniteLoops) {
+                    val orbPhase = orbPhaseState.value
                     data class ContourConfig(
                         val scaleBase: Float,
                         val harmonic1: Float,
@@ -2077,6 +2093,7 @@ fun ChordPlayPipelineBottomPill(
     val videoQuality by PlayerSettings.videoQuality.collectAsStateWithLifecycle()
     val mvQuality by PlayerPlatform.host.musicVideoQuality.collectAsStateWithLifecycle()
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by PlayerSettings.disableInfiniteLoops.collectAsStateWithLifecycle()
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     val racingLossless by NerdStats.racingLossless.collectAsStateWithLifecycle()
     val stillRacing = song.videoId in racingLossless
@@ -2172,7 +2189,7 @@ fun ChordPlayPipelineBottomPill(
                 modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(7.dp))
-            val marqueeMod = if (!reduceAnimation) {
+            val marqueeMod = if (!reduceAnimation && !disableInfiniteLoops) {
                 Modifier.basicMarquee(
                     iterations = Int.MAX_VALUE,
                     initialDelayMillis = 1600,

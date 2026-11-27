@@ -120,6 +120,10 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         get() = targetLowPassHz < OPEN_HZ || targetHighPassHz > OFF_HZ ||
             currentLowPassHz < OPEN_HZ - SETTLED_HZ || currentHighPassHz > OFF_HZ + SETTLED_HZ
 
+    /** True when no filter sweep, unsettled filter state, or echo out is active. */
+    val isIdle: Boolean
+        get() = !filterStateDirty && !isFiltering && !echoEngaged
+
     /**
      * Engages the echo out, or moves it: [delaySeconds] between repeats, [send]
      * how much of the signal is fed into the delay, [dry] how much of it is

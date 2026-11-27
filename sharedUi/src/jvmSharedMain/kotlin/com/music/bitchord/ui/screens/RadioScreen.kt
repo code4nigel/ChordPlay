@@ -41,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.CARD_ART_PX
@@ -106,6 +108,7 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.LiveBadge
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
+import com.music.bitchord.ui.player.PlayerPlatform
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -845,6 +848,7 @@ private fun QuickMixTile(
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress),
     ) {
+        val reduceDynamicBlur by PlayerPlatform.host.settings.reduceDynamicBlur.collectAsStateWithLifecycle()
         AsyncImage(
             model = item.thumbnailUrl.artworkAt(48),
             contentDescription = null,
@@ -855,7 +859,7 @@ private fun QuickMixTile(
                     scaleX = 1.5f
                     scaleY = 1.5f
                 }
-                .blur(24.dp),
+                .then(if (reduceDynamicBlur) Modifier else Modifier.blur(24.dp)),
         )
         Box(
             Modifier

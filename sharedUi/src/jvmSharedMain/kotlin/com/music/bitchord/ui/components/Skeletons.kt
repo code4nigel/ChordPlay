@@ -24,16 +24,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.ui.AppUi
 
 /**
  * Grey stand-ins for content still on the wire, laid out to the same metrics as
@@ -63,6 +70,18 @@ fun ShimmerBox(modifier: Modifier = Modifier, shape: Shape = BlockShape) {
     val highlight = MaterialTheme.colorScheme.onSurfaceVariant
         .copy(alpha = 0.16f)
         .compositeOver(base)
+    val reduceAnimation by AppUi.host.reduceAnimation.collectAsStateWithLifecycle()
+    val disableInfiniteLoops by AppUi.host.disableInfiniteLoops.collectAsStateWithLifecycle()
+    if (reduceAnimation || disableInfiniteLoops) {
+        Box(
+            modifier
+                .clip(shape)
+                .drawWithCache {
+                    onDrawBehind { drawRect(base) }
+                },
+        )
+        return
+    }
     val sweep = rememberInfiniteTransition(label = "skeleton").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -73,17 +92,21 @@ fun ShimmerBox(modifier: Modifier = Modifier, shape: Shape = BlockShape) {
         modifier
             .clip(shape)
             .drawWithCache {
-                // The band travels from fully off one edge to fully off the
-                // other, which leaves a beat of flat grey between passes rather
-                // than a highlight permanently parked somewhere on the block.
+                // Build one gradient brush per size change instead of allocating a new
+                // LinearGradient shader every animation frame, then translate in draw.
                 val band = size.width * 0.5f
-                val startX = -band + sweep.value * (size.width + band * 2)
                 val brush = Brush.horizontalGradient(
-                    colors = listOf(base, highlight, base),
-                    startX = startX,
-                    endX = startX + band,
+                    colors = listOf(Color.Transparent, highlight, Color.Transparent),
+                    startX = 0f,
+                    endX = band,
                 )
-                onDrawBehind { drawRect(brush) }
+                onDrawBehind {
+                    drawRect(base)
+                    val startX = -band + sweep.value * (size.width + band * 2)
+                    translate(left = startX) {
+                        drawRect(brush = brush, topLeft = Offset.Zero, size = Size(band, size.height))
+                    }
+                }
             },
     )
 }

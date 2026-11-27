@@ -340,7 +340,7 @@
     <string name="palette_dynamic_monet">Dynamic Monet</string>
     <string name="theme">Theme</string>
     <string name="reduce_animation">Reduce animation</string>
-    <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>
+    <string name="reduce_animation_subtitle">Reduces screen transitions and freezes continuous motion effects</string>
     <string name="reduce_dynamic_blur">Reduce dynamic blur</string>
     <string name="reduce_dynamic_blur_subtitle">Swaps frosted glass for solid fills across the app</string>
     <string name="liquid_glass">Liquid Glass</string>
@@ -1570,8 +1570,12 @@
     <string name="install_update">Install update</string>
     <string name="download_update">Download v%1$s</string>
     <string name="downloading_update_progress">Downloading %1$d%%</string>
-    <string name="community_hub">ChordPlay Community Hub</string>
-    <string name="community_hub_subtitle">Follow developer, view Reddit &amp; GitHub repositories</string>
+    <string name="community_hub">ChordPlay Message</string>
+    <string name="community_hub_subtitle">Message from the developer &amp; community links</string>
+    <string name="extra_section">Extra</string>
+    <string name="chordplay_repo_tile_title">ChordPlay</string>
+    <string name="chordplay_repo_tile_subtitle">GitHub Repo</string>
+    <string name="dev_profile_tile_title">Dev Profile</string>
     <string name="developer_role_subtitle">@code4nigel • Lead Developer &amp; Maintainer</string>
     <string name="reddit_community_desc">r/ChordPlay • Join discussion &amp; requests</string>
     <string name="github_repository_desc">code4nigel/ChordPlay • Star &amp; contribute</string>
@@ -1605,7 +1609,9 @@
     <string name="onboarding_github_tag">Star &amp; Contribute</string>
     <string name="onboarding_reddit_tag" translatable="false">r/ChordPlay</string>
     <string name="player_animation_speed">Player animation speed</string>
-    <string name="player_animation_speed_subtitle">Adjust how fast the mini player expands and minimizes</string>
+    <string name="player_animation_speed_subtitle">Adjust how fast player-to-queue and player-to-lyrics transitions animate</string>
+    <string name="miniplayer_animation_speed">Miniplayer animation speed</string>
+    <string name="miniplayer_animation_speed_subtitle">Adjust how fast the mini player expands and minimizes</string>
     <string name="sync_identity_card">Save Pass Card &amp; Identity</string>
     <string name="sync_identity_card_subtitle">Saves your Pass PNG card, settings &amp; stats to Downloads/Music/ChordPlay/you</string>
     <string name="sync_identity_saved">Pass Card saved to %1$s</string>
@@ -1819,4 +1825,21 @@
     <string name="save_log">Save to phone</string>
     <string name="log_saved">Log saved</string>
     <string name="log_save_failed">Couldn\'t save the log</string>
+    <string name="performance_profile">Performance profile</string>
+    <string name="performance_profile_auto">Auto</string>
+    <string name="performance_profile_balanced">Balanced</string>
+    <string name="performance_profile_saver">Saver</string>
+    <string name="performance_profile_high">High</string>
+    <string name="performance_profile_tier_saver">Solid + Light Motion</string>
+    <string name="performance_profile_customized">Customized</string>
+    <string name="performance_profile_auto_prefix">Auto · %1$s</string>
+    <string name="performance_profile_saver_desc">Uses solid fills, caps display at 60 Hz, and freezes looping visuals</string>
+    <string name="performance_profile_balanced_desc">Keeps frosted glass and Adaptive VRR while pacing idle visuals</string>
+    <string name="performance_profile_high_desc">Pins %1$d Hz refresh rate with full blur and 120 fps motion</string>
+    <string name="refresh_rate_adaptive_subtitle">Up to %1$d Hz with Adaptive VRR</string>
+    <string name="refresh_rate_pinned_subtitle">Pinned at %1$d Hz</string>
+    <string name="performance_profile_high_confirm_title">Enable High performance?</string>
+    <string name="performance_profile_high_confirm_body">Locks display refresh rate to %1$d Hz with full blur and 120 fps canvas loops. Uses more battery and may warm your device.</string>
+    <string name="link_automix_canvas">Link Automix &amp; Canvas to profile</string>
+    <string name="link_automix_canvas_subtitle">Let Performance profile adjust Automix CPU mode, Animated cover art, and Live blur</string>
 </resources>
