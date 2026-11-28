@@ -2,7 +2,7 @@
 
 **Last updated:** November 22, 2026
 
-ChordPlay is an open-source, privacy-first music player. We do not operate tracking servers, collect analytics, serve ads, or sell your personal data.
+ChordPlay is an open-source, privacy-first music player maintained by **Shivanshu (code4nigel)**. We do not operate tracking servers, collect analytics, serve ads, or sell your personal data.
 
 ## 1. Data Stored Locally on Your Device
 By default, all of your ChordPlay data stays strictly on your device:
@@ -33,5 +33,8 @@ If you explicitly sign in or enable optional integrations, ChordPlay communicate
 ChordPlay does not knowingly collect personal information from children under 13.
 
 ## 5. Contact
-For privacy questions or data inquiries, please open an issue on GitHub:
-https://github.com/code4nigel/ChordPlay/issues
+Maintainer & Copyright Holder (ChordPlay): **Shivanshu (code4nigel)**
+
+For privacy questions or data inquiries, please open an issue on GitHub or reach out by email:
+- GitHub: https://github.com/code4nigel/ChordPlay/issues
+- Email: `impemailsyuses@gmail.com`

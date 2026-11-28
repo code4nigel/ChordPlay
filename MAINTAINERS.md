@@ -1,11 +1,12 @@
 # Maintainers
 
-This document lists the maintainers and contributors for ChordPlay.
+This document lists the active maintainers for ChordPlay.
 
 | Maintainer | GitHub | Role |
 |---|---|---|
-| Nigel | [@code4nigel](https://github.com/code4nigel) | Project maintainer & developer |
-| Kushagra Singh | [@kushagrasinghx](https://github.com/kushagrasinghx) | BitChord upstream creator & original architecture |
+| Shivanshu | [@code4nigel](https://github.com/code4nigel) | Project maintainer & lead developer |
 
-## Upstream & Open Source Credits
-ChordPlay is built on the open-source foundation of BitChord. We gratefully acknowledge all contributors to the upstream project.
+## Upstream Credits
+ChordPlay is built on the open-source foundation of [BitChord](https://github.com/kushagrasinghx/BitChord), originally created by **Kushagra Singh** ([@kushagrasinghx](https://github.com/kushagrasinghx)) and BitChord contributors.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSES/](LICENSES/) for full third-party component, library, font, and model attributions.

@@ -67,6 +67,7 @@ object LyricsTranslation {
 
     private const val ENDPOINT = "https://translate.googleapis.com/translate_a/single"
     private const val INPUT_TOOLS_ENDPOINT = "https://inputtools.google.com/request"
+    private const val USER_AGENT = "ChordPlay/2.2.10"
     // Version 3 invalidates answers cached before the Latin-script retry existed;
     // otherwise a song that once came back untranslated would never take the
     // repaired path after the app is updated.
@@ -350,7 +351,7 @@ object LyricsTranslation {
             .build()
         val request = Request.Builder()
             .url(ENDPOINT)
-            .header("User-Agent", "BitChord/1.7.1")
+            .header("User-Agent", USER_AGENT)
             .header("Accept", "application/json")
             .post(body)
             .build()
@@ -383,7 +384,7 @@ object LyricsTranslation {
             .build()
         val request = Request.Builder()
             .url(ENDPOINT)
-            .header("User-Agent", "BitChord/1.7.1")
+            .header("User-Agent", USER_AGENT)
             .header("Accept", "application/json")
             .post(body)
             .build()
@@ -438,7 +439,7 @@ object LyricsTranslation {
             .build()
         val request = Request.Builder()
             .url(INPUT_TOOLS_ENDPOINT)
-            .header("User-Agent", "BitChord/1.7.1")
+            .header("User-Agent", USER_AGENT)
             .header("Accept", "application/json")
             .post(body)
             .build()

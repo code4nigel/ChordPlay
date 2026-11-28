@@ -89,8 +89,7 @@ import com.music.bitchord.ui.screens.matchesSearch
 
 /**
  * Dedicated sub-page for ChordPlay support, developer identity card,
- * community links, and Extra options (ChordPlay Message, Welcome Setup,
- * and BitChord upstream attribution).
+ * community links, and Extra options (ChordPlay Message and Welcome Setup).
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -168,16 +167,9 @@ fun SupportSection(
             stringResource(R.string.extra_section),
             "welcome", "setup", "onboarding", "pass", "wizard", "replay",
         )
-        val showUpstreamRepo = matchesSearch(
-            searchQuery,
-            stringResource(R.string.bitchord_upstream_repo),
-            stringResource(R.string.bitchord_upstream_subtitle),
-            stringResource(R.string.extra_section),
-            "upstream", "bitchord",
-        )
 
         val showHeroCard = searchQuery.isBlank() || showDevProfile || showReddit || showGithub
-        val anyExtraMatch = showMessage || showReplaySetup || showUpstreamRepo
+        val anyExtraMatch = showMessage || showReplaySetup
         val anySupportMatch = showHeroCard || anyExtraMatch
 
         // Joined Hero Card: Shivanshu Yadav + Quote + 3 compact square tiles (Reddit, ChordPlay Repo, Dev Profile)
@@ -218,7 +210,7 @@ fun SupportSection(
         if (searchQuery.isNotBlank() && !anySupportMatch) {
             SettingsSearchEmpty(query = searchQuery)
         } else if (anyExtraMatch) {
-            // Extra section: ChordPlay Message, Replay Welcome Setup, and BitChord Upstream
+            // Extra section: ChordPlay Message and Replay Welcome Setup
             SettingsGroup(
                 header = stringResource(R.string.extra_section),
                 footer = null,
@@ -274,29 +266,6 @@ fun SupportSection(
                         title = stringResource(R.string.replay_welcome_setup),
                         subtitle = stringResource(R.string.replay_welcome_setup_subtitle),
                         onClick = { OnboardingState.requestReplay() },
-                    )
-                    hasPreceding = true
-                }
-
-                if (showUpstreamRepo) {
-                    if (hasPreceding) RowDivider()
-                    SettingsRow(
-                        leading = { GitHubIconBadge(size = 34.dp) },
-                        title = stringResource(R.string.bitchord_upstream_repo),
-                        subtitle = stringResource(R.string.bitchord_upstream_subtitle),
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Rounded.OpenInNew,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        onClick = {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
-                            }
-                        },
                     )
                 }
             }

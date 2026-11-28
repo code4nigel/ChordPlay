@@ -6,6 +6,7 @@
  * Opus decoder purely for background analysis.
  *
  * Copyright (C) 2026 Kushagra Singh
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the

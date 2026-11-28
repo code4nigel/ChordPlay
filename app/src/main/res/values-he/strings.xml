@@ -1294,7 +1294,7 @@
     <string name="spotify_library_subtitle">הפלייליסטים שלכם ב-Spotify</string>
     <string name="spotify_sign_in">התחברות עם Spotify</string>
     <string name="spotify_track_unavailable">לא נמצא שיר כזה ב-YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">מדפי דף הבית</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">מדפי דף הבית</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">תוספים</string>
     <string name="search_addons_none">אין תוספים פעילים. הוסף בהגדרות ← מקורות.</string>
@@ -1387,7 +1387,7 @@
     <string name="shelf_other_desc">זרקורי ז\'אנר, מצבי רוח ותגליות נוספות</string>
     <string name="design_style_chordplay">ChordPlay מודרני</string>
     <string name="design_style_chordplay_desc">זכוכית זוהרת אטמוספרית, צבעוניות עשירה ובקרים נעימים למגע</string>
-    <string name="design_style_classic">BitChord קלאסי</string>
+    <string name="design_style_classic">קלאסי</string>
     <string name="design_style_classic_desc">ממשק כהה מינימליסטי בהשראת Apple Music עם נגן סטנדרטי</string>
     <string name="player_experience">חוויית הנגן</string>
     <string name="player_interface">ממשק הנגן</string>
@@ -1448,8 +1448,8 @@
     <string name="latest_releases">גרסאות אחרונות</string>
     <string name="latest_releases_subtitle">בדוק עדכונים והערות שחרור</string>
     <string name="developer_profile">פרופיל מפתח</string>
-    <string name="bitchord_upstream_repo">מאגר המקור של BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • קרדיט לפרויקט המקור</string>
+    <string name="open_source_licenses">רישיונות קוד פתוח וקרדיטים</string>
+    <string name="open_source_licenses_subtitle">תוכנות צד שלישי, מודלים, גופנים והודעות מקור</string>
     <string name="advanced_and_performance">מתקדם וביצועים</string>
     <string name="support_community">תמיכה וקהילה</string>
     <string name="reddit_community">קהילת Reddit</string>

@@ -1,3 +1,9 @@
+/*
+ * Ported from Convx (https://github.com/cosmictaserdev-creator/Convx, GPL-3.0).
+ * Copyright (C) 2026 Kushagra Singh and BitChord contributors <https://github.com/kushagrasinghx/BitChord>
+ *
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 package com.music.bitchord.data.sources.module
 
 import android.util.Log

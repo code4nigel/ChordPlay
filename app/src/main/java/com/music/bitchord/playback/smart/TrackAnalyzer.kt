@@ -6,6 +6,7 @@
  * the track, which is the only part a transition ever reads.
  *
  * Copyright (C) 2026 Kushagra Singh
+ * Copyright (C) 2026 Shivanshu (code4nigel) <https://github.com/code4nigel/ChordPlay>
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -192,7 +193,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private fun discardsOf(key: String): Int = discarded[key] ?: 0
 
     private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "bitchord-smart-analysis").apply {
+        Thread(runnable, "chordplay-smart-analysis").apply {
             isDaemon = true
             priority = Thread.NORM_PRIORITY
         }
@@ -200,7 +201,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
     /** Dedicated lightweight streaming peak scanner so waveforms never wait behind slow ONNX inference. */
     private val waveformExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "bitchord-waveform-fast").apply {
+        Thread(runnable, "chordplay-waveform-fast").apply {
             isDaemon = true
             priority = Thread.NORM_PRIORITY - 1
         }

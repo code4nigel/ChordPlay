@@ -1267,7 +1267,7 @@
     <string name="spotify_library_subtitle">Playlist Spotify Anda</string>
     <string name="spotify_sign_in">Masuk dengan Spotify</string>
     <string name="spotify_track_unavailable">Lagu itu tidak ditemukan di YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Bagian Beranda</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Bagian Beranda</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Add-on</string>
     <string name="search_addons_none">Tidak ada add-on aktif. Tambahkan di Pengaturan → Sumber.</string>
@@ -1360,7 +1360,7 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="shelf_other_desc">Sorotan genre, suasana hati &amp; penemuan lainnya</string>
     <string name="design_style_chordplay">ChordPlay Modern</string>
     <string name="design_style_chordplay_desc">Kaca bercahaya atmosferik, palet cerah, dan kontrol taktil yang responsif</string>
-    <string name="design_style_classic">BitChord Klasik</string>
+    <string name="design_style_classic">Klasik</string>
     <string name="design_style_classic_desc">UI gelap monokrom yang terinspirasi Apple Music dengan pemutar standar</string>
     <string name="player_experience">Pengalaman Pemutar</string>
     <string name="player_interface">Antarmuka Pemutar</string>
@@ -1421,8 +1421,8 @@ Dengan mengaktifkan opsi ini, Anda menyetujui ketentuan ini.</string>
     <string name="latest_releases">Rilis Terbaru</string>
     <string name="latest_releases_subtitle">Periksa pembaruan dan catatan rilis</string>
     <string name="developer_profile">Profil Pengembang</string>
-    <string name="bitchord_upstream_repo">Repositori Asal BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Kredit proyek asal</string>
+    <string name="open_source_licenses">Lisensi Sumber Terbuka &amp; Kredit</string>
+    <string name="open_source_licenses_subtitle">Perangkat lunak pihak ketiga, model, font, dan pemberitahuan upstream</string>
     <string name="advanced_and_performance">Tingkat Lanjut &amp; Kinerja</string>
     <string name="support_community">Dukungan &amp; Komunitas</string>
     <string name="reddit_community">Komunitas Reddit</string>

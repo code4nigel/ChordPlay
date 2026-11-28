@@ -98,6 +98,7 @@ fun AboutSection(
 ) {
     val context = LocalContext.current
     var searchQuery by remember(initialSearchQuery) { mutableStateOf(initialSearchQuery) }
+    var showLicensesSheet by remember { mutableStateOf(false) }
     val replayGenres by AppSettings.replayGenres.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
 
@@ -171,11 +172,11 @@ fun AboutSection(
             "code4nigel",
             "developer", "profile", "author", "nigel",
         )
-        val showUpstreamRepo = matchesSearch(
+        val showLicenses = matchesSearch(
             searchQuery,
-            stringResource(R.string.bitchord_upstream_repo),
-            stringResource(R.string.bitchord_upstream_subtitle),
-            "bitchord", "kushagra", "upstream",
+            stringResource(R.string.open_source_licenses),
+            stringResource(R.string.open_source_licenses_subtitle),
+            "licenses", "open source", "credits", "notices", "third-party", "gpl", "upstream", "bitchord", "attribution",
         )
         val showReplaySetup = matchesSearch(
             searchQuery,
@@ -185,7 +186,7 @@ fun AboutSection(
         )
 
         val anyAboutMatch = showUpdate || showReplay || showWorkOutGenres || showDontRepeatSongs ||
-            showReddit || showGithub || showReleases || showDevProfile || showUpstreamRepo || showReplaySetup
+            showReddit || showGithub || showReleases || showDevProfile || showLicenses || showReplaySetup
 
         // Hero Card: ChordPlay Branding & Version (shown when not searching, or when update matches)
         if (searchQuery.isBlank() || showUpdate) {
@@ -338,7 +339,7 @@ fun AboutSection(
             SettingsSearchEmpty(query = searchQuery)
         } else {
             val hasUserDataSection = showReplay || showWorkOutGenres || showDontRepeatSongs
-            val hasLinksSection = showReddit || showGithub || showReleases || showDevProfile || showUpstreamRepo
+            val hasLinksSection = showReddit || showGithub || showReleases || showDevProfile || showLicenses || showReplaySetup
 
             if (hasUserDataSection || hasLinksSection) {
                 // Single Unified About Block
@@ -460,17 +461,13 @@ fun AboutSection(
                             linkPreceding = true
                         }
 
-                        if (showUpstreamRepo) {
+                        if (showLicenses) {
                             if (linkPreceding) RowDivider()
                             SettingsRow(
-                                icon = Icons.Rounded.OpenInNew,
-                                title = stringResource(R.string.bitchord_upstream_repo),
-                                subtitle = stringResource(R.string.bitchord_upstream_subtitle),
-                                onClick = {
-                                    runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kushagrasinghx/BitChord")))
-                                    }
-                                },
+                                icon = Icons.Rounded.Info,
+                                title = stringResource(R.string.open_source_licenses),
+                                subtitle = stringResource(R.string.open_source_licenses_subtitle),
+                                onClick = { showLicensesSheet = true },
                             )
                             linkPreceding = true
                         }
@@ -510,7 +507,6 @@ fun AboutSection(
                     withLink(LinkAnnotation.Url("https://github.com/code4nigel/ChordPlay/releases", linkStyles)) {
                         append("Releases")
                     }
-                    append("\nBased on BitChord")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -520,5 +516,11 @@ fun AboutSection(
                     .padding(top = 24.dp, bottom = 16.dp),
             )
         }
+    }
+
+    if (showLicensesSheet) {
+        OpenSourceLicensesSheet(
+            onDismiss = { showLicensesSheet = false },
+        )
     }
 }

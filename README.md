@@ -16,7 +16,7 @@
 
 <br/>
 
-[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Community](#community) • [Lineage & Attribution](#lineage--attribution) • [Disclaimer](#disclaimer--legal-notice) • [License](#license) • [Support](#support-the-project)
+[Overview](#overview) • [Demo Video](#demo-video) • [Screenshots](#screenshots) • [Key Features](#key-features) • [Design System](#design-system--aesthetics) • [Downloads](#downloads) • [Community](#community) • [Acknowledgments](#acknowledgments) • [Disclaimer](#disclaimer--legal-notice) • [License](#license) • [Support](#support-the-project)
 
 </div>
 
@@ -32,7 +32,7 @@
 ChordPlay is a modern, high-performance music client designed for listeners who care about both audio quality and visual craft. Engineered with Jetpack Compose and Kotlin Multiplatform, ChordPlay combines the extensive streaming catalog of YouTube Music with a fluid, tactile interface inspired by modern glassmorphic design systems.
 
 > [!NOTE]
-> ChordPlay is built upon the open-source foundation of [BitChord](https://github.com/kushagrasinghx/BitChord) by Kushagra Singh, taking its proven streaming and audio architecture and transforming the user experience with custom-crafted UI layers, interactive live settings previews, dynamic theming engines, and refined motion ergonomics.
+> ChordPlay is developed and maintained by **Shivanshu (code4nigel)**, featuring the original **ChordPlay Design System**, **Replay Year**, **ChordPlay Pass**, **Live Stations**, **Melody / Tuner**, **Automix Studio**, **Onboarding**, **Your Space**, and modular live-preview settings, built on top of the open-source streaming and audio baseline of [BitChord](https://github.com/kushagrasinghx/BitChord) by Kushagra Singh.
 
 ---
 
@@ -126,12 +126,12 @@ ChordPlay is a modern, high-performance music client designed for listeners who 
 - **Top Settings Search**: Clean pill search bar to instantly find any preference or option.
 - **Featured Checkout**: Fast access to Account & Integrations, Listen Together (Play Together), Spotify Login, and Liquid Glass intensity.
 - **Live Preview Cards**: Real-time interactive previews for Theme and Player settings before applying.
-- **Custom Typography**: Handcrafted fonts (Poppins, Parkinsans, Serif) plus custom `.ttf`/`.otf` file import.
+- **Custom Typography**: Bundled **Poppins** (Indian Type Foundry) and **Parkinsans** (Red Stone & Indian Type Foundry) under SIL OFL 1.1, Serif, plus custom `.ttf`/`.otf` font file import.
 
 ### 6. Audiophile Streaming, Offline Lyrics & Integrations
 - **Offline Synced Lyrics**: Save synchronized (word-by-word and line-by-line) lyrics offline alongside downloaded songs, with personal offline usage agreement.
 - **High-Bitrate Audio**: Streams up to 289K Opus & 256K AAC with gapless playback and crossfade.
-- **Synchronized Lyrics**: Syllable-level and line-by-line animations via LRCLIB, Musixmatch, and Genius.
+- **Synchronized Lyrics & Canvas**: Syllable-level and line-by-line animations via `lrc.red`, BiniLyrics, BetterLyrics, PaxSenix, LyricsPlus, Unison, KuGou, LRCLIB, Musixmatch, Genius, and community canvas via `vivimusicanvas` (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for full provider and integration details).
 - **Unified Integrations Hub**: YouTube Music account, channel switching, Spotify, Discord Rich Presence, Listen Together, Last.fm, and ListenBrainz in one unnested screen.
 - **Offline Downloads & Library**: Robust offline playback for downloaded songs, albums, playlists, and local files even without an internet connection.
 
@@ -182,33 +182,24 @@ Join the official ChordPlay community on Reddit to share feedback, report bugs, 
 
 ---
 
-## Lineage & Attribution
+## Acknowledgments
 
-ChordPlay is an open-source project built with deep gratitude toward the developers who make independent Android music software possible.
+- **[BitChord](https://github.com/kushagrasinghx/BitChord)** by Kushagra Singh ([@kushagrasinghx](https://github.com/kushagrasinghx)) — upstream open-source baseline (audio service, streaming, download pipeline, multiplatform core).
+- **[InnerTubeX](https://github.com/MetrolistGroup/innertubex)** & **[NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor)** — YouTube Music catalog, cipher tiers, and stream extraction engines.
+- **[Dial](https://github.com/steeben/Dial)** by [@steeben](https://github.com/steeben) — 10 adapted UI/filter components (AI music filtering using the [Flow AI music list](https://ailist.flow-tube.org/v1/aimusic/) CC BY 4.0, [Spotify AI Blocker](https://github.com/CennoxX/spotify-ai-blocker) MIT, and [aimusic-blocklist](https://github.com/mankidev/aimusic-blocklist) MIT, plus content country, segmented controls, switches, glass alert, and docking search).
 
-| Project | Author | Role in ChordPlay |
-| :--- | :--- | :--- |
-| [BitChord](https://github.com/kushagrasinghx/BitChord) | Kushagra Singh ([@kushagrasinghx](https://github.com/kushagrasinghx)) | Foundational audio service, YouTube Music stream extraction, download pipeline, and baseline architecture |
-| [Dial](https://github.com/steeben/Dial) | steeben ([@steeben](https://github.com/steeben)) | Hide AI music filtering, segmented controls, switch & alert styling, docking settings search, content country selector, and settings layout patterns |
-| [Auris](https://github.com/OreoMuncher45/Auris) | OreoMuncher45 ([@OreoMuncher45](https://github.com/OreoMuncher45)) | Inspiration for Radio & Melody (Flow) UI |
-| [Prism](https://github.com/Yigder/Prism) | Yigder ([@Yigder](https://github.com/Yigder)) | Inspiration for modular settings and interactive live preview cards |
-| [Metrolist](https://github.com/metrolistgroup/metrolist) | Metrolist Group | Inspiration for local playlist caching and indexing |
-| [Haze](https://github.com/chrisbanes/haze) | Chris Banes | High-performance blur and frosted glass rendering for Compose |
-| [am-lyrics](https://github.com/binimum/am-lyrics) | binimum | Synchronized lyrics animation concepts |
-| [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) | Team NewPipe | YouTube stream extraction engine |
-
-> Hide AI music filtering uses the community blocklists from [Flow AI music list](https://ailist.flow-tube.org/v1/aimusic/) (Soul Over AI, CC BY 4.0), [Spotify AI Blocker](https://github.com/CennoxX/spotify-ai-blocker) (MIT), and [aimusic-blocklist](https://github.com/mankidev/aimusic-blocklist) (MIT).
+Full third-party notices, libraries, vendored UI, fonts, ML models, ported components, and license texts live in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSES/](LICENSES/).
 
 ---
 
 ## Disclaimer & Legal Notice
 
-ChordPlay is an independent, community-driven third-party audio player and client. It is not associated with Google LLC, YouTube Music, Deezer, Telegram, or any of their parent companies.
+ChordPlay is an independent, community-driven third-party audio player and client. It is not affiliated with, endorsed by, or connected to Google LLC, YouTube, YouTube Music, Spotify AB, Dolby Laboratories, Deezer, Discord, Telegram, or any of their parent companies.
 
+- **Trademarks**: Dolby, Dolby Atmos, and the double-D symbol (`ic_dolby_atmos.xml`) are trademarks of Dolby Laboratories Licensing Corporation. Spotify and the Spotify logo (`spotify_logo.webp`) are trademarks of Spotify AB. YouTube and YouTube Music are trademarks of Google LLC. All trademarks belong to their respective owners.
 - **No Media Hosting**: ChordPlay does not host, upload, or store copyrighted music files. It operates strictly as an interface to scan local device storage or stream media directly from public, public-facing, or user-authenticated APIs.
 - **Fair Use & API Usage**: This software is created solely for personal research, educational, and fair-use purposes. The user is entirely responsible for ensuring their usage aligns with their local copyright laws and YouTube Terms of Service.
 - **No Ad-Blocking Guarantee**: While ChordPlay focuses on providing a clean listening environment, it does not guarantee permanent bypasses or modifications to commercial third-party platform conditions.
-- **Copyleft**: ChordPlay is free software under the GPLv3. The license does not let anyone forbid others from selling or redistributing copies, but any distribution must come with the Corresponding Source under the same license.
 
 ---
 
@@ -216,10 +207,10 @@ ChordPlay is an independent, community-driven third-party audio player and clien
 
 ChordPlay is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
-- **BitChord**: Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors.
-- **ChordPlay modifications & additions**: Copyright (C) 2026 Shivanshu (code4nigel).
+- **ChordPlay**: Copyright (C) 2026 Shivanshu (code4nigel).
+- **BitChord (Upstream)**: Copyright (C) 2024-2026 Kushagra Singh and BitChord contributors.
 
-See the [LICENSE](LICENSE) file for the full text of the GNU General Public License v3.0.
+See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and [LICENSES/](LICENSES/) for full license texts and third-party notices.
 
 ---
 

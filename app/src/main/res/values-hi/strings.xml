@@ -1294,7 +1294,7 @@
     <string name="chinese_simplified">चीनी (सरलीकृत)</string>
     <string name="chinese_traditional">चीनी (पारंपरिक)</string>
     <string name="design_style">डिज़ाइन शैली</string>
-    <string name="design_style_subtitle">आधुनिक ChordPlay और क्लासिक BitChord के बीच स्विच करें</string>
+    <string name="design_style_subtitle">आधुनिक ChordPlay और क्लासिक के बीच स्विच करें</string>
     <string name="color_palette">रंग पैलेट</string>
     <string name="color_palette_subtitle">चमकदार लहजे के साथ चयनित वायुमंडलीय थीम</string>
     <string name="palette_electric_violet">इलेक्ट्रिक वायलेट</string>
@@ -1401,7 +1401,7 @@
     <!-- Settings: Appearance & Design Style -->
     <string name="design_style_chordplay">ChordPlay आधुनिक</string>
     <string name="design_style_chordplay_desc">वायुमंडलीय चमकदार ग्लास, जीवंत पैलेट, स्पर्श नियंत्रण और गतिशील खोज</string>
-    <string name="design_style_classic">क्लासिक BitChord</string>
+    <string name="design_style_classic">क्लासिक</string>
     <string name="design_style_classic_desc">Apple Music से प्रेरित मोनोक्रोम डार्क UI, मानक प्लेयर और डिफ़ॉल्ट शेल्फ़</string>
 
     <!-- Settings: Player Experience & Layout -->
@@ -1474,8 +1474,8 @@
     <string name="latest_releases">नवीनतम रिलीज़</string>
     <string name="latest_releases_subtitle">अपडेट और रिलीज़ नोट्स देखें</string>
     <string name="developer_profile">डेवलपर प्रोफ़ाइल</string>
-    <string name="bitchord_upstream_repo">बिटकॉर्ड अपस्ट्रीम रिपॉजिटरी</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • अपस्ट्रीम प्रोजेक्ट श्रेय</string>
+    <string name="open_source_licenses">ओपन सोर्स लाइसेंस और श्रेय</string>
+    <string name="open_source_licenses_subtitle">तृतीय-पक्ष सॉफ़्टवेयर, मॉडल, फ़ॉन्ट और अपस्ट्रीम सूचनाएं</string>
 
     <!-- Search Source Chips -->
     <string name="search_source_youtube">यूट्यूब</string>

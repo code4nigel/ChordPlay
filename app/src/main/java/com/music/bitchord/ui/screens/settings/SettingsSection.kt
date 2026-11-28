@@ -32,7 +32,7 @@ import com.music.bitchord.R
 import com.music.bitchord.ui.icons.BitChordIcons
 
 /**
- * The modular categories of ChordPlay's Prism-inspired settings hierarchy.
+ * The modular categories of ChordPlay's settings hierarchy.
  */
 enum class SettingsSection(
     val titleRes: Int,

@@ -80,9 +80,9 @@ object Backup {
      * Validates and applies [file] onto this device's [ListeningStats] and [AppSettings].
      */
     internal suspend fun applySnapshot(file: BackupFile): Summary {
-        require(file.app == APP_TAG) { "That backup is from another app" }
+        require(isAcceptedAppTag(file.app)) { "That backup is from another app" }
         require(file.version <= SCHEMA_VERSION) {
-            "That backup was written by a newer version of BitChord"
+            "That backup was written by a newer version of ChordPlay"
         }
         ListeningStats.importAll(file.listening)
         AppSettings.importPrefs(file.settings.mapValues { it.value.decoded() })
@@ -122,7 +122,7 @@ object Backup {
                 ?.use { it.readBytes().decodeToString() }
                 ?: error("Couldn't open that file")
             val file = runCatching { json.decodeFromString(BackupFile.serializer(), text) }
-                .getOrElse { error("That doesn't look like a BitChord backup") }
+                .getOrElse { error("That doesn't look like a ChordPlay backup") }
             applySnapshot(file)
         }
     }
@@ -135,7 +135,11 @@ object Backup {
         val at: String,
     )
 
-    private const val APP_TAG = "bitchord"
+    private const val APP_TAG = "chordplay"
+    private const val LEGACY_APP_TAG = "bitchord"
+    private val ACCEPTED_APP_TAGS = setOf(APP_TAG, LEGACY_APP_TAG)
+
+    internal fun isAcceptedAppTag(app: String): Boolean = app in ACCEPTED_APP_TAGS
 
     /**
      * Bump when the shape below stops being readable by an older build. A file

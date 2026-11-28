@@ -331,7 +331,7 @@
     <string name="show_nerd_stats">Show stats for nerds</string>
     <string name="show_nerd_stats_subtitle">Codec, bitrate and sample rate on the player</string>
     <string name="design_style">Design Style</string>
-    <string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string>
+    <string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string>
     <string name="color_palette">Color Palette</string>
     <string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string>
     <string name="palette_electric_violet">Electric Violet</string>
@@ -1324,7 +1324,7 @@
     <!-- Settings: Appearance & Design Style -->
     <string name="design_style_chordplay">ChordPlay Modern</string>
     <string name="design_style_chordplay_desc">Atmospheric glowing glass, vibrant palettes, tactile controls, and dynamic discovery</string>
-    <string name="design_style_classic">Classic BitChord</string>
+    <string name="design_style_classic">Classic</string>
     <string name="design_style_classic_desc">Original Apple Music-inspired monochrome dark UI, standard player, and default shelves</string>
 
     <!-- Settings: Player Experience & Layout -->
@@ -1403,8 +1403,8 @@
     <string name="latest_releases">Latest Releases</string>
     <string name="latest_releases_subtitle">Check for updates and release notes</string>
     <string name="developer_profile">Developer Profile</string>
-    <string name="bitchord_upstream_repo">BitChord Upstream Repository</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Upstream project credit</string>
+    <string name="open_source_licenses">Open Source Licenses &amp; Credits</string>
+    <string name="open_source_licenses_subtitle">Third-party software, models, fonts, and upstream notices</string>
     <!-- Dock Style -->
     <string name="dock_style">Dock Style</string>
     <string name="dock_style_section">Navigation Dock &amp; Glass</string>

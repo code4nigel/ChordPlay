@@ -502,10 +502,10 @@ private fun SettingsHub(
                     SettingsSection.DRIVE_BACKUP -> "google drive backup cloud sync identity restore devices"
                     SettingsSection.DRIVE_DEVICES -> "google drive devices restore device"
                     SettingsSection.ADVANCED_PERFORMANCE -> "advance advanced experimental performance 120hz refresh rate display smoothness reduce blur reduce animations live previews preview keep screen on awake timeout sleep indefinitely automix cpu nerd stats diagnostics enable logging log crash bug report"
-                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile shivanshu yadav extra chordplay message bitchord upstream welcome setup onboarding pass"
+                    SettingsSection.SUPPORT -> "support community reddit r/chordplay subreddit feedback github code4nigel repository developer profile shivanshu yadav extra chordplay message welcome setup onboarding pass"
                     SettingsSection.LANGUAGE -> "language location country region app language locale translate english"
                     SettingsSection.INTEGRATIONS -> "account sign in out google youtube music scrobble last.fm lastfm listenbrainz listen together discord rpc spotify"
-                    SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses bitchord upstream replay welcome setup onboarding"
+                    SettingsSection.ABOUT -> "miscellaneous about chordplay version updates release notes github developer licenses open source credits notices third party bitchord upstream replay welcome setup onboarding"
                 }
                 keywords.contains(q) || section.name.lowercase().contains(q)
             }
@@ -1830,12 +1830,12 @@ private fun rememberGlobalSettings(): List<GlobalSettingItem> {
             keywords = listOf("welcome", "setup", "onboarding", "chordplay pass", "wizard", "extra"),
         ),
         GlobalSettingItem(
-            title = stringResource(R.string.bitchord_upstream_repo),
-            subtitle = stringResource(R.string.bitchord_upstream_subtitle),
-            section = SettingsSection.SUPPORT,
-            icon = Icons.Rounded.OpenInNew,
-            queryTarget = stringResource(R.string.bitchord_upstream_repo),
-            keywords = listOf("bitchord", "upstream", "repo", "credit", "extra"),
+            title = stringResource(R.string.open_source_licenses),
+            subtitle = stringResource(R.string.open_source_licenses_subtitle),
+            section = SettingsSection.ABOUT,
+            icon = Icons.Rounded.Info,
+            queryTarget = stringResource(R.string.open_source_licenses),
+            keywords = listOf("licenses", "open source", "credits", "notices", "third-party", "gpl", "upstream", "bitchord", "about"),
         ),
 
         // Integrations
@@ -1960,9 +1960,9 @@ private fun CleanCategoryRow(
 }
 
 /**
- * Dial-inspired Settings colophon tailored for ChordPlay: Reddit & GitHub badges on
- * the left alongside ChordPlay branding, version, author & BitChord credit, followed
- * underneath by the frosted update-check pill and ChordPlay's animated wave emblem.
+ * ChordPlay Settings colophon: Reddit & GitHub badges on the left alongside
+ * ChordPlay branding, version, and maintainer credit, followed underneath by
+ * the frosted update-check pill and ChordPlay's animated wave emblem.
  */
 @Composable
 private fun SettingsColophon(
@@ -2079,14 +2079,6 @@ private fun SettingsColophon(
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                Text(
-                    text = "Based on BitChord",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
-                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

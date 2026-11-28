@@ -1273,7 +1273,7 @@
     <string name="spotify_library_subtitle">เพลย์ลิสต์ Spotify ของคุณ</string>
     <string name="spotify_sign_in">ลงชื่อเข้าใช้ด้วย Spotify</string>
     <string name="spotify_track_unavailable">หาเพลงนั้นบน YouTube Music ไม่พบ</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">ส่วนของหน้าแรก</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">ส่วนของหน้าแรก</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">ส่วนเสริม</string>
     <string name="search_addons_none">ไม่ได้เปิดใช้งานส่วนเสริมใดๆ เพิ่มได้ที่ การตั้งค่า → แหล่งที่มา</string>
@@ -1366,7 +1366,7 @@
     <string name="shelf_other_desc">แนวเพลง อารมณ์เพลง และการค้นพบใหม่ๆ</string>
     <string name="design_style_chordplay">ChordPlay โมเดิร์น</string>
     <string name="design_style_chordplay_desc">กระจกเรืองแสงสวยงาม ชุดสีสันสดใส และการควบคุมที่ตอบสนองดีเยี่ยม</string>
-    <string name="design_style_classic">BitChord คลาสสิก</string>
+    <string name="design_style_classic">คลาสสิก</string>
     <string name="design_style_classic_desc">UI โทนสีเข้มเรียบง่ายที่ได้แรงบันดาลใจจาก Apple Music พร้อมโปรแกรมเล่นมาตรฐาน</string>
     <string name="player_experience">ประสบการณ์เครื่องเล่น</string>
     <string name="player_interface">อินเทอร์เฟซโปรแกรมเล่น</string>
@@ -1427,8 +1427,8 @@
     <string name="latest_releases">เวอร์ชันล่าสุด</string>
     <string name="latest_releases_subtitle">ตรวจสอบการอัปเดตและบันทึกประจำรุ่น</string>
     <string name="developer_profile">โปรไฟล์นักพัฒนา</string>
-    <string name="bitchord_upstream_repo">ที่เก็บโค้ดต้นน้ำ BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • ให้เครดิตโปรเจกต์ต้นน้ำ</string>
+    <string name="open_source_licenses">สัญญาอนุญาตโอเพนซอร์สและเครดิต</string>
+    <string name="open_source_licenses_subtitle">ซอฟต์แวร์บุคคลที่สาม โมเดล ฟอนต์ และประกาศต้นน้ำ</string>
     <string name="advanced_and_performance">ขั้นสูงและประสิทธิภาพ</string>
     <string name="support_community">การสนับสนุนและชุมชน</string>
     <string name="reddit_community">ชุมชน Reddit</string>

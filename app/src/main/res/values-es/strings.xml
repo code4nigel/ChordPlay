@@ -1266,7 +1266,7 @@
     <string name="chinese_simplified">Chino (simplificado)</string>
     <string name="chinese_traditional">Chino (tradicional)</string>
     <string name="design_style">Estilo de diseño</string>
-    <string name="design_style_subtitle">Cambia entre el estilo moderno de ChordPlay y el clásico de BitChord</string>
+    <string name="design_style_subtitle">Cambia entre el estilo moderno de ChordPlay y el estilo clásico</string>
     <string name="color_palette">Paleta de colores</string>
     <string name="color_palette_subtitle">Temas atmosféricos seleccionados con acentos brillantes</string>
     <string name="palette_electric_violet">Violeta eléctrico</string>
@@ -1373,7 +1373,7 @@
     <!-- Settings: Appearance & Design Style -->
     <string name="design_style_chordplay">ChordPlay Moderno</string>
     <string name="design_style_chordplay_desc">Cristal brillante atmosférico, paletas vibrantes, controles táctiles y descubrimiento dinámico</string>
-    <string name="design_style_classic">BitChord Clásico</string>
+    <string name="design_style_classic">Clásico</string>
     <string name="design_style_classic_desc">Interfaz oscura monocromática original inspirada en Apple Music, reproductor estándar y estantes predeterminados</string>
 
     <!-- Settings: Player Experience & Layout -->
@@ -1446,8 +1446,8 @@
     <string name="latest_releases">Últimos lanzamientos</string>
     <string name="latest_releases_subtitle">Consultar actualizaciones y notas de versión</string>
     <string name="developer_profile">Perfil del desarrollador</string>
-    <string name="bitchord_upstream_repo">Repositorio ascendente BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Crédito del proyecto ascendente</string>
+    <string name="open_source_licenses">Licencias de código abierto y créditos</string>
+    <string name="open_source_licenses_subtitle">Software de terceros, modelos, fuentes y avisos del proyecto original</string>
 
     <!-- Search Source Chips -->
     <string name="search_source_addons">Complementos</string>

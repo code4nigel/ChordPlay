@@ -1291,7 +1291,7 @@
     <string name="spotify_library_subtitle">Vos playlists Spotify</string>
     <string name="spotify_sign_in">Se connecter avec Spotify</string>
     <string name="spotify_track_unavailable">Impossible de trouver ce titre sur YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Sections de l\'accueil</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Sections de l\'accueil</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Extensions</string>
     <string name="search_addons_none">Aucune extension activée. Ajoutez-en une dans Paramètres → Sources.</string>
@@ -1384,7 +1384,7 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="shelf_other_desc">Genres, ambiances et autres découvertes</string>
     <string name="design_style_chordplay">ChordPlay Moderne</string>
     <string name="design_style_chordplay_desc">Verre lumineux atmosphérique, palettes vives et contrôles tactiles fluides</string>
-    <string name="design_style_classic">BitChord Classique</string>
+    <string name="design_style_classic">Classique</string>
     <string name="design_style_classic_desc">Interface sombre épurée inspirée d\'Apple Music avec lecteur standard</string>
     <string name="player_experience">Expérience de lecture</string>
     <string name="player_interface">Interface du lecteur</string>
@@ -1445,8 +1445,8 @@ En activant cette option, vous acceptez ces conditions.</string>
     <string name="latest_releases">Dernières versions</string>
     <string name="latest_releases_subtitle">Consulter les mises à jour et notes de version</string>
     <string name="developer_profile">Profil développeur</string>
-    <string name="bitchord_upstream_repo">Dépôt amont BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Crédit du projet d\'origine</string>
+    <string name="open_source_licenses">Licences open source et crédits</string>
+    <string name="open_source_licenses_subtitle">Logiciels tiers, modèles, polices et mentions du projet d’origine</string>
     <string name="advanced_and_performance">Avancé &amp; Performance</string>
     <string name="support_community">Support &amp; Communauté</string>
     <string name="reddit_community">Communauté Reddit</string>

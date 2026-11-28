@@ -1206,7 +1206,7 @@
     <string name="spotify_library_subtitle">Danh sách phát Spotify của bạn</string>
     <string name="spotify_sign_in">Đăng nhập bằng Spotify</string>
     <string name="spotify_track_unavailable">Không tìm thấy bài hát đó trên YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Mục trang chủ</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Mục trang chủ</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Tiện ích mở rộng</string>
     <string name="search_addons_none">Chưa bật tiện ích mở rộng nào. Thêm trong Cài đặt → Nguồn.</string>
@@ -1299,7 +1299,7 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="shelf_other_desc">Điểm nhấn thể loại, tâm trạng &amp; khám phá khác</string>
     <string name="design_style_chordplay">ChordPlay Hiện đại</string>
     <string name="design_style_chordplay_desc">Kính phát sáng khí quyển, bảng màu rực rỡ và điều khiển xúc giác linh hoạt</string>
-    <string name="design_style_classic">BitChord Cổ điển</string>
+    <string name="design_style_classic">Cổ điển</string>
     <string name="design_style_classic_desc">Giao diện tối đơn sắc lấy cảm hứng từ Apple Music với trình phát chuẩn</string>
     <string name="player_experience">Trải nghiệm trình phát</string>
     <string name="player_interface">Giao diện trình phát</string>
@@ -1360,8 +1360,8 @@ Bằng cách bật tùy chọn này, bạn đồng ý với các điều khoản
     <string name="latest_releases">Bản phát hành mới nhất</string>
     <string name="latest_releases_subtitle">Kiểm tra bản cập nhật và ghi chú phát hành</string>
     <string name="developer_profile">Hồ sơ nhà phát triển</string>
-    <string name="bitchord_upstream_repo">Kho lưu trữ gốc BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Ghi nhận dự án nguồn</string>
+    <string name="open_source_licenses">Giấy phép mã nguồn mở &amp; Ghi nhận</string>
+    <string name="open_source_licenses_subtitle">Phần mềm bên thứ ba, mô hình, phông chữ và thông báo dự án nguồn</string>
     <string name="advanced_and_performance">Nâng cao &amp; Hiệu suất</string>
     <string name="support_community">Hỗ trợ &amp; Cộng đồng</string>
     <string name="reddit_community">Cộng đồng Reddit</string>

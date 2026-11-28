@@ -1322,7 +1322,7 @@
     <string name="spotify_library_subtitle">Ваши плейлисты Spotify</string>
     <string name="spotify_sign_in">Войти через Spotify</string>
     <string name="spotify_track_unavailable">Не удалось найти этот трек на YouTube Music</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Разделы главной</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Разделы главной</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Плагины</string>
     <string name="search_addons_none">Нет активных плагинов. Добавьте в Настройки → Источники.</string>
@@ -1415,7 +1415,7 @@
     <string name="shelf_other_desc">Жанры, настроения и другие открытия</string>
     <string name="design_style_chordplay">ChordPlay Модерн</string>
     <string name="design_style_chordplay_desc">Атмосферное светящееся стекло, насыщенная палитра и тактильный отклик</string>
-    <string name="design_style_classic">Классический BitChord</string>
+    <string name="design_style_classic">Классический</string>
     <string name="design_style_classic_desc">Темный монохромный интерфейс в стиле Apple Music со стандартным плеером</string>
     <string name="player_experience">Впечатление от плеера</string>
     <string name="player_interface">Интерфейс плеера</string>
@@ -1476,8 +1476,8 @@
     <string name="latest_releases">Последние релизы</string>
     <string name="latest_releases_subtitle">Проверить наличие обновлений и описания версий</string>
     <string name="developer_profile">Профиль разработчика</string>
-    <string name="bitchord_upstream_repo">Репозиторий BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Оригинальный проект</string>
+    <string name="open_source_licenses">Лицензии открытого ПО и благодарности</string>
+    <string name="open_source_licenses_subtitle">Стороннее ПО, модели, шрифты и уведомления об исходном проекте</string>
     <string name="advanced_and_performance">Дополнительно и производительность</string>
     <string name="support_community">Поддержка и сообщество</string>
     <string name="reddit_community">Сообщество Reddit</string>

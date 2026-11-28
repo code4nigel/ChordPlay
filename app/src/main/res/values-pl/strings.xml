@@ -1333,7 +1333,7 @@
     <string name="chinese_simplified">Chiński (uproszczony)</string>
     <string name="chinese_traditional">Chiński (tradycyjny)</string>
     <string name="design_style">Styl wyglądu</string>
-    <string name="design_style_subtitle">Przełączaj między nowoczesnym ChordPlay a klasycznym BitChord</string>
+    <string name="design_style_subtitle">Przełączaj między nowoczesnym ChordPlay a klasycznym stylem</string>
     <string name="color_palette">Paleta kolorów</string>
     <string name="color_palette_subtitle">Wyselekcjonowane nastrojowe motywy ze świecącymi akcentami</string>
     <string name="palette_electric_violet">Elektryczny fiolet</string>
@@ -1440,7 +1440,7 @@
     <!-- Settings: Appearance & Design Style -->
     <string name="design_style_chordplay">Nowoczesny ChordPlay</string>
     <string name="design_style_chordplay_desc">Nastrojowe świecące szkło, żywe palety, intuicyjne sterowanie i dynamiczne odkrywanie</string>
-    <string name="design_style_classic">Klasyczny BitChord</string>
+    <string name="design_style_classic">Klasyczny</string>
     <string name="design_style_classic_desc">Oryginalny monochromatyczny ciemny interfejs w stylu Apple Music, standardowy odtwarzacz i domyślne półki</string>
 
     <!-- Settings: Player Experience & Layout -->
@@ -1513,8 +1513,8 @@
     <string name="latest_releases">Najnowsze wydania</string>
     <string name="latest_releases_subtitle">Sprawdź aktualizacje i informacje o wydaniu</string>
     <string name="developer_profile">Profil programisty</string>
-    <string name="bitchord_upstream_repo">Repozytorium bazowe BitChord</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Uznanie dla projektu bazowego</string>
+    <string name="open_source_licenses">Licencje open source i podziękowania</string>
+    <string name="open_source_licenses_subtitle">Oprogramowanie firm trzecich, modele, czcionki i informacje o projekcie bazowym</string>
 
     <!-- Search Source Chips -->
     <string name="search_source_addons">Dodatki</string>

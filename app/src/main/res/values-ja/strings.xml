@@ -1268,7 +1268,7 @@
     <string name="spotify_library_subtitle">あなたの Spotify プレイリスト</string>
     <string name="spotify_sign_in">Spotify でサインイン</string>
     <string name="spotify_track_unavailable">その曲は YouTube Music で見つかりません</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">ホームセクション</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">ホームセクション</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">アドオン</string>
     <string name="search_addons_none">アドオンが有効になっていません。設定 → ソースから追加してください。</string>
@@ -1361,7 +1361,7 @@
     <string name="shelf_other_desc">ジャンル特集、気分に合わせた曲など</string>
     <string name="design_style_chordplay">ChordPlay モダン</string>
     <string name="design_style_chordplay_desc">幻想的な光沢ガラス、鮮やかなパレット、触感の良い操作性</string>
-    <string name="design_style_classic">クラシック BitChord</string>
+    <string name="design_style_classic">クラシック</string>
     <string name="design_style_classic_desc">Apple Music にインスパイアされたモノクロダーク UI と標準プレーヤー</string>
     <string name="player_experience">再生体験</string>
     <string name="player_interface">プレーヤーインターフェース</string>
@@ -1422,8 +1422,8 @@
     <string name="latest_releases">最新リリース</string>
     <string name="latest_releases_subtitle">更新情報とリリースノートを確認</string>
     <string name="developer_profile">開発者プロフィール</string>
-    <string name="bitchord_upstream_repo">BitChord アップストリームリポジトリ</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • アップストリームプロジェクト</string>
+    <string name="open_source_licenses">オープンソースライセンスとクレジット</string>
+    <string name="open_source_licenses_subtitle">サードパーティ製ソフトウェア、モデル、フォント、アップストリーム表記</string>
     <string name="advanced_and_performance">詳細設定 &amp; パフォーマンス</string>
     <string name="support_community">サポート &amp; コミュニティ</string>
     <string name="reddit_community">Reddit コミュニティ</string>

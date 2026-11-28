@@ -1269,7 +1269,7 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登录</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到该歌曲</string>
-<string name="search_playlists">Search playlists</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">首页栏目</string>
+<string name="search_playlists">Search playlists</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">首页栏目</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">插件</string>
     <string name="search_addons_none">未启用任何插件。请在“设置 → 来源”中添加。</string>
@@ -1362,7 +1362,7 @@
     <string name="shelf_other_desc">流派专区、心情精选与多样探索</string>
     <string name="design_style_chordplay">ChordPlay 现代风格</string>
     <string name="design_style_chordplay_desc">流光溢彩毛玻璃、鲜亮配色与丝滑触控交互</string>
-    <string name="design_style_classic">经典 BitChord</string>
+    <string name="design_style_classic">经典</string>
     <string name="design_style_classic_desc">受 Apple Music 启发的极简单色深色设计，配备标准播放器</string>
     <string name="player_experience">播放体验</string>
     <string name="player_interface">播放界面</string>
@@ -1423,8 +1423,8 @@
     <string name="latest_releases">最新发布版本</string>
     <string name="latest_releases_subtitle">检查版本更新与更新日志</string>
     <string name="developer_profile">开发者主页</string>
-    <string name="bitchord_upstream_repo">BitChord 上游仓库</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • 上游项目致谢</string>
+    <string name="open_source_licenses">开源许可与致谢</string>
+    <string name="open_source_licenses_subtitle">第三方软件、模型、字体与上游项目声明</string>
     <string name="advanced_and_performance">高级与性能选项</string>
     <string name="support_community">支持与社区</string>
     <string name="reddit_community">Reddit 社区</string>

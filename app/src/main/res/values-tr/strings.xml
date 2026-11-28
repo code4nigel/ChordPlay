@@ -1247,7 +1247,7 @@
     <string name="spotify_library_subtitle">Spotify çalma listeleriniz</string>
     <string name="spotify_sign_in">Spotify ile oturum aç</string>
     <string name="spotify_track_unavailable">O şarkı YouTube Music’de bulunamadı</string>
-<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic BitChord</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Ana Sayfa Bölümleri</string>
+<string name="search_playlists">Search playlists</string><string name="chinese_simplified">Chinese (Simplified)</string><string name="chinese_traditional">Chinese (Traditional)</string><string name="design_style">Design Style</string><string name="design_style_subtitle">Switch between modern ChordPlay and classic style</string><string name="color_palette">Color Palette</string><string name="color_palette_subtitle">Curated atmospheric themes with glowing accents</string><string name="palette_electric_violet">Electric Violet</string><string name="palette_sunset_amber">Sunset Amber</string><string name="palette_emerald_noir">Emerald Noir</string><string name="palette_dynamic_monet">Dynamic Monet</string><string name="song_removed_from_playlist">Removed from playlist</string><string name="cannot_remove_not_in_playlist">Only available within a playlist</string><string name="in_playlist">In playlist</string><string name="will_remove">Will remove</string><string name="will_add">Will add</string><string name="playlists_updated">Playlists updated</string>    <string name="home_shelves">Ana Sayfa Bölümleri</string>
     <string name="search_source_youtube">YouTube</string>
     <string name="search_source_addons">Eklentiler</string>
     <string name="search_addons_none">Etkin eklenti yok. Ayarlar → Kaynaklar bölümünden ekleyin.</string>
@@ -1340,7 +1340,7 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="shelf_other_desc">Müzik türleri, ruh halleri ve diğer keşifler</string>
     <string name="design_style_chordplay">ChordPlay Modern</string>
     <string name="design_style_chordplay_desc">Büyüleyici parlayan cam, canlı renkler ve dokunsal kontroller</string>
-    <string name="design_style_classic">Klasik BitChord</string>
+    <string name="design_style_classic">Klasik</string>
     <string name="design_style_classic_desc">Apple Music\'ten ilham alan sade koyu arayüz ve standart oynatıcı</string>
     <string name="player_experience">Oynatıcı Deneyimi</string>
     <string name="player_interface">Oynatıcı Arayüzü</string>
@@ -1401,8 +1401,8 @@ Bu seçeneği etkinleştirerek bu koşulları kabul etmiş olursunuz.</string>
     <string name="latest_releases">Son Sürümler</string>
     <string name="latest_releases_subtitle">Güncellemeleri ve sürüm notlarını kontrol edin</string>
     <string name="developer_profile">Geliştirici Profili</string>
-    <string name="bitchord_upstream_repo">BitChord Ana Kaynak Deposu</string>
-    <string name="bitchord_upstream_subtitle">github.com/kushagrasinghx/BitChord • Ana proje teşekkürleri</string>
+    <string name="open_source_licenses">Açık Kaynak Lisansları ve Emeği Geçenler</string>
+    <string name="open_source_licenses_subtitle">Üçüncü taraf yazılımlar, modeller, yazı tipleri ve ana kaynak bildirimleri</string>
     <string name="advanced_and_performance">Gelişmiş &amp; Performans</string>
     <string name="support_community">Destek &amp; Topluluk</string>
     <string name="reddit_community">Reddit Topluluğu</string>

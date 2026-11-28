@@ -4,7 +4,7 @@
 > **Target Platforms**: Android (Compose) & Desktop (Compose Multiplatform)  
 > **Soul**: *Fluid Glassmorphism, Dynamic Artwork Aura, and Modular Tactility.*
 
-ChordPlay blends the fluid, frosted-glass elegance of **BitChord** with the structured, customizable, and preview-driven hierarchy of **Prism**. Every screen, dialog, and component built for ChordPlay must adhere to the principles in this document.
+ChordPlay pairs a fluid, frosted-glass visual surface over a living artwork canvas with a modular, preview-driven customization architecture. Every screen, dialog, and component built for ChordPlay must adhere to the principles in this document.
 
 ---
 
@@ -28,7 +28,7 @@ ChordPlay blends the fluid, frosted-glass elegance of **BitChord** with the stru
      )
      ```
 
-4. **Modular & Preview-Driven Customization** *(Inspired by Prism)*  
+4. **Modular & Preview-Driven Customization**  
    - Settings and customization must never be hidden in confusing, 2,000-line monolithic lists.
    - Every customizable component (Lyrics Font, Player Layout, Colors, Mini-Player) should feature:
      - A dedicated, clean sub-page.
@@ -90,7 +90,7 @@ labelSmall: fontSize = 11.sp, lineHeight = 14.sp, fontWeight = Medium, letterSpa
 
 ---
 
-## 4. Settings & Customization Hierarchy *(The Prism Model)*
+## 4. Settings & Customization Hierarchy
 
 Rather than one long continuous settings list, ChordPlay organizes settings into clean, modular categories with dedicated sub-sheets:
 

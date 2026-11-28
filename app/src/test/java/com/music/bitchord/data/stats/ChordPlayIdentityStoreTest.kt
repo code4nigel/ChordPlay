@@ -102,4 +102,12 @@ class ChordPlayIdentityStoreTest {
             assertNotEquals(sig.secondaryColor, sig.tertiaryColor)
         }
     }
+
+    @Test
+    fun backupUsesChordPlayTagAndAcceptsLegacyBitChordTag() {
+        assertEquals("chordplay", Backup.BackupFile().app)
+        assertTrue(Backup.isAcceptedAppTag("chordplay"))
+        assertTrue(Backup.isAcceptedAppTag("bitchord"))
+        assertTrue(!Backup.isAcceptedAppTag("other_app"))
+    }
 }
